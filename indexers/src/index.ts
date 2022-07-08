@@ -35,5 +35,5 @@ worker.on('error', err => {
     logger.error(`Indexer worker error: ${err.message}.`)
 })
 
-logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs to process...`)
+logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs...`)
 worker.run()

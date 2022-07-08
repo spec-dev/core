@@ -18,6 +18,6 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
         replace,
     }
 
-    logger.info(`Reporting block ${blockNumber} for indexing...`)
+    logger.info(`Enqueueing block ${blockNumber} for indexing...`)
     await queue.add(config.INDEX_BLOCK_JOB_NAME, data)
 }

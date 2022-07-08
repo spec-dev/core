@@ -1,5 +1,5 @@
 import { chainIds, NewReportedHead } from 'shared'
-import EthereumIndexer from './ethereum-indexer'
+import EthereumIndexer from './ethereum/EthereumIndexer'
 import { Indexer } from '../types'
 
 export const getIndexer = (head: NewReportedHead): Indexer | null => {

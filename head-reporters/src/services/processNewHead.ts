@@ -25,7 +25,8 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
         // REORG -- BEHIND.
         if (givenBlock.number <= lastSeenBlockNumber) {
             logger.warn(`REORG DETECTED - Marking block ${givenBlock.number} as uncled.`)
-            blockAtGivenNumber && await uncleBlock(blockAtGivenNumber.id)
+            // Flip a reorg block cap in redis
+            blockAtGivenNumber && uncleBlock(blockAtGivenNumber.id)
             replace = true
         }
         
