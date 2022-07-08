@@ -15,3 +15,4 @@ import chainIds from './lib/utils/chainIds'
 import config from './lib/config'
 import logger from './lib/logger'
 export { chainIds, config, logger }
+export { NewReportedHead } from './lib/types'
