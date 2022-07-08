@@ -2,6 +2,7 @@ import { Queue } from 'bullmq'
 import config from './config'
 import { IndexedBlock, logger } from 'shared'
 
+// Queue for reporting new block heads to our indexers.
 const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
     connection: {
         host: config.INDEXER_REDIS_HOST,
