@@ -1,0 +1,3 @@
+#!/bin/bash
+
+npm run typeorm migration:run -- -d ./src/lib/indexer/db/data-source.ts
