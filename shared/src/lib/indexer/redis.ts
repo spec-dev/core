@@ -1,6 +1,6 @@
 import { createClient } from 'redis'
-import config from './config'
-import logger from './logger'
+import config from '../config'
+import logger from '../logger'
 
 // Create redis client.
 const redis = createClient(config.INDEXER_REDIS_URL)

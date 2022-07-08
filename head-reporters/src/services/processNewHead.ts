@@ -1,15 +1,16 @@
 import { BlockHeader } from 'web3-eth'
 import { getlastSeenBlock, getBlockAtNumber, createIndexedBlock, uncleBlock, logger, range } from 'shared'
+import { reportBlock } from '../queue'
 
-async function handleNewBlocks(chainId: number, blockNumbers: number[], i: number = 0) {
+async function handleNewBlocks(chainId: number, blockNumbers: number[], i: number, replace = false) {
     // Create new IndexedBlock record.
     const block = await createIndexedBlock({ chainId, blockNumber: blockNumbers[i] })
 
     // Enqueue block to be processed.
-    logger.info(`Adding block ${blockNumbers[i]} for processing...`)
+    await reportBlock(block, replace)
 
     if (i < blockNumbers.length - 1) {
-        setTimeout(() => handleNewBlocks(chainId, blockNumbers, i + 1))
+        setTimeout(() => handleNewBlocks(chainId, blockNumbers, i + 1, replace))
     }
 }
 
@@ -30,12 +31,13 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
 
     const lastSeenBlockNumber = Number(lastSeenBlock?.blockNumber || (givenBlock.number - 1))
     let blockNumbersToEnqueue = [givenBlock.number]
-
+    let replace = false
     try {
         // REORG.
         if (givenBlock.number <= lastSeenBlockNumber) {
             logger.warn(`REORG DETECTED - Marking block ${givenBlock.number} as uncled.`)
-            blockAtGivenNumber && uncleBlock(blockAtGivenNumber.id)
+            blockAtGivenNumber && await uncleBlock(blockAtGivenNumber.id)
+            replace = true
         }
         
         // TOO FAR AHEAD
@@ -44,9 +46,9 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
             logger.warn(`GAP IN BLOCKS - Playing catch up for blocks ${blockNumbersToEnqueue}.`)
         }
 
-        handleNewBlocks(chainId, blockNumbersToEnqueue)
+        await handleNewBlocks(chainId, blockNumbersToEnqueue, 0, replace)
     } catch (err) {
-        logger.error('Error fetching existing IndexerDB state', err)
+        logger.error(`Error processing new head at block number ${givenBlock.number}`, err)
     }
 }
 

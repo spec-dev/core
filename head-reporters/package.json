@@ -14,6 +14,7 @@
     },
     "dependencies": {
         "@alch/alchemy-web3": "^1.4.4",
+        "bullmq": "^1.86.4",
         "shared": "file:../shared"
     },
     "devDependencies": {

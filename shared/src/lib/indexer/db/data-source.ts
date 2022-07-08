@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import config from '../config'
+import config from '../../config'
 import { DataSource } from 'typeorm'
 import { IndexedBlock } from './entities/IndexedBlock'
 import { createIndexedBlocksTable1657247547443 } from './migrations/1657247547443-create-indexed-blocks-table'

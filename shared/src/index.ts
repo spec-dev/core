@@ -1,6 +1,6 @@
-export { IndexedBlock, IndexedBlockStatus } from './lib/indexer-db/entities/IndexedBlock'
-export { IndexerDB } from './lib/indexer-db/data-source'
-export { redis } from './lib/indexerRedis'
+export { IndexedBlock, IndexedBlockStatus } from './lib/indexer/db/entities/IndexedBlock'
+export { IndexerDB } from './lib/indexer/db/data-source'
+export { redis } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
 export {
@@ -8,7 +8,7 @@ export {
     getBlockAtNumber,
     createIndexedBlock,
     uncleBlock,
-} from './lib/indexer-db/services/indexedBlockServices'
+} from './lib/indexer/db/services/indexedBlockServices'
 export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
