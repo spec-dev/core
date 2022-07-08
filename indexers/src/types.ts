@@ -1,4 +1,6 @@
-export interface Reporter {
-    chainId: number
-    listen(): Promise<void>
+import { NewReportedHead } from 'shared'
+
+export interface Indexer {
+    head: NewReportedHead
+    perform(): Promise<void>
 }

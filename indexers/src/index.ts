@@ -1,17 +1,39 @@
+import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger } from 'shared'
-import { getReporter } from './reporters'
+import { logger, NewReportedHead } from 'shared'
+import { getIndexer } from './indexers'
 
-async function listen() {
-    // Get proper reporter for chain id.
-    const reporter = getReporter(config.CHAIN_ID)
-    if (!reporter) {
-        logger.error(`No reporter exists for chainId: ${config.CHAIN_ID}`)
+const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
+    const head = job.data as NewReportedHead
+
+    // Get proper indexer based on head's chain id.
+    const indexer = getIndexer(head)
+    if (!indexer) {
+        logger.error(`No indexer exists for chainId: ${head.chainId}`)
         return
     }
 
-    // Listen and report new heads.
-    reporter.listen()
-}
+    // Index block.
+    await indexer.perform()
+},  {
+    autorun: false,
+    connection: {
+        host: config.INDEXER_REDIS_HOST,
+        port: config.INDEXER_REDIS_PORT,
+    }
+})
 
-listen()
+worker.on('completed', job => {
+    logger.info(`Successfully completed ${job.name} job ${job.id}.`)
+})
+  
+worker.on('failed', (job, err) => {
+    logger.error(`Index block job ${job.id} failed with ${err.message}.`)
+})
+
+worker.on('error', err => {
+    logger.error(`Indexer worker error: ${err.message}.`)
+})
+
+logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs to process...`)
+worker.run()

@@ -1,4 +1,4 @@
-import AbstractReporter from './abstract-reporter';
+import AbstractReporter from './AbstractReporter';
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import processNewHead from '../services/processNewHead'
 import config from '../config'

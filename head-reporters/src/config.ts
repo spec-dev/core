@@ -1,5 +1,4 @@
-import { ev, config } from 'shared'
-import { isNumber } from 'shared'
+import { ev, config, isNumber } from 'shared'
 
 const chainId = parseInt(ev('CHAIN_ID'))
 
