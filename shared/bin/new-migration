@@ -1,5 +1,6 @@
 #!/bin/bash
 
-name="$1"
+db="$1"
+name="$2"
 
-npm run typeorm migration:generate ./src/lib/indexer/db/migrations/$name -- -d ./src/lib/indexer/db/data-source.ts
+npm run typeorm migration:generate ./src/lib/$db/db/migrations/$name -- -d ./src/lib/$db/db/dataSource.ts

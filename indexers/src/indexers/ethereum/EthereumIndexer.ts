@@ -18,6 +18,9 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async perform() {
+        // TODO: DON'T FORGET ABOUT UPDATING THE IndexedBlock.status field as this job progresses
+        // ALSO GO PREFIX PRETTY MUCH EVERYTHINGTH ETH
+
         // Fetch block (+ transactions) and upsert the block to public tables (flushing).
         const indexBlockPromise = getAndStoreBlock(this.web3, this.head.blockNumber)
 

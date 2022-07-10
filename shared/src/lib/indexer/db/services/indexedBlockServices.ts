@@ -1,5 +1,5 @@
 import { IndexedBlock } from '../entities/IndexedBlock'
-import { IndexerDB } from '../data-source'
+import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
 
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)

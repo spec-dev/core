@@ -2,8 +2,12 @@ import 'reflect-metadata'
 import config from '../../config'
 import { DataSource } from 'typeorm'
 import { EthBlock } from './entities/EthBlock'
+import { EthTransaction } from './entities/EthTransaction'
+import { EthLog } from './entities/EthLog'
+import { EthTrace } from './entities/EthTrace'
+import { createEthPrimitives1657419103668 } from './migrations/1657419103668-create-eth-primitives'
 
-export const IndexerDB = new DataSource({
+export const PublicTables = new DataSource({
     type: 'postgres',
     host: config.PUBLIC_TABLES_DB_HOST,
     port: config.PUBLIC_TABLES_DB_PORT,
@@ -15,7 +19,12 @@ export const IndexerDB = new DataSource({
     entities: [
         // Ethereum schema.
         EthBlock,
+        EthTransaction,
+        EthLog,
+        EthTrace
     ],
-    migrations: [],
+    migrations: [
+        createEthPrimitives1657419103668,
+    ],
     subscribers: [],
 })

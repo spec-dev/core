@@ -1,5 +1,5 @@
 export { IndexedBlock, IndexedBlockStatus } from './lib/indexer/db/entities/IndexedBlock'
-export { IndexerDB } from './lib/indexer/db/data-source'
+export { IndexerDB } from './lib/indexer/db/dataSource'
 export { redis } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
