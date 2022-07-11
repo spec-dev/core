@@ -11,13 +11,15 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
 })
 
 export async function reportBlock(block: IndexedBlock, replace: boolean) {
-    const { chainId, blockNumber } = block
+    const { id, chainId, number, hash } = block
     const data: NewReportedHead = {
+        id,
         chainId,
-        blockNumber,
+        blockNumber: number,
+        blockHash: hash,
         replace,
     }
 
-    logger.info(`Enqueueing block ${blockNumber} for indexing...`)
+    logger.info(`Enqueueing block ${number} for indexing...`)
     await queue.add(config.INDEX_BLOCK_JOB_NAME, data)
 }

@@ -35,7 +35,7 @@ export class EthTrace {
     // Primary key with the following calculated value:
     // * For transaction-scoped traces --> {trace_type}_{transaction_hash}_{trace_address}
     // * For block-scoped traces --> {trace_type}_{block_hash}_{index_within_block}
-    @PrimaryColumn('varchar', { length: 200 }) 
+    @PrimaryColumn('varchar', { length: 200 })
     id: string
 
     // Blockchain id.
@@ -54,16 +54,16 @@ export class EthTrace {
     @Column('varchar', { length: 50, nullable: true })
     from: string
 
-    // Address of the receiver if trace_type is call, address of new contract 
-    // or null if trace_type is create, beneficiary address if trace_type is suicide, 
-    // miner address if trace_type is reward, shareholder address if trace_type is genesis, 
+    // Address of the receiver if trace_type is call, address of new contract
+    // or null if trace_type is create, beneficiary address if trace_type is suicide,
+    // miner address if trace_type is reward, shareholder address if trace_type is genesis,
     // WithdrawDAO address if trace_type is daofork.
     @Column('varchar', { length: 50, nullable: true })
     to: string
 
     // Value transferred in Wei.
-    @Column('int8', { nullable: true })
-    value: number
+    @Column('varchar', { nullable: true, length: 40 })
+    value: string
 
     // The data sent along with the message call.
     @Column('varchar', { nullable: true })
@@ -100,15 +100,15 @@ export class EthTrace {
     // 1 (success) or 0 (failure).
     @Column('int2', { nullable: true })
     status: EthTraceStatus
-    
+
     // Gas provided with the message call.
-    @Column('int8', { nullable: true })
-    gas: number
+    @Column('varchar', { length: 40, nullable: true })
+    gas: string
 
     // Gas used by the message call.
-    @Column('int8', { name: 'gas_used', nullable: true })
-    gasUsed: number
- 
+    @Column('varchar', { name: 'gas_used', length: 40, nullable: true })
+    gasUsed: string
+
     // The hash of the block this trace was included in.
     @Column('varchar', { name: 'block_hash', length: 70 })
     blockHash: string

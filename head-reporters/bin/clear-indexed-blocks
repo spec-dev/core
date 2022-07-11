@@ -1,0 +1,3 @@
+#!/bin/bash
+
+psql -U spec -d indexer -c 'DELETE FROM indexed_blocks'

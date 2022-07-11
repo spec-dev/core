@@ -44,18 +44,18 @@ export class EthBlock {
     // Root of the receipts trie of the block.
     @Column('varchar', { name: 'receipts_root', length: 70, nullable: true })
     receiptsRoot: string
-    
+
     // Address of the beneficiary to whom the mining rewards were given.
     @Column('varchar', { length: 50, nullable: true })
     miner: string
-    
+
     // Difficulty for this block.
-    @Column('int8', { nullable: true })
-    difficulty: number
+    @Column('varchar', { nullable: true })
+    difficulty: string
 
     // Total difficulty of the chain until this block.
-    @Column('int8', { name: 'total_difficulty', nullable: true })
-    totalDifficulty: number
+    @Column('varchar', { name: 'total_difficulty', nullable: true })
+    totalDifficulty: string
 
     // Size of this block in bytes.
     @Column('int8', { nullable: true })
@@ -66,16 +66,16 @@ export class EthBlock {
     extraData: string
 
     // Maximum gas allowed in this block.
-    @Column('int8', { name: 'gas_limit', nullable: true })
-    gasLimit: number
+    @Column('varchar', { name: 'gas_limit', length: 40, nullable: true })
+    gasLimit: string
 
     // Total used gas by all transactions in this block.
-    @Column('int8', { name: 'gas_used', nullable: true })
-    gasUsed: number
+    @Column('varchar', { name: 'gas_used', length: 40, nullable: true })
+    gasUsed: string
 
     // The market price for gas.
-    @Column('int8', { name: 'base_fee_per_gas', nullable: true })
-    baseFeePerGas: number
+    @Column('varchar', { name: 'base_fee_per_gas', length: 40, nullable: true })
+    baseFeePerGas: string
 
     // Number of transactions included in this block.
     @Column('int2', { name: 'transaction_count' })

@@ -1,5 +1,5 @@
 
-import { NewReportedHead, logger } from 'shared'
+import { NewReportedHead, logger, setIndexedBlockStatus, IndexedBlockStatus } from 'shared'
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -9,7 +9,9 @@ class AbstractIndexer {
     }
 
     async perform() {
-        logger.info(`Chain ${this.head.chainId} - Indexing block ${this.head.blockNumber}...`)
+        const { blockNumber, blockHash, chainId } = this.head
+        logger.info(`Chain ${chainId} - Indexing block ${blockNumber} (${blockHash})...`)
+        setIndexedBlockStatus(this.head.id, IndexedBlockStatus.Indexing)
     }
 }
 

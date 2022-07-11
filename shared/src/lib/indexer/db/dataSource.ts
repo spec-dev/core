@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import config from '../../config'
 import { DataSource } from 'typeorm'
 import { IndexedBlock } from './entities/IndexedBlock'
-import { createIndexedBlocksTable1657418789096 } from './migrations/1657418789096-create-indexed-blocks-table'
+import { createIndexedBlockTables1657506482565 } from './migrations/1657506482565-create-indexed-block-tables'
 
 export const IndexerDB = new DataSource({
     type: 'postgres',
@@ -14,8 +14,6 @@ export const IndexerDB = new DataSource({
     synchronize: false,
     logging: false,
     entities: [IndexedBlock],
-    migrations: [
-        createIndexedBlocksTable1657418789096,
-    ],
+    migrations: [createIndexedBlockTables1657506482565],
     subscribers: [],
 })

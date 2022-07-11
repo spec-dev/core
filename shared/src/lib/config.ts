@@ -2,7 +2,7 @@ import { ev, specEnvs } from './utils/env'
 
 export default {
     ENV: ev('ENV', specEnvs.PROD),
-    
+
     // Indexer Redis Instance
     INDEXER_REDIS_URL: ev('INDEXER_REDIS_URL', 'redis://localhost:6379'),
     INDEXER_REDIS_HOST: ev('INDEXER_REDIS_HOST', 'localhost'),

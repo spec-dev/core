@@ -1,13 +1,13 @@
 import AbstractIndexer from '../AbstractIndexer';
-import { NewReportedHead } from 'shared'
+import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
-import getAndStoreBlock from './services/getAndStoreBlock'
+import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
-import getBlockTraces from './services/getBlockTraces'
-import storeTransactions from './services/storeTransactions'
-import storeLogs from './services/storeLogs'
-import storeTraces from './services/storeTraces'
+import resolveBlockTraces from './services/resolveBlockTraces'
+import initTransactions from './services/initTransactions'
+import initLogs from './services/initLogs'
 import config from '../../config'
+import { ExternalEthTransaction, ExternalEthReceipt } from './types'
 
 class EthereumIndexer extends AbstractIndexer {
     web3: AlchemyWeb3
@@ -18,45 +18,87 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async perform() {
-        // TODO: DON'T FORGET ABOUT UPDATING THE IndexedBlock.status field as this job progresses
-        // ALSO GO PREFIX PRETTY MUCH EVERYTHINGTH ETH
+        super.perform()
+        const { blockHash, blockNumber, chainId } = this.head
+        const hexBlockNumber = numberToHex(blockNumber)
 
-        // Fetch block (+ transactions) and upsert the block to public tables (flushing).
-        const indexBlockPromise = getAndStoreBlock(this.web3, this.head.blockNumber)
+        // Resolve block (with txs data) by hash or number.
+        const blockPromise = resolveBlock(this.web3, blockHash || hexBlockNumber, chainId)
 
-        // Fetch all receipts with logs.
-        const receiptsPromise = getBlockReceipts(this.web3, this.head.blockNumber)
+        // Get all receipts with logs.
+        const receiptsPromise = getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber })
 
-        // Fetch traces for block.
-        const tracesPromise = getBlockTraces(this.head.blockNumber)
+        // Resolve traces for block number.
+        const tracesPromise = resolveBlockTraces(hexBlockNumber, chainId)
 
-        // Wait in parallel for internal block record to be flushed and receipts to resolve.
-        const [indexBlockResult, receipts] = await Promise.all([
-            indexBlockPromise,
-            receiptsPromise,
-        ])
-        const [externalBlock, internalBlock] = indexBlockResult
+        // Wait for receipt and block promises to resolve (need them for EthTransaction and EthLog records).
+        const [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
+        const [externalBlock, block] = blockResult
 
-        // Store transactions with receipts (flushing).
-        const transactions = await storeTransactions(
-            internalBlock, 
-            externalBlock.transactions,
-            receipts,
-        )
+        // Convert external block transactions into external transaction types.
+        const externalTransactions = externalBlock.transactions.map(t => (t as unknown as ExternalEthTransaction))
 
-        // Store logs and traces in parallel.
-        const [logs, traces] = await Promise.all([
-            storeLogs(transactions, receipts),
-            storeTraces(tracesPromise, transactions)
-        ])
+        // Initialize our internal models for both transactions and logs.
+        const transactions = initTransactions(block, externalTransactions, receipts)
+        const logs = initLogs(block, receipts)
 
-        // Commit to public tables.
+        // Wait for traces to resolve, then set blockTimestamp on each trace.
+        let traces = await tracesPromise
+        traces = traces.map(t => {
+            t.blockTimestamp = block.timestamp
+            return t
+        })
+
+        // Ensure all models share the same block hash (since it's possible some were fetched with block number).
+        this._ensureAllShareSameBlockHash(block, receipts, traces)
+        
+        // Save all new models to public tables.
+        await PublicTables.manager.transaction(async tx => {
+            const saveBlock = tx.save(block)
+
+            const saveTransactions = tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthTransaction)
+                .values(transactions)
+                .execute()
+
+            const saveLogs = tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthLog)
+                .values(logs)
+                .execute()
+
+            await Promise.all([
+                saveBlock,
+                saveTransactions,
+                saveLogs,
+            ])
+        })
 
         // Start broadcasting events for new primitives (NewBlock, NewTransaction, etc).
 
         // Parse logs for events.
 
         // Parse traces for contracts.
+    }
+
+    _ensureAllShareSameBlockHash(
+        block: EthBlock,
+        receipts: ExternalEthReceipt[],
+        traces: EthTrace[],
+    ) {
+        const hash = this.head.blockHash || block.hash
+        if (block.hash !== hash) {
+            throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
+        }
+        if (receipts[0].blockHash !== hash) {
+            throw `Receipts have hash mismatch -- Truth: ${hash}; Received: ${receipts[0].blockHash}`
+        }
+        // if (traces.length > 0 && traces[0].blockHash !== hash) {
+        //     throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${traces[0].blockHash}`
+        // }
     }
 }
 

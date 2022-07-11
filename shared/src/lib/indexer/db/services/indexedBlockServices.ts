@@ -1,15 +1,15 @@
-import { IndexedBlock } from '../entities/IndexedBlock'
+import { IndexedBlock, IndexedBlockStatus } from '../entities/IndexedBlock'
 import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
 
-const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
 export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | null> {
+    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
+
     let blocks
     try {
         blocks = await indexedBlocks().find({
             order: {
-                blockNumber: 'DESC',
+                number: 'DESC',
                 createdAt: 'DESC',
             },
             where: {
@@ -27,20 +27,22 @@ export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | 
 
 export async function getBlockAtNumber(
     chainId: number,
-    blockNumber: number
+    number: number
 ): Promise<IndexedBlock | null> {
+    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
+
     let block
     try {
         block = await indexedBlocks().findOne({
             where: {
                 chainId,
-                blockNumber: Number(blockNumber),
+                number,
                 uncled: false,
             },
         })
     } catch (err) {
         logger.error(
-            `Error fetching non-uncled block for chainId ${chainId} at number ${blockNumber}: ${err}`
+            `Error fetching non-uncled block for chainId ${chainId} at number ${number}: ${err}`
         )
         throw err
     }
@@ -51,6 +53,8 @@ export async function getBlockAtNumber(
 export async function createIndexedBlock(attrs: {
     [key: string]: any
 }): Promise<IndexedBlock | null> {
+    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
+
     let block
     try {
         block = new IndexedBlock()
@@ -67,10 +71,23 @@ export async function createIndexedBlock(attrs: {
 }
 
 export async function uncleBlock(id: number) {
+    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
+
     try {
         await indexedBlocks().createQueryBuilder().update({ uncled: true }).where({ id }).execute()
     } catch (err) {
-        logger.error(`Error creating indexed block: ${err}`)
+        logger.error(`Error marking indexed block (id=${id}) as uncled: ${err}`)
+        throw err
+    }
+}
+
+export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {
+    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
+
+    try {
+        await indexedBlocks().createQueryBuilder().update({ status }).where({ id }).execute()
+    } catch (err) {
+        logger.error(`Error setting indexed block (id=${id}) to status ${status}: ${err}`)
         throw err
     }
 }

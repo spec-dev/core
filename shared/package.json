@@ -25,7 +25,8 @@
         "pg-hstore": "^2.3.4",
         "redis": "^4.2.0",
         "reflect-metadata": "^0.1.13",
-        "typeorm": "^0.3.7"
+        "typeorm": "^0.3.7",
+        "web3-utils": "^1.7.4"
     },
     "devDependencies": {
         "@types/node": "^18.0.3",

@@ -1,6 +1,11 @@
 import { BlockHeader } from 'web3-eth'
-import { getlastSeenBlock, getBlockAtNumber, createIndexedBlock, uncleBlock, logger, range } from 'shared'
+import { getlastSeenBlock, getBlockAtNumber, createIndexedBlock, uncleBlock, logger } from 'shared'
 import { reportBlock } from '../queue'
+
+interface NewBlockSpec {
+    number: number
+    hash: string | null
+}
 
 async function processNewHead(chainId: number, givenBlock: BlockHeader) {
     logger.info(`Received block: ${givenBlock.number}`)
@@ -17,41 +22,49 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
         return
     }
 
-    const lastSeenBlockNumber = Number(lastSeenBlock?.blockNumber || (givenBlock.number - 1))
-    let blockNumbersToEnqueue = [givenBlock.number]
+    const lastSeenBlockNumber = lastSeenBlock?.number || (givenBlock.number - 1)
+    let newBlockSpecs: NewBlockSpec[] = [{ hash: givenBlock.hash, number: givenBlock.number }]
     let replace = false // replace only if replacing uncled block.
 
     try {
         // REORG -- BEHIND.
         if (givenBlock.number <= lastSeenBlockNumber) {
             logger.warn(`REORG DETECTED - Marking block ${givenBlock.number} as uncled.`)
-            // Flip a reorg block cap in redis
             blockAtGivenNumber && uncleBlock(blockAtGivenNumber.id)
             replace = true
         }
         
         // TOO FAR AHEAD
         else if (givenBlock.number - lastSeenBlockNumber > 1) {
-            blockNumbersToEnqueue = range(lastSeenBlockNumber + 1, givenBlock.number)
-            logger.warn(`GAP IN BLOCKS - Playing catch up for blocks ${blockNumbersToEnqueue}.`)
+            newBlockSpecs = []
+            for (let i = lastSeenBlockNumber + 1; i < givenBlock.number + 1; i++) {
+                if (i === givenBlock.number) {
+                    newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
+                } else {
+                    newBlockSpecs.push({ hash: null, number: i })
+                }
+            }
+            logger.warn(`GAP IN BLOCKS - Playing catch up for blocks ${newBlockSpecs}.`)
         }
 
-        await handleNewBlocks(chainId, blockNumbersToEnqueue, 0, replace)
+        await handleNewBlocks(chainId, newBlockSpecs, 0, replace)
     } catch (err) {
         logger.error(`Error processing new head at block number ${givenBlock.number}`, err)
     }
 }
 
-async function handleNewBlocks(chainId: number, blockNumbers: number[], i: number, replace = false) {
+async function handleNewBlocks(chainId: number, blockSpecs: NewBlockSpec[], i: number, replace = false) {
+    const { number, hash } = blockSpecs[i]
+
     // Create new IndexedBlock record.
-    const block = await createIndexedBlock({ chainId, blockNumber: blockNumbers[i] })
+    const block = await createIndexedBlock({ chainId, number, hash })
 
     // Enqueue block to be processed.
     await reportBlock(block, replace)
 
     // Recurse.
-    if (i < blockNumbers.length - 1) {
-        setTimeout(() => handleNewBlocks(chainId, blockNumbers, i + 1, replace), 100)
+    if (i < blockSpecs.length - 1) {
+        setTimeout(() => handleNewBlocks(chainId, blockSpecs, i + 1, replace), 100)
     }
 }
 

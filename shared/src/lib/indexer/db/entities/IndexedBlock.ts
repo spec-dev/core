@@ -8,7 +8,9 @@ import {
 } from 'typeorm'
 
 export enum IndexedBlockStatus {
-    Pending = 0
+    Pending = 0,
+    Indexing = 1,
+    Complete = 2,
 }
 
 /**
@@ -23,8 +25,16 @@ export class IndexedBlock {
     @Index()
     chainId: number
 
-    @Column('int8', { name: 'block_number' })
-    blockNumber: number
+    @Column('int8', {
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseInt(value),
+        },
+    })
+    number: number
+
+    @Column('varchar', { nullable: true, length: 70 })
+    hash: string
 
     @Column('int2', { default: IndexedBlockStatus.Pending })
     status: IndexedBlockStatus
