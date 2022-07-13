@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-export class createEthPrimitives1657519933885 implements MigrationInterface {
-    name = 'createEthPrimitives1657519933885'
+export class createEthPrimitives1657679840520 implements MigrationInterface {
+    name = 'createEthPrimitives1657679840520'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
@@ -14,7 +14,7 @@ export class createEthPrimitives1657519933885 implements MigrationInterface {
             `CREATE TABLE "ethereum"."logs" ("chain_id" smallint NOT NULL, "log_index" bigint NOT NULL, "transaction_hash" character varying(70) NOT NULL, "transaction_index" smallint NOT NULL, "address" character varying(50), "data" character varying, "topic0" character varying, "topic1" character varying, "topic2" character varying, "topic3" character varying, "block_hash" character varying(70) NOT NULL, "block_number" bigint NOT NULL, "block_timestamp" TIMESTAMP NOT NULL, "uncled" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_d0c26ca198324a31f47ccf3825b" PRIMARY KEY ("log_index", "transaction_hash"))`
         )
         await queryRunner.query(
-            `CREATE TABLE "ethereum"."traces" ("id" character varying(200) NOT NULL, "chain_id" smallint NOT NULL, "transaction_hash" character varying(70), "transaction_index" smallint, "from" character varying(50), "to" character varying(50), "value" character varying(40), "input" character varying, "output" character varying, "trace_type" character varying(20) NOT NULL, "call_type" character varying(20), "reward_type" character varying(20), "subtraces" bigint, "trace_address" character varying, "error" character varying, "status" smallint, "gas" character varying(40), "gas_used" character varying(40), "block_hash" character varying(70) NOT NULL, "block_number" bigint NOT NULL, "block_timestamp" TIMESTAMP NOT NULL, "uncled" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_a28bd8d9b09a77802bb18fbc2f5" PRIMARY KEY ("id"))`
+            `CREATE TABLE "ethereum"."traces" ("id" character varying(200) NOT NULL, "chain_id" smallint NOT NULL, "transaction_hash" character varying(70), "transaction_index" smallint, "from" character varying(50), "to" character varying(50), "value" character varying(40), "input" character varying, "output" character varying, "trace_type" character varying(20) NOT NULL, "call_type" character varying(20), "reward_type" character varying(20), "subtraces" bigint, "trace_address" character varying, "trace_index" smallint NOT NULL, "error" character varying, "status" smallint, "gas" character varying(40), "gas_used" character varying(40), "block_hash" character varying(70) NOT NULL, "block_number" bigint NOT NULL, "block_timestamp" TIMESTAMP NOT NULL, "uncled" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_a28bd8d9b09a77802bb18fbc2f5" PRIMARY KEY ("id"))`
         )
     }
 

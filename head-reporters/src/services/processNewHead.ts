@@ -30,7 +30,7 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
         // REORG -- BEHIND.
         if (givenBlock.number <= lastSeenBlockNumber) {
             logger.warn(`REORG DETECTED - Marking block ${givenBlock.number} as uncled.`)
-            blockAtGivenNumber && uncleBlock(blockAtGivenNumber.id)
+            blockAtGivenNumber && uncleBlock(blockAtGivenNumber)
             replace = true
         }
         
@@ -44,7 +44,7 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
                     newBlockSpecs.push({ hash: null, number: i })
                 }
             }
-            logger.warn(`GAP IN BLOCKS - Playing catch up for blocks ${newBlockSpecs}.`)
+            logger.warn(`GAP IN BLOCKS - Playing catch up for blocks ${newBlockSpecs.map(s => s.number).join(', ')}.`)
         }
 
         await handleNewBlocks(chainId, newBlockSpecs, 0, replace)

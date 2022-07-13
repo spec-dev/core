@@ -1,4 +1,4 @@
-import { EthTransaction, EthBlock, normalizeEthAddress, normalize32ByteHash, hexToNumber, toString, normalizeByteData } from 'shared'
+import { EthTransaction, EthBlock, normalizeEthAddress, normalize32ByteHash, hexToNumber, toString, hexToNumberString, normalizeByteData } from 'shared'
 import { ExternalEthReceipt, ExternalEthTransaction } from '../types'
 
 export function externalToInternalTransaction(
@@ -23,9 +23,9 @@ export function externalToInternalTransaction(
     transaction.gasPrice = externalTransaction.gasPrice
     transaction.maxFeePerGas = externalTransaction.maxFeePerGas
     transaction.maxPriorityFeePerGas = externalTransaction.maxPriorityFeePerGas
-    transaction.gasUsed = toString(hexToNumber(receipt.gasUsed)) || null
-    transaction.cumulativeGasUsed = toString(hexToNumber(receipt.cumulativeGasUsed)) || null
-    transaction.effectiveGasPrice = toString(hexToNumber(receipt.effectiveGasPrice)) || null
+    transaction.gasUsed = hexToNumberString(receipt.gasUsed)
+    transaction.cumulativeGasUsed = hexToNumberString(receipt.cumulativeGasUsed)
+    transaction.effectiveGasPrice = hexToNumberString(receipt.effectiveGasPrice)
     transaction.blockHash = block.hash
     transaction.blockNumber = block.number
     transaction.blockTimestamp = block.timestamp

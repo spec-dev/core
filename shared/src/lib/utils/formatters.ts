@@ -1,4 +1,4 @@
-import { numberToHex as nth, hexToNumber as htn } from 'web3-utils'
+import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -34,7 +34,7 @@ export const normalize32ByteHash = (
 ): string | null => {
     if (typeof value !== 'string') {
         return null
-    } else if (value === NULL_32_BYTE_HASH && replaceNullAddress) {
+    } else if ((value === NULL_32_BYTE_HASH || value === NULL_BYTE_DATE) && replaceNullAddress) {
         return null
     } else {
         return value
@@ -67,6 +67,13 @@ export const hexToNumber = (value: any): number | null => {
         return null
     }
     return htn(value)
+}
+
+export const hexToNumberString = (value: any): string | null => {
+    if (typeof value !== 'string') {
+        return null
+    }
+    return htns(value)
 }
 
 export const toString = (value: any): string => {

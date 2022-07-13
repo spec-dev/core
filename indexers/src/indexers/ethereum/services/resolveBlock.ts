@@ -1,12 +1,12 @@
 import { AlchemyWeb3 } from '@alch/alchemy-web3'
 import { ExternalEthBlock } from '../types'
-import { BlockTransactionObject } from 'web3-eth'
-import { EthBlock } from 'shared'
+import { EthBlock, logger } from 'shared'
 import { externalToInternalBlock } from '../transforms/blockTransforms'
 
 export async function resolveBlock(
     web3: AlchemyWeb3,
     blockNumberOrHash: number | string,
+    blockNumber: number,
     chainId: number,
 ): Promise<[ExternalEthBlock, EthBlock]> {
     let externalBlock: ExternalEthBlock
@@ -19,6 +19,7 @@ export async function resolveBlock(
         throw `Errror fetching block ${externalBlock}: no block found.`
     }
 
+    logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
     return [externalBlock, externalToInternalBlock(externalBlock, chainId)]
 }
 

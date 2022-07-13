@@ -5,7 +5,7 @@ import { EthBlock } from './entities/EthBlock'
 import { EthTransaction } from './entities/EthTransaction'
 import { EthLog } from './entities/EthLog'
 import { EthTrace } from './entities/EthTrace'
-import { createEthPrimitives1657519933885 } from './migrations/1657519933885-create-eth-primitives'
+import { createEthPrimitives1657679840520 } from './migrations/1657679840520-create-eth-primitives'
 
 export const PublicTables = new DataSource({
     type: 'postgres',
@@ -23,6 +23,6 @@ export const PublicTables = new DataSource({
         EthLog,
         EthTrace,
     ],
-    migrations: [createEthPrimitives1657519933885],
+    migrations: [createEthPrimitives1657679840520],
     subscribers: [],
 })

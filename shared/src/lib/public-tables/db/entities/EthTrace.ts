@@ -93,6 +93,10 @@ export class EthTrace {
     @Column('varchar', { name: 'trace_address', nullable: true })
     traceAddress: string
 
+    // Index of trace in block (only works if traces were originally ordered correctly which is the case for Parity traces).
+    @Column('int2', { name: 'trace_index' })
+    traceIndex: number
+
     // Error if message call failed. This field doesn't contain top-level trace errors.
     @Column('varchar', { nullable: true })
     error: string
@@ -124,4 +128,6 @@ export class EthTrace {
     // Whether this trace's block was uncled.
     @Column({ default: false })
     uncled: boolean
+
+    traceAddressList: number[]
 }

@@ -1,20 +1,21 @@
 import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, NewReportedHead, IndexerDB, PublicTables } from 'shared'
+import { logger, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus } from 'shared'
 import { getIndexer } from './indexers'
 
 const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
     const head = job.data as NewReportedHead
+    const jobStatusUpdatePromise = setIndexedBlockStatus(head.id, IndexedBlockStatus.Indexing)
 
     // Get proper indexer based on head's chain id.
     const indexer = getIndexer(head)
     if (!indexer) {
-        logger.error(`No indexer exists for chainId: ${head.chainId}`)
-        return
+        throw `No indexer exists for chainId: ${head.chainId}`
     }
 
     // Index block.
     await indexer.perform()
+    await jobStatusUpdatePromise
 },  {
     autorun: false,
     connection: {
@@ -23,12 +24,18 @@ const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
     }
 })
 
-worker.on('completed', job => {
-    logger.info(`Successfully completed ${job.name} job ${job.id}.`)
+worker.on('completed', async job => {
+    const head = job.data as NewReportedHead
+    const { chainId, blockNumber } = head
+    await setIndexedBlockStatus(head.id, IndexedBlockStatus.Complete)
+    logger.info(`[${chainId}:${blockNumber}] Successfully completed ${job.name} job ${job.id}.`)
 })
   
-worker.on('failed', (job, err) => {
-    logger.error(`Index block job ${job.id} failed with ${err}.`)
+worker.on('failed', async (job, err) => {
+    const head = job.data as NewReportedHead
+    const { chainId, blockNumber } = head
+    await setIndexedBlockToFailed(head.id)
+    logger.error(`[${chainId}:${blockNumber}] Index block job ${job.id} failed with ${err}.`)
 })
 
 worker.on('error', err => {

@@ -1,5 +1,5 @@
 
-import { NewReportedHead, logger, setIndexedBlockStatus, IndexedBlockStatus } from 'shared'
+import { NewReportedHead, logger, quickUncleCheck } from 'shared'
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -10,8 +10,20 @@ class AbstractIndexer {
 
     async perform() {
         const { blockNumber, blockHash, chainId } = this.head
-        logger.info(`Chain ${chainId} - Indexing block ${blockNumber} (${blockHash})...`)
-        setIndexedBlockStatus(this.head.id, IndexedBlockStatus.Indexing)
+        logger.info(`\n[${chainId}:${blockNumber}] Indexing block ${blockNumber} (${blockHash})...`)
+        
+        if (this.head.replace) {
+            logger.info(`[${chainId}:${blockNumber}] GOT REORG -- Uncling existing block ${blockNumber}...`)
+            await this._uncleExistingRecordsUsingBlockNumber()
+        }
+    }
+
+    async _uncleExistingRecordsUsingBlockNumber() {
+        throw 'must implement in child class'
+    }
+
+    async _wasUncled(): Promise<boolean> {
+        return await quickUncleCheck(this.head.chainId, this.head.blockHash)
     }
 }
 

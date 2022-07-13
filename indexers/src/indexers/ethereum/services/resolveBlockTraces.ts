@@ -1,7 +1,7 @@
 import config from '../../../config'
 import fetch from 'cross-fetch'
 import { ExternalEthTrace } from '../types'
-import { EthTrace } from 'shared'   
+import { EthTrace, logger } from 'shared'   
 import { externalToInternalTraces } from '../transforms/traceTransforms'
 
 const timing = {
@@ -9,7 +9,7 @@ const timing = {
     MAX_ATTEMPTS: 34
 }
 
-async function resolveBlockTraces(hexBlockNumber: string, chainId: number): Promise<EthTrace[]> {
+async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, chainId: number): Promise<EthTrace[]> {
     let externalTraces = null
     let numAttempts = 0
 
@@ -20,6 +20,15 @@ async function resolveBlockTraces(hexBlockNumber: string, chainId: number): Prom
         }
     } catch (err) {
         throw `Error fetching traces for block ${hexBlockNumber}: ${err}`
+    }
+
+    if (externalTraces === null) {
+        // TODO: Need to re-enqueue block to retry with top priority
+        throw `Out of attempts - No traces found for block ${blockNumber}...`
+    } else if (externalTraces.length === 0) {
+        logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
+    } else {
+        logger.info(`[${chainId}:${blockNumber}] Got traces.`)
     }
 
     return externalToInternalTraces(externalTraces, chainId)
@@ -37,17 +46,21 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
             }),
             headers: { 'Content-Type': 'application/json' }
         })
-    
-        const data = await resp.json()
+
+        let data: { [key: string]: any } = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            logger.error(`Error parsing json response while fetching traces for block ${hexBlockNumber}: ${err}`)
+            data = {}
+        }
         
-        if (data.error?.code === -32000) {
-            setTimeout(() => {
-                res(null)
-            }, timing.NOT_READY_DELAY)
-        } else if (data.error) {
+        if (data?.error?.code === -32000 || !data?.result) {
+            setTimeout(() => res(null), timing.NOT_READY_DELAY)
+        } else if (data?.error) {
             throw `error fetching traces: ${data.error.code} - ${data.error.message}`
-        } else if (data.result) {
-            res(data.result as ExternalEthTrace[])
+        } else {
+            res(data.result || [] as ExternalEthTrace[])
         }
     })
 }

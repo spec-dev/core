@@ -14,7 +14,7 @@ export {
     EthTraceStatus,
 } from './lib/public-tables/db/entities/EthTrace'
 export { PublicTables } from './lib/public-tables/db/dataSource'
-export { redis } from './lib/indexer/redis'
+export { redis, quickUncleCheck } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
 export {
@@ -23,6 +23,7 @@ export {
     createIndexedBlock,
     uncleBlock,
     setIndexedBlockStatus,
+    setIndexedBlockToFailed,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
@@ -39,5 +40,6 @@ export {
     normalizeByteData,
     numberToHex,
     hexToNumber,
+    hexToNumberString,
     toString,
 } from './lib/utils/formatters'

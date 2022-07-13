@@ -1,5 +1,5 @@
-import AbstractIndexer from '../AbstractIndexer';
-import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction } from 'shared'
+import AbstractIndexer from '../AbstractIndexer'
+import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
@@ -8,6 +8,11 @@ import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt } from './types'
+
+const timing = {
+    NOT_READY_DELAY: 300,
+    MAX_ATTEMPTS: 34
+}
 
 class EthereumIndexer extends AbstractIndexer {
     web3: AlchemyWeb3
@@ -22,66 +27,159 @@ class EthereumIndexer extends AbstractIndexer {
         const { blockHash, blockNumber, chainId } = this.head
         const hexBlockNumber = numberToHex(blockNumber)
 
-        // Resolve block (with txs data) by hash or number.
-        const blockPromise = resolveBlock(this.web3, blockHash || hexBlockNumber, chainId)
+        // Get blocks (w/txs), receipts (w/logs), and traces.
+        const blockPromise = resolveBlock(this.web3, blockHash || blockNumber, blockNumber, chainId)
+        const receiptsPromise = getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber }, blockNumber, chainId)
+        const tracesPromise = resolveBlockTraces(hexBlockNumber, blockNumber, chainId)
 
-        // Get all receipts with logs.
-        const receiptsPromise = getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber })
-
-        // Resolve traces for block number.
-        const tracesPromise = resolveBlockTraces(hexBlockNumber, chainId)
-
-        // Wait for receipt and block promises to resolve (need them for EthTransaction and EthLog records).
-        const [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
+        // Wait for receipt and block promises to resolve (need them for transaction and log records).
+        let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
         const [externalBlock, block] = blockResult
 
-        // Convert external block transactions into external transaction types.
+        // Quick uncle check.
+        if (this._wasUncled()) {
+            logger.warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+
+        // Ensure there's not a block hash mismatch between block and receipts.
+        if (receipts.length > 0 && receipts[0].blockHash !== block.hash) {
+            logger.warning(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
+            receipts = await this._waitAndRefetchReceipts(block.hash)
+        }
+
+        // Convert external block transactions into our custom external transaction type.
         const externalTransactions = externalBlock.transactions.map(t => (t as unknown as ExternalEthTransaction))
 
+        // If transactions exist, but receipts don't, try one more time to get them before erroring.
+        if (receipts.length === 0 && externalTransactions.length > 0) {
+            logger.warn('Transactions exist but no receipts were found -- trying again.')
+            receipts = await getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber }, blockNumber, chainId)
+            if (receipts.length === 0) {
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+            }
+        } else if (externalTransactions.length === 0) {
+            logger.info('No transactions this block.')
+        }
+        
+        // Quick uncle check.
+        if (this._wasUncled()) {
+            logger.warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+
         // Initialize our internal models for both transactions and logs.
-        const transactions = initTransactions(block, externalTransactions, receipts)
-        const logs = initLogs(block, receipts)
+        const transactions = externalTransactions.length > 0 ? initTransactions(block, externalTransactions, receipts) : []
+        const logs = receipts.length > 0 ? initLogs(block, receipts) : []
 
-        // Wait for traces to resolve, then set blockTimestamp on each trace.
+        // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
-        traces = traces.map(t => {
-            t.blockTimestamp = block.timestamp
-            return t
-        })
+        if (traces.length > 0 && traces[0].blockHash !== block.hash) {
+            logger.warning(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
+            traces = await this._waitAndRefetchTraces(hexBlockNumber, block.hash)
+        }
+        traces = this._enrichTraces(traces, block)
 
-        // Ensure all models share the same block hash (since it's possible some were fetched with block number).
+        // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts, traces)
         
-        // Save all new models to public tables.
+        // Quick uncle check.
+        if (this._wasUncled()) {
+            logger.warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+    
+        // Save all primitives to public tables.
+        await this._savePrimitives(block, transactions, logs, traces)
+
+        // Parse traces for contracts.
+
+        // Parse logs for events.
+
+        // Handle public tables with higher-level data (NFTs, NFTCollections, NFTSale, etc.) and those events.
+    }
+
+   async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
+       logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
+
         await PublicTables.manager.transaction(async tx => {
             const saveBlock = tx.save(block)
-
             const saveTransactions = tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthTransaction)
                 .values(transactions)
                 .execute()
-
             const saveLogs = tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthLog)
                 .values(logs)
                 .execute()
-
+            const saveTraces = tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthTrace)
+                .values(traces)
+                .execute()
             await Promise.all([
                 saveBlock,
                 saveTransactions,
                 saveLogs,
+                saveTraces,
             ])
         })
+    }
 
-        // Start broadcasting events for new primitives (NewBlock, NewTransaction, etc).
+    _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {
+        return traces.map((t, i) => {
+            t.traceIndex = i
+            t.blockTimestamp = block.timestamp
+            t.uncled = block.uncled
+            return t
+        })
+    }
 
-        // Parse logs for events.
+    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
+        const getReceipts = () => new Promise(async (res, _) => {
+            const receipts = await getBlockReceipts(this.web3, { blockHash }, this.head.blockNumber, this.head.chainId)
+            if (receipts.length && receipts[0].blockHash !== blockHash) {
+                setTimeout(() => res(null), timing.NOT_READY_DELAY)
+            } else {
+                res(receipts)
+            }
+        })
+    
+        return new Promise(async (res, _) => {
+            let receipts = null
+            let numAttempts = 0
+            while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
+                receipts = await getReceipts()
+                numAttempts += 1
+            }
+            res(receipts || [])
+        })
+    }
 
-        // Parse traces for contracts.
+    async _waitAndRefetchTraces(hexBlockNumber: string, blockHash: string): Promise<EthTrace[]> {
+        const getTraces = () => new Promise(async (res, _) => {
+            const traces = await resolveBlockTraces(hexBlockNumber, this.head.blockNumber, this.head.chainId)
+            if (traces.length && traces[0].blockHash !== blockHash) {
+                setTimeout(() => res(null), timing.NOT_READY_DELAY)
+            } else {
+                res(traces)
+            }
+        })
+    
+        return new Promise(async (res, _) => {
+            let traces = null
+            let numAttempts = 0
+            while (traces === null && numAttempts < timing.MAX_ATTEMPTS) {
+                traces = await getTraces()
+                numAttempts += 1
+            }
+            res(traces || [])
+        })
     }
 
     _ensureAllShareSameBlockHash(
@@ -93,12 +191,48 @@ class EthereumIndexer extends AbstractIndexer {
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
-        if (receipts[0].blockHash !== hash) {
+        if (receipts.length > 0 && receipts[0].blockHash !== hash) {
             throw `Receipts have hash mismatch -- Truth: ${hash}; Received: ${receipts[0].blockHash}`
         }
-        // if (traces.length > 0 && traces[0].blockHash !== hash) {
-        //     throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${traces[0].blockHash}`
-        // }
+        if (traces.length > 0 && traces[0].blockHash !== hash) {
+            throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${traces[0].blockHash}`
+        }
+    }
+
+    // TODO: MAKES ME WANT TO SWITCH TO REGULAR PRIMARY KEY IDS INCREMENTING AND JUST ENFORCE UNIQUE CONTRAINTS ACROSS OTHER SHIT
+    async _uncleExistingRecordsUsingBlockNumber() {
+        await PublicTables.manager.transaction(async tx => {
+            const deleteBlock = tx
+                .createQueryBuilder()
+                .delete()
+                .from(EthBlock)
+                .where('number = :number', { number: this.head.blockNumber })
+                .execute()
+            const deleteTransactions = tx
+                .createQueryBuilder()
+                .delete()
+                .from(EthTransaction)
+                .where('blockNumber = :number', { number: this.head.blockNumber })
+                .execute()
+            const deleteLogs = tx
+                .createQueryBuilder()
+                .delete()
+                .from(EthLog)
+                .where('blockNumber = :number', { number: this.head.blockNumber })
+                .execute()
+            const deleteTraces = tx
+                .createQueryBuilder()
+                .delete()
+                .from(EthTrace)
+                .where('blockNumber = :number', { number: this.head.blockNumber })
+                .execute()
+            await Promise.all([
+                deleteBlock,
+                deleteTransactions,
+                deleteLogs,
+                deleteTraces,
+            ])
+        })
     }
 }
 

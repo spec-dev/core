@@ -1,10 +1,11 @@
 import { IndexedBlock, IndexedBlockStatus } from '../entities/IndexedBlock'
 import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
+import { registerBlockHashAsUncled } from '../../redis'
+
+const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
 export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | null> {
-    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
     let blocks
     try {
         blocks = await indexedBlocks().find({
@@ -29,8 +30,6 @@ export async function getBlockAtNumber(
     chainId: number,
     number: number
 ): Promise<IndexedBlock | null> {
-    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
     let block
     try {
         block = await indexedBlocks().findOne({
@@ -53,8 +52,6 @@ export async function getBlockAtNumber(
 export async function createIndexedBlock(attrs: {
     [key: string]: any
 }): Promise<IndexedBlock | null> {
-    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
     let block
     try {
         block = new IndexedBlock()
@@ -70,24 +67,36 @@ export async function createIndexedBlock(attrs: {
     return block || null
 }
 
-export async function uncleBlock(id: number) {
-    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
+export async function uncleBlock(indexedBlock: IndexedBlock) {
     try {
-        await indexedBlocks().createQueryBuilder().update({ uncled: true }).where({ id }).execute()
+        await indexedBlocks()
+            .createQueryBuilder()
+            .update({ uncled: true })
+            .where({ id: indexedBlock.id })
+            .execute()
     } catch (err) {
-        logger.error(`Error marking indexed block (id=${id}) as uncled: ${err}`)
+        logger.error(`Error marking indexed block (id=${indexedBlock.id}) as uncled: ${err}`)
         throw err
     }
+
+    // Add block hash to uncled redis set.
+    indexedBlock.hash && (await registerBlockHashAsUncled(indexedBlock.chainId, indexedBlock.hash))
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {
-    const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
-
     try {
         await indexedBlocks().createQueryBuilder().update({ status }).where({ id }).execute()
     } catch (err) {
         logger.error(`Error setting indexed block (id=${id}) to status ${status}: ${err}`)
+        throw err
+    }
+}
+
+export async function setIndexedBlockToFailed(id: number) {
+    try {
+        await indexedBlocks().createQueryBuilder().update({ failed: true }).where({ id }).execute()
+    } catch (err) {
+        logger.error(`Error setting indexed block (id=${id}) to failed: ${err}`)
         throw err
     }
 }
