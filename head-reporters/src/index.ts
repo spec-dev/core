@@ -1,8 +1,11 @@
 import config from './config'
-import { logger } from 'shared'
+import { logger, IndexerDB, redis } from 'shared'
 import { getReporter } from './reporters'
 
 async function listen() {
+    await IndexerDB.initialize()
+    await redis.connect()
+
     // Get proper reporter for chain id.
     const reporter = getReporter(config.CHAIN_ID)
     if (!reporter) {

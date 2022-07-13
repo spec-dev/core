@@ -7,8 +7,18 @@ interface NewBlockSpec {
     hash: string | null
 }
 
+// Keep list of last 5 block numbers seen.
+const recentlySeenBlockNumbers = []
+const registerNumberAsSeen = (blockNumber: number) => {
+    recentlySeenBlockNumbers.unshift(blockNumber)
+    if (recentlySeenBlockNumbers.length > 5) {
+        recentlySeenBlockNumbers.pop()
+    }
+}
+
 async function processNewHead(chainId: number, givenBlock: BlockHeader) {
     logger.info(`Received block: ${givenBlock.number}`)
+    registerNumberAsSeen(givenBlock.number)
 
     // Get the last seen block + the non-uncled block for the given block number (if it exists).
     let lastSeenBlock, blockAtGivenNumber
@@ -40,6 +50,8 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
             for (let i = lastSeenBlockNumber + 1; i < givenBlock.number + 1; i++) {
                 if (i === givenBlock.number) {
                     newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
+                } else if (recentlySeenBlockNumbers.includes(i)) {
+                    continue // Previous block is probably just still processing here (close to race condition)
                 } else {
                     newBlockSpecs.push({ hash: null, number: i })
                 }

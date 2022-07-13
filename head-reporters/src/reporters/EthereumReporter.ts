@@ -2,7 +2,7 @@ import AbstractReporter from './AbstractReporter';
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import processNewHead from '../services/processNewHead'
 import config from '../config'
-import { logger, IndexerDB } from 'shared'
+import { logger } from 'shared'
 
 class EthereumReporter extends AbstractReporter {
     web3: AlchemyWeb3
@@ -14,8 +14,6 @@ class EthereumReporter extends AbstractReporter {
 
     async listen() {
         super.listen()
-        await IndexerDB.initialize()
-        
         this.web3.eth
             .subscribe('newBlockHeaders')
             .on('data', data => processNewHead(this.chainId, data))

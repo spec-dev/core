@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus } from 'shared'
+import { logger, redis, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus } from 'shared'
 import { getIndexer } from './indexers'
 
 const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
@@ -43,7 +43,7 @@ worker.on('error', err => {
 })
 
 async function run() {
-    await Promise.all([IndexerDB.initialize(), PublicTables.initialize()])
+    await Promise.all([IndexerDB.initialize(), PublicTables.initialize(), redis.connect()])
     logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs...`)
     worker.run()
 }

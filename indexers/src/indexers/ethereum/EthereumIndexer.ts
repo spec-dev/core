@@ -37,14 +37,15 @@ class EthereumIndexer extends AbstractIndexer {
         const [externalBlock, block] = blockResult
 
         // Quick uncle check.
-        if (this._wasUncled()) {
+        let wasUncled = await this._wasUncled()
+        if (wasUncled) {
             logger.warn('Current block was uncled mid-indexing. Stopping.')
             return
         }
 
         // Ensure there's not a block hash mismatch between block and receipts.
         if (receipts.length > 0 && receipts[0].blockHash !== block.hash) {
-            logger.warning(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
+            logger.warn(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
             receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
@@ -63,7 +64,8 @@ class EthereumIndexer extends AbstractIndexer {
         }
         
         // Quick uncle check.
-        if (this._wasUncled()) {
+        wasUncled = await this._wasUncled()
+        if (wasUncled) {
             logger.warn('Current block was uncled mid-indexing. Stopping.')
             return
         }
@@ -75,7 +77,7 @@ class EthereumIndexer extends AbstractIndexer {
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length > 0 && traces[0].blockHash !== block.hash) {
-            logger.warning(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
+            logger.warn(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
             traces = await this._waitAndRefetchTraces(hexBlockNumber, block.hash)
         }
         traces = this._enrichTraces(traces, block)
@@ -84,7 +86,8 @@ class EthereumIndexer extends AbstractIndexer {
         this._ensureAllShareSameBlockHash(block, receipts, traces)
         
         // Quick uncle check.
-        if (this._wasUncled()) {
+        wasUncled = await this._wasUncled()
+        if (wasUncled) {
             logger.warn('Current block was uncled mid-indexing. Stopping.')
             return
         }

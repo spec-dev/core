@@ -49,7 +49,6 @@ export function externalToInternalTrace(externalTrace: ExternalEthTrace, chainId
     trace.subtraces = externalTrace.subtraces
     trace.error = externalTrace.error || null
     trace.traceType = externalTrace.type as EthTraceType
-
     const action = externalTrace.action || {}
     const result = externalTrace.result || {}
 
@@ -60,6 +59,7 @@ export function externalToInternalTrace(externalTrace: ExternalEthTrace, chainId
         trace.gas = hexToNumberString(action.gas)
         trace.gasUsed = hexToNumberString(result.gasUsed)
     }
+
     // Call
     if (trace.traceType === EthTraceType.Call) {
         trace.callType = action.callType as EthCallType
@@ -67,18 +67,21 @@ export function externalToInternalTrace(externalTrace: ExternalEthTrace, chainId
         trace.input = action.input
         trace.output = result.output
     }
-    // Create
+
+    // Create - New contract creation
     else if (trace.traceType === EthTraceType.Create) {
         trace.to = result.address
         trace.input = action.init
         trace.output = result.code
     }
+
     // Suicide
     else if (trace.traceType === EthTraceType.Suicide) {
         trace.from = normalizeEthAddress(action.address)
         trace.to = normalizeEthAddress(action.refundAddress)
         trace.value = hexToNumberString(action.balance)
     }
+
     // Reward
     else if (trace.traceType === EthTraceType.Reward) {
         trace.to = normalizeEthAddress(action.author)
