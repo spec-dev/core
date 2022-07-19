@@ -194,11 +194,19 @@ class EthereumIndexer extends AbstractIndexer {
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
-        if (receipts.length > 0 && receipts[0].blockHash !== hash) {
-            throw `Receipts have hash mismatch -- Truth: ${hash}; Received: ${receipts[0].blockHash}`
+        if (receipts.length > 0) {
+            receipts.forEach(r => {
+                if (r.blockHash !== hash) {
+                    throw `Receipts have hash mismatch -- Truth: ${hash}; Received: ${r.blockHash}`
+                }
+            })
         }
-        if (traces.length > 0 && traces[0].blockHash !== hash) {
-            throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${traces[0].blockHash}`
+        if (traces.length > 0) {
+            traces.forEach(t => {
+                if (t.blockHash !== hash) {
+                    throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${t.blockHash}`
+                }
+            })
         }
     }
 

@@ -6,24 +6,21 @@ import { registerBlockHashAsUncled } from '../../redis'
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
 export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | null> {
-    let blocks
+    let block
     try {
-        blocks = await indexedBlocks().find({
+        block = await indexedBlocks().findOne({
             order: {
                 number: 'DESC',
                 createdAt: 'DESC',
             },
-            where: {
-                chainId,
-            },
-            take: 1,
+            where: { chainId },
         })
     } catch (err) {
         logger.error(`Error fetching last seen block for chainId ${chainId}: ${err}`)
         throw err
     }
 
-    return blocks[0] || null
+    return block || null
 }
 
 export async function getBlockAtNumber(
@@ -49,22 +46,20 @@ export async function getBlockAtNumber(
     return block || null
 }
 
-export async function createIndexedBlock(attrs: {
-    [key: string]: any
-}): Promise<IndexedBlock | null> {
-    let block
+export async function createIndexedBlock(attrs: { [key: string]: any }): Promise<IndexedBlock> {
+    const block = new IndexedBlock()
+    for (let key in attrs) {
+        block[key] = attrs[key]
+    }
+
     try {
-        block = new IndexedBlock()
-        for (let key in attrs) {
-            block[key] = attrs[key]
-        }
         await indexedBlocks().save(block)
     } catch (err) {
         logger.error(`Error creating indexed block: ${err}`)
         throw err
     }
 
-    return block || null
+    return block
 }
 
 export async function uncleBlock(indexedBlock: IndexedBlock) {

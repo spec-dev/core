@@ -14,7 +14,7 @@ export {
     EthTraceStatus,
 } from './lib/public-tables/db/entities/EthTrace'
 export { PublicTables } from './lib/public-tables/db/dataSource'
-export { redis, quickUncleCheck } from './lib/indexer/redis'
+export { redis as indexerRedis, quickUncleCheck } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
 export {
@@ -43,3 +43,20 @@ export {
     hexToNumberString,
     toString,
 } from './lib/utils/formatters'
+export { Namespace } from './lib/core/db/entities/Namespace'
+export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
+export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
+export { CoreDB } from './lib/core/db/dataSource'
+export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
+export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
+export {
+    createEdgeFunctionVersion,
+    getEdgeFunctionVersion,
+    getLatestEdgeFunctionVersion,
+} from './lib/core/db/services/edgeFunctionVersionServices'
+export {
+    redis as coreRedis,
+    setEdgeFunctionUrl,
+    getEdgeFunctionUrl,
+    formatEdgeFunctionVersionStr,
+} from './lib/core/redis'

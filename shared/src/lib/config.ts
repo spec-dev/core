@@ -27,4 +27,15 @@ export default {
     // DAG Queue
     DAG_QUEUE_KEY: ev('DAG_QUEUE_KEY', 'dag-queue'),
     DAG_KEY: ev('DAG_KEY', 'dag'),
+
+    // Core Postgres Instance
+    CORE_DB_HOST: ev('CORE_DB_HOST', 'localhost'),
+    CORE_DB_PORT: ev('CORE_DB_PORT', 5432),
+    CORE_DB_USERNAME: ev('CORE_DB_USERNAME', 'spec'),
+    CORE_DB_PASSWORD: ev('CORE_DB_PASSWORD'),
+
+    // Indexer Redis Instance
+    CORE_REDIS_URL: ev('CORE_REDIS_URL', 'redis://localhost:6379'),
+    CORE_REDIS_HOST: ev('CORE_REDIS_HOST', 'localhost'),
+    CORE_REDIS_PORT: ev('CORE_REDIS_PORT', 6379),
 }

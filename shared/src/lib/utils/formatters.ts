@@ -82,3 +82,10 @@ export const toString = (value: any): string => {
     }
     return value.toString()
 }
+
+export const toSlug = (value: string): string => {
+    return value
+        .replace(/[']/g, '')
+        .replace(/[^A-Za-z0-9-_]/g, '-')
+        .toLowerCase()
+}
