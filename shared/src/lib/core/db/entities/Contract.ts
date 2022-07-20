@@ -6,24 +6,31 @@ import {
     CreateDateColumn,
     ManyToOne,
     OneToMany,
-    JoinColumn,
     Unique,
+    JoinColumn,
 } from 'typeorm'
 import { Namespace } from './Namespace'
-import { EdgeFunctionVersion } from './EdgeFunctionVersion'
+import { ContractInstance } from './ContractInstance'
 
 /**
- * Namespaced edge functions running on Deno.
+ * Unique contract interfaces.
  */
-@Entity('edge_functions')
-@Unique(['namespaceId', 'name'])
-export class EdgeFunction {
+@Entity('contracts')
+@Unique(['namespaceId', 'slug'])
+export class Contract {
     @PrimaryGeneratedColumn()
     id: number
 
     @Column()
-    @Index()
+    @Index({ unique: true })
+    uid: string
+
+    @Column()
     name: string
+
+    @Column()
+    @Index()
+    slug: string
 
     @Column()
     desc: string
@@ -38,10 +45,10 @@ export class EdgeFunction {
     @Column('int8', { name: 'namespace_id' })
     namespaceId: number
 
-    @ManyToOne(() => Namespace, (nsp) => nsp.edgeFunctions)
+    @ManyToOne(() => Namespace, (nsp) => nsp.contracts)
     @JoinColumn({ name: 'namespace_id' })
     namespace: Namespace
 
-    @OneToMany(() => EdgeFunctionVersion, (edgeFunctionVersion) => edgeFunctionVersion.edgeFunction)
-    edgeFunctionVersions: EdgeFunctionVersion[]
+    @OneToMany(() => ContractInstance, (contractInstance) => contractInstance.contract)
+    contractInstances: ContractInstance[]
 }

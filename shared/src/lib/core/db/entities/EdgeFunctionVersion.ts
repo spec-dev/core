@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, ManyToOne } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    CreateDateColumn,
+    ManyToOne,
+    JoinColumn,
+} from 'typeorm'
 import { EdgeFunction } from './EdgeFunction'
 
 /**
@@ -30,6 +38,10 @@ export class EdgeFunctionVersion {
     })
     createdAt: Date
 
+    @Column('int8', { name: 'edge_function_id' })
+    edgeFunctionId: number
+
     @ManyToOne(() => EdgeFunction, (edgeFunction) => edgeFunction.edgeFunctionVersions)
+    @JoinColumn({ name: 'edge_function_id' })
     edgeFunction: EdgeFunction
 }

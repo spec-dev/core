@@ -9,6 +9,7 @@ import {
 } from 'typeorm'
 import { toSlug } from '../../../utils/formatters'
 import { EdgeFunction } from './EdgeFunction'
+import { Contract } from './Contract'
 
 /**
  * A global Spec namespace for functions, contracts, events, etc.,
@@ -35,8 +36,6 @@ export class Namespace {
     @OneToMany(() => EdgeFunction, (edgeFunction) => edgeFunction.namespace)
     edgeFunctions: EdgeFunction[]
 
-    @BeforeInsert()
-    setSlug() {
-        this.slug = toSlug(this.name)
-    }
+    @OneToMany(() => Contract, (contract) => contract.namespace)
+    contracts: Contract[]
 }

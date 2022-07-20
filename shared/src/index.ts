@@ -46,6 +46,9 @@ export {
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
 export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
+export { Contract } from './lib/core/db/entities/Contract'
+export { ContractInstance } from './lib/core/db/entities/ContractInstance'
+export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities/EventGenerator'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
@@ -60,3 +63,6 @@ export {
     getEdgeFunctionUrl,
     formatEdgeFunctionVersionStr,
 } from './lib/core/redis'
+export { createContract } from './lib/core/db/services/contractServices'
+export { createContractInstance } from './lib/core/db/services/contractInstanceServices'
+export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'

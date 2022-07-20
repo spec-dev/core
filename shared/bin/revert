@@ -1,0 +1,5 @@
+#!/bin/bash
+
+db="$1"
+
+npm run typeorm migration:revert -- -d ./src/lib/$db/db/dataSource.ts

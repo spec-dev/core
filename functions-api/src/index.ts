@@ -8,7 +8,7 @@ import { isValidVersionFormat } from './utils/version'
 import { coreRedis, logger, CoreDB } from 'shared'
 
 // Create proxy server to pipe function calls to Deno.
-const proxy = httpProxy.createProxyServer()
+const proxy = httpProxy.createProxyServer({})
 
 async function proxyToEdgeFunction(req, res) {
     // Parse edge function components from url.

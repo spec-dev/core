@@ -1,5 +1,3 @@
-import { Namespace } from '../entities/Namespace'
-import { EdgeFunction } from '../entities/EdgeFunction'
 import { EdgeFunctionVersion } from '../entities/EdgeFunctionVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
@@ -7,24 +5,24 @@ import logger from '../../../logger'
 const edgeFunctionVersions = () => CoreDB.getRepository(EdgeFunctionVersion)
 
 export async function createEdgeFunctionVersion(
-    namespace: Namespace,
-    edgeFunction: EdgeFunction,
+    nsp: string,
+    edgeFunctionId: number,
     name: string,
     version: string,
     url: string
 ): Promise<EdgeFunctionVersion> {
     const edgeFunctionVersion = new EdgeFunctionVersion()
-    edgeFunctionVersion.nsp = namespace.slug
+    edgeFunctionVersion.nsp = nsp
     edgeFunctionVersion.name = name
     edgeFunctionVersion.version = version
     edgeFunctionVersion.url = url
-    edgeFunctionVersion.edgeFunction = edgeFunction
+    edgeFunctionVersion.edgeFunctionId = edgeFunctionId
 
     try {
         await edgeFunctionVersions().save(edgeFunctionVersion)
     } catch (err) {
         logger.error(
-            `Error creating EdgeFunctionVersion(nsp=${namespace.slug}, name=${name}, version=${version}): ${err}`
+            `Error creating EdgeFunctionVersion(nsp=${nsp}, name=${name}, version=${version}): ${err}`
         )
         throw err
     }

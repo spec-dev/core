@@ -1,12 +1,14 @@
 import { Namespace } from '../entities/Namespace'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
+import { toSlug } from '../../../utils/formatters'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
 
 export async function createNamespace(name: string): Promise<Namespace> {
     const nsp = new Namespace()
     nsp.name = name
+    nsp.slug = toSlug(name)
 
     try {
         await namespaces().save(nsp)
