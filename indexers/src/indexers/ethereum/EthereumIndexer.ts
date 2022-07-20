@@ -1,11 +1,12 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger } from 'shared'
+import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
 import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
+import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt } from './types'
 
@@ -15,11 +16,15 @@ const timing = {
 }
 
 class EthereumIndexer extends AbstractIndexer {
+
     web3: AlchemyWeb3
+
+    uniqueContractAddresses: Set<string>
 
     constructor(head: NewReportedHead) {
         super(head)
         this.web3 = createAlchemyWeb3(config.ALCHEMY_ETH_MAINNET_REST_URL)
+        this.uniqueContractAddresses = new Set()
     }
 
     async perform() {
@@ -92,17 +97,43 @@ class EthereumIndexer extends AbstractIndexer {
             return
         }
     
-        // Save all primitives to public tables.
-        await this._savePrimitives(block, transactions, logs, traces)
+        // Find all unique contract addresses 'involved' in this block.
+        this._findUniqueContractAddresses(transactions, logs, traces)
 
-        // Parse traces for contracts.
+        await Promise.all([
+            // Find and run event generators associated with the unique contract instances seen.
+            runEventGenerators(this.uniqueContractAddresses, blockNumber, chainId),
+            // Save all primitives to public tables.
+            this._savePrimitives(block, transactions, logs, traces),
+        ])
+
+        // Parse traces for new contracts.
 
         // Parse logs for events.
 
         // Handle public tables with higher-level data (NFTs, NFTCollections, NFTSale, etc.) and those events.
     }
 
-   async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
+    _findUniqueContractAddresses(transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
+        transactions.forEach(tx => {
+            if (tx.status === EthTransactionStatus.Success) {
+                this.uniqueContractAddresses.add(tx.to)
+                this.uniqueContractAddresses.add(tx.contractAddress)
+            }
+        })
+        logs.forEach(log => {
+            if (log.address) {
+                this.uniqueContractAddresses.add(log.address)
+            }
+        })
+        traces.forEach(trace => {
+            if (trace.status === EthTraceStatus.Success) {
+                this.uniqueContractAddresses.add(trace.to)
+            }
+        })
+    }
+
+    async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
        logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
 
         await PublicTables.manager.transaction(async tx => {

@@ -1,6 +1,6 @@
 import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, indexerRedis, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus } from 'shared'
+import { logger, indexerRedis, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus, CoreDB, upsertContractCaches } from 'shared'
 import { getIndexer } from './indexers'
 
 const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
@@ -28,7 +28,7 @@ worker.on('completed', async job => {
     const head = job.data as NewReportedHead
     const { chainId, blockNumber } = head
     await setIndexedBlockStatus(head.id, IndexedBlockStatus.Complete)
-    logger.info(`[${chainId}:${blockNumber}] Successfully completed ${job.name} job ${job.id}.`)
+    logger.info(`[${chainId}:${blockNumber}] Successfully indexed block ${blockNumber}.`)
 })
   
 worker.on('failed', async (job, err) => {
@@ -43,7 +43,17 @@ worker.on('error', err => {
 })
 
 async function run() {
-    await Promise.all([IndexerDB.initialize(), PublicTables.initialize(), indexerRedis.connect()])
+    // Start all databases.
+    await Promise.all([
+        IndexerDB.initialize(), 
+        PublicTables.initialize(), 
+        CoreDB.initialize(), 
+        indexerRedis.connect(),
+    ])
+
+    // Make sure verified contracts and instances are cached.
+    await upsertContractCaches()
+
     logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs...`)
     worker.run()
 }

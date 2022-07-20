@@ -14,7 +14,15 @@ export {
     EthTraceStatus,
 } from './lib/public-tables/db/entities/EthTrace'
 export { PublicTables } from './lib/public-tables/db/dataSource'
-export { redis as indexerRedis, quickUncleCheck } from './lib/indexer/redis'
+export {
+    redis as indexerRedis,
+    quickUncleCheck,
+    upsertContractCaches,
+    ContractInstanceEntry,
+    EventGeneratorEntry,
+    ContractEntry,
+    getContractEventGeneratorData,
+} from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
 export {
