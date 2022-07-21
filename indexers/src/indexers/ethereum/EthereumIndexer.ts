@@ -16,7 +16,6 @@ const timing = {
 }
 
 class EthereumIndexer extends AbstractIndexer {
-
     web3: AlchemyWeb3
 
     uniqueContractAddresses: Set<string>
@@ -100,12 +99,11 @@ class EthereumIndexer extends AbstractIndexer {
         // Find all unique contract addresses 'involved' in this block.
         this._findUniqueContractAddresses(transactions, logs, traces)
 
-        await Promise.all([
-            // Find and run event generators associated with the unique contract instances seen.
-            runEventGenerators(this.uniqueContractAddresses, blockNumber, chainId),
-            // Save all primitives to public tables.
-            this._savePrimitives(block, transactions, logs, traces),
-        ])
+        // Find and run event generators associated with the unique contract instances seen.
+        await runEventGenerators(this.uniqueContractAddresses, block)
+
+        // Save all primitives to public tables.
+        // this._savePrimitives(block, transactions, logs, traces),
 
         // Parse traces for new contracts.
 
@@ -117,25 +115,23 @@ class EthereumIndexer extends AbstractIndexer {
     _findUniqueContractAddresses(transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
         transactions.forEach(tx => {
             if (tx.status === EthTransactionStatus.Success) {
-                this.uniqueContractAddresses.add(tx.to)
-                this.uniqueContractAddresses.add(tx.contractAddress)
+                tx.to && this.uniqueContractAddresses.add(tx.to)
+                tx.contractAddress && this.uniqueContractAddresses.add(tx.contractAddress)
             }
         })
         logs.forEach(log => {
-            if (log.address) {
-                this.uniqueContractAddresses.add(log.address)
-            }
+            log.address && this.uniqueContractAddresses.add(log.address)
         })
         traces.forEach(trace => {
             if (trace.status === EthTraceStatus.Success) {
-                this.uniqueContractAddresses.add(trace.to)
+                trace.to && this.uniqueContractAddresses.add(trace.to)
             }
         })
     }
 
     async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
        logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
-
+ 
         await PublicTables.manager.transaction(async tx => {
             const saveBlock = tx.save(block)
             const saveTransactions = tx

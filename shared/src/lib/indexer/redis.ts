@@ -1,4 +1,4 @@
-import { createClient } from 'redis'
+import { createClient, RedisClientType } from 'redis'
 import config from '../config'
 import logger from '../logger'
 import { CoreDB } from '../core/db/dataSource'
@@ -59,15 +59,22 @@ export async function getContractEventGeneratorData(addresses: string[]): Promis
     instanceEntries: ContractInstanceEntry[]
     contractEventGeneratorEntries: { [key: string]: EventGeneratorEntry[] }
 }> {
-    let instanceEntries: ContractInstanceEntry[]
+    let instanceEntries
     try {
-        instanceEntries = ((await redis.hmGet(keys.CONTRACT_INSTANCES, addresses)) || [])
-            .filter((v) => !!v)
-            .map((v) => JSON.parse(v) as ContractInstanceEntry[])
-            .flat()
+        instanceEntries = (await redis.hmGet(keys.CONTRACT_INSTANCES, addresses)) || []
     } catch (err) {
+        console.log(err)
         logger.error(`Error getting contract instance entries from redis: ${err}.`)
         throw err
+    }
+
+    instanceEntries = instanceEntries
+        .filter((v) => !!v)
+        .map((v) => JSON.parse(v) as ContractInstanceEntry[])
+        .flat() as ContractInstanceEntry[]
+
+    if (!instanceEntries.length) {
+        return { instanceEntries: [], contractEventGeneratorEntries: {} }
     }
 
     // Put all unique contract uids into a list.

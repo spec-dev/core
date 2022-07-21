@@ -40,7 +40,7 @@ import config from './lib/config'
 import logger from './lib/logger'
 export { chainIds, config, logger }
 export { NewReportedHead } from './lib/types'
-export { unixTimestampToDate } from './lib/utils/date'
+export { unixTimestampToDate, dateToUnixTimestamp } from './lib/utils/date'
 export {
     mapByKey,
     normalizeEthAddress,
