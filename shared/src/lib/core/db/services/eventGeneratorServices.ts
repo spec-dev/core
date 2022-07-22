@@ -9,7 +9,8 @@ export async function createEventGenerator(
     parentId: number,
     discriminator: EventGeneratorParentType,
     name: string,
-    url: string
+    url: string,
+    eventVersions: string[]
 ): Promise<EventGenerator> {
     const eventGenerator = new EventGenerator()
     eventGenerator.uid = uuid4()
@@ -17,6 +18,7 @@ export async function createEventGenerator(
     eventGenerator.discriminator = discriminator
     eventGenerator.name = name
     eventGenerator.url = url
+    eventGenerator.eventVersions = eventVersions.map((s) => s.trim()).join(',')
 
     try {
         await eventGenerators().save(eventGenerator)

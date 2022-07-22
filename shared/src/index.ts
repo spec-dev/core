@@ -20,6 +20,7 @@ export {
     upsertContractCaches,
     ContractInstanceEntry,
     EventGeneratorEntry,
+    EventVersionEntry,
     ContractEntry,
     getContractEventGeneratorData,
 } from './lib/indexer/redis'
@@ -39,8 +40,8 @@ import chainIds from './lib/utils/chainIds'
 import config from './lib/config'
 import logger from './lib/logger'
 export { chainIds, config, logger }
-export { NewReportedHead } from './lib/types'
-export { unixTimestampToDate, dateToUnixTimestamp } from './lib/utils/date'
+export * from './lib/types'
+export { unixTimestampToDate, dateToUnixTimestamp, currentUnixTs } from './lib/utils/date'
 export {
     mapByKey,
     normalizeEthAddress,
@@ -50,6 +51,7 @@ export {
     hexToNumber,
     hexToNumberString,
     toString,
+    toNamespacedVersion,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
@@ -57,6 +59,8 @@ export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
 export { Contract } from './lib/core/db/entities/Contract'
 export { ContractInstance } from './lib/core/db/entities/ContractInstance'
 export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities/EventGenerator'
+export { Event, EventTopic } from './lib/core/db/entities/Event'
+export { EventVersion } from './lib/core/db/entities/EventVersion'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
@@ -74,3 +78,5 @@ export {
 export { createContract } from './lib/core/db/services/contractServices'
 export { createContractInstance } from './lib/core/db/services/contractInstanceServices'
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
+export { createEvent } from './lib/core/db/services/eventServices'
+export { createEventVersion } from './lib/core/db/services/eventVersionServices'

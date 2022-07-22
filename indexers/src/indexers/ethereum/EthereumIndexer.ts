@@ -100,7 +100,7 @@ class EthereumIndexer extends AbstractIndexer {
         this._findUniqueContractAddresses(transactions, logs, traces)
 
         // Find and run event generators associated with the unique contract instances seen.
-        await runEventGenerators(this.uniqueContractAddresses, block)
+        runEventGenerators(this.uniqueContractAddresses, block)
 
         // Save all primitives to public tables.
         // this._savePrimitives(block, transactions, logs, traces),

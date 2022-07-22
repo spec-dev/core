@@ -4,6 +4,8 @@ import logger from '../logger'
 import { CoreDB } from '../core/db/dataSource'
 import { EventGenerator } from '../core/db/entities/EventGenerator'
 import { Contract } from '../core/db/entities/Contract'
+import { EventTopic } from '../core/db/entities/Event'
+import { EventVersion } from '../core/db/entities/EventVersion'
 
 // Create redis client.
 export const redis = createClient(config.INDEXER_REDIS_URL)
@@ -17,9 +19,17 @@ export interface ContractInstanceEntry {
     contractUid: string
 }
 
+export interface EventVersionEntry {
+    nsp: string
+    name: string
+    version: string
+    topic: EventTopic
+}
+
 export interface EventGeneratorEntry {
     uid: string
     url: string
+    eventVersionEntries: EventVersionEntry[]
 }
 
 export interface ContractEntry {
@@ -109,6 +119,7 @@ export async function getContractEventGeneratorData(addresses: string[]): Promis
 
 export async function upsertContractCaches() {
     const contractsRepo = () => CoreDB.getRepository(Contract)
+    const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
     // Get all contracts with their assocated instances and event generators.
     const contracts = await contractsRepo()
@@ -123,6 +134,34 @@ export async function upsertContractCaches() {
         .innerJoinAndSelect('contract.contractInstances', 'contractInstance')
         .getMany()
 
+    // Get all event version uids across all contract event generators.
+    const eventVersionUids = []
+    for (let contract of contracts) {
+        const eventGenerators = (contract as any).eventGenerators || []
+        for (let eventGenerator of eventGenerators) {
+            const evUids = eventGenerator.eventVersions.split(',').map((s) => s.trim())
+            for (let evUid of evUids) {
+                eventVersionUids.push(evUid)
+            }
+        }
+    }
+
+    const eventVersions = await eventVersionsRepo()
+        .createQueryBuilder('eventVersion')
+        .leftJoinAndSelect('eventVersion.event', 'event')
+        .where('eventVersion.uid IN (:...uids)', { uids: eventVersionUids })
+        .getMany()
+
+    const eventVersionEntriesMap: { [key: string]: EventVersionEntry } = {}
+    for (let eventVersion of eventVersions) {
+        eventVersionEntriesMap[eventVersion.uid] = {
+            nsp: eventVersion.nsp,
+            name: eventVersion.name,
+            version: eventVersion.version,
+            topic: eventVersion.event.topic,
+        }
+    }
+
     const contractsMap = {}
     const contractInstancesMap = {}
     for (let i = 0; i < contracts.length; i++) {
@@ -131,7 +170,14 @@ export async function upsertContractCaches() {
         const contractInstances = contract.contractInstances || []
 
         contractsMap[contract.uid] = {
-            eventGenerators: eventGenerators.map((eg) => ({ uid: eg.uid, url: eg.url })),
+            eventGenerators: eventGenerators.map((eg) => ({
+                uid: eg.uid,
+                url: eg.url,
+                eventVersionEntries: eg.eventVersions
+                    .split(',')
+                    .map((s) => s.trim())
+                    .map((uid) => eventVersionEntriesMap[uid] || null),
+            })),
         }
 
         for (let j = 0; j < contractInstances.length; j++) {

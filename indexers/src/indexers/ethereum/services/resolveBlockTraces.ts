@@ -36,16 +36,23 @@ async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, c
 
 async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] | null> {
     return new Promise(async (res, _) => {
-        const resp = await fetch(config.ALCHEMY_ETH_MAINNET_REST_URL, {
-            method: 'POST', 
-            body: JSON.stringify({
-                method: 'trace_block',
-                params: [hexBlockNumber],
-                id: 1,
-                jsonrpc: '2.0',
-            }),
-            headers: { 'Content-Type': 'application/json' }
-        })
+        let resp
+        try {
+            resp = await fetch(config.ALCHEMY_ETH_MAINNET_REST_URL, {
+                method: 'POST', 
+                body: JSON.stringify({
+                    method: 'trace_block',
+                    params: [hexBlockNumber],
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' }
+            })
+        } catch (err) {
+            logger.error('Error fetching traces in top level block')
+            setTimeout(() => res(null), timing.NOT_READY_DELAY)
+            return
+        }
 
         let data: { [key: string]: any } = {}
         try {

@@ -89,3 +89,6 @@ export const toSlug = (value: string): string => {
         .replace(/[^A-Za-z0-9-_]/g, '-')
         .toLowerCase()
 }
+
+export const toNamespacedVersion = (nsp: string, name: string, version: string) =>
+    `${nsp}.${name}@${version}`

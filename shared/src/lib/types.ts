@@ -5,3 +5,10 @@ export interface NewReportedHead {
     blockHash: string | null
     replace: boolean
 }
+
+export interface SpecFunctionResponse {
+    data: any
+    error: string | null
+}
+
+export type StringKeyMap = { [key: string]: any }

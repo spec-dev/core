@@ -1,15 +1,7 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    Index,
-    CreateDateColumn,
-    BeforeInsert,
-    OneToMany,
-} from 'typeorm'
-import { toSlug } from '../../../utils/formatters'
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany } from 'typeorm'
 import { EdgeFunction } from './EdgeFunction'
 import { Contract } from './Contract'
+import { Event } from './Event'
 
 /**
  * A global Spec namespace for functions, contracts, events, etc.,
@@ -38,4 +30,7 @@ export class Namespace {
 
     @OneToMany(() => Contract, (contract) => contract.namespace)
     contracts: Contract[]
+
+    @OneToMany(() => Event, (event) => event.namespace)
+    events: Event[]
 }

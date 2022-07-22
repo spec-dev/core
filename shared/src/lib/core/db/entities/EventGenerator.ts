@@ -29,6 +29,10 @@ export class EventGenerator {
     @Column()
     url: string
 
+    // Comma delimited array of event version uids
+    @Column()
+    eventVersions: string
+
     @CreateDateColumn({
         type: 'timestamp with time zone',
         name: 'created_at',

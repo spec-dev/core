@@ -7,8 +7,11 @@ import { EdgeFunctionVersion } from './entities/EdgeFunctionVersion'
 import { Contract } from './entities/Contract'
 import { ContractInstance } from './entities/ContractInstance'
 import { EventGenerator } from './entities/EventGenerator'
+import { Event } from './entities/Event'
+import { EventVersion } from './entities/EventVersion'
 import { initDb1658282747359 } from './migrations/1658282747359-init-db'
 import { createEventGeneratorTable1658285708985 } from './migrations/1658285708985-create-event-generator-table'
+import { createEventTables1658457806801 } from './migrations/1658457806801-create-event-tables'
 
 export const CoreDB = new DataSource({
     type: 'postgres',
@@ -26,7 +29,13 @@ export const CoreDB = new DataSource({
         Contract,
         ContractInstance,
         EventGenerator,
+        Event,
+        EventVersion,
     ],
-    migrations: [initDb1658282747359, createEventGeneratorTable1658285708985],
+    migrations: [
+        initDb1658282747359,
+        createEventGeneratorTable1658285708985,
+        createEventTables1658457806801,
+    ],
     subscribers: [],
 })

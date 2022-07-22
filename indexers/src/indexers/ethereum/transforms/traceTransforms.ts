@@ -194,9 +194,9 @@ function setBlockScopedTraceIds(traces: EthTrace[]) {
 
 function setTraceIdsForSingleType(traces: EthTrace[]) {
     traces.sort((a, b) => (
-        a.rewardType.localeCompare(b.rewardType) ||
-        a.from.localeCompare(b.from) ||
-        a.to.localeCompare(b.to) ||
+        (a.rewardType || '').localeCompare(b.rewardType || '') ||
+        (a.from || '').localeCompare(b.from || '') ||
+        (a.to || '').localeCompare(b.to || '') ||
         Number(BigInt(a.value || 0) - BigInt(b.value || 0))
     ))
 
