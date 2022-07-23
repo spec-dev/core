@@ -12,6 +12,7 @@ import { EventVersion } from './entities/EventVersion'
 import { initDb1658282747359 } from './migrations/1658282747359-init-db'
 import { createEventGeneratorTable1658285708985 } from './migrations/1658285708985-create-event-generator-table'
 import { createEventTables1658457806801 } from './migrations/1658457806801-create-event-tables'
+import { removeEventTopic1658603848781 } from './migrations/1658603848781-remove-event-topic'
 
 export const CoreDB = new DataSource({
     type: 'postgres',
@@ -36,6 +37,7 @@ export const CoreDB = new DataSource({
         initDb1658282747359,
         createEventGeneratorTable1658285708985,
         createEventTables1658457806801,
+        removeEventTopic1658603848781,
     ],
     subscribers: [],
 })

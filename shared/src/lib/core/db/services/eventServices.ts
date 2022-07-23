@@ -1,4 +1,4 @@
-import { Event, EventTopic } from '../entities/Event'
+import { Event } from '../entities/Event'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
@@ -8,7 +8,6 @@ const events = () => CoreDB.getRepository(Event)
 export async function createEvent(
     namespaceId: number,
     name: string,
-    topic: EventTopic,
     isContractEvent: boolean,
     desc?: string
 ): Promise<Event> {
@@ -17,7 +16,6 @@ export async function createEvent(
     event.namespaceId = namespaceId
     event.name = name
     event.desc = desc
-    event.topic = topic
     event.isContractEvent = isContractEvent
 
     try {

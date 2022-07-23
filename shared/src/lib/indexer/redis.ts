@@ -4,7 +4,6 @@ import logger from '../logger'
 import { CoreDB } from '../core/db/dataSource'
 import { EventGenerator } from '../core/db/entities/EventGenerator'
 import { Contract } from '../core/db/entities/Contract'
-import { EventTopic } from '../core/db/entities/Event'
 import { EventVersion } from '../core/db/entities/EventVersion'
 
 // Create redis client.
@@ -23,7 +22,6 @@ export interface EventVersionEntry {
     nsp: string
     name: string
     version: string
-    topic: EventTopic
 }
 
 export interface EventGeneratorEntry {

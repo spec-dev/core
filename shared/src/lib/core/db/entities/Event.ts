@@ -11,11 +11,6 @@ import {
 import { Namespace } from './Namespace'
 import { EventVersion } from './EventVersion'
 
-export enum EventTopic {
-    Standard = 'standard',
-    FIFO = 'fifo',
-}
-
 /**
  * Spec Events.
  */
@@ -34,9 +29,6 @@ export class Event {
 
     @Column({ nullable: true })
     desc: string
-
-    @Column()
-    topic: EventTopic
 
     @Column()
     isContractEvent: boolean

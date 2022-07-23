@@ -10,11 +10,10 @@ import {
     StringKeyMap, 
     EventVersionEntry, 
     currentUnixTs, 
-    EventTopic,
 } from 'shared'
 import { fetch } from 'cross-fetch'
 import { EventOrigin } from '../../../types'
-import { SpecEvent } from '@spec.types/spec'
+import { emit } from '../../../events/relay'
 
 async function runEventGenerators(uniqueContractAddresses: Set<string>, block: EthBlock) {
     const addresses = Array.from(uniqueContractAddresses)
@@ -135,14 +134,9 @@ async function emitDiffsAsEvents(
                 broadcastTimestamp: currentUnixTs(),
             },
             object: liveObjectDiff,
-        }, topic))
+        }, nsp))
     }
     await Promise.all(promises)
-}
-
-async function emit(event: SpecEvent<StringKeyMap>, topic: EventTopic) {
-    console.log(`Emitting ${event.name} to ${topic} topic`)
-    console.log(event)
 }
 
 export default runEventGenerators
