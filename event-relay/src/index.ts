@@ -34,11 +34,18 @@ expressApp.get('/healthz/live', (_, res) => res.sendStatus(200))
     }
 })()
 
+// SocketCluster/WebSocket connection handling loop.
+;(async () => {
+    for await (let {socket} of agServer.listener('connection')) {
+        // Handle socket connection.
+    }
+})()
+
 httpServer.listen(config.SOCKETCLUSTER_PORT)
 
 // Log errors.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
-    (async () => {
+    ;(async () => {
         for await (let { error } of agServer.listener('error')) {
             logger.error(`AGServer Error - ${error}`)
         }
@@ -47,9 +54,8 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
 
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
-    logger.info(
-        `[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`
-    )
+    logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
+    
     ;(async () => {
         for await (let { warning } of agServer.listener('warning')) {
             logger.error(`AGServer Warning - ${warning}`)
