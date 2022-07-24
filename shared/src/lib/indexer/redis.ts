@@ -146,7 +146,6 @@ export async function upsertContractCaches() {
 
     const eventVersions = await eventVersionsRepo()
         .createQueryBuilder('eventVersion')
-        .leftJoinAndSelect('eventVersion.event', 'event')
         .where('eventVersion.uid IN (:...uids)', { uids: eventVersionUids })
         .getMany()
 
@@ -156,7 +155,6 @@ export async function upsertContractCaches() {
             nsp: eventVersion.nsp,
             name: eventVersion.name,
             version: eventVersion.version,
-            topic: eventVersion.event.topic,
         }
     }
 

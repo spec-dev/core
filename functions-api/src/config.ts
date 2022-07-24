@@ -1,6 +1,6 @@
 import { ev, config } from 'shared'
 
 export default {
-    PORT: ev('PORT', 4000),
+    PORT: Number(ev('PORT', 4000)),
     ...config,
 }

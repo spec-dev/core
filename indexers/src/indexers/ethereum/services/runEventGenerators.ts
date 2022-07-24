@@ -122,7 +122,7 @@ async function emitDiffsAsEvents(
     let promises = []
     for (let i = 0; i < eventVersionEntries.length; i++) {
         const eventVersionEntry = eventVersionEntries[i]
-        const { nsp, name, version, topic } = eventVersionEntry
+        const { nsp, name, version } = eventVersionEntry
         const liveObjectDiff = liveObjectDiffs[i] || null
         if (!liveObjectDiff) continue
 
