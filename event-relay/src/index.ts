@@ -5,13 +5,13 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, Claims, ClaimRole } from 'shared'
+import { specEnvs, logger, ClaimRole, CoreDB } from 'shared'
+import { cacheMessage, saveCachedBatch } from './cache'
 
 // Create SocketCluster server options.
 const agOptions = {
     authKey: config.JWT_SECRET,
 }
-
 if (config.SOCKETCLUSTER_OPTIONS) {
     Object.assign(agOptions, JSON.parse(config.SOCKETCLUSTER_OPTIONS))
 }
@@ -26,16 +26,20 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
         if (action.type === action.PUBLISH_IN) {
             let authToken = action.socket.authToken
 
+            // Must be an event publisher.
             if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
                 const publishError = new Error('You are not authorized to publish events.')
                 publishError.name = 'PublishError'
                 action.block(publishError)
                 continue
             }
+
+            // Add event to batch to be saved.
+            action.data && cacheMessage(action.data)
         }
 
         // Any unhandled case will be allowed by default.
-        action.allow();
+        action.allow()
     }
 })
   
@@ -113,3 +117,8 @@ if (config.SCC_STATE_SERVER_HOST) {
         })()
     }
 }
+
+// Start caching messages on an interval.
+CoreDB.initialize().then(() => {
+    setInterval(saveCachedBatch, config.SAVE_EVENTS_INTERVAL)
+})

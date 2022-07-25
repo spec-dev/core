@@ -1,9 +1,4 @@
-import {
-    Entity,
-    Column,
-    Index,
-    PrimaryColumn,
-} from 'typeorm'
+import { Entity, Column, Index, PrimaryColumn } from 'typeorm'
 
 /**
  * A published instance of a versioned Spec event.
@@ -12,7 +7,7 @@ import {
 @Index(['channel', 'timestamp'])
 export class PublishedEvent {
     @PrimaryColumn('varchar', { length: 30 })
-    id: string 
+    id: string
 
     @Column()
     @Index()

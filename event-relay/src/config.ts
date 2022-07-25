@@ -24,5 +24,8 @@ export default {
     SCC_PUB_SUB_BATCH_DURATION: Number(ev('SCC_PUB_SUB_BATCH_DURATION')),
     SCC_BROKER_RETRY_DELAY: Number(ev('SCC_BROKER_RETRY_DELAY')),
 
+    // Persistence.
+    SAVE_EVENTS_INTERVAL: 5000,
+
     ...config,
 }

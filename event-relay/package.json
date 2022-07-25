@@ -13,6 +13,7 @@
         "build:main": "tsc -p tsconfig.json"
     },
     "dependencies": {
+        "@spec.types/spec": "^0.0.2",
         "connect": "^3.6.6",
         "eetase": "^4.0.0",
         "express": "^4.16.3",

@@ -22,11 +22,13 @@
     },
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
+        "@spec.types/spec": "^0.0.2",
         "jsonwebtoken": "^8.5.1",
         "pg": "^8.7.3",
         "pg-hstore": "^2.3.4",
         "redis": "^4.2.0",
         "reflect-metadata": "^0.1.13",
+        "short-uuid": "^4.2.0",
         "typeorm": "^0.3.7",
         "uuid4": "^2.0.2",
         "web3-utils": "^1.7.4"

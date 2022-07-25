@@ -61,6 +61,7 @@ export { ContractInstance } from './lib/core/db/entities/ContractInstance'
 export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities/EventGenerator'
 export { Event } from './lib/core/db/entities/Event'
 export { EventVersion } from './lib/core/db/entities/EventVersion'
+export { PublishedEvent } from './lib/core/db/entities/PublishedEvent'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
@@ -80,4 +81,8 @@ export { createContractInstance } from './lib/core/db/services/contractInstanceS
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
 export { createEvent } from './lib/core/db/services/eventServices'
 export { createEventVersion } from './lib/core/db/services/eventVersionServices'
+export {
+    initPublishedEvent,
+    savePublishedEvents,
+} from './lib/core/db/services/publishedEventServices'
 export { parseClaims, canPublishEvents, Claims, ClaimRole } from './lib/utils/auth'
