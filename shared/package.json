@@ -13,6 +13,7 @@
     "private": true,
     "scripts": {
         "clean": "rimraf dist",
+        "scrap": "ts-node ./src/scrap.ts",
         "format": "prettier --write \"{src,test}/**/*.ts\"",
         "build": "run-s clean format build:*",
         "build:main": "tsc -p tsconfig.json",
@@ -21,6 +22,7 @@
     },
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
+        "jsonwebtoken": "^8.5.1",
         "pg": "^8.7.3",
         "pg-hstore": "^2.3.4",
         "redis": "^4.2.0",
@@ -30,6 +32,7 @@
         "web3-utils": "^1.7.4"
     },
     "devDependencies": {
+        "@types/jsonwebtoken": "^8.5.8",
         "@types/node": "^18.0.3",
         "npm-run-all": "^4.1.5",
         "prettier": "^2.1.2",

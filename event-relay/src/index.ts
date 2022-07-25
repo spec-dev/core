@@ -5,10 +5,13 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger } from 'shared'
+import { specEnvs, logger, Claims, ClaimRole } from 'shared'
 
 // Create SocketCluster server options.
-const agOptions = {}
+const agOptions = {
+    authKey: config.JWT_SECRET,
+}
+
 if (config.SOCKETCLUSTER_OPTIONS) {
     Object.assign(agOptions, JSON.parse(config.SOCKETCLUSTER_OPTIONS))
 }
@@ -17,6 +20,25 @@ if (config.SOCKETCLUSTER_OPTIONS) {
 const httpServer = eetase(http.createServer())
 const agServer = socketClusterServer.attach(httpServer, agOptions)
 
+// Secure who can publish events.
+agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
+    for await (let action of stream) {
+        if (action.type === action.PUBLISH_IN) {
+            let authToken = action.socket.authToken
+
+            if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
+                const publishError = new Error('You are not authorized to publish events.')
+                publishError.name = 'PublishError'
+                action.block(publishError)
+                continue
+            }
+        }
+
+        // Any unhandled case will be allowed by default.
+        action.allow();
+    }
+})
+  
 // Create Express app.
 const expressApp = express()
 if (config.ENV !== specEnvs.PROD) {

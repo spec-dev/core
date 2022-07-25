@@ -2,14 +2,12 @@ import {
     logger, 
     getContractEventGeneratorData, 
     EthBlock, 
-    dateToUnixTimestamp, 
     toNamespacedVersion,
-    EventGeneratorEntry, 
+    EventGeneratorEntry,
     ContractInstanceEntry, 
     SpecFunctionResponse, 
     StringKeyMap, 
     EventVersionEntry, 
-    currentUnixTs, 
 } from 'shared'
 import { fetch } from 'cross-fetch'
 import { EventOrigin } from '../../../types'
@@ -38,8 +36,6 @@ async function runEventGenerators(uniqueContractAddresses: Set<string>, block: E
     const eventOrigin = {
         chainId: block.chainId,
         blockNumber: block.number,
-        blockHash: block.hash,
-        blockTimestamp: dateToUnixTimestamp(block.timestamp),
     }
 
     for (let contractInstanceEntry of instanceEntries) {
@@ -131,10 +127,10 @@ async function emitDiffsAsEvents(
             origin: {
                 ...eventOrigin,
                 contractAddress,
-                broadcastTimestamp: currentUnixTs(),
+                eventTimestamp: Date.now(),
             },
             object: liveObjectDiff,
-        }, nsp))
+        }))
     }
     await Promise.all(promises)
 }

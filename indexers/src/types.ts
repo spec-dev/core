@@ -8,7 +8,5 @@ export interface Indexer {
 export interface EventOrigin {
     chainId: number
     blockNumber: number
-    blockHash: string
-    blockTimestamp: number   
     transactionHash?: string
 }

@@ -80,3 +80,4 @@ export { createContractInstance } from './lib/core/db/services/contractInstanceS
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
 export { createEvent } from './lib/core/db/services/eventServices'
 export { createEventVersion } from './lib/core/db/services/eventVersionServices'
+export { parseClaims, canPublishEvents, Claims, ClaimRole } from './lib/utils/auth'

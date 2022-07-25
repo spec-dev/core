@@ -34,8 +34,11 @@ export default {
     CORE_DB_USERNAME: ev('CORE_DB_USERNAME', 'spec'),
     CORE_DB_PASSWORD: ev('CORE_DB_PASSWORD'),
 
-    // Indexer Redis Instance
+    // Core Redis Instance
     CORE_REDIS_URL: ev('CORE_REDIS_URL', 'redis://localhost:6379'),
     CORE_REDIS_HOST: ev('CORE_REDIS_HOST', 'localhost'),
     CORE_REDIS_PORT: Number(ev('CORE_REDIS_PORT', 6379)),
+
+    // JWTs
+    JWT_SECRET: ev('JWT_SECRET'),
 }
