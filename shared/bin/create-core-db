@@ -1,3 +1,5 @@
 #!/bin/bash
 
 createdb -O spec core
+
+psql -U spec -d core -c 'CREATE SCHEMA IF NOT EXISTS instances AUTHORIZATION spec'

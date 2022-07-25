@@ -9,10 +9,12 @@ import { ContractInstance } from './entities/ContractInstance'
 import { EventGenerator } from './entities/EventGenerator'
 import { Event } from './entities/Event'
 import { EventVersion } from './entities/EventVersion'
+import { PublishedEvent } from './entities/PublishedEvent'
 import { initDb1658282747359 } from './migrations/1658282747359-init-db'
 import { createEventGeneratorTable1658285708985 } from './migrations/1658285708985-create-event-generator-table'
 import { createEventTables1658457806801 } from './migrations/1658457806801-create-event-tables'
 import { removeEventTopic1658603848781 } from './migrations/1658603848781-remove-event-topic'
+import { addPublishedEventsTable1658773500868 } from './migrations/1658773500868-add-published-events-table'
 
 export const CoreDB = new DataSource({
     type: 'postgres',
@@ -24,6 +26,7 @@ export const CoreDB = new DataSource({
     synchronize: false,
     logging: false,
     entities: [
+        // Public schema.
         Namespace,
         EdgeFunction,
         EdgeFunctionVersion,
@@ -32,12 +35,16 @@ export const CoreDB = new DataSource({
         EventGenerator,
         Event,
         EventVersion,
+
+        // Instances schema.
+        PublishedEvent,
     ],
     migrations: [
         initDb1658282747359,
         createEventGeneratorTable1658285708985,
         createEventTables1658457806801,
         removeEventTopic1658603848781,
+        addPublishedEventsTable1658773500868,
     ],
     subscribers: [],
 })

@@ -10,6 +10,7 @@ import {
 import { Event } from './Event'
 
 /**
+ * A particular version of a Spec event.
  */
 @Entity('event_versions')
 @Index(['nsp', 'name', 'version'], { unique: true })
