@@ -12,7 +12,7 @@ import { ExternalEthTransaction, ExternalEthReceipt } from './types'
 
 const timing = {
     NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 34
+    MAX_ATTEMPTS: 100,
 }
 
 class EthereumIndexer extends AbstractIndexer {

@@ -6,7 +6,7 @@ import { externalToInternalTraces } from '../transforms/traceTransforms'
 
 const timing = {
     NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 34
+    MAX_ATTEMPTS: 100
 }
 
 async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, chainId: number): Promise<EthTrace[]> {

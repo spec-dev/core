@@ -4,7 +4,7 @@ import { logger } from 'shared'
 
 const timing = {
     NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 34
+    MAX_ATTEMPTS: 100,
 }
 
 async function getBlockReceipts(
@@ -48,7 +48,7 @@ async function fetchReceipts(web3: AlchemyWeb3, params: TransactionReceiptsParam
         }
 
         // Retry if empty or still processing.
-        if (!resp || (error && error.message && error.message.toLowerCase().includes('being processed'))) {
+        if (!resp || (error && error.message && (error.message.toLowerCase().includes('being processed') || error.message.toLowerCase().includes('getaddrinfo enotfound')))) {
             setTimeout(() => res(null), timing.NOT_READY_DELAY)
         } else if (error) {
             throw `Error fetching receipts for ${(params as any).blockHash || (params as any).blockNumber}: ${error.message}`
