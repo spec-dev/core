@@ -10,11 +10,17 @@ import { EventGenerator } from './entities/EventGenerator'
 import { Event } from './entities/Event'
 import { EventVersion } from './entities/EventVersion'
 import { PublishedEvent } from './entities/PublishedEvent'
+import { LiveObject } from './entities/LiveObject'
+import { LiveObjectVersion } from './entities/LiveObjectVersion'
+import { LiveEventVersion } from './entities/LiveEventVersion'
+import { LiveEdgeFunctionVersion } from './entities/LiveEdgeFunctionVersion'
 import { initDb1658282747359 } from './migrations/1658282747359-init-db'
 import { createEventGeneratorTable1658285708985 } from './migrations/1658285708985-create-event-generator-table'
 import { createEventTables1658457806801 } from './migrations/1658457806801-create-event-tables'
 import { removeEventTopic1658603848781 } from './migrations/1658603848781-remove-event-topic'
 import { addPublishedEventsTable1658773500868 } from './migrations/1658773500868-add-published-events-table'
+import { changePublishedEventsTimestampType1658776833768 } from './migrations/1658776833768-change-published-events-timestamp-type'
+import { addLiveObjectTables1658872322539 } from './migrations/1658872322539-add-live-object-tables'
 
 export const CoreDB = new DataSource({
     type: 'postgres',
@@ -35,6 +41,10 @@ export const CoreDB = new DataSource({
         EventGenerator,
         Event,
         EventVersion,
+        LiveObject,
+        LiveObjectVersion,
+        LiveEventVersion,
+        LiveEdgeFunctionVersion,
 
         // Instances schema.
         PublishedEvent,
@@ -45,6 +55,8 @@ export const CoreDB = new DataSource({
         createEventTables1658457806801,
         removeEventTopic1658603848781,
         addPublishedEventsTable1658773500868,
+        changePublishedEventsTimestampType1658776833768,
+        addLiveObjectTables1658872322539,
     ],
     subscribers: [],
 })

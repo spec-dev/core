@@ -2,9 +2,10 @@ import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToM
 import { EdgeFunction } from './EdgeFunction'
 import { Contract } from './Contract'
 import { Event } from './Event'
+import { LiveObject } from './LiveObject'
 
 /**
- * A global Spec namespace for functions, contracts, events, etc.,
+ * A globally unique namespace for functions, contracts, events, live objects, etc.,
  */
 @Entity('namespaces')
 export class Namespace {
@@ -25,12 +26,15 @@ export class Namespace {
     })
     createdAt: Date
 
-    @OneToMany(() => EdgeFunction, (edgeFunction) => edgeFunction.namespace)
-    edgeFunctions: EdgeFunction[]
-
     @OneToMany(() => Contract, (contract) => contract.namespace)
     contracts: Contract[]
 
+    @OneToMany(() => EdgeFunction, (edgeFunction) => edgeFunction.namespace)
+    edgeFunctions: EdgeFunction[]
+
     @OneToMany(() => Event, (event) => event.namespace)
     events: Event[]
+
+    @OneToMany(() => LiveObject, liveObject => liveObject.namespace)
+    liveObjects: LiveObject[]
 }

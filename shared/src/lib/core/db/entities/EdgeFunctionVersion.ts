@@ -5,9 +5,11 @@ import {
     Index,
     CreateDateColumn,
     ManyToOne,
+    OneToMany,
     JoinColumn,
 } from 'typeorm'
 import { EdgeFunction } from './EdgeFunction'
+import { LiveEdgeFunctionVersion } from './LiveEdgeFunctionVersion'
 
 /**
  * A single version of an edge function.
@@ -44,4 +46,7 @@ export class EdgeFunctionVersion {
     @ManyToOne(() => EdgeFunction, (edgeFunction) => edgeFunction.edgeFunctionVersions)
     @JoinColumn({ name: 'edge_function_id' })
     edgeFunction: EdgeFunction
+
+    @OneToMany(() => LiveEdgeFunctionVersion, (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.edgeFunctionVersion)
+    liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
 }

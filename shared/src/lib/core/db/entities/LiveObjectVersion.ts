@@ -8,15 +8,16 @@ import {
     OneToMany,
     JoinColumn,
 } from 'typeorm'
-import { Event } from './Event'
 import { LiveEventVersion } from './LiveEventVersion'
+import { LiveEdgeFunctionVersion } from './LiveEdgeFunctionVersion'
+import { LiveObject } from './LiveObject'
 
 /**
- * A particular version of a Spec event.
+ * A particular version of a live object.
  */
-@Entity('event_versions')
+@Entity('live_object_versions')
 @Index(['nsp', 'name', 'version'], { unique: true })
-export class EventVersion {
+export class LiveObjectVersion {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -41,13 +42,16 @@ export class EventVersion {
     })
     createdAt: Date
 
-    @Column('int8', { name: 'event_id' })
-    eventId: number
+    @Column('int8', { name: 'live_object_id' })
+    liveObjectId: number
 
-    @ManyToOne(() => Event, (event) => event.eventVersions)
-    @JoinColumn({ name: 'event_id' })
-    event: Event
+    @ManyToOne(() => LiveObject, (liveObject) => liveObject.liveObjectVersions)
+    @JoinColumn({ name: 'live_object_id' })
+    liveObject: LiveObject
 
-    @OneToMany(() => LiveEventVersion, (liveEventVersion) => liveEventVersion.eventVersion)
+    @OneToMany(() => LiveEventVersion, (liveEventVersion) => liveEventVersion.liveObjectVersion)
     liveEventVersions: LiveEventVersion[]
+
+    @OneToMany(() => LiveEdgeFunctionVersion, (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.liveObjectVersion)
+    liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
 }
