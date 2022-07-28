@@ -5,8 +5,7 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole, CoreDB } from 'shared'
-import { cacheMessage, saveCachedBatch } from './cache'
+import { specEnvs, logger, ClaimRole } from 'shared'
 
 // Create SocketCluster server options.
 const agOptions = {
@@ -33,9 +32,6 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
                 action.block(publishError)
                 continue
             }
-
-            // Add event to batch to be saved.
-            action.data && cacheMessage(action.data)
         }
 
         // Any unhandled case will be allowed by default.
@@ -117,8 +113,3 @@ if (config.SCC_STATE_SERVER_HOST) {
         })()
     }
 }
-
-// Start caching messages on an interval.
-CoreDB.initialize().then(() => {
-    setInterval(saveCachedBatch, config.SAVE_EVENTS_INTERVAL)
-})
