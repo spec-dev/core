@@ -62,6 +62,10 @@ export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities
 export { Event } from './lib/core/db/entities/Event'
 export { EventVersion } from './lib/core/db/entities/EventVersion'
 export { PublishedEvent } from './lib/core/db/entities/PublishedEvent'
+export { LiveObject } from './lib/core/db/entities/LiveObject'
+export { LiveObjectVersion } from './lib/core/db/entities/LiveObjectVersion'
+export { LiveEventVersion } from './lib/core/db/entities/LiveEventVersion'
+export { LiveEdgeFunctionVersion } from './lib/core/db/entities/LiveEdgeFunctionVersion'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
@@ -86,3 +90,7 @@ export {
     savePublishedEvents,
 } from './lib/core/db/services/publishedEventServices'
 export { parseClaims, canPublishEvents, Claims, ClaimRole } from './lib/utils/auth'
+export { createLiveObject } from './lib/core/db/services/liveObjectServices'
+export { createLiveObjectVersion } from './lib/core/db/services/liveObjectVersionServices'
+export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
+export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'

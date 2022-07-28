@@ -35,6 +35,6 @@ export class Namespace {
     @OneToMany(() => Event, (event) => event.namespace)
     events: Event[]
 
-    @OneToMany(() => LiveObject, liveObject => liveObject.namespace)
+    @OneToMany(() => LiveObject, (liveObject) => liveObject.namespace)
     liveObjects: LiveObject[]
 }

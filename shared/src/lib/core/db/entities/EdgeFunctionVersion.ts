@@ -47,6 +47,9 @@ export class EdgeFunctionVersion {
     @JoinColumn({ name: 'edge_function_id' })
     edgeFunction: EdgeFunction
 
-    @OneToMany(() => LiveEdgeFunctionVersion, (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.edgeFunctionVersion)
+    @OneToMany(
+        () => LiveEdgeFunctionVersion,
+        (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.edgeFunctionVersion
+    )
     liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
 }

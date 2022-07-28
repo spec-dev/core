@@ -21,7 +21,7 @@ export function parseEdgeFunctionCompsFromUrl(url: string): EdgeFunctionComps {
 
     if (functionSplitComps.length !== 2) return {}
     nsp = functionSplitComps[0]
-    functionName = functionSplitComps[1]    
+    functionName = functionSplitComps[1]
 
     return { nsp, functionName, version: version || null }
 }

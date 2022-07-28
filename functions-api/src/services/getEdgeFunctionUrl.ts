@@ -1,5 +1,5 @@
-import { 
-    getEdgeFunctionVersion, 
+import {
+    getEdgeFunctionVersion,
     getLatestEdgeFunctionVersion,
     getEdgeFunctionUrl as getEdgeFunctionUrlFromRedis,
     setEdgeFunctionUrl as setEdgeFunctionUrlToRedis,
@@ -7,7 +7,11 @@ import {
 } from 'shared'
 import { edgeFunctionUrls } from '../utils/lru'
 
-async function getEdgeFunctionUrl(nsp: string, functionName: string, version: string | null): Promise<string | null> {
+async function getEdgeFunctionUrl(
+    nsp: string,
+    functionName: string,
+    version: string | null
+): Promise<string | null> {
     const key = formatEdgeFunctionVersionStr(nsp, functionName, version)
 
     // Check LRU cache first.
@@ -23,7 +27,7 @@ async function getEdgeFunctionUrl(nsp: string, functionName: string, version: st
     }
 
     // Check Core DB last.
-    const edgeFunctionVersion = version 
+    const edgeFunctionVersion = version
         ? await getEdgeFunctionVersion(nsp, functionName, version)
         : await getLatestEdgeFunctionVersion(nsp, functionName)
     if (edgeFunctionVersion) {
@@ -37,11 +41,14 @@ async function getEdgeFunctionUrl(nsp: string, functionName: string, version: st
                 setEdgeFunctionUrlToRedis(url, nsp, functionName, edgeFunctionVersion.version),
                 setEdgeFunctionUrlToRedis(url, nsp, functionName),
             ])
-            edgeFunctionUrls.set(formatEdgeFunctionVersionStr(nsp, functionName, edgeFunctionVersion.version), url)
+            edgeFunctionUrls.set(
+                formatEdgeFunctionVersionStr(nsp, functionName, edgeFunctionVersion.version),
+                url
+            )
             edgeFunctionUrls.set(key, url)
         }
-        
-        return url    
+
+        return url
     }
 
     return null

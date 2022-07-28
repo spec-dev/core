@@ -52,6 +52,9 @@ export class LiveObjectVersion {
     @OneToMany(() => LiveEventVersion, (liveEventVersion) => liveEventVersion.liveObjectVersion)
     liveEventVersions: LiveEventVersion[]
 
-    @OneToMany(() => LiveEdgeFunctionVersion, (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.liveObjectVersion)
+    @OneToMany(
+        () => LiveEdgeFunctionVersion,
+        (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.liveObjectVersion
+    )
     liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
 }

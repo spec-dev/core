@@ -2,7 +2,7 @@ import { parse, stringify } from './json'
 
 export const methods = {
     GET: 'GET',
-    POST: 'POST'
+    POST: 'POST',
 }
 
 export const errorMsg = {
@@ -11,9 +11,9 @@ export const errorMsg = {
 }
 
 export async function parsePayload(req) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         let data = ''
-        req.on('data', chunk => {
+        req.on('data', (chunk) => {
             data += chunk
         })
         req.on('end', () => {

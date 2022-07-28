@@ -1,13 +1,6 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    Index,
-    ManyToOne,
-    JoinColumn,
-} from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn } from 'typeorm'
 import { LiveObjectVersion } from './LiveObjectVersion'
-import { EventVersion} from './EventVersion'
+import { EventVersion } from './EventVersion'
 
 /**
  * Join-table between LiveObjectVersion and EventVersion.

@@ -33,10 +33,10 @@ async function proxyToEdgeFunction(req, res) {
 // Handle new HTTP requests.
 async function onRequest(req, res) {
     switch (req.method) {
-    case methods.POST:
-        return await proxyToEdgeFunction(req, res)
-    default:
-        return errorResp(res, errorMsg.FUNCTION_NOT_FOUND)
+        case methods.POST:
+            return await proxyToEdgeFunction(req, res)
+        default:
+            return errorResp(res, errorMsg.FUNCTION_NOT_FOUND)
     }
 }
 
