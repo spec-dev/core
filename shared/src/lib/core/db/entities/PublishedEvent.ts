@@ -1,20 +1,27 @@
-import { Entity, Column, Index, PrimaryColumn } from 'typeorm'
+import { Entity, Column, Index, PrimaryGeneratedColumn } from 'typeorm'
 
 /**
  * A published instance of a versioned Spec event.
  */
 @Entity('published_events', { schema: 'instances' })
-@Index(['channel', 'timestamp'])
+@Index(['name', 'id'])
 export class PublishedEvent {
-    @PrimaryColumn('varchar', { length: 30 })
-    id: string
+    @PrimaryGeneratedColumn()
+    id: number
+
+    @Index()
+    @Column('varchar', { length: 30, unique: true })
+    uid: string
 
     @Column()
     @Index()
-    channel: string
+    name: string
 
     @Column('json')
-    data: object
+    origin: object
+
+    @Column('json')
+    object: object
 
     @Column('int8')
     timestamp: number

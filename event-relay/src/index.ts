@@ -5,7 +5,10 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole } from 'shared'
+import { specEnvs, logger, ClaimRole, CoreDB } from 'shared'
+import { resolveLiveObjectVersions, getEventsAfterCursors, RPC } from './rpcs'
+
+const coreDBPromise = CoreDB.initialize()
 
 // Create SocketCluster server options.
 const agOptions = {
@@ -58,8 +61,21 @@ expressApp.get('/healthz/live', (_, res) => res.sendStatus(200))
 
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
+    await coreDBPromise
+    
     for await (let {socket} of agServer.listener('connection')) {
-        // Handle socket connection.
+        ;(async () => {
+            // RPC - Resolve live objects.
+            for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
+                resolveLiveObjectVersions(request)
+            }
+        })()
+        ;(async () => {
+            // RPC - Get events that occurred after the given cursors.
+            for await (let request of socket.procedure(RPC.GetEventsAfterCursors)) {
+                getEventsAfterCursors(request, socket)
+            }
+        })()
     }
 })()
 

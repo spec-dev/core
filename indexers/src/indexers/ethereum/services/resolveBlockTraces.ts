@@ -35,7 +35,7 @@ async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, c
 }
 
 async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] | null> {
-    return new Promise(async (res, _) => {
+    return await new Promise(async (res, _) => {
         let resp
         try {
             resp = await fetch(config.ALCHEMY_ETH_MAINNET_REST_URL, {

@@ -8,10 +8,14 @@ import {
     SpecFunctionResponse, 
     StringKeyMap, 
     EventVersionEntry, 
+    PublishedEvent,
+    initPublishedEvent,
+    savePublishedEvents
 } from 'shared'
 import { fetch } from 'cross-fetch'
 import { EventOrigin } from '../../../types'
 import { emit } from '../../../events/relay'
+import { SpecEvent, SpecEventOrigin } from '@spec.types/spec'
 
 async function runEventGenerators(uniqueContractAddresses: Set<string>, block: EthBlock) {
     const addresses = Array.from(uniqueContractAddresses)
@@ -101,7 +105,7 @@ async function performEventGenerator(
         return
     }
 
-    await emitDiffsAsEvents(
+    await publishDiffsAsEvents(
         liveObjectDiffs, 
         eventGeneratorEntry.eventVersionEntries, 
         contractInstanceEntry.address,
@@ -109,30 +113,65 @@ async function performEventGenerator(
     )
 }
 
-async function emitDiffsAsEvents(
+async function publishDiffsAsEvents(
     liveObjectDiffs: StringKeyMap[],
     eventVersionEntries: EventVersionEntry[],
     contractAddress: string,
     eventOrigin: EventOrigin,
 ) {
-    let promises = []
+    // Create array of PublishedEvents from SpecEvents of the live object diffs.
+    const publishedEvents = liveObjectDiffsToPublishedEvents(
+        liveObjectDiffs,
+        eventVersionEntries,
+        contractAddress,
+        eventOrigin,
+    )
+
+    // Save list of PublishedEvents to ensure we have ids.
+    const saved = await savePublishedEvents(publishedEvents)
+    if (!saved) {
+        // TODO: Either re-enqueue block or figure out wtf is going on.
+        return
+    }
+
+    // Publish events.
+    publishedEvents.forEach(publishedEvent => {
+        const specEvent: SpecEvent<StringKeyMap> = {
+            id: publishedEvent.uid,
+            nonce: publishedEvent.id,
+            name: publishedEvent.name,
+            origin: publishedEvent.origin as SpecEventOrigin,
+            object: publishedEvent.object,
+        }
+        emit(specEvent)
+    })
+}
+
+function liveObjectDiffsToPublishedEvents(
+    liveObjectDiffs: StringKeyMap[],
+    eventVersionEntries: EventVersionEntry[],
+    contractAddress: string,
+    eventOrigin: EventOrigin,
+): PublishedEvent[] {
+    const publishedEvents: PublishedEvent[] = []
     for (let i = 0; i < eventVersionEntries.length; i++) {
         const eventVersionEntry = eventVersionEntries[i]
         const { nsp, name, version } = eventVersionEntry
         const liveObjectDiff = liveObjectDiffs[i] || null
         if (!liveObjectDiff) continue
 
-        promises.push(emit({
-            name: toNamespacedVersion(nsp, name, version),
-            origin: {
+        publishedEvents.push(initPublishedEvent(
+            toNamespacedVersion(nsp, name, version),
+            {
                 ...eventOrigin,
                 contractAddress,
                 eventTimestamp: Date.now(),
             },
-            object: liveObjectDiff,
-        }))
+            liveObjectDiff,
+        ))
     }
-    await Promise.all(promises)
+    return publishedEvents
 }
+
 
 export default runEventGenerators

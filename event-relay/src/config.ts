@@ -27,5 +27,8 @@ export default {
     // Persistence.
     SAVE_EVENTS_INTERVAL: 5000,
 
+    // Missed event catch-up.
+    FETCHING_MISSED_EVENTS_BATCH_SIZE: 100,
+
     ...config,
 }

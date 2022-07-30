@@ -22,7 +22,7 @@
     },
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
-        "@spec.types/spec": "^0.0.2",
+        "@spec.types/spec": "^0.0.3",
         "jsonwebtoken": "^8.5.1",
         "pg": "^8.7.3",
         "pg-hstore": "^2.3.4",

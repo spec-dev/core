@@ -52,6 +52,7 @@ export {
     hexToNumberString,
     toString,
     toNamespacedVersion,
+    fromNamespacedVersion,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
@@ -88,9 +89,13 @@ export { createEventVersion } from './lib/core/db/services/eventVersionServices'
 export {
     initPublishedEvent,
     savePublishedEvents,
+    getPublishedEventsAfterId,
 } from './lib/core/db/services/publishedEventServices'
 export { parseClaims, canPublishEvents, Claims, ClaimRole } from './lib/utils/auth'
 export { createLiveObject } from './lib/core/db/services/liveObjectServices'
-export { createLiveObjectVersion } from './lib/core/db/services/liveObjectVersionServices'
+export {
+    createLiveObjectVersion,
+    getLiveObjectVersionsByNamespacedVersions,
+} from './lib/core/db/services/liveObjectVersionServices'
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
 export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'
