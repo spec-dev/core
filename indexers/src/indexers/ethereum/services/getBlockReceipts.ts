@@ -1,6 +1,6 @@
 import { AlchemyWeb3, TransactionReceipt, TransactionReceiptsParams, TransactionReceiptsResponse } from '@alch/alchemy-web3'
 import { ExternalEthReceipt } from '../types'
-import { logger } from 'shared'
+import { logger, sleep } from 'shared'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -15,14 +15,16 @@ async function getBlockReceipts(
 ): Promise<ExternalEthReceipt[]> {
     let receipts = null
     let numAttempts = 0
-
     try {
         while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
             receipts = await fetchReceipts(web3, params)
+            if (receipts === null) {
+                await sleep(timing.NOT_READY_DELAY)
+            }
             numAttempts += 1
         }
     } catch (err) {
-        throw err
+        throw `Error fetching receipts ${blockNumber}: ${err}`
     }
 
     if (receipts === null) {
@@ -38,25 +40,26 @@ async function getBlockReceipts(
 }
 
 async function fetchReceipts(web3: AlchemyWeb3, params: TransactionReceiptsParams): Promise<TransactionReceipt[] | null> {
-    return new Promise(async (res, _) => {
-        let resp: TransactionReceiptsResponse
-        let error
-        try {
-            resp = await web3.alchemy.getTransactionReceipts(params)
-        } catch (err) {
-            error = err
-        }
+    let resp: TransactionReceiptsResponse
+    let error
+    try {
+        resp = await web3.alchemy.getTransactionReceipts(params)
+    } catch (err) {
+        error = err
+    }
 
-        // Retry if empty or still processing.
-        if (!resp || (error && error.message && (error.message.toLowerCase().includes('being processed') || error.message.toLowerCase().includes('getaddrinfo enotfound')))) {
-            setTimeout(() => res(null), timing.NOT_READY_DELAY)
-        } else if (error) {
-            throw `Error fetching receipts for ${(params as any).blockHash || (params as any).blockNumber}: ${error.message}`
-        } 
-        else {
-            res(resp.receipts || [])
-        }
-    })
+    // Retry if empty, still processing, or timed out.
+    if (!resp || (error && error.message && (
+        error.message.toLowerCase().includes('being processed') ||
+        error.message.toLowerCase().includes('getaddrinfo enotfound') ||
+        error.message.toLowerCase().includes('etimedout')))) {
+        return null
+    } else if (error) {
+        throw `Error fetching receipts for ${(params as any).blockHash || (params as any).blockNumber}: ${error.message}`
+    } 
+    else {
+        return resp.receipts || []
+    }
 }
 
 export default getBlockReceipts

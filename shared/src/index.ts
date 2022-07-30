@@ -26,6 +26,7 @@ export {
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
+export { sleep } from './lib/utils/time'
 export {
     getlastSeenBlock,
     getBlockAtNumber,

@@ -1,5 +1,5 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
+import { sleep, EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
@@ -171,45 +171,47 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
-        const getReceipts = () => new Promise(async (res, _) => {
+        const getReceipts = async () => {
             const receipts = await getBlockReceipts(this.web3, { blockHash }, this.head.blockNumber, this.head.chainId)
             if (receipts.length && receipts[0].blockHash !== blockHash) {
-                setTimeout(() => res(null), timing.NOT_READY_DELAY)
+                return null
             } else {
-                res(receipts)
+                return receipts
             }
-        })
-    
-        return new Promise(async (res, _) => {
-            let receipts = null
-            let numAttempts = 0
-            while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
-                receipts = await getReceipts()
-                numAttempts += 1
+        }
+
+        let receipts = null
+        let numAttempts = 0
+        while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
+            receipts = await getReceipts()
+            if (receipts === null) {
+                await sleep(timing.NOT_READY_DELAY)
             }
-            res(receipts || [])
-        })
+            numAttempts += 1
+        }
+        return receipts || []
     }
 
     async _waitAndRefetchTraces(hexBlockNumber: string, blockHash: string): Promise<EthTrace[]> {
-        const getTraces = () => new Promise(async (res, _) => {
+        const getTraces = async () => {
             const traces = await resolveBlockTraces(hexBlockNumber, this.head.blockNumber, this.head.chainId)
             if (traces.length && traces[0].blockHash !== blockHash) {
-                setTimeout(() => res(null), timing.NOT_READY_DELAY)
+                return null
             } else {
-                res(traces)
+                return traces
             }
-        })
-    
-        return new Promise(async (res, _) => {
-            let traces = null
-            let numAttempts = 0
-            while (traces === null && numAttempts < timing.MAX_ATTEMPTS) {
-                traces = await getTraces()
-                numAttempts += 1
+        }
+
+        let traces = null
+        let numAttempts = 0
+        while (traces === null && numAttempts < timing.MAX_ATTEMPTS) {
+            traces = await getTraces()
+            if (traces === null) {
+                await sleep(timing.NOT_READY_DELAY)
             }
-            res(traces || [])
-        })
+            numAttempts += 1
+        }
+        return traces || []
     }
 
     _ensureAllShareSameBlockHash(
