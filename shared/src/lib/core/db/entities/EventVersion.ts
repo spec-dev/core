@@ -24,7 +24,6 @@ export class EventVersion {
     @Index({ unique: true })
     uid: string
 
-    // Denormalized namespace name for quicker proxy lookups.
     @Column()
     nsp: string
 

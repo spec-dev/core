@@ -23,6 +23,7 @@ import { changePublishedEventsTimestampType1658776833768 } from './migrations/16
 import { addLiveObjectTables1658872322539 } from './migrations/1658872322539-add-live-object-tables'
 import { addNewPrimaryIdToPublishedEvents1659037328993 } from './migrations/1659037328993-add-new-primary-id-to-published-events'
 import { breakOutPublishedEventIntoMoreCols1659038117238 } from './migrations/1659038117238-break-out-published-event-into-more-cols'
+import { addArgRelatedJsonColsFunctionTables1659688394379 } from './migrations/1659688394379-add-arg-related-json-cols-function-tables'
 
 export const CoreDB = new DataSource({
     type: 'postgres',
@@ -61,6 +62,7 @@ export const CoreDB = new DataSource({
         addLiveObjectTables1658872322539,
         addNewPrimaryIdToPublishedEvents1659037328993,
         breakOutPublishedEventIntoMoreCols1659038117238,
+        addArgRelatedJsonColsFunctionTables1659688394379,
     ],
     subscribers: [],
 })

@@ -65,11 +65,9 @@ async function performEventGenerator(
         resp = await fetch(eventGeneratorEntry.url, {
             method: 'POST',
             body: JSON.stringify({
-                args: [
-                    contractInstanceEntry.address, 
-                    contractInstanceEntry.name, 
-                    { uid: eventGeneratorEntry.uid }
-                ]
+                contractAddress: contractInstanceEntry.address,
+                contractInstanceName: contractInstanceEntry.name,
+                context: { uid: eventGeneratorEntry.uid },
             }),
             headers: { 
                 'Content-Type': 'application/json',

@@ -1,4 +1,11 @@
-import { getLiveObjectVersionsByNamespacedVersions, CoreDB, EventVersion, toNamespacedVersion, logger } from 'shared'
+import { 
+    getLiveObjectVersionsByNamespacedVersions, 
+    CoreDB, 
+    EventVersion, 
+    EdgeFunctionVersion, 
+    toNamespacedVersion, 
+    logger,
+} from 'shared'
 
 interface ResolveLiveObjectVersionsPayload {
     ids: string[]
@@ -8,7 +15,7 @@ export async function resolveLiveObjectVersions(request: any) {
     // Parse payload.
     const data = request.data as ResolveLiveObjectVersionsPayload
 
-    // Get all live objects for the given array of versioned ids.
+    // Get all live object versions for the given array of versioned ids.
     const lovs = await getLiveObjectVersionsByNamespacedVersions(data.ids)
     const lovIds = lovs.map(lov => lov.id)
 
@@ -28,15 +35,48 @@ export async function resolveLiveObjectVersions(request: any) {
         return
     }
 
-    // Map event versions to their associated live object version.
+    // Get all edge function versions associated with these live object versions.
+    let edgeFunctionVersions = []
+    try {
+        edgeFunctionVersions = await CoreDB.getRepository(EdgeFunctionVersion)
+            .createQueryBuilder('edgeFunctionVersion')
+            .leftJoinAndSelect('edgeFunctionVersion.liveEdgeFunctionVersions', 'liveEdgeFunctionVersion')
+            .where('liveEdgeFunctionVersion.liveObjectVersionId IN (:...lovIds)', { lovIds })
+            .getMany()
+    } catch (err) {
+        logger.error(
+            `Error fetching EdgeFunctionVersions for liveObjectVersionIds: ${lovIds.join(', ')}: ${err}`
+        )
+        request.end([])
+        return
+    }
+
+    // Group everything by live object version.
     const lovMap = {}
     for (const eventVersion of eventVersions) {
         for (const liveEventVersion of eventVersion.liveEventVersions) {
-            const mapId = liveEventVersion.liveObjectVersionId
-            if (!lovMap.hasOwnProperty(mapId)) {
-                lovMap[mapId] = []
+            const liveObjectVersionId = liveEventVersion.liveObjectVersionId
+            if (!lovMap.hasOwnProperty(liveObjectVersionId)) {
+                lovMap[liveObjectVersionId] = { events: [], edgeFunctions: [] }
             }
-            lovMap[mapId].push(eventVersion)    
+            lovMap[liveObjectVersionId].events.push({
+                name: toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
+            })    
+        }
+    }
+    for (const edgeFunctionVersion of edgeFunctionVersions) {
+        for (const liveEdgeFunctionVersion of edgeFunctionVersion.liveEdgeFunctionVersions) {
+            const liveObjectVersionId = liveEdgeFunctionVersion.liveObjectVersionId
+            if (!lovMap.hasOwnProperty(liveObjectVersionId)) {
+                lovMap[liveObjectVersionId] = { events: [], edgeFunctions: [] }
+            }
+            lovMap[liveObjectVersionId].edgeFunctions.push({
+                name: toNamespacedVersion(edgeFunctionVersion.nsp, edgeFunctionVersion.name, edgeFunctionVersion.version),
+                args: edgeFunctionVersion.args || {},
+                argsMap: liveEdgeFunctionVersion.argsMap || {},
+                metadata: liveEdgeFunctionVersion.metadata || {},
+                role: liveEdgeFunctionVersion.role,
+            })
         }
     }
 
@@ -45,9 +85,8 @@ export async function resolveLiveObjectVersions(request: any) {
     for (let lov of lovs) {
         resp.push({
             id: toNamespacedVersion(lov.nsp, lov.name, lov.version),
-            events: (lovMap[lov.id] || []).map(ev => ({
-                name: toNamespacedVersion(ev.nsp, ev.name, ev.version)
-            }))
+            events: (lovMap[lov.id] || {}).events || [],
+            edgeFunctions: (lovMap[lov.id] || {}).edgeFunctions || [],
         })
     }
     request.end(resp)

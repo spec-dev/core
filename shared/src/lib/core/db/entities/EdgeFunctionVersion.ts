@@ -20,7 +20,6 @@ export class EdgeFunctionVersion {
     @PrimaryGeneratedColumn()
     id: number
 
-    // Denormalized namespace name for quicker proxy lookups.
     @Column()
     nsp: string
 
@@ -32,6 +31,9 @@ export class EdgeFunctionVersion {
 
     @Column()
     url: string
+
+    @Column('json', { nullable: true })
+    args: object
 
     @CreateDateColumn({
         type: 'timestamp with time zone',
