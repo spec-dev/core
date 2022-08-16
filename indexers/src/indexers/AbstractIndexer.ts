@@ -14,11 +14,11 @@ class AbstractIndexer {
         
         if (this.head.replace) {
             logger.info(`[${chainId}:${blockNumber}] GOT REORG -- Uncling existing block ${blockNumber}...`)
-            await this._uncleExistingRecordsUsingBlockNumber()
+            await this._deleteRecordsWithBlockNumber()
         }
     }
 
-    async _uncleExistingRecordsUsingBlockNumber() {
+    async _deleteRecordsWithBlockNumber() {
         throw 'must implement in child class'
     }
 

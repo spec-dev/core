@@ -34,7 +34,7 @@ export async function resolveBlock(
     }
 
     logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
-    return [externalBlock, externalToInternalBlock(externalBlock, chainId)]
+    return [externalBlock, externalToInternalBlock(externalBlock)]
 }
 
 export async function fetchBlock(web3: AlchemyWeb3, blockNumberOrHash: number | string): Promise<ExternalEthBlock | null> {

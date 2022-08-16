@@ -165,7 +165,6 @@ class EthereumIndexer extends AbstractIndexer {
         return traces.map((t, i) => {
             t.traceIndex = i
             t.blockTimestamp = block.timestamp
-            t.uncled = block.uncled
             return t
         })
     }
@@ -239,8 +238,7 @@ class EthereumIndexer extends AbstractIndexer {
         }
     }
 
-    // TODO: MAKES ME WANT TO SWITCH TO REGULAR PRIMARY KEY IDS INCREMENTING AND JUST ENFORCE UNIQUE CONTRAINTS ACROSS OTHER SHIT
-    async _uncleExistingRecordsUsingBlockNumber() {
+    async _deleteRecordsWithBlockNumber() {
         await SharedTables.manager.transaction(async tx => {
             const deleteBlock = tx
                 .createQueryBuilder()

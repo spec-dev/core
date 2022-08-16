@@ -1,9 +1,8 @@
 import { ExternalEthBlock } from '../types'
 import { EthBlock, unixTimestampToDate, toString, normalizeEthAddress, normalize32ByteHash, normalizeByteData } from 'shared'
 
-export function externalToInternalBlock(externalBlock: ExternalEthBlock, chainId: number): EthBlock {
+export function externalToInternalBlock(externalBlock: ExternalEthBlock): EthBlock {
     const block = new EthBlock()
-    block.chainId = chainId
     block.number = externalBlock.number
     block.hash = externalBlock.hash
     block.parentHash = normalize32ByteHash(externalBlock.parentHash)

@@ -7,7 +7,6 @@ export function externalToInternalLog(
 ): EthLog {
     const topics = externalLog.topics || []
     const log = new EthLog()
-    log.chainId = block.chainId
     log.logIndex = hexToNumber(externalLog.logIndex)
     log.transactionHash = externalLog.transactionHash
     log.transactionIndex = hexToNumber(externalLog.transactionIndex)
@@ -20,6 +19,5 @@ export function externalToInternalLog(
     log.blockHash = block.hash
     log.blockNumber = block.number
     log.blockTimestamp = block.timestamp
-    log.uncled = block.uncled
     return log
 }

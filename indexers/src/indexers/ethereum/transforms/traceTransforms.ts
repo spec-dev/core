@@ -17,7 +17,7 @@ export function externalToInternalTraces(externalTraces: ExternalEthTrace[], cha
     
     const traces = [
         ...specialTraces,
-        ...externalTraces.map(t => externalToInternalTrace(t, chainId))
+        ...externalTraces.map(t => externalToInternalTrace(t))
     ]
 
     // Calculate group-based properties.
@@ -37,9 +37,8 @@ function getDaoForkTraces(): EthTrace[] {
     return []
 }
 
-export function externalToInternalTrace(externalTrace: ExternalEthTrace, chainId: number): EthTrace {
+export function externalToInternalTrace(externalTrace: ExternalEthTrace): EthTrace {
     const trace = new EthTrace()
-    trace.chainId = chainId
     trace.blockNumber = externalTrace.blockNumber
     trace.blockHash = externalTrace.blockHash
     trace.transactionHash = normalize32ByteHash(externalTrace.transactionHash)

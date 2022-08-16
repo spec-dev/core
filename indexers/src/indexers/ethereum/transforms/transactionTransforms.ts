@@ -7,7 +7,6 @@ export function externalToInternalTransaction(
     block: EthBlock,
 ): EthTransaction {
     const transaction = new EthTransaction()
-    transaction.chainId = block.chainId
     transaction.hash = externalTransaction.hash
     transaction.nonce = externalTransaction.nonce
     transaction.transactionIndex = externalTransaction.transactionIndex
@@ -29,6 +28,5 @@ export function externalToInternalTransaction(
     transaction.blockHash = block.hash
     transaction.blockNumber = block.number
     transaction.blockTimestamp = block.timestamp
-    transaction.uncled = block.uncled
     return transaction
 }
