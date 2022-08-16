@@ -1,9 +1,10 @@
 import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, indexerRedis, NewReportedHead, IndexerDB, PublicTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus, CoreDB, upsertContractCaches } from 'shared'
+import { logger, indexerRedis, NewReportedHead, IndexerDB, SharedTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus, CoreDB, upsertContractCaches } from 'shared'
 import { getIndexer } from './indexers'
 
 const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
+    const t0 = performance.now()
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(head.id, IndexedBlockStatus.Indexing)
 
@@ -16,6 +17,8 @@ const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
     // Index block.
     await indexer.perform()
     await jobStatusUpdatePromise
+    const t1 = performance.now()
+    console.log(`${(t1 - t0) / 1000} seconds`)
 },  {
     autorun: false,
     connection: {
@@ -46,7 +49,7 @@ async function run() {
     // Start all databases.
     await Promise.all([
         IndexerDB.initialize(), 
-        PublicTables.initialize(), 
+        SharedTables.initialize(), 
         CoreDB.initialize(), 
         indexerRedis.connect(),
     ])

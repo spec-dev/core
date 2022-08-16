@@ -7,13 +7,13 @@ import { EthLog } from './entities/EthLog'
 import { EthTrace } from './entities/EthTrace'
 import { createEthPrimitives1657679840520 } from './migrations/1657679840520-create-eth-primitives'
 
-export const PublicTables = new DataSource({
+export const SharedTables = new DataSource({
     type: 'postgres',
-    host: config.PUBLIC_TABLES_DB_HOST,
-    port: config.PUBLIC_TABLES_DB_PORT,
-    username: config.PUBLIC_TABLES_DB_USERNAME,
-    password: config.PUBLIC_TABLES_DB_PASSWORD,
-    database: 'public-tables',
+    host: config.SHARED_TABLES_DB_HOST,
+    port: config.SHARED_TABLES_DB_PORT,
+    username: config.SHARED_TABLES_DB_USERNAME,
+    password: config.SHARED_TABLES_DB_PASSWORD,
+    database: 'shared-tables',
     synchronize: false,
     logging: false,
     entities: [

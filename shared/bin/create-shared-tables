@@ -1,0 +1,6 @@
+#!/bin/bash
+
+createdb -O spec shared-tables
+
+# Create ethereum schema.
+psql -U spec -d shared-tables -c 'CREATE SCHEMA IF NOT EXISTS ethereum AUTHORIZATION spec'

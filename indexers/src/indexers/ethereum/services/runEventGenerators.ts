@@ -103,6 +103,8 @@ async function performEventGenerator(
         return
     }
 
+    logger.info(`Diffs found for ${contractInstanceEntry.name}.`)
+
     await publishDiffsAsEvents(
         liveObjectDiffs, 
         eventGeneratorEntry.eventVersionEntries, 

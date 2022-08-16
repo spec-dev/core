@@ -1,19 +1,19 @@
 export { IndexedBlock, IndexedBlockStatus } from './lib/indexer/db/entities/IndexedBlock'
 export { IndexerDB } from './lib/indexer/db/dataSource'
-export { EthBlock } from './lib/public-tables/db/entities/EthBlock'
+export { EthBlock } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,
     EthTransactionStatus,
-} from './lib/public-tables/db/entities/EthTransaction'
-export { EthLog } from './lib/public-tables/db/entities/EthLog'
+} from './lib/shared-tables/db/entities/EthTransaction'
+export { EthLog } from './lib/shared-tables/db/entities/EthLog'
 export {
     EthTrace,
     EthTraceType,
     EthCallType,
     EthRewardType,
     EthTraceStatus,
-} from './lib/public-tables/db/entities/EthTrace'
-export { PublicTables } from './lib/public-tables/db/dataSource'
+} from './lib/shared-tables/db/entities/EthTrace'
+export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,
     quickUncleCheck,

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+psql -U spec -d shared-tables -c 'DELETE FROM ethereum.blocks; DELETE FROM ethereum.transactions; DELETE FROM ethereum.logs; DELETE FROM ethereum.traces;'

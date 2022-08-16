@@ -1,5 +1,5 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { sleep, EthBlock, EthTrace, EthLog, NewReportedHead, PublicTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
+import { sleep, EthBlock, EthTrace, EthLog, NewReportedHead, SharedTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
@@ -103,7 +103,7 @@ class EthereumIndexer extends AbstractIndexer {
         runEventGenerators(this.uniqueContractAddresses, block)
 
         // Save all primitives to public tables.
-        // this._savePrimitives(block, transactions, logs, traces),
+        await this._savePrimitives(block, transactions, logs, traces)
 
         // Parse traces for new contracts.
 
@@ -132,7 +132,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
        logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
  
-        await PublicTables.manager.transaction(async tx => {
+        await SharedTables.manager.transaction(async tx => {
             const saveBlock = tx.save(block)
             const saveTransactions = tx
                 .createQueryBuilder()
@@ -241,7 +241,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     // TODO: MAKES ME WANT TO SWITCH TO REGULAR PRIMARY KEY IDS INCREMENTING AND JUST ENFORCE UNIQUE CONTRAINTS ACROSS OTHER SHIT
     async _uncleExistingRecordsUsingBlockNumber() {
-        await PublicTables.manager.transaction(async tx => {
+        await SharedTables.manager.transaction(async tx => {
             const deleteBlock = tx
                 .createQueryBuilder()
                 .delete()
