@@ -6,6 +6,7 @@ import schemas from '../../schemas'
  */
 @Entity('blocks', { schema: schemas.ETHEREUM })
 export class EthBlock {
+    // Blockchain id.
     @Column('int2', { name: 'chain_id' })
     chainId: number
 
