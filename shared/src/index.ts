@@ -13,6 +13,7 @@ export {
     EthRewardType,
     EthTraceStatus,
 } from './lib/shared-tables/db/entities/EthTrace'
+export { EthContract } from './lib/shared-tables/db/entities/EthContract'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,

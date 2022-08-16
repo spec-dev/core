@@ -4,7 +4,6 @@ import { logger, indexerRedis, NewReportedHead, IndexerDB, SharedTables, setInde
 import { getIndexer } from './indexers'
 
 const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
-    const t0 = performance.now()
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(head.id, IndexedBlockStatus.Indexing)
 
@@ -17,8 +16,6 @@ const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
     // Index block.
     await indexer.perform()
     await jobStatusUpdatePromise
-    const t1 = performance.now()
-    console.log(`${(t1 - t0) / 1000} seconds`)
 },  {
     autorun: false,
     connection: {

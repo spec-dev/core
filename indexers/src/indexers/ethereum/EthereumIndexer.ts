@@ -1,11 +1,12 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { sleep, EthBlock, EthTrace, EthLog, NewReportedHead, SharedTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
+import { sleep, EthBlock, EthTrace, EthLog, EthContract, NewReportedHead, SharedTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
 import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
+import getContracts from './services/getContracts'
 import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt } from './types'
@@ -28,6 +29,8 @@ class EthereumIndexer extends AbstractIndexer {
 
     async perform() {
         super.perform()
+
+        // Get key identifiers of the block that needs indexing.
         const { blockHash, blockNumber, chainId } = this.head
         const hexBlockNumber = numberToHex(blockNumber)
 
@@ -36,51 +39,50 @@ class EthereumIndexer extends AbstractIndexer {
         const receiptsPromise = getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber }, blockNumber, chainId)
         const tracesPromise = resolveBlockTraces(hexBlockNumber, blockNumber, chainId)
 
-        // Wait for receipt and block promises to resolve (need them for transaction and log records).
+        // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
         let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
         const [externalBlock, block] = blockResult
 
         // Quick uncle check.
-        let wasUncled = await this._wasUncled()
-        if (wasUncled) {
+        if (await this._wasUncled()) {
             logger.warn('Current block was uncled mid-indexing. Stopping.')
             return
         }
 
-        // Ensure there's not a block hash mismatch between block and receipts.
-        if (receipts.length > 0 && receipts[0].blockHash !== block.hash) {
+        // Ensure there's not a block hash mismatch between block and receipts. 
+        // This can happen when fetching by block number around chain re-orgs.
+        if (receipts.length && receipts[0].blockHash !== block.hash) {
             logger.warn(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
             receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
-        // Convert external block transactions into our custom external transaction type.
+        // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(t => (t as unknown as ExternalEthTransaction))
 
-        // If transactions exist, but receipts don't, try one more time to get them before erroring.
-        if (receipts.length === 0 && externalTransactions.length > 0) {
+        // If transactions exist, but receipts don't, try one more time to get them before erroring out.
+        if (externalTransactions.length && !receipts.length) {
             logger.warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await getBlockReceipts(this.web3, blockHash ? { blockHash } : { blockNumber: hexBlockNumber }, blockNumber, chainId)
-            if (receipts.length === 0) {
+            if (!receipts.length) {
                 throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
             }
-        } else if (externalTransactions.length === 0) {
+        } else if (!externalTransactions.length) {
             logger.info('No transactions this block.')
         }
         
         // Quick uncle check.
-        wasUncled = await this._wasUncled()
-        if (wasUncled) {
+        if (await this._wasUncled()) {
             logger.warn('Current block was uncled mid-indexing. Stopping.')
             return
         }
 
         // Initialize our internal models for both transactions and logs.
-        const transactions = externalTransactions.length > 0 ? initTransactions(block, externalTransactions, receipts) : []
-        const logs = receipts.length > 0 ? initLogs(block, receipts) : []
+        const transactions = externalTransactions.length ? initTransactions(block, externalTransactions, receipts) : []
+        const logs = receipts.length ? initLogs(block, receipts) : []
 
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
-        if (traces.length > 0 && traces[0].blockHash !== block.hash) {
+        if (traces.length && traces[0].blockHash !== block.hash) {
             logger.warn(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
             traces = await this._waitAndRefetchTraces(hexBlockNumber, block.hash)
         }
@@ -88,30 +90,31 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts, traces)
-        
-        // Quick uncle check.
-        wasUncled = await this._wasUncled()
-        if (wasUncled) {
-            logger.warn('Current block was uncled mid-indexing. Stopping.')
-            return
+
+        // Get any new contracts deployed this block.
+        const contracts = getContracts(traces)
+        if (contracts.length) {
+            logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Got ${contracts.length} new contracts.`)
         }
     
+        // TODO: Redo this once the contracts table is up and running.
         // Find all unique contract addresses 'involved' in this block.
         this._findUniqueContractAddresses(transactions, logs, traces)
 
-        // Find and run event generators associated with the unique contract instances seen.
-        runEventGenerators(this.uniqueContractAddresses, block)
+        // One more uncle check before taking action.
+        if (await this._wasUncled()) {
+            logger.warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+
+        // // Find and run event generators associated with the unique contract instances seen.
+        // runEventGenerators(this.uniqueContractAddresses, block, chainId)
 
         // Save all primitives to public tables.
-        await this._savePrimitives(block, transactions, logs, traces)
-
-        // Parse traces for new contracts.
-
-        // Parse logs for events.
-
-        // Handle public tables with higher-level data (NFTs, NFTCollections, NFTSale, etc.) and those events.
+        await this._savePrimitives(block, transactions, logs, traces, contracts)
     }
 
+    // TODO: Redo once you have contract addresses stored.
     _findUniqueContractAddresses(transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
         transactions.forEach(tx => {
             if (tx.status === EthTransactionStatus.Success) {
@@ -129,34 +132,62 @@ class EthereumIndexer extends AbstractIndexer {
         })
     }
 
-    async _savePrimitives(block: EthBlock, transactions: EthTransaction[], logs: EthLog[], traces: EthTrace[]) {
+    async _savePrimitives(
+        block: EthBlock,
+        transactions: EthTransaction[],
+        logs: EthLog[],
+        traces: EthTrace[],
+        contracts: EthContract[],
+    ) {
        logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
  
         await SharedTables.manager.transaction(async tx => {
-            const saveBlock = tx.save(block)
+            // Block
+            const saveBlock = tx                
+                .createQueryBuilder()
+                .insert()
+                .into(EthBlock)
+                .values(block)
+                .execute()
+
+            // Transactions
             const saveTransactions = tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthTransaction)
                 .values(transactions)
                 .execute()
+
+            // Logs
             const saveLogs = tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthLog)
                 .values(logs)
                 .execute()
+
+            // Traces
             const saveTraces = tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthTrace)
                 .values(traces)
                 .execute()
+
+            // Contracts
+            const saveContracts = tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthContract)
+                .values(contracts)
+                .execute()
+
             await Promise.all([
                 saveBlock,
                 saveTransactions,
                 saveLogs,
                 saveTraces,
+                saveContracts,
             ])
         })
     }
@@ -264,11 +295,18 @@ class EthereumIndexer extends AbstractIndexer {
                 .from(EthTrace)
                 .where('blockNumber = :number', { number: this.head.blockNumber })
                 .execute()
+            const deleteContracts = tx
+                .createQueryBuilder()
+                .delete()
+                .from(EthContract)
+                .where('blockNumber = :number', { number: this.head.blockNumber })
+                .execute()
             await Promise.all([
                 deleteBlock,
                 deleteTransactions,
                 deleteLogs,
                 deleteTraces,
+                deleteContracts,
             ])
         })
     }

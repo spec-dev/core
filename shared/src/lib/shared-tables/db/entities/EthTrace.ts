@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm'
+import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
 
 export enum EthTraceType {
@@ -114,6 +114,7 @@ export class EthTrace {
     blockHash: string
 
     // The number of the block this trace was included in.
+    @Index()
     @Column('int8', { name: 'block_number' })
     blockNumber: number
 

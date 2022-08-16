@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm'
+import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
 
 /**
@@ -19,6 +19,7 @@ export class EthContract {
     blockHash: string
 
     // The number of the block this transaction was included in.
+    @Index()
     @Column('int8', { name: 'block_number' })
     blockNumber: number
 

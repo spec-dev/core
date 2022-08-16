@@ -17,7 +17,7 @@ import { EventOrigin } from '../../../types'
 import { emit } from '../../../events/relay'
 import { SpecEvent, SpecEventOrigin } from '@spec.types/spec'
 
-async function runEventGenerators(uniqueContractAddresses: Set<string>, block: EthBlock) {
+async function runEventGenerators(uniqueContractAddresses: Set<string>, block: EthBlock, chainId: number) {
     const addresses = Array.from(uniqueContractAddresses)
     if (!addresses.length) return
 
@@ -27,18 +27,18 @@ async function runEventGenerators(uniqueContractAddresses: Set<string>, block: E
     } = await getContractEventGeneratorData(addresses)
     
     if (!instanceEntries.length) {
-        logger.info(`[${block.chainId}:${block.number}] No verified contracts interacted with this block.`)
+        logger.info(`[${chainId}:${block.number}] No verified contracts interacted with this block.`)
         return
     }
 
     logger.info(
-        `[${block.chainId}:${block.number}] Running event generators for 
+        `[${chainId}:${block.number}] Running event generators for 
         ${Object.keys(contractEventGeneratorEntries).length} contract types.`
     )
 
     // Create event origin object.
     const eventOrigin = {
-        chainId: block.chainId,
+        chainId: chainId,
         blockNumber: block.number,
     }
 

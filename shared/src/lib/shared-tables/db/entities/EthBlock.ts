@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm'
+import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
 
 /**
@@ -12,6 +12,7 @@ export class EthBlock {
 
     // Block number.
     @Column('int8')
+    @Index()
     number: number
 
     // Block's parent's hash.
