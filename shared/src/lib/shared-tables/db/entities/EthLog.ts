@@ -6,10 +6,6 @@ import schemas from '../../schemas'
  */
 @Entity('logs', { schema: schemas.ETHEREUM })
 export class EthLog {
-    // Blockchain id.
-    @Column('int2', { name: 'chain_id' })
-    chainId: number
-
     // The index of this log in the transaction receipt.
     @PrimaryColumn('int8', { name: 'log_index' })
     logIndex: number
@@ -57,8 +53,4 @@ export class EthLog {
     // Unix timestamp of when this transaction's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
-
-    // Whether this log's block was uncled.
-    @Column({ default: false })
-    uncled: boolean
 }

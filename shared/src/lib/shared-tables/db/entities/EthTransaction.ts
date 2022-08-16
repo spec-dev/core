@@ -11,10 +11,6 @@ export enum EthTransactionStatus {
  */
 @Entity('transactions', { schema: schemas.ETHEREUM })
 export class EthTransaction {
-    // Blockchain id.
-    @Column('int2', { name: 'chain_id' })
-    chainId: number
-
     // Transaction hash.
     @PrimaryColumn('varchar', { length: 70 })
     hash: string
@@ -98,8 +94,4 @@ export class EthTransaction {
     // Unix timestamp of when this transaction's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
-
-    // Whether this transactions's block was uncled.
-    @Column({ default: false })
-    uncled: boolean
 }

@@ -38,10 +38,6 @@ export class EthTrace {
     @PrimaryColumn('varchar', { length: 200 })
     id: string
 
-    // Blockchain id.
-    @Column('int2', { name: 'chain_id' })
-    chainId: number
-
     // This trace's transaction hash.
     @Column('varchar', { name: 'transaction_hash', length: 70, nullable: true })
     transactionHash: string
@@ -124,10 +120,6 @@ export class EthTrace {
     // Unix timestamp of when this trace's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
-
-    // Whether this trace's block was uncled.
-    @Column({ default: false })
-    uncled: boolean
 
     traceAddressList: number[]
 }

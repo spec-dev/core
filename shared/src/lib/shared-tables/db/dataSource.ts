@@ -5,7 +5,7 @@ import { EthBlock } from './entities/EthBlock'
 import { EthTransaction } from './entities/EthTransaction'
 import { EthLog } from './entities/EthLog'
 import { EthTrace } from './entities/EthTrace'
-import { createEthPrimitives1657679840520 } from './migrations/1657679840520-create-eth-primitives'
+import { EthContract } from './entities/EthContract'
 
 export const SharedTables = new DataSource({
     type: 'postgres',
@@ -22,7 +22,8 @@ export const SharedTables = new DataSource({
         EthTransaction,
         EthLog,
         EthTrace,
+        EthContract,
     ],
-    migrations: [createEthPrimitives1657679840520],
+    migrations: [],
     subscribers: [],
 })

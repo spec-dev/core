@@ -6,17 +6,13 @@ import schemas from '../../schemas'
  */
 @Entity('blocks', { schema: schemas.ETHEREUM })
 export class EthBlock {
-    // Blockchain id.
-    @Column('int2', { name: 'chain_id' })
-    chainId: number
+    // Block hash.
+    @PrimaryColumn('varchar', { length: 70 })
+    hash: string
 
     // Block number.
     @Column('int8')
     number: number
-
-    // Block hash.
-    @PrimaryColumn('varchar', { length: 70 })
-    hash: string
 
     // Block's parent's hash.
     @Column('varchar', { name: 'parent_hash', length: 70, nullable: true })
@@ -85,8 +81,4 @@ export class EthBlock {
     // Unix timestamp of when this block was collated.
     @Column('timestamp')
     timestamp: Date
-
-    // Whether this block was uncled by another.
-    @Column({ default: false })
-    uncled: boolean
 }
