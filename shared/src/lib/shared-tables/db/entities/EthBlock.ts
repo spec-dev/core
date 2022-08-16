@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 /**
  * An Ethereum Block
@@ -12,7 +13,7 @@ export class EthBlock {
 
     // Block number.
     @Column('int8')
-    @Index()
+    @Index({ unique: true })
     number: number
 
     // Block's parent's hash.
@@ -82,4 +83,12 @@ export class EthBlock {
     // Unix timestamp of when this block was collated.
     @Column('timestamp')
     timestamp: Date
+}
+
+export const fullBlockUpsertConfig = (block: EthBlock): string[][] => {
+    const conflictCols = ['number']
+    const updateCols = Object.keys(block)
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }

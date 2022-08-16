@@ -1,19 +1,21 @@
 export { IndexedBlock, IndexedBlockStatus } from './lib/indexer/db/entities/IndexedBlock'
 export { IndexerDB } from './lib/indexer/db/dataSource'
-export { EthBlock } from './lib/shared-tables/db/entities/EthBlock'
+export { EthBlock, fullBlockUpsertConfig } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,
     EthTransactionStatus,
+    fullTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EthTransaction'
-export { EthLog } from './lib/shared-tables/db/entities/EthLog'
+export { EthLog, fullLogUpsertConfig } from './lib/shared-tables/db/entities/EthLog'
 export {
     EthTrace,
     EthTraceType,
     EthCallType,
     EthRewardType,
     EthTraceStatus,
+    fullTraceUpsertConfig,
 } from './lib/shared-tables/db/entities/EthTrace'
-export { EthContract } from './lib/shared-tables/db/entities/EthContract'
+export { EthContract, fullContractUpsertConfig } from './lib/shared-tables/db/entities/EthContract'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,

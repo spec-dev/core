@@ -1,5 +1,4 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { sleep, EthBlock, EthTrace, EthLog, EthContract, NewReportedHead, SharedTables, numberToHex, EthTransaction, logger, EthTransactionStatus, EthTraceStatus } from 'shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
@@ -10,6 +9,25 @@ import getContracts from './services/getContracts'
 import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt } from './types'
+import { 
+    sleep, 
+    EthBlock, 
+    EthTrace, 
+    EthLog, 
+    EthContract, 
+    NewReportedHead, 
+    SharedTables, 
+    numberToHex, 
+    EthTransaction, 
+    logger, 
+    EthTransactionStatus,
+    EthTraceStatus,
+    fullBlockUpsertConfig,
+    fullContractUpsertConfig,
+    fullLogUpsertConfig,
+    fullTraceUpsertConfig,
+    fullTransactionUpsertConfig,
+} from 'shared'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -110,7 +128,7 @@ class EthereumIndexer extends AbstractIndexer {
         // // Find and run event generators associated with the unique contract instances seen.
         // runEventGenerators(this.uniqueContractAddresses, block, chainId)
 
-        // Save all primitives to public tables.
+        // Save the primitives to our shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts)
     }
 
@@ -142,54 +160,68 @@ class EthereumIndexer extends AbstractIndexer {
        logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Saving primitives...`)
  
         await SharedTables.manager.transaction(async tx => {
-            // Block
-            const saveBlock = tx                
-                .createQueryBuilder()
-                .insert()
-                .into(EthBlock)
-                .values(block)
-                .execute()
-
-            // Transactions
-            const saveTransactions = tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthTransaction)
-                .values(transactions)
-                .execute()
-
-            // Logs
-            const saveLogs = tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthLog)
-                .values(logs)
-                .execute()
-
-            // Traces
-            const saveTraces = tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthTrace)
-                .values(traces)
-                .execute()
-
-            // Contracts
-            const saveContracts = tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthContract)
-                .values(contracts)
-                .execute()
-
             await Promise.all([
-                saveBlock,
-                saveTransactions,
-                saveLogs,
-                saveTraces,
-                saveContracts,
+                this._upsertBlock(block, tx),
+                this._upsertTransactions(transactions, tx),
+                this._upsertLogs(logs, tx),
+                this._upsertTraces(traces, tx),
+                this._upsertContracts(contracts, tx),
             ])
         })
+    }
+    
+    async _upsertBlock(block: EthBlock, tx: any) {
+        const [updateBlockCols, conflictBlockCols] = fullBlockUpsertConfig(block)
+        await tx.createQueryBuilder()
+            .insert()
+            .into(EthBlock)
+            .values(block)
+            .orUpdate(updateBlockCols, conflictBlockCols)
+            .execute()
+    }
+
+    async _upsertTransactions(transactions: EthTransaction[], tx: any) {
+        if (!transactions.length) return
+        const [updateTransactionCols, conflictTransactionCols] = fullTransactionUpsertConfig(transactions[0])
+        await tx.createQueryBuilder()
+            .insert()
+            .into(EthTransaction)
+            .values(transactions)
+            .orUpdate(updateTransactionCols, conflictTransactionCols)
+            .execute()
+    }
+
+    async _upsertLogs(logs: EthLog[], tx: any) {
+        if (!logs.length) return
+        const [updateLogCols, conflictLogCols] = fullLogUpsertConfig(logs[0])
+        await tx.createQueryBuilder()
+            .insert()
+            .into(EthLog)
+            .values(logs)
+            .orUpdate(updateLogCols, conflictLogCols)
+            .execute()
+    }
+
+    async _upsertTraces(traces: EthTrace[], tx: any) {
+        if (!traces.length) return
+        const [updateTraceCols, conflictTraceCols] = fullTraceUpsertConfig(traces[0])
+        await tx.createQueryBuilder()
+            .insert()
+            .into(EthTrace)
+            .values(traces)
+            .orUpdate(updateTraceCols, conflictTraceCols)
+            .execute()
+    }
+
+    async _upsertContracts(contracts: EthContract[], tx: any) {
+        if (!contracts.length) return
+        const [updateContractCols, conflictContractCols] = fullContractUpsertConfig(contracts[0])
+        await tx.createQueryBuilder()
+            .insert()
+            .into(EthContract)
+            .values(contracts)
+            .orUpdate(updateContractCols, conflictContractCols)
+            .execute()
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {

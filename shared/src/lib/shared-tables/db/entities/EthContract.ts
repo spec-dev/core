@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 /**
  * An Ethereum Contract
@@ -26,4 +27,12 @@ export class EthContract {
     // Unix timestamp of when this transaction's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
+}
+
+export const fullContractUpsertConfig = (contract: EthContract): string[][] => {
+    const conflictCols = ['address']
+    const updateCols = Object.keys(contract)
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }

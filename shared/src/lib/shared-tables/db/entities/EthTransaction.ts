@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 export enum EthTransactionStatus {
     Failure = 0,
@@ -95,4 +96,12 @@ export class EthTransaction {
     // Unix timestamp of when this transaction's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
+}
+
+export const fullTransactionUpsertConfig = (transaction: EthTransaction): string[][] => {
+    const conflictCols = ['hash']
+    const updateCols = Object.keys(transaction)
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }

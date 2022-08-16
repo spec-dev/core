@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 /**
  * An Ethereum Log
@@ -54,4 +55,12 @@ export class EthLog {
     // Unix timestamp of when this transaction's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
+}
+
+export const fullLogUpsertConfig = (log: EthLog): string[][] => {
+    const conflictCols = ['log_index', 'transaction_hash']
+    const updateCols = Object.keys(log)
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }

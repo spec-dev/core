@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 export enum EthTraceType {
     Call = 'call',
@@ -123,4 +124,14 @@ export class EthTrace {
     blockTimestamp: Date
 
     traceAddressList: number[]
+}
+
+export const fullTraceUpsertConfig = (trace: EthTrace): string[][] => {
+    const conflictCols = ['id']
+    const nonColKeys = ['traceAddressList']
+    const updateCols = Object.keys(trace)
+        .filter((key) => !nonColKeys.includes(key))
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }
