@@ -52,7 +52,7 @@ export class EthLog {
     @Column('int8', { name: 'block_number' })
     blockNumber: number
 
-    // Unix timestamp of when this transaction's block was collated.
+    // Unix timestamp of when this log's block was collated.
     @Column('timestamp', { name: 'block_timestamp' })
     blockTimestamp: Date
 }
