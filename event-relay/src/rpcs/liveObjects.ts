@@ -72,7 +72,7 @@ export async function resolveLiveObjectVersions(request: any) {
             }
             lovMap[liveObjectVersionId].edgeFunctions.push({
                 name: toNamespacedVersion(edgeFunctionVersion.nsp, edgeFunctionVersion.name, edgeFunctionVersion.version),
-                args: edgeFunctionVersion.args || {},
+                args: liveEdgeFunctionVersion.args || edgeFunctionVersion.args || {},
                 argsMap: liveEdgeFunctionVersion.argsMap || {},
                 metadata: liveEdgeFunctionVersion.metadata || {},
                 role: liveEdgeFunctionVersion.role,
