@@ -20,6 +20,9 @@ export class LiveEdgeFunctionVersion {
     role: LiveEdgeFunctionVersionRole
 
     @Column('json', { nullable: true })
+    args: object
+
+    @Column('json', { nullable: true })
     argsMap: object
 
     @Column('json', { nullable: true })
