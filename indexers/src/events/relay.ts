@@ -9,7 +9,7 @@ const eventClient = createEventClient({
     signedAuthToken: config.PUBLISHER_ROLE_KEY,
 })
 
-export async function emit(event: SpecEvent<StringKeyMap>) {
+export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
     logger.info(`Publishing ${event.name}...`)
     eventClient.socket.transmitPublish(event.name, event)
 }

@@ -76,6 +76,7 @@ export async function resolveLiveObjectVersions(request: any) {
                 argsMap: liveEdgeFunctionVersion.argsMap || {},
                 metadata: liveEdgeFunctionVersion.metadata || {},
                 role: liveEdgeFunctionVersion.role,
+                url: edgeFunctionVersion.url,
             })
         }
     }

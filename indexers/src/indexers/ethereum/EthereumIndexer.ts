@@ -115,7 +115,7 @@ class EthereumIndexer extends AbstractIndexer {
             logger.info(`[${this.head.chainId}:${this.head.blockNumber}] Got ${contracts.length} new contracts.`)
         }
     
-        // TODO: Redo this once the contracts table is up and running.
+        // TODO: Switch this to be more accurate once you have all contracts in your tables.
         // Find all unique contract addresses 'involved' in this block.
         this._findUniqueContractAddresses(transactions, logs, traces)
 
@@ -125,11 +125,11 @@ class EthereumIndexer extends AbstractIndexer {
             return
         }
 
-        // // Find and run event generators associated with the unique contract instances seen.
-        // runEventGenerators(this.uniqueContractAddresses, block, chainId)
-
-        // Save the primitives to our shared tables.
+        // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts)
+
+        // Find and run event generators associated with the unique contract instances seen.
+        runEventGenerators(this.uniqueContractAddresses, block, chainId)
     }
 
     // TODO: Redo once you have contract addresses stored.

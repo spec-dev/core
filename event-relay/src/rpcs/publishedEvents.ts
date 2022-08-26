@@ -31,7 +31,7 @@ async function getEventsAfterCursor(cursor: EventCursor, socket: AGServerSocket,
         nonce: publishedEvent.id,
         name: publishedEvent.name,
         origin: publishedEvent.origin,
-        object: publishedEvent.object,
+        data: publishedEvent.data,
     }))
     
     const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)

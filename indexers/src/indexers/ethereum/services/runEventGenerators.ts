@@ -60,6 +60,13 @@ async function performEventGenerator(
     eventGeneratorEntry: EventGeneratorEntry,
     eventOrigin: EventOrigin,
 ) {
+    const context: StringKeyMap = {
+        uid: eventGeneratorEntry.uid
+    }
+    if (eventGeneratorEntry.metadata?.edgeFunctionUrl) {
+        context.url = eventGeneratorEntry.metadata.edgeFunctionUrl
+    }
+
     let resp: Response
     try {
         resp = await fetch(eventGeneratorEntry.url, {
@@ -67,7 +74,7 @@ async function performEventGenerator(
             body: JSON.stringify({
                 contractAddress: contractInstanceEntry.address,
                 contractInstanceName: contractInstanceEntry.name,
-                context: { uid: eventGeneratorEntry.uid },
+                context,
             }),
             headers: { 
                 'Content-Type': 'application/json',
@@ -141,7 +148,7 @@ async function publishDiffsAsEvents(
             nonce: publishedEvent.id,
             name: publishedEvent.name,
             origin: publishedEvent.origin as SpecEventOrigin,
-            object: publishedEvent.object,
+            data: publishedEvent.data,
         }
         emit(specEvent)
     })

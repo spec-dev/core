@@ -1,10 +1,11 @@
-import { createClient, RedisClientType } from 'redis'
+import { createClient } from 'redis'
 import config from '../config'
 import logger from '../logger'
 import { CoreDB } from '../core/db/dataSource'
 import { EventGenerator } from '../core/db/entities/EventGenerator'
 import { Contract } from '../core/db/entities/Contract'
 import { EventVersion } from '../core/db/entities/EventVersion'
+import { StringKeyMap } from '../types'
 
 // Create redis client.
 export const redis = createClient(config.INDEXER_REDIS_URL)
@@ -27,6 +28,7 @@ export interface EventVersionEntry {
 export interface EventGeneratorEntry {
     uid: string
     url: string
+    metadata: StringKeyMap
     eventVersionEntries: EventVersionEntry[]
 }
 
@@ -169,6 +171,7 @@ export async function upsertContractCaches() {
             eventGenerators: eventGenerators.map((eg) => ({
                 uid: eg.uid,
                 url: eg.url,
+                metadata: eg.metadata || {},
                 eventVersionEntries: eg.eventVersions
                     .split(',')
                     .map((s) => s.trim())

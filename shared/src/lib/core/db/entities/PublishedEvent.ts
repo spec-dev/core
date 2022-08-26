@@ -21,7 +21,7 @@ export class PublishedEvent {
     origin: object
 
     @Column('json')
-    object: object
+    data: object
 
     @Column('int8')
     timestamp: number

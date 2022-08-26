@@ -29,6 +29,9 @@ export class EventGenerator {
     @Column()
     url: string
 
+    @Column('json', { nullable: true })
+    metadata: object
+
     // Comma delimited array of event version uids
     @Column()
     eventVersions: string

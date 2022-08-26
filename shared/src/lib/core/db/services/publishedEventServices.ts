@@ -9,13 +9,13 @@ const publishedEvents = () => CoreDB.getRepository(PublishedEvent)
 export function initPublishedEvent(
     name: string,
     origin: StringKeyMap,
-    object: StringKeyMap
+    data: StringKeyMap
 ): PublishedEvent {
     const publishedEvent = new PublishedEvent()
     publishedEvent.uid = short.generate()
     publishedEvent.name = name
     publishedEvent.origin = origin
-    publishedEvent.object = object
+    publishedEvent.data = data
     publishedEvent.timestamp = origin.eventTimestamp
     return publishedEvent
 }
