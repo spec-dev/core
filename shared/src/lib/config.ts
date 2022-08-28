@@ -13,6 +13,7 @@ export default {
     INDEXER_DB_PORT: Number(ev('INDEXER_DB_PORT', 5432)),
     INDEXER_DB_USERNAME: ev('INDEXER_DB_USERNAME', 'spec'),
     INDEXER_DB_PASSWORD: ev('INDEXER_DB_PASSWORD'),
+    INDEXER_DB_MAX_POOL_SIZE: Number(ev('INDEXER_DB_MAX_POOL_SIZE', 10)),
 
     // Head Reporter redis queue & job name
     HEAD_REPORTER_QUEUE_KEY: ev('HEAD_REPORTER_QUEUE_KEY', 'head-reporter-queue'),
@@ -23,6 +24,7 @@ export default {
     SHARED_TABLES_DB_PORT: Number(ev('SHARED_TABLES_DB_PORT', 5432)),
     SHARED_TABLES_DB_USERNAME: ev('SHARED_TABLES_DB_USERNAME', 'spec'),
     SHARED_TABLES_DB_PASSWORD: ev('SHARED_TABLES_DB_PASSWORD'),
+    SHARED_TABLES_MAX_POOL_SIZE: Number(ev('SHARED_TABLES_MAX_POOL_SIZE', 10)),
 
     // DAG Queue
     DAG_QUEUE_KEY: ev('DAG_QUEUE_KEY', 'dag-queue'),
@@ -33,6 +35,7 @@ export default {
     CORE_DB_PORT: Number(ev('CORE_DB_PORT', 5432)),
     CORE_DB_USERNAME: ev('CORE_DB_USERNAME', 'spec'),
     CORE_DB_PASSWORD: ev('CORE_DB_PASSWORD'),
+    CORE_DB_MAX_POOL_SIZE: Number(ev('CORE_DB_MAX_POOL_SIZE', 10)),
 
     // Core Redis Instance
     CORE_REDIS_URL: ev('CORE_REDIS_URL', 'redis://localhost:6379'),

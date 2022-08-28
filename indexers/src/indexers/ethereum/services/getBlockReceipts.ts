@@ -1,6 +1,12 @@
-import { AlchemyWeb3, TransactionReceipt, TransactionReceiptsParams, TransactionReceiptsResponse } from '@alch/alchemy-web3'
+import {
+    AlchemyWeb3,
+    TransactionReceipt,
+    TransactionReceiptsParams,
+    TransactionReceiptsResponse,
+} from '@alch/alchemy-web3'
 import { ExternalEthReceipt } from '../types'
 import { logger, sleep } from 'shared'
+import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -10,8 +16,8 @@ const timing = {
 async function getBlockReceipts(
     web3: AlchemyWeb3,
     params: TransactionReceiptsParams,
-    blockNumber: number, 
-    chainId: number,
+    blockNumber: number,
+    chainId: number
 ): Promise<ExternalEthReceipt[]> {
     let receipts = null
     let numAttempts = 0
@@ -28,18 +34,20 @@ async function getBlockReceipts(
     }
 
     if (receipts === null) {
-        // TODO: Need to re-enqueue block to retry with top priority
-        throw `Out of attempts - No receipts found for block ${blockNumber}...`
+        throw `Out of attempts - No receipts found for block ${blockNumber}.`
     } else if (receipts.length === 0) {
         logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
     } else {
         logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
     }
 
-    return receipts.map(r => (r as unknown as ExternalEthReceipt))
+    return receipts.map((r) => r as unknown as ExternalEthReceipt)
 }
 
-async function fetchReceipts(web3: AlchemyWeb3, params: TransactionReceiptsParams): Promise<TransactionReceipt[] | null> {
+async function fetchReceipts(
+    web3: AlchemyWeb3,
+    params: TransactionReceiptsParams
+): Promise<TransactionReceipt[] | null> {
     let resp: TransactionReceiptsResponse
     let error
     try {
@@ -48,16 +56,13 @@ async function fetchReceipts(web3: AlchemyWeb3, params: TransactionReceiptsParam
         error = err
     }
 
-    // Retry if empty, still processing, or timed out.
-    if (!resp || (error && error.message && (
-        error.message.toLowerCase().includes('being processed') ||
-        error.message.toLowerCase().includes('getaddrinfo enotfound') ||
-        error.message.toLowerCase().includes('etimedout')))) {
+    if (!resp || (error && shouldRetryOnWeb3ProviderError(error))) {
         return null
     } else if (error) {
-        throw `Error fetching receipts for ${(params as any).blockHash || (params as any).blockNumber}: ${error.message}`
-    } 
-    else {
+        throw `Error fetching receipts for ${
+            (params as any).blockHash || (params as any).blockNumber
+        }: ${error.message}`
+    } else {
         return resp.receipts || []
     }
 }

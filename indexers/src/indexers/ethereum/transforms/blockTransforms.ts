@@ -1,5 +1,12 @@
 import { ExternalEthBlock } from '../types'
-import { EthBlock, unixTimestampToDate, toString, normalizeEthAddress, normalize32ByteHash, normalizeByteData } from 'shared'
+import {
+    EthBlock,
+    unixTimestampToDate,
+    toString,
+    normalizeEthAddress,
+    normalize32ByteHash,
+    normalizeByteData,
+} from 'shared'
 
 export function externalToInternalBlock(externalBlock: ExternalEthBlock): EthBlock {
     const block = new EthBlock()

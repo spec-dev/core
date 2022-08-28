@@ -1,19 +1,47 @@
-
-import { NewReportedHead, logger, quickUncleCheck } from 'shared'
+import { NewReportedHead, logger, quickUncleCheck, numberToHex } from 'shared'
 
 class AbstractIndexer {
     head: NewReportedHead
 
+    resolvedBlockHash: string | null
+
+    blockUnixTimestamp: number | null
+
+    get chainId(): number {
+        return this.head.chainId
+    }
+
+    get blockNumber(): number {
+        return this.head.blockNumber
+    }
+
+    get hexBlockNumber(): string {
+        return numberToHex(this.blockNumber)
+    }
+
+    get blockHash(): string | null {
+        return this.head.blockHash || this.resolvedBlockHash
+    }
+
+    get logPrefix(): string {
+        return `[${this.chainId}:${this.blockNumber}]`
+    }
+
+    get pgBlockTimestamp(): string {
+        return `timezone('UTC', to_timestamp(${this.blockUnixTimestamp}))`
+    }
+
     constructor(head: NewReportedHead) {
         this.head = head
+        this.resolvedBlockHash = null
+        this.blockUnixTimestamp = null
     }
 
     async perform() {
-        const { blockNumber, blockHash, chainId } = this.head
-        logger.info(`\n[${chainId}:${blockNumber}] Indexing block ${blockNumber} (${blockHash})...`)
-        
+        this._info(`Indexing block ${this.blockNumber} (${this.blockHash})...`)
+
         if (this.head.replace) {
-            logger.info(`[${chainId}:${blockNumber}] GOT REORG -- Uncling existing block ${blockNumber}...`)
+            this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
             await this._deleteRecordsWithBlockNumber()
         }
     }
@@ -23,7 +51,19 @@ class AbstractIndexer {
     }
 
     async _wasUncled(): Promise<boolean> {
-        return await quickUncleCheck(this.head.chainId, this.head.blockHash)
+        return await quickUncleCheck(this.chainId, this.blockHash)
+    }
+
+    async _info(msg: any, ...args: any[]) {
+        logger.info(`${this.logPrefix} ${msg}`, ...args)
+    }
+
+    async _warn(msg: any, ...args: any[]) {
+        logger.warn(`${this.logPrefix} ${msg}`, ...args)
+    }
+
+    async _error(msg: any, ...args: any[]) {
+        logger.error(`${this.logPrefix} ${msg}`, ...args)
     }
 }
 

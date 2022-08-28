@@ -1,8 +1,13 @@
 import { NewReportedHead } from 'shared'
 
+export interface IndexerWorker {
+    run: () => any
+}
+
 export interface Indexer {
     head: NewReportedHead
-    perform(): Promise<void>
+    resolvedBlockHash: string | null
+    perform: () => Promise<void>
 }
 
 export interface EventOrigin {

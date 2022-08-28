@@ -12,8 +12,13 @@ export class EthBlock {
     hash: string
 
     // Block number.
-    @Column('int8')
     @Index({ unique: true })
+    @Column('int8', {
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseInt(value),
+        },
+    })
     number: number
 
     // Block's parent's hash.
@@ -80,8 +85,8 @@ export class EthBlock {
     @Column('int2', { name: 'transaction_count' })
     transactionCount: number
 
-    // Unix timestamp of when this block was collated.
-    @Column('timestamp')
+    // Timestamp of when this block was collated.
+    @Column('timestamptz')
     timestamp: Date
 }
 

@@ -1,8 +1,6 @@
 import 'reflect-metadata'
 import config from '../../config'
 import { DataSource } from 'typeorm'
-import { IndexedBlock } from './entities/IndexedBlock'
-import { createIndexedBlockTables1657506482565 } from './migrations/1657506482565-create-indexed-block-tables'
 
 export const IndexerDB = new DataSource({
     type: 'postgres',
@@ -13,7 +11,11 @@ export const IndexerDB = new DataSource({
     database: 'indexer',
     synchronize: false,
     logging: false,
-    entities: [IndexedBlock],
-    migrations: [createIndexedBlockTables1657506482565],
+    entities: [__dirname + '/entities/*.ts'],
+    migrations: [__dirname + '/migrations/*.ts'],
     subscribers: [],
+    extra: {
+        min: 2,
+        max: config.INDEXER_DB_MAX_POOL_SIZE,
+    },
 })

@@ -7,16 +7,14 @@ import { ExternalEthTransaction, ExternalEthReceipt } from '../types'
 function initTransactions(
     block: EthBlock,
     externalTransactions: ExternalEthTransaction[],
-    receipts: ExternalEthReceipt[],
+    receipts: ExternalEthReceipt[]
 ): EthTransaction[] {
     // Index receipts by transaction hash.
     const receiptsMap = mapByKey(receipts, 'transactionHash')
 
-    return externalTransactions.map(t => externalToInternalTransaction(
-        t,
-        receiptsMap[t.hash] || null,
-        block,
-    ))
+    return externalTransactions.map((t) =>
+        externalToInternalTransaction(t, receiptsMap[t.hash] || null, block)
+    )
 }
 
 export default initTransactions

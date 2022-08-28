@@ -43,7 +43,7 @@ export interface ExternalEthLog {
     address?: string | null
     topics?: string[] | null
     data?: string | null
-    blockNumber: string 
+    blockNumber: string
     blockHash: string
     transactionHash: string
     transactionIndex: string

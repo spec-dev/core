@@ -46,17 +46,17 @@ export class IndexedBlock {
     failed: boolean
 
     @CreateDateColumn({
-        type: 'timestamp with time zone',
+        type: 'timestamptz',
         name: 'created_at',
-        default: () => 'CURRENT_TIMESTAMP',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
 
     @UpdateDateColumn({
-        type: 'timestamp with time zone',
+        type: 'timestamptz',
         name: 'updated_at',
-        default: () => 'CURRENT_TIMESTAMP',
-        onUpdate: 'CURRENT_TIMESTAMP',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     updatedAt: Date
 }

@@ -1,15 +1,20 @@
 import config from '../../../config'
 import fetch from 'cross-fetch'
 import { ExternalEthTrace } from '../types'
-import { EthTrace, logger, sleep } from 'shared'   
+import { EthTrace, logger, sleep } from 'shared'
 import { externalToInternalTraces } from '../transforms/traceTransforms'
+import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
 const timing = {
     NOT_READY_DELAY: 300,
     MAX_ATTEMPTS: 100,
 }
 
-async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, chainId: number): Promise<EthTrace[]> {
+async function resolveBlockTraces(
+    hexBlockNumber: string,
+    blockNumber: number,
+    chainId: number
+): Promise<EthTrace[]> {
     let externalTraces = null
     let numAttempts = 0
 
@@ -19,7 +24,7 @@ async function resolveBlockTraces(hexBlockNumber: string, blockNumber: number, c
             if (externalTraces === null) {
                 await sleep(timing.NOT_READY_DELAY)
             }
-            numAttempts += 1    
+            numAttempts += 1
         }
     } catch (err) {
         throw `Error fetching traces for block ${hexBlockNumber}: ${err}`
@@ -40,21 +45,20 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
     let resp, error
     try {
         resp = await fetch(config.ALCHEMY_ETH_MAINNET_REST_URL, {
-            method: 'POST', 
+            method: 'POST',
             body: JSON.stringify({
                 method: 'trace_block',
                 params: [hexBlockNumber],
                 id: 1,
                 jsonrpc: '2.0',
             }),
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
         })
     } catch (err) {
         error = err
     }
 
-    if (error && error.message && (error.message.toLowerCase().includes('getaddrinfo enotfound') || 
-        error.message.toLowerCase().includes('etimedout'))) {
+    if (error && shouldRetryOnWeb3ProviderError(error)) {
         return null
     } else if (error) {
         throw error
@@ -64,17 +68,19 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
     try {
         data = await resp.json()
     } catch (err) {
-        logger.error(`Error parsing json response while fetching traces for block ${hexBlockNumber}: ${err}`)
+        logger.error(
+            `Error parsing json response while fetching traces for block ${hexBlockNumber}: ${err}`
+        )
         data = {}
     }
-    
+
     if (data?.error?.code === -32000 || !data?.result) {
         return null
     } else if (data?.error) {
         throw `error fetching traces: ${data.error.code} - ${data.error.message}`
     } else {
-        return data.result || [] as ExternalEthTrace[]
-    }    
+        return data.result || ([] as ExternalEthTrace[])
+    }
 }
 
 export default resolveBlockTraces

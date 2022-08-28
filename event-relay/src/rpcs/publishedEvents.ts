@@ -30,7 +30,10 @@ async function getEventsAfterCursor(cursor: EventCursor, socket: AGServerSocket,
         id: publishedEvent.uid,
         nonce: publishedEvent.id,
         name: publishedEvent.name,
-        origin: publishedEvent.origin,
+        origin: { 
+            ...publishedEvent.origin, 
+            eventTimestamp: publishedEvent.timestamp.toISOString(),
+        },
         data: publishedEvent.data,
     }))
     

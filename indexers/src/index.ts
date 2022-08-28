@@ -1,61 +1,56 @@
-import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, indexerRedis, NewReportedHead, IndexerDB, SharedTables, setIndexedBlockStatus, setIndexedBlockToFailed, IndexedBlockStatus, CoreDB, upsertContractCaches } from 'shared'
-import { getIndexer } from './indexers'
-
-const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
-    const head = job.data as NewReportedHead
-    const jobStatusUpdatePromise = setIndexedBlockStatus(head.id, IndexedBlockStatus.Indexing)
-
-    // Get proper indexer based on head's chain id.
-    const indexer = getIndexer(head)
-    if (!indexer) {
-        throw `No indexer exists for chainId: ${head.chainId}`
-    }
-
-    // Index block.
-    await indexer.perform()
-    await jobStatusUpdatePromise
-},  {
-    autorun: false,
-    connection: {
-        host: config.INDEXER_REDIS_HOST,
-        port: config.INDEXER_REDIS_PORT,
-    }
-})
-
-worker.on('completed', async job => {
-    const head = job.data as NewReportedHead
-    const { chainId, blockNumber } = head
-    await setIndexedBlockStatus(head.id, IndexedBlockStatus.Complete)
-    logger.info(`[${chainId}:${blockNumber}] Successfully indexed block ${blockNumber}.`)
-})
-  
-worker.on('failed', async (job, err) => {
-    const head = job.data as NewReportedHead
-    const { chainId, blockNumber } = head
-    await setIndexedBlockToFailed(head.id)
-    logger.error(`[${chainId}:${blockNumber}] Index block job ${job.id} failed with ${err}.`)
-})
-
-worker.on('error', err => {
-    logger.error(`Indexer worker error: ${err}.`)
-})
+import {
+    logger,
+    indexerRedis,
+    IndexerDB,
+    SharedTables,
+    CoreDB,
+    upsertContractCaches,
+    initPublishedEvent,
+    savePublishedEvents,
+    EthBlock,
+} from 'shared'
+import { getWorker } from './workers'
 
 async function run() {
     // Start all databases.
     await Promise.all([
-        IndexerDB.initialize(), 
-        SharedTables.initialize(), 
-        CoreDB.initialize(), 
+        IndexerDB.initialize(),
+        SharedTables.initialize(),
+        CoreDB.initialize(),
         indexerRedis.connect(),
     ])
 
-    // Make sure verified contracts and instances are cached.
-    await upsertContractCaches()
+    // const eventOrigin = {
+    //     chainId: 1,
+    //     blockNumber: 1,
+    // }
 
-    logger.info(`Listening for ${config.INDEX_BLOCK_JOB_NAME} jobs...`)
-    worker.run()
+    // const publishedEvents = [
+    //     initPublishedEvent('name', eventOrigin, { key: 1 }),
+    // ]
+
+    // const savedEvents = await savePublishedEvents(publishedEvents)
+
+    // console.log(savedEvents[0].timestamp.toISOString())
+
+    // const blocks = () => SharedTables.getRepository(EthBlock)
+    // const block = await blocks().findOneBy({ number: 15423965 })
+    // // "blockNumber":"15423965","blockTimestamp":"2022-08-28T02:31:37.000Z"
+
+    // console.log(block.timestamp.toISOString())
+
+    // // Make sure verified contracts and instances are cached.
+    // await upsertContractCaches()
+
+    // logger.info(
+    //     config.IS_RANGE_MODE
+    //         ? `Indexing block range ${config.FROM_BLOCK} -> ${config.TO_BLOCK}...`
+    //         : `Listening for new block heads...`
+    // )
+
+    // // Start dat bish.
+    // getWorker().run()
 }
 
 run()

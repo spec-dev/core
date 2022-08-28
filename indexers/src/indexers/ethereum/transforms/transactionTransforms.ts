@@ -1,10 +1,19 @@
-import { EthTransaction, EthBlock, normalizeEthAddress, normalize32ByteHash, hexToNumber, toString, hexToNumberString, normalizeByteData } from 'shared'
+import {
+    EthTransaction,
+    EthBlock,
+    normalizeEthAddress,
+    normalize32ByteHash,
+    hexToNumber,
+    toString,
+    hexToNumberString,
+    normalizeByteData,
+} from 'shared'
 import { ExternalEthReceipt, ExternalEthTransaction } from '../types'
 
 export function externalToInternalTransaction(
     externalTransaction: ExternalEthTransaction,
     receipt: ExternalEthReceipt | null,
-    block: EthBlock,
+    block: EthBlock
 ): EthTransaction {
     const transaction = new EthTransaction()
     transaction.hash = externalTransaction.hash

@@ -2,6 +2,7 @@ import { IndexedBlock, IndexedBlockStatus } from '../entities/IndexedBlock'
 import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
 import { registerBlockHashAsUncled } from '../../redis'
+import { In } from 'typeorm'
 
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
@@ -46,6 +47,23 @@ export async function getBlockAtNumber(
     return block || null
 }
 
+export async function getBlocksInNumberRange(
+    chainId: number,
+    numbers: number[]
+): Promise<IndexedBlock[]> {
+    let blocks = []
+    try {
+        blocks = await indexedBlocks().findBy({
+            chainId,
+            number: In(numbers),
+        })
+    } catch (err) {
+        logger.error(`Error fetching blocks for chainId ${chainId} in numbers ${numbers}: ${err}`)
+        throw err
+    }
+    return blocks
+}
+
 export async function createIndexedBlock(attrs: { [key: string]: any }): Promise<IndexedBlock> {
     const block = new IndexedBlock()
     for (let key in attrs) {
@@ -60,6 +78,20 @@ export async function createIndexedBlock(attrs: { [key: string]: any }): Promise
     }
 
     return block
+}
+
+export async function insertIndexedBlocks(attrsList: { [key: string]: any }[]) {
+    try {
+        await indexedBlocks()
+            .createQueryBuilder()
+            .insert()
+            .into(IndexedBlock)
+            .values(attrsList)
+            .execute()
+    } catch (err) {
+        logger.error(`Error inserting indexed blocks with attrs ${attrsList}: ${err}`)
+        throw err
+    }
 }
 
 export async function uncleBlock(indexedBlock: IndexedBlock) {
@@ -83,7 +115,6 @@ export async function setIndexedBlockStatus(id: number, status: IndexedBlockStat
         await indexedBlocks().createQueryBuilder().update({ status }).where({ id }).execute()
     } catch (err) {
         logger.error(`Error setting indexed block (id=${id}) to status ${status}: ${err}`)
-        throw err
     }
 }
 
@@ -92,6 +123,18 @@ export async function setIndexedBlockToFailed(id: number) {
         await indexedBlocks().createQueryBuilder().update({ failed: true }).where({ id }).execute()
     } catch (err) {
         logger.error(`Error setting indexed block (id=${id}) to failed: ${err}`)
+    }
+}
+
+export async function setIndexedBlocksToSucceeded(ids: number[]) {
+    try {
+        await indexedBlocks()
+            .createQueryBuilder()
+            .update({ status: IndexedBlockStatus.Complete, failed: false })
+            .where({ id: In(ids) })
+            .execute()
+    } catch (err) {
+        logger.error(`Error setting indexed blocks (ids=${ids.join(', ')}) to succeeded: ${err}`)
         throw err
     }
 }

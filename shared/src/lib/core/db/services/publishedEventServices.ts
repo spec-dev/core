@@ -16,20 +16,27 @@ export function initPublishedEvent(
     publishedEvent.name = name
     publishedEvent.origin = origin
     publishedEvent.data = data
-    publishedEvent.timestamp = origin.eventTimestamp
     return publishedEvent
 }
 
-export async function savePublishedEvents(records: PublishedEvent[]): Promise<boolean> {
+export async function savePublishedEvents(
+    records: PublishedEvent[]
+): Promise<PublishedEvent[] | null> {
+    let results
     try {
         await CoreDB.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder().insert().into(PublishedEvent).values(records).execute()
+            results = await tx
+                .createQueryBuilder()
+                .insert()
+                .into(PublishedEvent)
+                .values(records)
+                .execute()
         })
-        return true
     } catch (err) {
         logger.error(`Failed to save published events: ${err?.message || err}`)
-        return false
+        return null
     }
+    return results
 }
 
 export async function getPublishedEventsAfterId(

@@ -1,33 +1,38 @@
-import { 
-    logger, 
-    getContractEventGeneratorData, 
-    EthBlock, 
+import {
+    logger,
+    getContractEventGeneratorData,
+    EthBlock,
     toNamespacedVersion,
     EventGeneratorEntry,
-    ContractInstanceEntry, 
-    SpecFunctionResponse, 
-    StringKeyMap, 
-    EventVersionEntry, 
+    ContractInstanceEntry,
+    SpecFunctionResponse,
+    StringKeyMap,
+    EventVersionEntry,
     PublishedEvent,
     initPublishedEvent,
-    savePublishedEvents
+    savePublishedEvents,
 } from 'shared'
 import { fetch } from 'cross-fetch'
 import { EventOrigin } from '../../../types'
 import { emit } from '../../../events/relay'
 import { SpecEvent, SpecEventOrigin } from '@spec.types/spec'
 
-async function runEventGenerators(uniqueContractAddresses: Set<string>, block: EthBlock, chainId: number) {
+async function runEventGenerators(
+    uniqueContractAddresses: Set<string>,
+    block: EthBlock,
+    chainId: number
+) {
     const addresses = Array.from(uniqueContractAddresses)
     if (!addresses.length) return
 
-    const {
-        instanceEntries,
-        contractEventGeneratorEntries,
-    } = await getContractEventGeneratorData(addresses)
-    
+    const { instanceEntries, contractEventGeneratorEntries } = await getContractEventGeneratorData(
+        addresses
+    )
+
     if (!instanceEntries.length) {
-        logger.info(`[${chainId}:${block.number}] No verified contracts interacted with this block.`)
+        logger.info(
+            `[${chainId}:${block.number}] No verified contracts interacted with this block.`
+        )
         return
     }
 
@@ -43,14 +48,11 @@ async function runEventGenerators(uniqueContractAddresses: Set<string>, block: E
     }
 
     for (let contractInstanceEntry of instanceEntries) {
-        const eventGeneratorEntries = contractEventGeneratorEntries[contractInstanceEntry.contractUid] || []
+        const eventGeneratorEntries =
+            contractEventGeneratorEntries[contractInstanceEntry.contractUid] || []
 
         for (let eventGeneratorEntry of eventGeneratorEntries) {
-            performEventGenerator(
-                contractInstanceEntry,
-                eventGeneratorEntry,
-                eventOrigin,
-            )
+            performEventGenerator(contractInstanceEntry, eventGeneratorEntry, eventOrigin)
         }
     }
 }
@@ -58,10 +60,10 @@ async function runEventGenerators(uniqueContractAddresses: Set<string>, block: E
 async function performEventGenerator(
     contractInstanceEntry: ContractInstanceEntry,
     eventGeneratorEntry: EventGeneratorEntry,
-    eventOrigin: EventOrigin,
+    eventOrigin: EventOrigin
 ) {
     const context: StringKeyMap = {
-        uid: eventGeneratorEntry.uid
+        uid: eventGeneratorEntry.uid,
     }
     if (eventGeneratorEntry.metadata?.edgeFunctionUrl) {
         context.url = eventGeneratorEntry.metadata.edgeFunctionUrl
@@ -76,7 +78,7 @@ async function performEventGenerator(
                 contractInstanceName: contractInstanceEntry.name,
                 context,
             }),
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json',
                 // TODO: Some type of auth header here...
             },
@@ -95,7 +97,9 @@ async function performEventGenerator(
     try {
         respData = await resp.json()
     } catch (err) {
-        logger.error(`Event Generator Error -- failed to parse JSON response data: ${err?.message || err}`)
+        logger.error(
+            `Event Generator Error -- failed to parse JSON response data: ${err?.message || err}`
+        )
         return
     }
 
@@ -113,10 +117,10 @@ async function performEventGenerator(
     logger.info(`Diffs found for ${contractInstanceEntry.name}.`)
 
     await publishDiffsAsEvents(
-        liveObjectDiffs, 
-        eventGeneratorEntry.eventVersionEntries, 
+        liveObjectDiffs,
+        eventGeneratorEntry.eventVersionEntries,
         contractInstanceEntry.address,
-        eventOrigin,
+        eventOrigin
     )
 }
 
@@ -124,30 +128,30 @@ async function publishDiffsAsEvents(
     liveObjectDiffs: StringKeyMap[],
     eventVersionEntries: EventVersionEntry[],
     contractAddress: string,
-    eventOrigin: EventOrigin,
+    eventOrigin: EventOrigin
 ) {
     // Create array of PublishedEvents from SpecEvents of the live object diffs.
-    const publishedEvents = liveObjectDiffsToPublishedEvents(
+    let publishedEvents = liveObjectDiffsToPublishedEvents(
         liveObjectDiffs,
         eventVersionEntries,
         contractAddress,
-        eventOrigin,
+        eventOrigin
     )
 
     // Save list of PublishedEvents to ensure we have ids.
-    const saved = await savePublishedEvents(publishedEvents)
-    if (!saved) {
-        // TODO: Either re-enqueue block or figure out wtf is going on.
-        return
-    }
+    publishedEvents = await savePublishedEvents(publishedEvents)
+    if (!publishedEvents) return
 
     // Publish events.
-    publishedEvents.forEach(publishedEvent => {
+    publishedEvents.forEach((publishedEvent) => {
         const specEvent: SpecEvent<StringKeyMap> = {
             id: publishedEvent.uid,
             nonce: publishedEvent.id,
             name: publishedEvent.name,
-            origin: publishedEvent.origin as SpecEventOrigin,
+            origin: { 
+                ...publishedEvent.origin, 
+                eventTimestamp: publishedEvent.timestamp.toISOString(),
+            } as SpecEventOrigin,
             data: publishedEvent.data,
         }
         emit(specEvent)
@@ -158,7 +162,7 @@ function liveObjectDiffsToPublishedEvents(
     liveObjectDiffs: StringKeyMap[],
     eventVersionEntries: EventVersionEntry[],
     contractAddress: string,
-    eventOrigin: EventOrigin,
+    eventOrigin: EventOrigin
 ): PublishedEvent[] {
     const publishedEvents: PublishedEvent[] = []
     for (let i = 0; i < eventVersionEntries.length; i++) {
@@ -167,18 +171,18 @@ function liveObjectDiffsToPublishedEvents(
         const liveObjectDiff = liveObjectDiffs[i] || null
         if (!liveObjectDiff) continue
 
-        publishedEvents.push(initPublishedEvent(
-            toNamespacedVersion(nsp, name, version),
-            {
-                ...eventOrigin,
-                contractAddress,
-                eventTimestamp: Date.now(),
-            },
-            liveObjectDiff,
-        ))
+        publishedEvents.push(
+            initPublishedEvent(
+                toNamespacedVersion(nsp, name, version),
+                {
+                    ...eventOrigin,
+                    contractAddress,
+                },
+                liveObjectDiff
+            )
+        )
     }
     return publishedEvents
 }
-
 
 export default runEventGenerators

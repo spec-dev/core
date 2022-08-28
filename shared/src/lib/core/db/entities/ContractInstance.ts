@@ -31,9 +31,9 @@ export class ContractInstance {
     desc: string
 
     @CreateDateColumn({
-        type: 'timestamp with time zone',
+        type: 'timestamptz',
         name: 'created_at',
-        default: () => 'CURRENT_TIMESTAMP',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
 

@@ -2,6 +2,7 @@ import { AlchemyWeb3 } from '@alch/alchemy-web3'
 import { ExternalEthBlock } from '../types'
 import { EthBlock, logger, sleep } from 'shared'
 import { externalToInternalBlock } from '../transforms/blockTransforms'
+import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -12,7 +13,7 @@ export async function resolveBlock(
     web3: AlchemyWeb3,
     blockNumberOrHash: number | string,
     blockNumber: number,
-    chainId: number,
+    chainId: number
 ): Promise<[ExternalEthBlock, EthBlock]> {
     let externalBlock = null
     let numAttempts = 0
@@ -29,26 +30,30 @@ export async function resolveBlock(
     }
 
     if (externalBlock === null) {
-        // TODO: Need to re-enqueue block to retry with top priority
         throw `Out of attempts - No block found for ${blockNumber}...`
     }
 
     logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
+    
     return [externalBlock, externalToInternalBlock(externalBlock)]
 }
 
-export async function fetchBlock(web3: AlchemyWeb3, blockNumberOrHash: number | string): Promise<ExternalEthBlock | null> {
+export async function fetchBlock(
+    web3: AlchemyWeb3,
+    blockNumberOrHash: number | string
+): Promise<ExternalEthBlock | null> {
     let externalBlock: ExternalEthBlock
     let error
     try {
-        externalBlock = await web3.eth.getBlock(blockNumberOrHash, true) as unknown as ExternalEthBlock
+        externalBlock = (await web3.eth.getBlock(
+            blockNumberOrHash,
+            true
+        )) as unknown as ExternalEthBlock
     } catch (err) {
         error = err
     }
 
-    if (error && error.message && (
-        error.message.toLowerCase().includes('getaddrinfo enotfound') || 
-        error.message.toLowerCase().includes('etimedout'))) {
+    if (error && shouldRetryOnWeb3ProviderError(error)) {
         return null
     } else if (error) {
         throw error

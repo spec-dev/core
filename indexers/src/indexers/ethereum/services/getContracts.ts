@@ -7,7 +7,11 @@ function getContracts(traces: EthTrace[]): EthContract[] {
         const address = normalizeEthAddress(trace.to)
 
         // Find all the successful contract creation traces.
-        if (trace.traceType === EthTraceType.Create && trace.status == EthTraceStatus.Success && !!address) {
+        if (
+            trace.traceType === EthTraceType.Create &&
+            trace.status == EthTraceStatus.Success &&
+            !!address
+        ) {
             const contract = new EthContract()
             contract.address = address
             contract.bytecode = trace.output

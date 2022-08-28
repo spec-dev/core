@@ -116,11 +116,17 @@ export class EthTrace {
 
     // The number of the block this trace was included in.
     @Index()
-    @Column('int8', { name: 'block_number' })
+    @Column('int8', {
+        name: 'block_number',
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseInt(value),
+        },
+    })
     blockNumber: number
 
-    // Unix timestamp of when this trace's block was collated.
-    @Column('timestamp', { name: 'block_timestamp' })
+    // Timestamp of when this trace's block was collated.
+    @Column('timestamptz', { name: 'block_timestamp' })
     blockTimestamp: Date
 
     traceAddressList: number[]

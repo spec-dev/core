@@ -1,24 +1,34 @@
 import { ExternalEthTrace } from '../types'
-import { EthTrace, EthTraceType, normalize32ByteHash, normalizeEthAddress, hexToNumberString, EthCallType, EthRewardType, EthTraceStatus, logger } from 'shared'
+import {
+    EthTrace,
+    EthTraceType,
+    normalize32ByteHash,
+    normalizeEthAddress,
+    hexToNumberString,
+    EthCallType,
+    EthRewardType,
+    EthTraceStatus,
+    logger,
+} from 'shared'
 
 const GENESIS_BLOCK_NUMBER = 0
 const DAOFORK_BLOCK_NUMBER = 1920000
 
-export function externalToInternalTraces(externalTraces: ExternalEthTrace[], chainId: number): EthTrace[] {
+export function externalToInternalTraces(
+    externalTraces: ExternalEthTrace[],
+    chainId: number
+): EthTrace[] {
+    if (!externalTraces.length) return []
     let specialTraces = []
     const blockNumber = externalTraces[0].blockNumber
 
     if (blockNumber === GENESIS_BLOCK_NUMBER) {
         specialTraces = getGenesisTraces()
-    }
-    else if (blockNumber === DAOFORK_BLOCK_NUMBER) {
+    } else if (blockNumber === DAOFORK_BLOCK_NUMBER) {
         specialTraces = getDaoForkTraces()
     }
-    
-    const traces = [
-        ...specialTraces,
-        ...externalTraces.map(t => externalToInternalTrace(t))
-    ]
+
+    const traces = [...specialTraces, ...externalTraces.map((t) => externalToInternalTrace(t))]
 
     // Calculate group-based properties.
     setTraceStatuses(traces)
@@ -133,7 +143,8 @@ function setTransactionTraceStatuses(traces: EthTrace[]) {
     for (i = 0; i < traces.length; i++) {
         traceAddressList = traces[i].traceAddressList
         if (traceAddressList.length === 0) continue
-        parentTrace = tracesByTraceAddress[traceAddressList.slice(0, traceAddressList.length - 1).join(',')]
+        parentTrace =
+            tracesByTraceAddress[traceAddressList.slice(0, traceAddressList.length - 1).join(',')]
 
         if (!parentTrace) {
             logger.error(
@@ -151,7 +162,7 @@ function setTransactionTraceStatuses(traces: EthTrace[]) {
 
 function setTraceIds(traces: EthTrace[]) {
     const blockScopedTraces = []
-    
+
     let trace
     for (let i = 0; i < traces.length; i++) {
         trace = traces[i]
@@ -159,9 +170,11 @@ function setTraceIds(traces: EthTrace[]) {
         // Tx-scoped trace id:
         // --> {trace_type}_{transaction_hash}_{trace_address}
         if (trace.transactionHash) {
-            traces[i].id = `${trace.traceType}_${trace.transactionHash}_${trace.traceAddressList.join('_')}`
+            traces[i].id = `${trace.traceType}_${
+                trace.transactionHash
+            }_${trace.traceAddressList.join('_')}`
         }
-        
+
         // Block-scoped trace id:
         // --> {trace_type}_{block_hash}_{index_within_block}
         else {
@@ -192,12 +205,13 @@ function setBlockScopedTraceIds(traces: EthTrace[]) {
 }
 
 function setTraceIdsForSingleType(traces: EthTrace[]) {
-    traces.sort((a, b) => (
-        (a.rewardType || '').localeCompare(b.rewardType || '') ||
-        (a.from || '').localeCompare(b.from || '') ||
-        (a.to || '').localeCompare(b.to || '') ||
-        Number(BigInt(a.value || 0) - BigInt(b.value || 0))
-    ))
+    traces.sort(
+        (a, b) =>
+            (a.rewardType || '').localeCompare(b.rewardType || '') ||
+            (a.from || '').localeCompare(b.from || '') ||
+            (a.to || '').localeCompare(b.to || '') ||
+            Number(BigInt(a.value || 0) - BigInt(b.value || 0))
+    )
 
     for (let i = 0; i < traces.length; i++) {
         traces[i].id = `${traces[i].traceType}_${traces[i].blockHash}_${i}`

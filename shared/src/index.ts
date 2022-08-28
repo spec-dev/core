@@ -33,10 +33,13 @@ export { sleep } from './lib/utils/time'
 export {
     getlastSeenBlock,
     getBlockAtNumber,
+    getBlocksInNumberRange,
     createIndexedBlock,
     uncleBlock,
     setIndexedBlockStatus,
     setIndexedBlockToFailed,
+    insertIndexedBlocks,
+    setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
@@ -45,7 +48,7 @@ import config from './lib/config'
 import logger from './lib/logger'
 export { chainIds, config, logger }
 export * from './lib/types'
-export { unixTimestampToDate, dateToUnixTimestamp, currentUnixTs } from './lib/utils/date'
+export { unixTimestampToDate } from './lib/utils/date'
 export {
     mapByKey,
     normalizeEthAddress,

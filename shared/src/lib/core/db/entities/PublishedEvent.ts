@@ -1,4 +1,4 @@
-import { Entity, Column, Index, PrimaryGeneratedColumn } from 'typeorm'
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm'
 
 /**
  * A published instance of a versioned Spec event.
@@ -23,6 +23,10 @@ export class PublishedEvent {
     @Column('json')
     data: object
 
-    @Column('int8')
-    timestamp: number
+    @CreateDateColumn({
+        type: 'timestamptz',
+        name: 'timestamp',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+    })
+    timestamp: Date
 }
