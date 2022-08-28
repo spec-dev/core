@@ -30,7 +30,7 @@ export class Event {
     @Column({ nullable: true })
     desc: string
 
-    @Column()
+    @Column('boolean', { name: 'is_contract_event' })
     isContractEvent: boolean
 
     @Column('int8', { name: 'namespace_id' })

@@ -33,7 +33,7 @@ export class EventGenerator {
     metadata: object
 
     // Comma delimited array of event version uids
-    @Column()
+    @Column('varchar', { name: 'event_versions' })
     eventVersions: string
 
     @CreateDateColumn({
