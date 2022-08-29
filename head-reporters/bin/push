@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Build the head-reporters docker image --- #
+# --- Push the latest version of the auth docker image to the configured remote registry --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -22,9 +22,8 @@ aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
 image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
-image_version=$( $shared_bin_dir/latest_sha )
-image="$image_repo:$image_version"
-registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version="$( docker images $registry_image | sed -n 2p | awk '{print $2}' )"
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -33,13 +32,8 @@ $shared_bin_dir/assert_env "AWS_REGION" "$aws_region"
 $shared_bin_dir/assert_env "DOCKER_IMAGE_ORG" "$image_org"
 $shared_bin_dir/assert_env "HEAD_REPORTER_IMAGE_NAME" "$image_name"
 
-# ======== BUILD IMAGE ======== #
+# ======== PUSH IMAGE ======== #
 
-# Enter the project directory.
-cd "$core_dir"
+docker push "$registry_image:$image_version"
 
-# Build and tag the image.
-docker build -t "$image" -f head-reporters/Dockerfile .
-docker tag "$image" "$registry_image"
-
-echo "Successfully built image $registry_image"
+echo "Successfully pushed image $registry_image:$image_version"

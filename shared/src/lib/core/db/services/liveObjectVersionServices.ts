@@ -1,10 +1,8 @@
 import { LiveObjectVersion } from '../entities/LiveObjectVersion'
-import { LiveEventVersion } from '../entities/LiveEventVersion'
-import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { fromNamespacedVersion, toNamespacedVersion } from '../../../utils/formatters'
+import { fromNamespacedVersion } from '../../../utils/formatters'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -46,7 +44,7 @@ export async function getLiveObjectVersionsByNamespacedVersions(
         lovs = await liveObjectVersions().find({ where: validNamespacedVersions })
     } catch (err) {
         logger.error(
-            `Error fetching LiveObjectVersions for namespacedVersions: ${namespacedVersions.join(
+            `Error fetching LiveObjectVersions for namespacedVersions: ${validNamespacedVersions.join(
                 ', '
             )}`
         )

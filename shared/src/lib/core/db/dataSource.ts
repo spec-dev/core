@@ -11,8 +11,8 @@ export const CoreDB = new DataSource({
     database: 'core',
     synchronize: false,
     logging: false,
-    entities: [__dirname + '/entities/*.ts'],
-    migrations: [__dirname + '/migrations/*.ts'],
+    entities: [__dirname + '/entities/*.{js,ts}'],
+    migrations: [__dirname + '/migrations/*.{js,ts}'],
     subscribers: [],
     extra: {
         min: 2,

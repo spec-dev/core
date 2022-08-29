@@ -11,8 +11,8 @@ export const SharedTables = new DataSource({
     database: 'shared-tables',
     synchronize: false,
     logging: false,
-    entities: [__dirname + '/entities/*.ts'],
-    migrations: [__dirname + '/migrations/*.ts'],
+    entities: [__dirname + '/entities/*.{js,ts}'],
+    migrations: [__dirname + '/migrations/*.{js,ts}'],
     subscribers: [],
     extra: {
         min: 2,

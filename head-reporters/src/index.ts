@@ -1,5 +1,5 @@
 import config from './config'
-import { logger, IndexerDB, indexerRedis } from 'shared'
+import { logger, IndexerDB, indexerRedis } from '../../shared'
 import { getReporter } from './reporters'
 
 async function listen() {

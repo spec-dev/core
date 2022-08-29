@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# --- Retrieve value of an environment variable(s) for specified env tier --- #
+
+# ======== PARSE ARGS ======== #
+
+env_tier="$1"
+env_name="$2"
+arg_name="$3"
+as_env_arg="$4"
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+project_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+envs_dir="$project_dir/envs"
+env_file_path="$envs_dir/$env_tier.env"
+
+# ======== RETRIEVE ENV VAL(s) ======== #
+
+# Get all env vars if "all" is specified.
+if [[ "$env_name" = "all" ]]; then
+	# Get all lines that are NOT comments.
+	all_envs=$( cat "$env_file_path" | grep "^[^#]" )
+
+	# Convert all lines into an array.
+	IFS=$'\n' read -rd '' -a all_envs_arr <<<"$all_envs"
+
+	# Format env pairs (1 per line) into a single string.
+	env_args=""
+	for env_pair in "${all_envs_arr[@]}"; do
+		# Only use the env pairs with non-empty values.
+		if [[ "$( cut -d '=' -f 2 <<< $env_pair )" ]]; then
+			if [[ "$as_env_arg" == "true" ]]; then
+				env_args+="--env=\"$env_pair\" "
+			else
+				env_args+=" $env_pair"
+			fi
+		fi
+	done
+
+	echo "$env_args"
+
+elif [[ "$env_name" ]]; then
+	# Get value for specific env name.
+	env_var=$( cat "$env_file_path" | grep "$env_name=" )
+
+	# If env var exists...
+	if [[ "$env_var" ]]; then
+		# Parse only the env value.
+		[[ $env_var =~ ($env_name=(.*)) ]]
+		env_val="${BASH_REMATCH[2]}"
+
+		# Format as an arg if desired.
+		if [[ "$arg_name" ]]; then
+			echo "--$arg_name=$env_val"
+		else
+			echo "$env_val"
+		fi
+	else
+		echo ""
+	fi
+else
+	echo ""
+fi

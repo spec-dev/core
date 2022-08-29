@@ -1,0 +1,5 @@
+#!/bin/bash
+
+aws iam create-policy \
+    --policy-name AmazonEKSClusterAutoscalerPolicy \
+    --policy-document file://autoscaling/autoscaling-group-policy.json

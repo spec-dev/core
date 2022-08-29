@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# --- Get the latest commit sha (shortened) for the current git repo --- #
+
+# Get the commit line for the latest commit from 'git log'.
+commit=$( git log -n 1 | grep "commit " )
+
+# Extract just the sha with regex.
+[[ "$commit" =~ (commit (.*)) ]]
+sha="${BASH_REMATCH[2]}"
+
+# Pipe shortened sha to stdout.
+echo "${sha:0:7}"

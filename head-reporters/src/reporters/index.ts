@@ -1,4 +1,4 @@
-import { chainIds } from 'shared'
+import { chainIds } from '../../../shared'
 import { Reporter } from '../types'
 import EthereumReporter from './EthereumReporter'
 

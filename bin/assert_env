@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# --- Log error message and exit if provided environment variable is missing --- #
+
+name="$1"
+val="$2"
+
+if [[ ! "$val" ]]; then
+	printf "$name env var not set for this environment.\nTry setting it in your \"envs/<current-env>.env\" file (e.g. \"envs/dev.env\").\n"
+	exit 1
+fi

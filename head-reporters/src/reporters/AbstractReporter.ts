@@ -1,5 +1,4 @@
-
-import { logger } from 'shared'
+import { logger } from '../../../shared'
 
 class AbstractReporter {
     chainId: number

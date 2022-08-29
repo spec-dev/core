@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq'
 import config from './config'
-import { IndexedBlock, logger, NewReportedHead } from 'shared'
+import { IndexedBlock, logger, NewReportedHead } from '../../shared'
 
 // Queue for reporting new block heads to our indexers.
 const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
@@ -11,10 +11,10 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
     defaultJobOptions: {
         attempts: 3,
         backoff: {
-          type: 'exponential',
-          delay: 100,
+            type: 'exponential',
+            delay: 100,
         },
-    }
+    },
 })
 
 export async function reportBlock(block: IndexedBlock, replace: boolean) {

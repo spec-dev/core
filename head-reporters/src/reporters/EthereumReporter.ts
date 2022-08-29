@@ -1,8 +1,8 @@
-import AbstractReporter from './AbstractReporter';
+import AbstractReporter from './AbstractReporter'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import processNewHead from '../services/processNewHead'
 import config from '../config'
-import { logger } from 'shared'
+import { logger } from '../../../shared'
 
 class EthereumReporter extends AbstractReporter {
     web3: AlchemyWeb3
@@ -16,8 +16,8 @@ class EthereumReporter extends AbstractReporter {
         super.listen()
         this.web3.eth
             .subscribe('newBlockHeaders')
-            .on('data', data => processNewHead(this.chainId, data))
-            .on('error', e => logger.error('Alchemy subscription error', e))
+            .on('data', (data) => processNewHead(this.chainId, data))
+            .on('error', (e) => logger.error('Alchemy subscription error', e))
     }
 }
 

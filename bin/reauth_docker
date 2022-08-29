@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# --- Reauthorize docker connection to ECR --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# ======== SET KEY VARS ======== #
+
+aws_account_id="$AWS_ACCOUNT_ID"
+aws_region="$AWS_REGION"
+registry="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com"
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$this_dir/assert_env "AWS_ACCOUNT_ID" "$aws_account_id"
+$this_dir/assert_env "AWS_REGION" "$aws_region"
+
+# ======== CONNECT DOCKER <-> ECR ======== #
+
+aws ecr get-login-password --region "$aws_region" | docker login \
+    --username AWS \
+    --password-stdin "$registry"

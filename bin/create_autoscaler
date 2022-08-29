@@ -1,0 +1,3 @@
+#!/bin/bash
+
+kubectl apply -f autoscaling/cluster-autoscaler-autodiscover.yaml

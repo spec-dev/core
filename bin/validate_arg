@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# --- Exit if the value for a provided argument is not supported --- #
+
+# ======== PARSE ARGS ======== #
+
+arg_name="$1"
+provided_val="$2"
+supported_vals="$3" # '|' delimited string of supported arg values
+
+# ======== VALIDATE ARG ======== #
+
+# If supported values are provided, ensure the provided val is one of these.
+if [[ "$supported_vals" ]]; then
+	# Split supported values into an array.
+	IFS=$'|' read -rd '' -a supported_vals_arr <<<"$supported_vals"
+
+	valid="" # false
+	# Set $valid to "true" if provided value matches any of the supported values.
+	for val in ${supported_vals_arr[@]}; do
+		if [[ "$provided_val" = "$val" ]]; then
+			valid="true"
+			break
+		fi
+	done
+
+	# Log an error message and exit if provided arg value is not supported.
+	if [[ ! "$valid" ]]; then
+		space_del="${supported_vals_arr[@]}"
+		comma_del="${space_del// /, }"
+		echo "Invalid value \"$provided_val\" provided for argument \"$arg_name\". Supported values: $comma_del"
+		exit 1
+	fi
+else
+	# Supported values were NOT provided, so just ensure the provided val is NOT empty.
+	if [[ ! "$provided_val" ]]; then
+		echo "Argument \"$arg_name\" required to exist."
+		exit 1
+	fi
+fi
