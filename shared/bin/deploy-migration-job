@@ -95,8 +95,11 @@ image="$registry_image:$image_version"
 
 template_path="$shared_dir/migration-job.yaml"
 
+job_name="migrate-$db_folder_name-$image_version"
+
 # Create the config template.
 template=$( cat "$template_path" | \
+    sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{DB_FOLDER_NAME}}|$db_folder_name|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \

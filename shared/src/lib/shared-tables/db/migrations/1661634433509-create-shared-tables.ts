@@ -5,6 +5,9 @@ export class createSharedTables1661634433509 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
+            `CREATE SCHEMA IF NOT EXISTS "ethereum" `
+        )
+        await queryRunner.query(
             `CREATE TABLE "ethereum"."blocks" ("hash" character varying(70) NOT NULL, "number" bigint NOT NULL, "parent_hash" character varying(70), "nonce" character varying(20) NOT NULL, "sha3_uncles" character varying(70), "logs_bloom" character varying, "transactions_root" character varying(70), "state_root" character varying(70), "receipts_root" character varying(70), "miner" character varying(50), "difficulty" character varying, "total_difficulty" character varying, "size" bigint, "extra_data" character varying, "gas_limit" character varying(40), "gas_used" character varying(40), "base_fee_per_gas" character varying(40), "transaction_count" smallint NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, CONSTRAINT "PK_00d4f3eb491f00ae5bece2a559e" PRIMARY KEY ("hash"))`
         )
         await queryRunner.query(
@@ -47,5 +50,6 @@ export class createSharedTables1661634433509 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "ethereum"."transactions"`)
         await queryRunner.query(`DROP INDEX "ethereum"."IDX_5c0b8f5cedabb33e58a625f8a7"`)
         await queryRunner.query(`DROP TABLE "ethereum"."blocks"`)
+        await queryRunner.query(`DROP SCHEMA "ethereum"`)
     }
 }
