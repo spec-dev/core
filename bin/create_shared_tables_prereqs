@@ -1,0 +1,130 @@
+#!/bin/bash
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+env="$1"
+
+# ======== VALIDATE ARGS ======== #
+
+$this_dir/validate_arg "env" "$env" "dev|staging|prod"
+
+# ======== SET KEY VARS ======== #
+
+subnet_availability_zone_1="us-west-1b"
+subnet_availability_zone_2="us-west-1c"
+shared_tables=$( $this_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+port=$( $this_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+
+# ======== VALIDATE ENV VARS ====== #
+
+$this_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables"
+$this_dir/assert_env "SHARED_TABLES_DB_PORT" "$port"
+
+# ======== CREATE RESOURCES ======== #
+
+echo "Creating VPC..."
+
+# Create new VPC.
+vpc_id=$( aws ec2 create-vpc --cidr-block 10.0.0.0/24 | jq -r '.Vpc.VpcId' )
+if [ ! "$vpc_id" ]; then
+    echo "VPC creation failed."
+    exit 1
+fi
+
+# Enable both DNS support and resolution.
+aws ec2 modify-vpc-attribute --vpc-id "$vpc_id" --enable-dns-support "{\"Value\":true}"
+aws ec2 modify-vpc-attribute --vpc-id "$vpc_id" --enable-dns-hostnames "{\"Value\":true}"
+
+echo "Creating Subnet 1..."
+
+# Create subnet 1 within the VPC.
+subnet1_id=$( aws ec2 create-subnet \
+    --availability-zone "$subnet_availability_zone_1" \
+    --vpc-id "$vpc_id" \
+    --cidr-block 10.0.0.0/25 \
+    | jq -r '.Subnet.SubnetId' )
+if [ ! "$subnet1_id" ]; then
+    echo "Subnet 1 creation failed."
+    exit 1
+fi
+
+echo "Creating Subnet 2..."
+
+# Create subnet 2 within the VPC.
+subnet2_id=$( aws ec2 create-subnet \
+    --availability-zone "$subnet_availability_zone_2" \
+    --vpc-id "$vpc_id" \
+    --cidr-block 10.0.0.128/25 \
+    | jq -r '.Subnet.SubnetId' )
+if [ ! "$subnet2_id" ]; then
+    echo "Subnet 2 creation failed."
+    exit 1
+fi
+
+echo "Creating DB subnet group..."
+
+# Create DB subnet group.
+aws rds create-db-subnet-group \
+    --db-subnet-group-name "$shared_tables" \
+    --db-subnet-group-description "$shared_tables DB subnet group" \
+    --subnet-ids "$subnet1_id" "$subnet2_id"
+
+echo "Creating internet gateway..."
+
+# Create an internet gateway.
+internet_gw_id=$( aws ec2 create-internet-gateway | jq -r '.InternetGateway.InternetGatewayId' )
+if [ ! "$internet_gw_id" ]; then
+    echo "Internet gateway creation failed."
+    exit 1
+fi
+
+echo "Attaching internet gateway..."
+
+# Attach internet gateway to VPC.
+aws ec2 attach-internet-gateway \
+    --internet-gateway-id "$internet_gw_id" \
+    --vpc-id "$vpc_id"
+
+echo "Creating custom route table for VPC..."
+
+# Create custom route table for VPC.
+custom_route_table_id=$( aws ec2 create-route-table --vpc-id "$vpc_id" | jq -r '.RouteTable.RouteTableId' )
+if [ ! "$internet_gw_id" ]; then
+    echo "Custom route table creation failed."
+    exit 1
+fi
+
+echo "Allowing all inbound traffic to gateway..."
+
+# Add inbound traffic routes to the custom route table.
+aws ec2 create-route \
+    --route-table-id "$custom_route_table_id" \
+    --destination-cidr-block 0.0.0.0/0 \
+    --gateway-id "$internet_gw_id"
+
+echo "Assocating subnets with custom VPC route table..."
+
+# Associate both subnets with this custom route table.
+aws ec2 associate-route-table --route-table-id "$custom_route_table_id" --subnet-id "$subnet1_id"
+aws ec2 associate-route-table --route-table-id "$custom_route_table_id" --subnet-id "$subnet2_id"
+
+echo "Creating DB security group..."
+
+# Create security group.
+sg_id=$( aws ec2 create-security-group \
+    --group-name "$shared_tables" \
+    --vpc-id "$vpc_id" \
+    --description "RDS ingress security group" \
+    | jq -r '.GroupId' )
+
+echo "Allowing all inbound traffic to DB on port $port..."
+
+# Allow all inbound traffic on the specified port.
+aws ec2 authorize-security-group-ingress \
+    --group-id "$sg_id" \
+    --protocol tcp \
+    --port "$port" \
+    --cidr 0.0.0.0/0
