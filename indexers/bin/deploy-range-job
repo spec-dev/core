@@ -29,7 +29,6 @@ publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
 event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
 
 # Indexer Redis
-indexer_redis_url=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_URL" )
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
@@ -41,7 +40,6 @@ indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
 indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
 # Core Redis
-core_redis_url=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_URL" )
 core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
 core_redis_password=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
 
@@ -68,7 +66,6 @@ $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 
 # Indexer Redis
-$shared_bin_dir/assert_env "INDEXER_REDIS_URL" "$indexer_redis_url"
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
 $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_password"
 
@@ -80,7 +77,6 @@ $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
 # Core Redis
-$shared_bin_dir/assert_env "CORE_REDIS_URL" "$core_redis_url"
 $shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
 $shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_password"
 
@@ -100,19 +96,20 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_passwo
 
 # ======== GET LATEST IMAGE ======== #
 
-image=$( $this_dir/get_latest_image "$env" )
-if [ ! "$image" ]; then
-    echo "No indexer image found."
-    exit 1
-fi
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
 template_path="$indexers_dir/range-job.yaml"
 
-job_name="indexer-$from_block-$to_block"
-
-echo $job_name
+job_name="indexer-$image_version-$from_block-$to_block"
 
 # Create the config template.
 template=$( cat "$template_path" | \
@@ -122,7 +119,6 @@ template=$( cat "$template_path" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \
     sed "s|{{EVENT_RELAY_HOSTNAME}}|$event_relay_hostname|g" | \
-    sed "s|{{INDEXER_REDIS_URL}}|$indexer_redis_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
@@ -130,7 +126,6 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
     sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
-    sed "s|{{CORE_REDIS_URL}}|$core_redis_url|g" | \
     sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
     sed "s|{{CORE_REDIS_PORT}}|$core_redis_password|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
@@ -146,7 +141,5 @@ template=$( cat "$template_path" | \
 
 echo "Creating index range job resources..."
 
-echo "$template"
-
-# # Apply the template.
-# echo "$template" | kubectl apply -f -
+# Apply the template.
+echo "$template" | kubectl apply -f -
