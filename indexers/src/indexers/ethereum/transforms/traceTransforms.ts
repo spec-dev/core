@@ -10,6 +10,7 @@ import {
     EthTraceStatus,
     logger,
 } from '../../../../../shared'
+import config from '../../../config'
 
 const GENESIS_BLOCK_NUMBER = 0
 const DAOFORK_BLOCK_NUMBER = 1920000
@@ -34,7 +35,7 @@ export function externalToInternalTraces(
     setTraceStatuses(traces)
     setTraceIds(traces)
 
-    logger.info(`[${chainId}:${blockNumber}] Formatted traces.`)
+    config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Formatted traces.`)
 
     return traces
 }

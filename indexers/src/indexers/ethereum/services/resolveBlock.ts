@@ -3,6 +3,7 @@ import { ExternalEthBlock } from '../types'
 import { EthBlock, logger, sleep } from '../../../../../shared'
 import { externalToInternalBlock } from '../transforms/blockTransforms'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
+import config from '../../../config'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -33,7 +34,7 @@ export async function resolveBlock(
         throw `Out of attempts - No block found for ${blockNumber}...`
     }
 
-    logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
+    config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
 
     return [externalBlock, externalToInternalBlock(externalBlock)]
 }

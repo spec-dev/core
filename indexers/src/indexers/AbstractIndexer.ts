@@ -1,4 +1,5 @@
 import { NewReportedHead, logger, quickUncleCheck, numberToHex } from '../../../shared'
+import config from '../config'
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -55,11 +56,11 @@ class AbstractIndexer {
     }
 
     async _info(msg: any, ...args: any[]) {
-        logger.info(`${this.logPrefix} ${msg}`, ...args)
+        config.IS_RANGE_MODE || logger.info(`${this.logPrefix} ${msg}`, ...args)
     }
 
     async _warn(msg: any, ...args: any[]) {
-        logger.warn(`${this.logPrefix} ${msg}`, ...args)
+        config.IS_RANGE_MODE || logger.warn(`${this.logPrefix} ${msg}`, ...args)
     }
 
     async _error(msg: any, ...args: any[]) {

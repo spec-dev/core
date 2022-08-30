@@ -10,7 +10,7 @@ function initTransactions(
     receipts: ExternalEthReceipt[]
 ): EthTransaction[] {
     // Index receipts by transaction hash.
-    const receiptsMap = mapByKey(receipts, 'transactionHash')
+    const receiptsMap = mapByKey(receipts || [], 'transactionHash')
 
     return externalTransactions.map((t) =>
         externalToInternalTransaction(t, receiptsMap[t.hash] || null, block)

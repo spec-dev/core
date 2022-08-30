@@ -6,8 +6,9 @@ import {
     normalizeEthAddress,
 } from '../../../../../shared'
 
-function getContracts(traces: EthTrace[]): EthContract[] {
+function getContracts(traces: EthTrace[]): [EthContract[], EthTrace[]] {
     const contracts = []
+    const contractCreationTraces = []
 
     for (const trace of traces) {
         const address = normalizeEthAddress(trace.to)
@@ -25,10 +26,11 @@ function getContracts(traces: EthTrace[]): EthContract[] {
             contract.blockNumber = trace.blockNumber
             contract.blockTimestamp = trace.blockTimestamp
             contracts.push(contract)
+            contractCreationTraces.push(trace)
         }
     }
 
-    return contracts
+    return [contracts, contractCreationTraces]
 }
 
 export default getContracts

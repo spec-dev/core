@@ -25,6 +25,7 @@ import {
     fullLogUpsertConfig,
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
+    mapByKey,
 } from '../../../../shared'
 
 const timing = {
@@ -48,11 +49,16 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
-        const receiptsPromise = this._getBlockReceiptsWithLogs()
         const tracesPromise = this._getTraces()
-
-        // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
-        let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
+        
+        // HACK
+        let blockResult
+        let receipts = null
+        if (config.IS_RANGE_MODE) {
+            blockResult = await blockPromise
+        } else {
+            ;([blockResult, receipts] = await Promise.all([blockPromise, this._getBlockReceiptsWithLogs()]))
+        }
         const [externalBlock, block] = blockResult
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
@@ -65,7 +71,7 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Ensure there's not a block hash mismatch between block and receipts.
         // This can happen when fetching by block number around chain re-orgs.
-        if (receipts.length && receipts[0].blockHash !== block.hash) {
+        if (!config.IS_RANGE_MODE && receipts.length && receipts[0].blockHash !== block.hash) {
             this._warn(
                 `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
             )
@@ -78,7 +84,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
+        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -95,10 +101,11 @@ class EthereumIndexer extends AbstractIndexer {
         }
 
         // Initialize our internal models for both transactions and logs.
-        const transactions = externalTransactions.length
+        let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
             : []
-        const logs = receipts.length ? initLogs(block, receipts) : []
+
+        const logs = receipts?.length ? initLogs(block, receipts) : []
 
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
@@ -111,15 +118,15 @@ class EthereumIndexer extends AbstractIndexer {
         traces = this._enrichTraces(traces, block)
 
         // Perform one final block hash mismatch check and error out if so.
-        this._ensureAllShareSameBlockHash(block, receipts, traces)
+        this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
         // Get any new contracts deployed this block.
-        const contracts = getContracts(traces)
+        const [contracts, _] = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
         // TODO: Switch this to be more accurate once you have all contracts in your tables.
         // Find all unique contract addresses 'involved' in this block.
-        // !config.IS_RANGE_MODE && this._findUniqueContractAddresses(transactions, logs, traces)
+        // config.IS_RANGE_MODE || this._findUniqueContractAddresses(transactions, logs, traces)
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
@@ -131,7 +138,7 @@ class EthereumIndexer extends AbstractIndexer {
         await this._savePrimitives(block, transactions, logs, traces, contracts)
 
         // Find and run event generators associated with the unique contract instances seen.
-        // !config.IS_RANGE_MODE && runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
+        // config.IS_RANGE_MODE || runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
     }
 
     // TODO: Redo once you have contract addresses stored.

@@ -30,10 +30,10 @@ class RangeWorker {
 
     async run() {
         while (this.cursor < this.to) {
-            const groupBlockNumbers = range(
-                this.cursor,
-                Math.min(this.cursor + this.groupSize - 1, this.to)
-            )
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const groupBlockNumbers = range(start, end)
+            logger.info(`Indexing ${start} --> ${end}...`)
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }

@@ -33,9 +33,9 @@ async function resolveBlockTraces(
     if (externalTraces === null) {
         throw `Out of attempts - No traces found for block ${blockNumber}...`
     } else if (externalTraces.length === 0) {
-        logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
     } else {
-        logger.info(`[${chainId}:${blockNumber}] Got traces.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got traces.`)
     }
 
     return externalToInternalTraces(externalTraces, chainId)
