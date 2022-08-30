@@ -25,10 +25,12 @@ export class EthTransaction {
     transactionIndex: number
 
     // Address this transaction was sent from.
+    @Index()
     @Column('varchar', { length: 50 })
     from: string
 
     // Address this transaction was sent to.
+    @Index()
     @Column('varchar', { length: 50, nullable: true })
     to: string
 
