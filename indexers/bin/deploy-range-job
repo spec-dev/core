@@ -113,6 +113,8 @@ job_name="indexer-$image_version-$from_block-$to_block"
 template=$( cat "$template_path" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{FROM_BLOCK}}|$from_block|g" | \
+    sed "s|{{TO_BLOCK}}|$to_block|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \

@@ -11,6 +11,10 @@ spec:
         env:
         - name: NODE_ENV
           value: production
+        - name: FROM_BLOCK
+          value: "{{FROM_BLOCK}}"
+        - name: TO_BLOCK
+          value: "{{TO_BLOCK}}"
         - name: CHAIN_ID
           value: "{{CHAIN_ID}}"
         - name: ALCHEMY_API_KEY
