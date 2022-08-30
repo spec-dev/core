@@ -9,6 +9,7 @@ export default {
     INDEXER_REDIS_PORT: Number(ev('INDEXER_REDIS_PORT', 6379)),
 
     // Indexer Postgres Instance
+    INDEXER_DB_NAME: ev('INDEXER_DB_NAME', 'indexer'),
     INDEXER_DB_HOST: ev('INDEXER_DB_HOST', 'localhost'),
     INDEXER_DB_PORT: Number(ev('INDEXER_DB_PORT', 5432)),
     INDEXER_DB_USERNAME: ev('INDEXER_DB_USERNAME', 'spec'),
@@ -20,6 +21,7 @@ export default {
     INDEX_BLOCK_JOB_NAME: ev('INDEX_BLOCK_JOB_NAME', 'index-block'),
 
     // Public Tables Postgres Instance
+    SHARED_TABLES_DB_NAME: ev('SHARED_TABLES_DB_NAME', 'shared-tables'),
     SHARED_TABLES_DB_HOST: ev('SHARED_TABLES_DB_HOST', 'localhost'),
     SHARED_TABLES_DB_PORT: Number(ev('SHARED_TABLES_DB_PORT', 5432)),
     SHARED_TABLES_DB_USERNAME: ev('SHARED_TABLES_DB_USERNAME', 'spec'),
@@ -31,6 +33,7 @@ export default {
     DAG_KEY: ev('DAG_KEY', 'dag'),
 
     // Core Postgres Instance
+    CORE_DB_NAME: ev('CORE_DB_NAME', 'core'),
     CORE_DB_HOST: ev('CORE_DB_HOST', 'localhost'),
     CORE_DB_PORT: Number(ev('CORE_DB_PORT', 5432)),
     CORE_DB_USERNAME: ev('CORE_DB_USERNAME', 'spec'),

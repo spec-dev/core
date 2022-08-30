@@ -8,7 +8,7 @@ export const IndexerDB = new DataSource({
     port: config.INDEXER_DB_PORT,
     username: config.INDEXER_DB_USERNAME,
     password: config.INDEXER_DB_PASSWORD,
-    database: 'indexer',
+    database: config.INDEXER_DB_NAME,
     synchronize: false,
     logging: false,
     entities: [__dirname + '/entities/*.{js,ts}'],

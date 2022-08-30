@@ -8,7 +8,7 @@ export const CoreDB = new DataSource({
     port: config.CORE_DB_PORT,
     username: config.CORE_DB_USERNAME,
     password: config.CORE_DB_PASSWORD,
-    database: 'core',
+    database: config.CORE_DB_NAME,
     synchronize: false,
     logging: false,
     entities: [__dirname + '/entities/*.{js,ts}'],
