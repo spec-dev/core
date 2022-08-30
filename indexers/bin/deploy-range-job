@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Create a new indexer range job --- #
+# --- Create and deploy a new K8S indexer range job --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -22,7 +22,6 @@ $shared_bin_dir/validate_arg "to_block" "$to_block"
 
 # ======== SET KEY VARS ======== #
 
-# Basic
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
@@ -59,7 +58,6 @@ shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-# Basic
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"

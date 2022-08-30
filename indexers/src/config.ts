@@ -1,4 +1,4 @@
-import { ev, config, isNumber } from '../../shared'
+import { ev, config, isNumber, StringKeyMap } from '../../shared'
 
 const chainId = parseInt(ev('CHAIN_ID'))
 
@@ -14,7 +14,7 @@ if ((from === null && to !== null) || (from !== null && to === null)) {
     throw `Must have both FROM_BLOCK and TO_BLOCK set when running range mode.`
 }
 
-export default {
+const indexerConfig: StringKeyMap = {
     ...config,
     CHAIN_ID: isNumber(chainId) ? chainId : null,
     ALCHEMY_ETH_MAINNET_REST_URL: `https://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
@@ -26,3 +26,5 @@ export default {
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 5)),
     HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
 }
+
+export default indexerConfig

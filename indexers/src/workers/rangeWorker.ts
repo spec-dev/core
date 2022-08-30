@@ -28,7 +28,6 @@ class RangeWorker {
     }
 
     async run() {
-        const t0 = performance.now()
         while (this.cursor < this.to) {
             const groupBlockNumbers = range(
                 this.cursor,
@@ -37,8 +36,6 @@ class RangeWorker {
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }
-        const t1 = performance.now()
-        console.log('PER BLOCK TIME: ', (t1 - t0) / (this.to - this.from))
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
