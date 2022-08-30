@@ -87,7 +87,14 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_passwo
 #     echo "No migration image found."
 #     exit 1
 # fi
-image="037442581761.dkr.ecr.us-west-1.amazonaws.com/spec/migration:6afdeb3"
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "MIGRATION_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 

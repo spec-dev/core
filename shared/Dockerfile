@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 node:16-alpine
+FROM node:16-alpine
 RUN apk add --no-cache --virtual .gyp g++ make py3-pip
 
 WORKDIR /usr
