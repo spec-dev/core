@@ -19,7 +19,7 @@
         "build:main": "tsc -p tsconfig.json",
         "build:module": "tsc -p tsconfig.module.json",
         "typeorm": "typeorm-ts-node-esm",
-        "migrate-core": "typeorm-ts-node-esm migration:run -- -d ./src/lib/core/db/dataSource.ts"
+        "migrate-core": "typeorm-ts-node-esm migration:run -d ./src/lib/core/db/dataSource.ts"
     },
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
