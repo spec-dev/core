@@ -17,6 +17,7 @@ export enum IndexedBlockStatus {
  * A block indexed by Spec.
  */
 @Entity('indexed_blocks')
+@Index(['chainId', 'number'])
 export class IndexedBlock {
     @PrimaryGeneratedColumn()
     id: number
