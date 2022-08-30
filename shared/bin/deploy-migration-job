@@ -82,11 +82,12 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_passwo
 
 # ======== GET LATEST IMAGE ======== #
 
-image=$( $this_dir/get-latest-image "$env" )
-if [ ! "$image" ]; then
-    echo "No migration image found."
-    exit 1
-fi
+# image=$( $this_dir/get-latest-image "$env" )
+# if [ ! "$image" ]; then
+#     echo "No migration image found."
+#     exit 1
+# fi
+image="037442581761.dkr.ecr.us-west-1.amazonaws.com/spec/migration:6afdeb3"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 

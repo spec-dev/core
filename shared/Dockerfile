@@ -10,4 +10,4 @@ COPY src ./src
 RUN npm install
 RUN apk del .gyp
 
-ENTRYPOINT ["typeorm-ts-node-esm", "migration:run", "--", "-d", "./src/lib/core/db/dataSource.ts"]
+ENTRYPOINT ["npm", "run", "typeorm", "migration:run", "--", "-d", "./src/lib/core/db/dataSource.ts"]

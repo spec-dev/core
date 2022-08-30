@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - name: indexer
+      - name: migration
         image: {{IMAGE}}
         env:
         - name: INDEXER_REDIS_HOST
