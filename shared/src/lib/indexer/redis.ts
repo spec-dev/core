@@ -146,10 +146,10 @@ export async function upsertContractCaches() {
         }
     }
 
-    const eventVersions = await eventVersionsRepo()
+    const eventVersions = eventVersionUids.length ? (await eventVersionsRepo()
         .createQueryBuilder('eventVersion')
         .where('eventVersion.uid IN (:...uids)', { uids: eventVersionUids })
-        .getMany()
+        .getMany()) : []
 
     const eventVersionEntriesMap: { [key: string]: EventVersionEntry } = {}
     for (let eventVersion of eventVersions) {
