@@ -10,6 +10,7 @@ import {
     getBlocksInNumberRange,
     range,
 } from '../../../shared'
+import { exit } from 'process'
 
 class RangeWorker {
     from: number
@@ -36,6 +37,7 @@ class RangeWorker {
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }
+        exit(0)
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
@@ -46,7 +48,7 @@ class RangeWorker {
         // Map existing blocks by number.
         const existingIndexedBlocksMap = {}
         for (const existingIndexedBlock of existingIndexedBlocks) {
-            existingIndexedBlocks[Number(existingIndexedBlock.number)] = existingIndexedBlock
+            existingIndexedBlocksMap[Number(existingIndexedBlock.number)] = existingIndexedBlock
         }
 
         // Start indexing this block group.
