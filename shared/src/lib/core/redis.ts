@@ -3,7 +3,7 @@ import config from '../config'
 import logger from '../logger'
 
 // Create redis client.
-export const redis = createClient(config.CORE_REDIS_URL)
+export const redis = createClient({ url: config.CORE_REDIS_URL })
 
 // Log any redis client errors.
 redis.on('error', (err) => logger.error(`Redis error: ${err}`))

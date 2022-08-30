@@ -8,7 +8,7 @@ import { EventVersion } from '../core/db/entities/EventVersion'
 import { StringKeyMap } from '../types'
 
 // Create redis client.
-export const redis = createClient(config.INDEXER_REDIS_URL)
+export const redis = createClient({ url: config.INDEXER_REDIS_URL })
 
 // Log any redis client errors.
 redis.on('error', (err) => logger.error(`Redis error: ${err}`))

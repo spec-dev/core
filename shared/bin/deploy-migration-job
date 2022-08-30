@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Create a new migration job --- #
+# --- Create and deploy a new K8S migration job for one of our DBs --- #
 
 set -e # exit if any child script exits with non-zero status
 
