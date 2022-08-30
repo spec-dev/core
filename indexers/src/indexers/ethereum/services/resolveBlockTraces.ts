@@ -1,7 +1,7 @@
 import config from '../../../config'
 import fetch from 'cross-fetch'
 import { ExternalEthTrace } from '../types'
-import { EthTrace, logger, sleep } from 'shared'
+import { EthTrace, logger, sleep } from '../../../../../shared'
 import { externalToInternalTraces } from '../transforms/traceTransforms'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 

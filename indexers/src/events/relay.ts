@@ -1,5 +1,5 @@
 import { SpecEvent } from '@spec.types/spec'
-import { StringKeyMap, logger } from 'shared'
+import { StringKeyMap, logger } from '../../../shared'
 import { createEventClient } from '@spec.dev/event-client'
 import config from '../config'
 

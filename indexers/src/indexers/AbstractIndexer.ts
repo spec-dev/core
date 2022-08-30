@@ -1,4 +1,4 @@
-import { NewReportedHead, logger, quickUncleCheck, numberToHex } from 'shared'
+import { NewReportedHead, logger, quickUncleCheck, numberToHex } from '../../../shared'
 
 class AbstractIndexer {
     head: NewReportedHead

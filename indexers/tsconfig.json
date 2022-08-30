@@ -16,5 +16,8 @@
         "allowSyntheticDefaultImports": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-    }
+    },
+    "references": [
+        { "path": "../shared" }
+    ]
 }

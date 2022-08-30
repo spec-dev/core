@@ -9,7 +9,7 @@ import {
     EthRewardType,
     EthTraceStatus,
     logger,
-} from 'shared'
+} from '../../../../../shared'
 
 const GENESIS_BLOCK_NUMBER = 0
 const DAOFORK_BLOCK_NUMBER = 1920000

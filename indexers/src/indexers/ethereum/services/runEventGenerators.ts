@@ -11,7 +11,7 @@ import {
     PublishedEvent,
     initPublishedEvent,
     savePublishedEvents,
-} from 'shared'
+} from '../../../../../shared'
 import { fetch } from 'cross-fetch'
 import { EventOrigin } from '../../../types'
 import { emit } from '../../../events/relay'
@@ -148,8 +148,8 @@ async function publishDiffsAsEvents(
             id: publishedEvent.uid,
             nonce: publishedEvent.id,
             name: publishedEvent.name,
-            origin: { 
-                ...publishedEvent.origin, 
+            origin: {
+                ...publishedEvent.origin,
                 eventTimestamp: publishedEvent.timestamp.toISOString(),
             } as SpecEventOrigin,
             data: publishedEvent.data,

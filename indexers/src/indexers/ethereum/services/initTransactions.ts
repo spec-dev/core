@@ -1,4 +1,4 @@
-import { EthBlock, EthTransaction, mapByKey } from 'shared'
+import { EthBlock, EthTransaction, mapByKey } from '../../../../../shared'
 import { Transaction } from 'web3-eth'
 import { TransactionReceipt } from '@alch/alchemy-web3'
 import { externalToInternalTransaction } from '../transforms/transactionTransforms'

@@ -9,7 +9,7 @@ import {
     IndexedBlock,
     getBlocksInNumberRange,
     range,
-} from 'shared'
+} from '../../../shared'
 
 class RangeWorker {
     from: number
@@ -38,7 +38,7 @@ class RangeWorker {
             this.cursor = this.cursor + this.groupSize
         }
         const t1 = performance.now()
-        console.log('PER BLOCK TIME: ', ((t1 - t0) / (this.to - this.from)))
+        console.log('PER BLOCK TIME: ', (t1 - t0) / (this.to - this.from))
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
@@ -155,9 +155,5 @@ class RangeWorker {
 }
 
 export function getRangeWorker(): RangeWorker {
-    return new RangeWorker(
-        config.FROM_BLOCK, 
-        config.TO_BLOCK, 
-        config.RANGE_GROUP_SIZE,
-    )
+    return new RangeWorker(config.FROM_BLOCK, config.TO_BLOCK, config.RANGE_GROUP_SIZE)
 }

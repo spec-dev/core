@@ -1,6 +1,6 @@
 import { AlchemyWeb3 } from '@alch/alchemy-web3'
 import { ExternalEthBlock } from '../types'
-import { EthBlock, logger, sleep } from 'shared'
+import { EthBlock, logger, sleep } from '../../../../../shared'
 import { externalToInternalBlock } from '../transforms/blockTransforms'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
@@ -34,7 +34,7 @@ export async function resolveBlock(
     }
 
     logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
-    
+
     return [externalBlock, externalToInternalBlock(externalBlock)]
 }
 

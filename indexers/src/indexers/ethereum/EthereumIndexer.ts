@@ -25,7 +25,7 @@ import {
     fullLogUpsertConfig,
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
-} from 'shared'
+} from '../../../../shared'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -33,7 +33,6 @@ const timing = {
 }
 
 class EthereumIndexer extends AbstractIndexer {
-
     web3: AlchemyWeb3
 
     uniqueContractAddresses: Set<string>
@@ -50,7 +49,7 @@ class EthereumIndexer extends AbstractIndexer {
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
-        const tracesPromise = this._getTraces()        
+        const tracesPromise = this._getTraces()
 
         // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
         let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
@@ -67,7 +66,9 @@ class EthereumIndexer extends AbstractIndexer {
         // Ensure there's not a block hash mismatch between block and receipts.
         // This can happen when fetching by block number around chain re-orgs.
         if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
+            this._warn(
+                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+            )
             receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
@@ -102,7 +103,9 @@ class EthereumIndexer extends AbstractIndexer {
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
-            this._warn(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
+            this._warn(
+                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
+            )
             traces = await this._waitAndRefetchTraces(block.hash)
         }
         traces = this._enrichTraces(traces, block)
@@ -155,9 +158,10 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
         return resolveBlock(
-            this.web3, 
-            this.blockHash || this.blockNumber, 
-            this.blockNumber, this.chainId,
+            this.web3,
+            this.blockHash || this.blockNumber,
+            this.blockNumber,
+            this.chainId
         )
     }
 
@@ -171,11 +175,7 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _getTraces(): Promise<EthTrace[]> {
-        return resolveBlockTraces(
-            this.hexBlockNumber, 
-            this.blockNumber, 
-            this.chainId,
-        )
+        return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.chainId)
     }
 
     async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
@@ -297,7 +297,7 @@ class EthereumIndexer extends AbstractIndexer {
             .createQueryBuilder()
             .insert()
             .into(EthTransaction)
-            .values(transactions.map(t => ({ ...t, blockTimestamp: () => blockTimestamp })))
+            .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
             .orUpdate(updateTransactionCols, conflictTransactionCols)
             .execute()
     }
@@ -310,7 +310,7 @@ class EthereumIndexer extends AbstractIndexer {
             .createQueryBuilder()
             .insert()
             .into(EthLog)
-            .values(logs.map(l => ({ ...l, blockTimestamp: () => blockTimestamp })))
+            .values(logs.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
             .orUpdate(updateLogCols, conflictLogCols)
             .execute()
     }
@@ -323,7 +323,7 @@ class EthereumIndexer extends AbstractIndexer {
             .createQueryBuilder()
             .insert()
             .into(EthTrace)
-            .values(traces.map(t => ({ ...t, blockTimestamp: () => blockTimestamp })))
+            .values(traces.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
             .orUpdate(updateTraceCols, conflictTraceCols)
             .execute()
     }
@@ -336,7 +336,7 @@ class EthereumIndexer extends AbstractIndexer {
             .createQueryBuilder()
             .insert()
             .into(EthContract)
-            .values(contracts.map(c => ({ ...c, blockTimestamp: () => blockTimestamp })))
+            .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
             .orUpdate(updateContractCols, conflictContractCols)
             .execute()
     }

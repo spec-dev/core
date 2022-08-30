@@ -1,4 +1,4 @@
-import { NewReportedHead } from 'shared'
+import { NewReportedHead } from '../../shared'
 
 export interface IndexerWorker {
     run: () => any

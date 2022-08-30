@@ -7,7 +7,7 @@ import {
     toString,
     hexToNumberString,
     normalizeByteData,
-} from 'shared'
+} from '../../../../../shared'
 import { ExternalEthReceipt, ExternalEthTransaction } from '../types'
 
 export function externalToInternalTransaction(

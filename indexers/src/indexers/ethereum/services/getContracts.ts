@@ -1,4 +1,10 @@
-import { EthTrace, EthContract, EthTraceType, EthTraceStatus, normalizeEthAddress } from 'shared'
+import {
+    EthTrace,
+    EthContract,
+    EthTraceType,
+    EthTraceStatus,
+    normalizeEthAddress,
+} from '../../../../../shared'
 
 function getContracts(traces: EthTrace[]): EthContract[] {
     const contracts = []

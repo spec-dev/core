@@ -1,4 +1,4 @@
-import { StringKeyMap } from 'shared'
+import { StringKeyMap } from '../../../shared'
 
 export function shouldRetryOnWeb3ProviderError(error: StringKeyMap): boolean {
     const message = (error.message || '').toLowerCase()

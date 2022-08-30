@@ -5,7 +5,7 @@ import {
     TransactionReceiptsResponse,
 } from '@alch/alchemy-web3'
 import { ExternalEthReceipt } from '../types'
-import { logger, sleep } from 'shared'
+import { logger, sleep } from '../../../../../shared'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
 const timing = {

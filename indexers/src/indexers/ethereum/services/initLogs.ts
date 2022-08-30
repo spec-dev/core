@@ -1,4 +1,4 @@
-import { EthLog, EthBlock } from 'shared'
+import { EthLog, EthBlock } from '../../../../../shared'
 import { ExternalEthReceipt, ExternalEthLog } from '../types'
 import { externalToInternalLog } from '../transforms/logTransforms'
 

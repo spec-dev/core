@@ -6,35 +6,38 @@ import {
     setIndexedBlockStatus,
     setIndexedBlockToFailed,
     IndexedBlockStatus,
-} from 'shared'
+} from '../../../shared'
 import { getIndexer } from '../indexers'
 
 export function getHeadWorker(): Worker {
-    const worker = new Worker(config.HEAD_REPORTER_QUEUE_KEY, async (job: Job) => {
-        const head = job.data as NewReportedHead
-        const jobStatusUpdatePromise = setIndexedBlockStatus(
-            head.id,
-            IndexedBlockStatus.Indexing
-        )
+    const worker = new Worker(
+        config.HEAD_REPORTER_QUEUE_KEY,
+        async (job: Job) => {
+            const head = job.data as NewReportedHead
+            const jobStatusUpdatePromise = setIndexedBlockStatus(
+                head.id,
+                IndexedBlockStatus.Indexing
+            )
 
-        // Get proper indexer based on head's chain id.
-        const indexer = getIndexer(head)
-        if (!indexer) {
-            throw `No indexer exists for chainId: ${head.chainId}`
-        }
+            // Get proper indexer based on head's chain id.
+            const indexer = getIndexer(head)
+            if (!indexer) {
+                throw `No indexer exists for chainId: ${head.chainId}`
+            }
 
-        // Index block.
-        await indexer.perform()
-        await jobStatusUpdatePromise
-    },
-    {
-        autorun: false,
-        connection: {
-            host: config.INDEXER_REDIS_HOST,
-            port: config.INDEXER_REDIS_PORT,
+            // Index block.
+            await indexer.perform()
+            await jobStatusUpdatePromise
         },
-        concurrency: config.HEAD_JOB_CONCURRENCY_LIMIT,
-    })
+        {
+            autorun: false,
+            connection: {
+                host: config.INDEXER_REDIS_HOST,
+                port: config.INDEXER_REDIS_PORT,
+            },
+            concurrency: config.HEAD_JOB_CONCURRENCY_LIMIT,
+        }
+    )
 
     worker.on('completed', async (job) => {
         const head = job.data as NewReportedHead
