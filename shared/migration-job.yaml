@@ -8,7 +8,7 @@ spec:
       containers:
       - name: migration
         image: {{IMAGE}}
-        command: ["npm", "run", "migrate-{{DB_FOLDER_NAME}}"]
+        command: ["npm", "run", "migrate:{{DB_FOLDER_NAME}}"]
         env:
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}

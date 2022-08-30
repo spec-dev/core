@@ -82,11 +82,6 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_passwo
 
 # ======== GET LATEST IMAGE ======== #
 
-# image=$( $this_dir/get-latest-image "$env" )
-# if [ ! "$image" ]; then
-#     echo "No migration image found."
-#     exit 1
-# fi
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
 aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
 image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
