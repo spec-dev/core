@@ -25,7 +25,7 @@ const indexerConfig: StringKeyMap = {
     IS_RANGE_MODE: isRangeMode,
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 5)),
     HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
-    INDEXER_DB_MAX_POOL_SIZE: 20,
+    SHARED_TABLES_MAX_POOL_SIZE: 20,
 }
 
 export default indexerConfig
