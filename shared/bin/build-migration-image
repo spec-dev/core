@@ -40,7 +40,7 @@ $shared_bin_dir/assert_env "MIGRATION_IMAGE_NAME" "$image_name"
 cd "$shared_dir"
 
 # Build and tag the image.
-docker build -t "$image" -f Dockerfile .
+docker buildx build --platform linux/amd64 -t "$image" -f Dockerfile .
 docker tag "$image" "$registry_image"
 
 echo "Successfully built image $registry_image"

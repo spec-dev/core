@@ -9,5 +9,3 @@ COPY src ./src
 
 RUN npm install
 RUN apk del .gyp
-
-ENTRYPOINT ["npm", "run", "typeorm", "migration:run", "--", "-d", "./src/lib/core/db/dataSource.ts"]
