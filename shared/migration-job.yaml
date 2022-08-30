@@ -8,6 +8,7 @@ spec:
       containers:
       - name: indexer
         image: {{IMAGE}}
+        command: ["npm", "run", "typeorm", "migration:run", "--", "-d", "./src/lib/{{DB_FOLDER_NAME}}/db/dataSource.ts"]
         env:
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
