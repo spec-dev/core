@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# --- Create a new migration job --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+shared_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+db_folder_name="$2"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+$shared_bin_dir/validate_arg "db_folder_name" "$db_folder_name" "core|indexer|shared-tables"
+
+# ======== SET KEY VARS ======== #
+
+# Indexer Redis
+indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
+indexer_redis_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
+
+# Indexer DB
+indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
+indexer_db_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_HOST" )
+indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
+indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
+indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
+
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_password=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+
+# Core DB
+core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
+core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
+core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
+core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
+core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+# Indexer Redis
+$shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
+$shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_password"
+
+# Indexer DB
+$shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
+$shared_bin_dir/assert_env "INDEXER_DB_HOST" "$indexer_db_host"
+$shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
+$shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
+$shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
+
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_password"
+
+# Core DB
+$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
+$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
+$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
+$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
+$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
+
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
+# ======== GET LATEST IMAGE ======== #
+
+image=$( $this_dir/get-latest-image "$env" )
+if [ ! "$image" ]; then
+    echo "No migration image found."
+    exit 1
+fi
+
+# ======== CREATE & APPLY TEMPLATE ======== #
+
+template_path="$shared_dir/migration-job.yaml"
+
+# Create the config template.
+template=$( cat "$template_path" | \
+    sed "s|{{DB_FOLDER_NAME}}|$db_folder_name|g" | \
+    sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
+    sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
+    sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
+    sed "s|{{INDEXER_DB_HOST}}|$indexer_db_host|g" | \
+    sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
+    sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
+    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_password|g" | \
+    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
+    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
+    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
+    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
+    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
+
+echo "Creating $db_folder_name migration job resources..."
+
+# Apply the template.
+echo "$template" | kubectl apply -f -

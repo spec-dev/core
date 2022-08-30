@@ -1,10 +1,10 @@
 import { ev, specEnvs } from './utils/env'
+import { StringKeyMap } from './types'
 
-export default {
+const config: StringKeyMap = {
     ENV: ev('ENV', specEnvs.PROD),
 
     // Indexer Redis Instance
-    INDEXER_REDIS_URL: ev('INDEXER_REDIS_URL', 'redis://localhost:6379'),
     INDEXER_REDIS_HOST: ev('INDEXER_REDIS_HOST', 'localhost'),
     INDEXER_REDIS_PORT: Number(ev('INDEXER_REDIS_PORT', 6379)),
 
@@ -41,10 +41,14 @@ export default {
     CORE_DB_MAX_POOL_SIZE: Number(ev('CORE_DB_MAX_POOL_SIZE', 10)),
 
     // Core Redis Instance
-    CORE_REDIS_URL: ev('CORE_REDIS_URL', 'redis://localhost:6379'),
     CORE_REDIS_HOST: ev('CORE_REDIS_HOST', 'localhost'),
     CORE_REDIS_PORT: Number(ev('CORE_REDIS_PORT', 6379)),
 
     // JWTs
     JWT_SECRET: ev('JWT_SECRET'),
 }
+
+config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`
+config.CORE_REDIS_URL = `redis://${config.CORE_REDIS_HOST}:${config.CORE_REDIS_PORT}`
+
+export default config
