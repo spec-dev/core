@@ -9,3 +9,5 @@ COPY src ./src
 
 RUN npm install
 RUN apk del .gyp
+
+CMD ["npm", "run", "typeorm", "migration:run", "--", "-d", "./src/lib/core/db/dataSource.ts"]

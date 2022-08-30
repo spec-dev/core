@@ -2,55 +2,37 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: migration
-  labels:
-    app: migration
-    db: {{DB_FOLDER_NAME}}
 spec:
-  selector:
-    matchLabels:
-      app: migration
-      db: {{DB_FOLDER_NAME}}
   template:
-    metadata:
-      labels:
-        app: migration
-        db: {{DB_FOLDER_NAME}}
     spec:
       containers:
       - name: indexer
         image: {{IMAGE}}
-        command: ["npm", "run", "typeorm", "migration:run", "--", "-d", "./src/lib/{{DB_FOLDER_NAME}}/db/dataSource.ts"]
         env:
-        - name: INDEXER_REDIS_URL
-          value: >-
-            {{INDEXER_REDIS_URL}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
-          value: {{INDEXER_REDIS_PORT}}
+          value: "{{INDEXER_REDIS_PORT}}"
         - name: INDEXER_DB_NAME
           value: {{INDEXER_DB_NAME}}
         - name: INDEXER_DB_HOST
           value: {{INDEXER_DB_HOST}}
         - name: INDEXER_DB_PORT
-          value: {{INDEXER_DB_PORT}}
+          value: "{{INDEXER_DB_PORT}}"
         - name: INDEXER_DB_USERNAME
           value: {{INDEXER_DB_USERNAME}}
         - name: INDEXER_DB_PASSWORD
           value: {{INDEXER_DB_PASSWORD}}
-        - name: CORE_REDIS_URL
-          value: >-
-            {{CORE_REDIS_URL}}
         - name: CORE_REDIS_HOST
           value: {{CORE_REDIS_HOST}}
         - name: CORE_REDIS_PORT
-          value: {{CORE_REDIS_PORT}}
+          value: "{{CORE_REDIS_PORT}}"
         - name: CORE_DB_NAME
           value: {{CORE_DB_NAME}}
         - name: CORE_DB_HOST
           value: {{CORE_DB_HOST}}
         - name: CORE_DB_PORT
-          value: {{CORE_DB_PORT}}
+          value: "{{CORE_DB_PORT}}"
         - name: CORE_DB_USERNAME
           value: {{CORE_DB_USERNAME}}
         - name: CORE_DB_PASSWORD
@@ -60,7 +42,7 @@ spec:
         - name: SHARED_TABLES_DB_HOST
           value: {{SHARED_TABLES_DB_HOST}}
         - name: SHARED_TABLES_DB_PORT
-          value: {{SHARED_TABLES_DB_PORT}}
+          value: "{{SHARED_TABLES_DB_PORT}}"
         - name: SHARED_TABLES_DB_USERNAME
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
