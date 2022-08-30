@@ -4,9 +4,7 @@ export class initTables1661730686148 implements MigrationInterface {
     name = 'initTables1661730686148'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(
-            `CREATE SCHEMA IF NOT EXISTS "instances" `
-        )
+        await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS "instances" `)
         await queryRunner.query(
             `CREATE TABLE "events" ("id" SERIAL NOT NULL, "uid" character varying NOT NULL, "name" character varying NOT NULL, "desc" character varying, "is_contract_event" boolean NOT NULL, "namespace_id" integer NOT NULL, CONSTRAINT "UQ_afd19d59c91fc595fde1c474e6c" UNIQUE ("namespace_id", "name"), CONSTRAINT "PK_40731c7151fe4be3116e45ddf73" PRIMARY KEY ("id"))`
         )
