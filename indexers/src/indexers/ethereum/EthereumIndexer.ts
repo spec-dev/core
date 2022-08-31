@@ -124,10 +124,6 @@ class EthereumIndexer extends AbstractIndexer {
         const [contracts, _] = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // TODO: Switch this to be more accurate once you have all contracts in your tables.
-        // Find all unique contract addresses 'involved' in this block.
-        // config.IS_RANGE_MODE || this._findUniqueContractAddresses(transactions, logs, traces)
-
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
@@ -136,6 +132,9 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts)
+
+        // Find all unique contract addresses 'involved' in this block.
+        // config.IS_RANGE_MODE || this._findUniqueContractAddresses(transactions, logs, traces)
 
         // Find and run event generators associated with the unique contract instances seen.
         // config.IS_RANGE_MODE || runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
