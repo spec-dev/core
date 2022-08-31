@@ -51,23 +51,6 @@ spec:
             port: event-relay
           initialDelaySeconds: 15
           timeoutSeconds: 20
-        volumeMounts:
-        - mountPath: /usr/src/app
-          name: app-src-volume
-      volumes:
-      - name: app-src-volume
-        emptyDir: {}
-      initContainers:
-      - name: app-src-container
-        image: ""
-        volumeMounts:
-        - mountPath: /usr/dest
-          name: app-src-volume
-        command:
-          - cp
-          - '-a'
-          - /usr/src/.
-          - /usr/dest/
 ---
 apiVersion: v1
 kind: Service
@@ -81,13 +64,20 @@ spec:
   selector:
     component: event-relay
 ---
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: event-relay
   annotations:
     kubernetes.io/ingress.class: "nginx"
 spec:
-  backend:
-    serviceName: event-relay
-    servicePort: 80
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: event-relay
+            port:
+              number: 80
