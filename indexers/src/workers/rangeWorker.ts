@@ -212,12 +212,26 @@ class RangeWorker {
             this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
         }
 
-        blocks = uniqueByKeys(blocks, this.upsertConstraints.block[1])
-        transactions = uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
-        logs = uniqueByKeys(logs, this.upsertConstraints.log[1])
-        traces = uniqueByKeys(traces, this.upsertConstraints.trace[1])
-        contracts = uniqueByKeys(contracts, this.upsertConstraints.contract[1])
-
+        blocks = this.upsertConstraints.block
+            ? uniqueByKeys(blocks, this.upsertConstraints.block[1])
+            : blocks
+        
+        transactions = this.upsertConstraints.transaction
+            ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
+            : transactions
+        
+        logs = this.upsertConstraints.log 
+            ? uniqueByKeys(logs, this.upsertConstraints.log[1])
+            : logs
+        
+        traces = this.upsertConstraints.trace
+            ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
+            : traces
+        
+        contracts = this.upsertConstraints.contract
+            ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
+            : contracts
+        
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
