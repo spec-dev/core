@@ -60,6 +60,7 @@ export {
     toString,
     toNamespacedVersion,
     fromNamespacedVersion,
+    uniqueByKeys,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'

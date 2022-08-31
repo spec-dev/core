@@ -1,4 +1,5 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
+import { StringKeyMap } from '../types'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -107,4 +108,17 @@ export const fromNamespacedVersion = (
     }
     const [nsp, name] = dotSplit
     return { nsp, name, version }
+}
+
+export const uniqueByKeys = (iterable: StringKeyMap[], keys: string[]): StringKeyMap[] => {
+    const uniqueArr = []
+    const keysSeen = new Set<string>()
+    for (let i = 0; i < iterable.length; i++) {
+        const obj = iterable[i]
+        const uniqueKeyId = keys.map((key) => obj[key] || '').join('__')
+        if (keysSeen.has(uniqueKeyId)) continue
+        keysSeen.add(uniqueKeyId)
+        uniqueArr.push(obj)
+    }
+    return uniqueArr
 }
