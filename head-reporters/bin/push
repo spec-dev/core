@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Push the latest version of the auth docker image to the configured remote registry --- #
+# --- Push the latest version of the head-reporter docker image to the configured remote registry --- #
 
 set -e # exit if any child script exits with non-zero status
 
