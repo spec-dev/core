@@ -94,6 +94,6 @@ export const fullBlockUpsertConfig = (block: EthBlock): string[][] => {
     const conflictCols = ['number']
     const updateCols = Object.keys(block)
         .map(decamelize)
-        .filter((col) => !conflictCols.includes(col))
+        .filter((col) => col !== 'hash' && !conflictCols.includes(col))
     return [updateCols, conflictCols]
 }
