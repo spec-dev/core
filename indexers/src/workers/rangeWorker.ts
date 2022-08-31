@@ -89,24 +89,12 @@ class RangeWorker {
         // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
 
-        // Save all primitives for entire batch.
-        let saveSucceeded = true
-        try {
-            await this._saveBatchResults(indexResults)
-        } catch (err) {
-            logger.error(`Error saving batch: ${err}`)
-            saveSucceeded = false
-            throw err
-        }
-
         // Group index results by block number.
         const retriedBlockNumbersThatSucceeded = []
         const inserts = []
         for (let i = 0; i < blockNumbersIndexed.length; i++) {
             const blockNumber = blockNumbersIndexed[i]
-            const indexResult = indexResults[i]
-            const succeeded = saveSucceeded && !!indexResult
-
+            const [blockHash, succeeded] = indexResults[i]
             if (!succeeded) {
                 logger.error(`Indexing Block Failed: ${blockNumber}`)
             }
@@ -122,7 +110,7 @@ class RangeWorker {
             inserts.push({
                 chainId: config.CHAIN_ID,
                 number: blockNumber,
-                hash: indexResult?.block?.hash,
+                hash: blockHash,
                 status: IndexedBlockStatus.Complete,
                 failed: !succeeded,
             })
@@ -148,14 +136,27 @@ class RangeWorker {
         return true
     }
 
-    async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
+    async _indexBlock(blockNumber: number): Promise<[string | null, boolean]> {
+        let result
         try {
-            const result = await getIndexer(this._atNumber(blockNumber)).perform()
-            return result as StringKeyMap
+            result = await getIndexer(this._atNumber(blockNumber)).perform()
         } catch (err) {
             logger.error(`Error indexing block ${blockNumber}:`, err)
-            return null
+            return [null, false]
         }
+        if (!result) {
+            return [null, false]
+        }
+        result = result as StringKeyMap
+
+        try {
+            await this._saveBatchResults([result])
+        } catch (err) {
+            logger.error(`Error saving batch: ${err}`)
+            return [null, false]
+        }
+
+        return [result.block?.hash, true]
     }
 
     async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
