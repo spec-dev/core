@@ -22,7 +22,6 @@
         "sc-errors": "^2.0.1",
         "scc-broker-client": "^8.1.0",
         "serve-static": "^1.13.2",
-        "shared": "file:../shared",
         "socketcluster-client": "^16.1.1",
         "socketcluster-server": "^16.2.1",
         "uuid4": "^2.0.2"

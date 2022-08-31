@@ -5,7 +5,7 @@ import {
     EdgeFunctionVersion, 
     toNamespacedVersion, 
     logger,
-} from 'shared'
+} from '../../../shared'
 
 interface ResolveLiveObjectVersionsPayload {
     ids: string[]
@@ -22,11 +22,11 @@ export async function resolveLiveObjectVersions(request: any) {
     // Get all event versions associated with these live object versions.
     let eventVersions = []
     try {
-        eventVersions = await CoreDB.getRepository(EventVersion)
+        eventVersions = lovIds.length ? (await CoreDB.getRepository(EventVersion)
             .createQueryBuilder('eventVersion')
             .leftJoinAndSelect('eventVersion.liveEventVersions', 'liveEventVersion')
             .where('liveEventVersion.liveObjectVersionId IN (:...lovIds)', { lovIds })
-            .getMany()
+            .getMany()) : []
     } catch (err) {
         logger.error(
             `Error fetching EventVersions for liveObjectVersionIds: ${lovIds.join(', ')}: ${err}`
@@ -38,11 +38,11 @@ export async function resolveLiveObjectVersions(request: any) {
     // Get all edge function versions associated with these live object versions.
     let edgeFunctionVersions = []
     try {
-        edgeFunctionVersions = await CoreDB.getRepository(EdgeFunctionVersion)
+        edgeFunctionVersions = lovIds.length ? (await CoreDB.getRepository(EdgeFunctionVersion)
             .createQueryBuilder('edgeFunctionVersion')
             .leftJoinAndSelect('edgeFunctionVersion.liveEdgeFunctionVersions', 'liveEdgeFunctionVersion')
             .where('liveEdgeFunctionVersion.liveObjectVersionId IN (:...lovIds)', { lovIds })
-            .getMany()
+            .getMany()) : []
     } catch (err) {
         logger.error(
             `Error fetching EdgeFunctionVersions for liveObjectVersionIds: ${lovIds.join(', ')}: ${err}`

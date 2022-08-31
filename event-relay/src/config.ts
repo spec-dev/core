@@ -1,7 +1,9 @@
-import { ev, config } from 'shared'
+import { ev, config, StringKeyMap } from '../../shared'
 import uuid4 from 'uuid4'
 
-export default {
+const eventRelayConfig: StringKeyMap = {
+    ...config,
+
     // SocketCluster 
     SOCKETCLUSTER_PORT: Number(ev('SOCKETCLUSTER_PORT', 8888)),
     SOCKETCLUSTER_WS_ENGINE: ev('SOCKETCLUSTER_WS_ENGINE', 'ws'),
@@ -24,11 +26,8 @@ export default {
     SCC_PUB_SUB_BATCH_DURATION: Number(ev('SCC_PUB_SUB_BATCH_DURATION')),
     SCC_BROKER_RETRY_DELAY: Number(ev('SCC_BROKER_RETRY_DELAY')),
 
-    // Persistence.
-    SAVE_EVENTS_INTERVAL: 5000,
-
-    // Missed event catch-up.
-    FETCHING_MISSED_EVENTS_BATCH_SIZE: 100,
-
-    ...config,
+    // Missed event retrieval batch size.
+    FETCHING_MISSED_EVENTS_BATCH_SIZE: Number(ev('FETCHING_MISSED_EVENTS_BATCH_SIZE', 100)),
 }
+
+export default eventRelayConfig

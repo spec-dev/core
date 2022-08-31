@@ -1,7 +1,7 @@
 import { AGServerSocket } from 'socketcluster-server'
 import { EventCursor } from '../types'
 import config from '../config'
-import { getPublishedEventsAfterId, logger } from 'shared'
+import { getPublishedEventsAfterId, logger } from '../../../shared'
 import { toChunks } from '../utils/formatters'
 
 interface GetEventsAfterCursorsPayload {

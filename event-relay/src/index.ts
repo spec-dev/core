@@ -5,7 +5,7 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole, CoreDB } from 'shared'
+import { specEnvs, logger, ClaimRole, CoreDB } from '../../shared'
 import { resolveLiveObjectVersions, getEventsAfterCursors, RPC } from './rpcs'
 
 const coreDBPromise = CoreDB.initialize()
@@ -48,9 +48,8 @@ if (config.ENV !== specEnvs.PROD) {
     expressApp.use(morgan('dev'))
 }
 
-// Health check routes.
-expressApp.get('/healthz/ready', (_, res) => res.sendStatus(200))
-expressApp.get('/healthz/live', (_, res) => res.sendStatus(200))
+// Health check route.
+expressApp.get('/health-check', (_, res) => res.sendStatus(200))
 
 // Pipe HTTP requests to express.
 ;(async () => {
@@ -65,13 +64,13 @@ expressApp.get('/healthz/live', (_, res) => res.sendStatus(200))
     
     for await (let {socket} of agServer.listener('connection')) {
         ;(async () => {
-            // RPC - Resolve live objects.
+            // RPC - Resolve the given live objects.
             for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
                 resolveLiveObjectVersions(request)
             }
         })()
         ;(async () => {
-            // RPC - Get events that occurred after the given cursors.
+            // RPC - Get events that occurred after the given event cursors.
             for await (let request of socket.procedure(RPC.GetEventsAfterCursors)) {
                 getEventsAfterCursors(request, socket)
             }
@@ -93,7 +92,6 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
     logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
-    
     ;(async () => {
         for await (let { warning } of agServer.listener('warning')) {
             logger.error(`AGServer Warning - ${warning}`)
