@@ -1,4 +1,4 @@
-import { NewReportedHead } from '../../shared'
+import { NewReportedHead, StringKeyMap } from '../../shared'
 
 export interface IndexerWorker {
     run: () => any
@@ -7,7 +7,7 @@ export interface IndexerWorker {
 export interface Indexer {
     head: NewReportedHead
     resolvedBlockHash: string | null
-    perform: () => Promise<void>
+    perform: () => Promise<StringKeyMap | void>
 }
 
 export interface EventOrigin {

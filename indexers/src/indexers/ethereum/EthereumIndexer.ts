@@ -26,6 +26,7 @@ import {
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
     mapByKey,
+    StringKeyMap,
 } from '../../../../shared'
 
 const timing = {
@@ -44,7 +45,7 @@ class EthereumIndexer extends AbstractIndexer {
         this.uniqueContractAddresses = new Set()
     }
 
-    async perform() {
+    async perform(): Promise<StringKeyMap | void> {
         super.perform()
 
         // Get blocks (+transactions), receipts (+logs), and traces.
@@ -104,7 +105,6 @@ class EthereumIndexer extends AbstractIndexer {
         let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
             : []
-
         const logs = receipts?.length ? initLogs(block, receipts) : []
 
         // Wait for traces to resolve and ensure there's not block hash mismatch.
@@ -130,14 +130,45 @@ class EthereumIndexer extends AbstractIndexer {
             return
         }
 
+        if (config.IS_RANGE_MODE) {
+            return {
+                block,
+                transactions,
+                logs,
+                traces,
+                contracts,
+                pgBlockTimestamp: this.pgBlockTimestamp,
+            }
+        }
+
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts)
 
         // Find all unique contract addresses 'involved' in this block.
-        // config.IS_RANGE_MODE || this._findUniqueContractAddresses(transactions, logs, traces)
+        // this._findUniqueContractAddresses(transactions, logs, traces)
 
         // Find and run event generators associated with the unique contract instances seen.
-        // config.IS_RANGE_MODE || runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
+        // runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
+    }
+
+    async _savePrimitives(
+        block: EthBlock,
+        transactions: EthTransaction[],
+        logs: EthLog[],
+        traces: EthTrace[],
+        contracts: EthContract[]
+    ) {
+        this._info('Saving primitives...')
+
+        await SharedTables.manager.transaction(async (tx) => {
+            await Promise.all([
+                this._upsertBlock(block, tx),
+                this._upsertTransactions(transactions, tx),
+                this._upsertLogs(logs, tx),
+                this._upsertTraces(traces, tx),
+                this._upsertContracts(contracts, tx),
+            ])
+        })
     }
 
     // TODO: Redo once you have contract addresses stored.
@@ -258,37 +289,14 @@ class EthereumIndexer extends AbstractIndexer {
         }
     }
 
-    async _savePrimitives(
-        block: EthBlock,
-        transactions: EthTransaction[],
-        logs: EthLog[],
-        traces: EthTrace[],
-        contracts: EthContract[]
-    ) {
-        this._info('Saving primitives...')
-
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertBlock(block, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
-            ])
-        })
-    }
-
     async _upsertBlock(block: EthBlock, tx: any) {
         const [updateBlockCols, conflictBlockCols] = fullBlockUpsertConfig(block)
-
+        const blockTimestamp = this.pgBlockTimestamp
         await tx
             .createQueryBuilder()
             .insert()
             .into(EthBlock)
-            .values({
-                ...block,
-                timestamp: () => this.pgBlockTimestamp,
-            })
+            .values({ ...block, timestamp: () => blockTimestamp })
             .orUpdate(updateBlockCols, conflictBlockCols)
             .execute()
     }
@@ -300,7 +308,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
         const blockTimestamp = this.pgBlockTimestamp
         await tx
-            .createQueryBuilder()
+            .createQueryBuilder({ })
             .insert()
             .into(EthTransaction)
             .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))

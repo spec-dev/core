@@ -23,6 +23,7 @@ $shared_bin_dir/validate_arg "to_block" "$to_block"
 # ======== SET KEY VARS ======== #
 
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
+range_group_size=$( $shared_bin_dir/env_reader "$env" "INDEXER_RANGE_GROUP_SIZE" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
 event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
@@ -59,6 +60,7 @@ shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
+$shared_bin_dir/assert_env "INDEXER_RANGE_GROUP_SIZE" "$range_group_size"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
@@ -100,8 +102,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="df52967"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -116,6 +117,7 @@ template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{FROM_BLOCK}}|$from_block|g" | \
     sed "s|{{TO_BLOCK}}|$to_block|g" | \
+    sed "s|{{RANGE_GROUP_SIZE}}|$range_group_size|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \

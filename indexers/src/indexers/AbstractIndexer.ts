@@ -1,4 +1,4 @@
-import { NewReportedHead, logger, quickUncleCheck, numberToHex } from '../../../shared'
+import { NewReportedHead, logger, quickUncleCheck, numberToHex, StringKeyMap } from '../../../shared'
 import config from '../config'
 
 class AbstractIndexer {
@@ -38,7 +38,7 @@ class AbstractIndexer {
         this.blockUnixTimestamp = null
     }
 
-    async perform() {
+    async perform(): Promise<StringKeyMap | void> {
         this._info(`Indexing block ${this.blockNumber} (${this.blockHash})...`)
 
         if (this.head.replace) {
