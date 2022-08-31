@@ -5,6 +5,6 @@ export function shouldRetryOnWeb3ProviderError(error: StringKeyMap): boolean {
     if (!message) return false
     if (error.code === 429) return true // Throughput-limited
     return !!message.match(
-        /(being processed|getaddrinfo enotfound|timedout|internal server error)/gi
+        /(being processed|getaddrinfo enotfound|timedout|internal server error|FetchError|EPROTO|handshake)/gi
     )
 }
