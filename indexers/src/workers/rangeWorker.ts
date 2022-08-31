@@ -21,6 +21,7 @@ import {
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
     SharedTables,
+    uniqueByKeys,
 } from '../../../shared'
 import { exit } from 'process'
 
@@ -180,11 +181,11 @@ class RangeWorker {
     }
 
     async _saveBatchResults(results: any[]) {
-        const blocks = []
-        const transactions = []
-        const logs = []
-        const traces = []
-        const contracts = []
+        let blocks = []
+        let transactions = []
+        let logs = []
+        let traces = []
+        let contracts = []
 
         for (const result of results) {
             if (!result) continue
@@ -210,6 +211,12 @@ class RangeWorker {
         if (!this.upsertConstraints.contract && contracts.length) {
             this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
         }
+
+        blocks = uniqueByKeys(blocks, this.upsertConstraints.block[1])
+        transactions = uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
+        logs = uniqueByKeys(logs, this.upsertConstraints.log[1])
+        traces = uniqueByKeys(traces, this.upsertConstraints.trace[1])
+        contracts = uniqueByKeys(contracts, this.upsertConstraints.contract[1])
 
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
