@@ -1,4 +1,4 @@
-import { logger } from 'shared'
+import { logger } from '../../../shared'
 import errors from './errors'
 import config from './config'
 import { QueryPayload, StringKeyMap } from './types'
@@ -11,12 +11,11 @@ export const pool = new Pool({
     port : config.SHARED_TABLES_DB_PORT,
     user : config.SHARED_TABLES_DB_USERNAME,
     password : config.SHARED_TABLES_DB_PASSWORD,
-    database : 'shared-tables'
+    database : config.SHARED_TABLES_DB_NAME,
+    min: 2,
+    max: config.SHARED_TABLES_MAX_POOL_SIZE,
 })
-pool.on('error', err => logger.error('pg client error', err))
-pool.on('drain', (...args) => logger.info('pg client drain', ...args))
-pool.on('notice', (...args) => logger.info('pg client notice', ...args))
-pool.on('notification', (...args) => logger.info('pg client notification', ...args))
+pool.on('error', err => logger.error('PG client error', err))
 
 export async function performQuery(query: QueryPayload): Promise<StringKeyMap[]> {
     const { sql, bindings } = query

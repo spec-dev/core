@@ -1,5 +1,5 @@
 import JSONStream from 'JSONStream'
-import { logger } from 'shared'
+import { logger } from '../../../shared'
 import codes from './codes'
 
 export function streamQuery(stream, res) {

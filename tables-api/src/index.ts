@@ -4,7 +4,7 @@ import config from './lib/config'
 import codes from './lib/codes'
 import paths from './lib/paths'
 import errors from './lib/errors'
-import { specEnvs, logger } from 'shared'
+import { specEnvs, logger } from '../../shared'
 import { getQueryPayload } from './lib/payload'
 import { performQuery, createQueryStream } from './lib/db'
 import { streamQuery, cleanupStream } from './lib/stream'
@@ -16,9 +16,8 @@ if (config.ENV !== specEnvs.PROD) {
     app.use(morgan('dev'))
 }
 
-// Health check routes.
-app.get(paths.READY, (_, res) => res.sendStatus(200))
-app.get(paths.LIVE, (_, res) => res.sendStatus(200))
+// Health check route.
+app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
 
 // Basic query route.
 app.post(paths.QUERY, async (req, res) => {

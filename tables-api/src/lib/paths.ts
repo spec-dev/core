@@ -1,6 +1,5 @@
 const paths = {
-    READY: '/healthz/ready',
-    LIVE: '/healthz/live',
+    HEALTH_CHECK: '/health-check',
     QUERY: '/query',
     STREAM_QUERY: '/stream',
 }
