@@ -26,7 +26,7 @@ export class EthTransaction {
 
     // Address this transaction was sent from.
     @Index()
-    @Column('varchar', { length: 50 })
+    @Column('varchar', { length: 50, nullable: true })
     from: string
 
     // Address this transaction was sent to.
