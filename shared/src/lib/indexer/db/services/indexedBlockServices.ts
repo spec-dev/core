@@ -87,6 +87,7 @@ export async function insertIndexedBlocks(attrsList: { [key: string]: any }[]) {
             .insert()
             .into(IndexedBlock)
             .values(attrsList)
+            .orIgnore()
             .execute()
     } catch (err) {
         logger.error(`Error inserting indexed blocks with attrs ${attrsList}: ${err}`)
