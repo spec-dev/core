@@ -212,7 +212,11 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _getTraces(): Promise<EthTrace[]> {
-        return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.chainId)
+        try {
+            return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.chainId)
+        } catch (err) {
+            throw err
+        }
     }
 
     async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {

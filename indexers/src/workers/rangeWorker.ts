@@ -183,7 +183,7 @@ class RangeWorker {
     async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
         let result
         try {
-            result = await getIndexer(this._atNumber(blockNumber)).perform()
+            result = await (getIndexer(this._atNumber(blockNumber)).perform())
         } catch (err) {
             logger.error(`Error indexing block ${blockNumber}:`, err)
             // return [null, false]

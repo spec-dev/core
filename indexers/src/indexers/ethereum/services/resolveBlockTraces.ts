@@ -58,11 +58,14 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
         error = err
     }
 
-    if (error && shouldRetryOnWeb3ProviderError(error)) {
+    if (error) {
         return null
-    } else if (error) {
-        throw error
     }
+    // if (error && shouldRetryOnWeb3ProviderError(error)) {
+    //     return null
+    // } else if (error) {
+    //     throw error
+    // }
 
     let data: { [key: string]: any } = {}
     try {
