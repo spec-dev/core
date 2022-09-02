@@ -2,9 +2,21 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{JOB_NAME}}
+  labels:
+    type: indexer
 spec:
   template:
+    metadata:
+      labels:
+        type: indexer
     spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            type: indexer
       containers:
       - name: indexer
         image: {{IMAGE}}
@@ -64,5 +76,5 @@ spec:
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
-          value: "20"
+          value: "10"
       restartPolicy: Never

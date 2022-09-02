@@ -298,7 +298,8 @@ class RangeWorker {
             .insert()
             .into(EthBlock)
             .values(blocks)
-            .orUpdate(updateBlockCols, conflictBlockCols)
+            .orIgnore(true)
+            // .orUpdate(updateBlockCols, conflictBlockCols)
             .execute()
     }
 
@@ -311,7 +312,8 @@ class RangeWorker {
                 .insert()
                 .into(EthTransaction)
                 .values(chunk)
-                .orUpdate(updateTransactionCols, conflictTransactionCols)
+                .orIgnore(true)
+                // .orUpdate(updateTransactionCols, conflictTransactionCols)
                 .execute()
         }))
     }
@@ -325,7 +327,8 @@ class RangeWorker {
                 .insert()
                 .into(EthLog)
                 .values(chunk)
-                .orUpdate(updateLogCols, conflictLogCols)
+                .orIgnore(true)
+                // .orUpdate(updateLogCols, conflictLogCols)
                 .execute()
         }))
     }
@@ -338,7 +341,8 @@ class RangeWorker {
                 .insert()
                 .into(EthTrace)
                 .values(chunk)
-                .orUpdate(updateTraceCols, conflictTraceCols)
+                .orIgnore(true)
+                // .orUpdate(updateTraceCols, conflictTraceCols)
                 .execute()
         }))
     }
@@ -351,7 +355,8 @@ class RangeWorker {
                 .insert()
                 .into(EthContract)
                 .values(chunk)
-                .orUpdate(updateContractCols, conflictContractCols)
+                .orIgnore(true)
+                // .orUpdate(updateContractCols, conflictContractCols)
                 .execute()
         }))
     }
