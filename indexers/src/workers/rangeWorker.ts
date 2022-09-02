@@ -55,21 +55,27 @@ class RangeWorker {
     }
 
     async run() {
+        let i = 0
         while (this.cursor < this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
             const groupBlockNumbers = range(start, end)
-            logger.info(`Indexing ${start} --> ${end}...`)
-            await this._indexBlockGroup(groupBlockNumbers)
+            const log = i === 0 || i === 100
+            if (log) {
+                logger.info(`Indexing ${start} --> ${end}...`)
+                i = 0
+            }
+            i++
+            await this._indexBlockGroup(groupBlockNumbers, log)
             this.cursor = this.cursor + this.groupSize
         }
 
         if (this.batchResults.length) {
-            this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
+            this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap, true) 
         }
     }
 
-    async _indexBlockGroup(blockNumbers: number[]) {
+    async _indexBlockGroup(blockNumbers: number[], log: boolean) {
         // Get the indexed blocks for these numbers from our registry (Indexer DB).
         const existingIndexedBlocks = await this._getIndexedBlocksInNumberRange(blockNumbers)
         if (existingIndexedBlocks === null) return // is only null on failure
@@ -110,7 +116,7 @@ class RangeWorker {
             const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
             const batchResults = [...this.batchResults]
             const batchExistingBlocksMap = { ...this.batchExistingBlocksMap }
-            this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
+            this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap, log)
             this.batchBlockNumbersIndexed = []
             this.batchResults = []
             this.batchExistingBlocksMap = {}
@@ -121,8 +127,8 @@ class RangeWorker {
         batchBlockNumbersIndexed: number[] = [],
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {},
+        log: boolean,
     ) {
-        logger.info(`Saving blocks ${batchBlockNumbersIndexed[0]} --> ${batchBlockNumbersIndexed[batchBlockNumbersIndexed.length - 1]}...`)
         const t0 = performance.now()
         try {
             await this._saveBatchResults(batchResults)
@@ -131,7 +137,7 @@ class RangeWorker {
             return [null, false]
         }
         const t1 = performance.now()
-        logger.info(`SAVE TIME: ${t1 - t0}ms`)
+        log && logger.info(`SAVE TIME: ${t1 - t0}ms`)
 
         // Group index results by block number.
         const retriedBlockNumbersThatSucceeded = []
