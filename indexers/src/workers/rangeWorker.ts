@@ -32,6 +32,8 @@ class RangeWorker {
 
     groupSize: number
 
+    saveBatchMultiple: number
+
     cursor: number
 
     upsertConstraints: StringKeyMap
@@ -44,13 +46,12 @@ class RangeWorker {
 
     saveBatchIndex: number = 0
 
-    saveBatchMultiple: number = 20
-
-    constructor(from: number, to?: number | null, groupSize?: number) {
+    constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
+        this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}
     }
 
@@ -372,5 +373,5 @@ class RangeWorker {
 }
 
 export function getRangeWorker(): RangeWorker {
-    return new RangeWorker(config.FROM_BLOCK, config.TO_BLOCK, config.RANGE_GROUP_SIZE)
+    return new RangeWorker(config.FROM_BLOCK, config.TO_BLOCK, config.RANGE_GROUP_SIZE, config.SAVE_BATCH_MULTIPLE)
 }
