@@ -55,7 +55,7 @@ class RangeWorker {
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }
-        exit(0)
+        // exit(0)
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
@@ -89,74 +89,87 @@ class RangeWorker {
         // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
 
-        // Group index results by block number.
-        const retriedBlockNumbersThatSucceeded = []
-        const inserts = []
-        for (let i = 0; i < blockNumbersIndexed.length; i++) {
-            const blockNumber = blockNumbersIndexed[i]
-            const [blockHash, succeeded] = indexResults[i]
-            if (!succeeded) {
-                logger.error(`Indexing Block Failed: ${blockNumber}`)
+        ;(async () => {
+            try {
+                await this._saveBatchResults(indexResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return [null, false]
             }
 
-            // If the indexed block already existed, but now succeeded, just update the 'failed' status.
-            const existingIndexedBlock = existingIndexedBlocksMap[blockNumber]
-            if (existingIndexedBlock) {
-                succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
-                continue
+            // Group index results by block number.
+            const retriedBlockNumbersThatSucceeded = []
+            const inserts = []
+            for (let i = 0; i < blockNumbersIndexed.length; i++) {
+                const blockNumber = blockNumbersIndexed[i]
+                // const [blockHash, succeeded] = indexResults[i]
+                const result = indexResults[i]
+                const succeeded = !!result
+
+                if (!succeeded) {
+                    logger.error(`Indexing Block Failed: ${blockNumber}`)
+                }
+
+                // If the indexed block already existed, but now succeeded, just update the 'failed' status.
+                const existingIndexedBlock = existingIndexedBlocksMap[blockNumber]
+                if (existingIndexedBlock) {
+                    succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
+                    continue
+                }
+
+                // Fresh new indexed block entries.
+                inserts.push({
+                    chainId: config.CHAIN_ID,
+                    number: blockNumber,
+                    hash: result?.block?.hash,
+                    status: IndexedBlockStatus.Complete,
+                    failed: !succeeded,
+                })
             }
 
-            // Fresh new indexed block entries.
-            inserts.push({
-                chainId: config.CHAIN_ID,
-                number: blockNumber,
-                hash: blockHash,
-                status: IndexedBlockStatus.Complete,
-                failed: !succeeded,
-            })
-        }
-
-        let persistResultPromises = []
-        // Persist updates.
-        retriedBlockNumbersThatSucceeded.length &&
-            persistResultPromises.push(
-                setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
-            )
-        // Persist inserts.
-        inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
-        try {
-            await Promise.all(persistResultPromises)
-        } catch (err) {
-            logger.error(
-                `Error persisting indexed block results to DB for block range: ${blockNumbersIndexed}`,
-                err
-            )
-            return false
-        }
-        return true
+            let persistResultPromises = []
+            // Persist updates.
+            retriedBlockNumbersThatSucceeded.length &&
+                persistResultPromises.push(
+                    setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
+                )
+            // Persist inserts.
+            inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
+            try {
+                await Promise.all(persistResultPromises)
+            } catch (err) {
+                logger.error(
+                    `Error persisting indexed block results to DB for block range: ${blockNumbersIndexed}`,
+                    err
+                )
+            }
+        })()
     }
 
-    async _indexBlock(blockNumber: number): Promise<[string | null, boolean]> {
+    async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
         let result
         try {
             result = await getIndexer(this._atNumber(blockNumber)).perform()
         } catch (err) {
             logger.error(`Error indexing block ${blockNumber}:`, err)
-            return [null, false]
+            // return [null, false]
+            return null
         }
         if (!result) {
-            return [null, false]
+            // return [null, false]
+            return null
         }
-        result = result as StringKeyMap
+        // result = result as StringKeyMap
+        return result as StringKeyMap
+        
+        // try {
+        //     await this._saveBatchResults([result])
+        // } catch (err) {
+        //     logger.error(`Error saving batch: ${err}`)
+        //     return [null, false]
+        // }
 
-        try {
-            await this._saveBatchResults([result])
-        } catch (err) {
-            logger.error(`Error saving batch: ${err}`)
-            return [null, false]
-        }
-
-        return [result.block?.hash, true]
+        // return [result.block?.hash, true]
     }
 
     async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
