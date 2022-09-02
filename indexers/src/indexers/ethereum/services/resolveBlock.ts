@@ -53,14 +53,16 @@ export async function fetchBlock(
     } catch (err) {
         error = err
     }
-
-    if (error && shouldRetryOnWeb3ProviderError(error)) {
-        return null
-    } else if (error) {
-        throw error
-    } else {
-        return externalBlock
-    }
+    if (error) return null
+    
+    return externalBlock
+    // if (error && shouldRetryOnWeb3ProviderError(error)) {
+    //     return null
+    // } else if (error) {
+    //     throw error
+    // } else {
+    //     return externalBlock
+    // }
 }
 
 export default resolveBlock

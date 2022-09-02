@@ -55,10 +55,9 @@ async function fetchReceipts(
     } catch (err) {
         error = err
     }
-
-    if (!resp || (error && shouldRetryOnWeb3ProviderError(error))) {
+    if (!resp || error) {
         return null
-    } else if (error) {
+    } else if (error) { // not used per change in above if statement (hack right now)
         throw `Error fetching receipts for ${
             (params as any).blockHash || (params as any).blockNumber
         }: ${error.message}`
