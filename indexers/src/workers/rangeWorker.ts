@@ -44,7 +44,7 @@ class RangeWorker {
 
     saveBatchIndex: number = 0
 
-    saveBatchMultiple: number = 7
+    saveBatchMultiple: number = 20
 
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
