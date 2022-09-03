@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{JOB_NAME}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: data-job
+        image: {{IMAGE}}
+        command: {{JOB_COMMAND}}
+        env:
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
+        - name: INDEXER_DB_NAME
+          value: {{INDEXER_DB_NAME}}
+        - name: INDEXER_DB_HOST
+          value: {{INDEXER_DB_HOST}}
+        - name: INDEXER_DB_PORT
+          value: "{{INDEXER_DB_PORT}}"
+        - name: INDEXER_DB_USERNAME
+          value: {{INDEXER_DB_USERNAME}}
+        - name: INDEXER_DB_PASSWORD
+          value: {{INDEXER_DB_PASSWORD}}
+        - name: CORE_REDIS_HOST
+          value: {{CORE_REDIS_HOST}}
+        - name: CORE_REDIS_PORT
+          value: "{{CORE_REDIS_PORT}}"
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
+        - name: SHARED_TABLES_DB_NAME
+          value: {{SHARED_TABLES_DB_NAME}}
+        - name: SHARED_TABLES_DB_HOST
+          value: {{SHARED_TABLES_DB_HOST}}
+        - name: SHARED_TABLES_DB_PORT
+          value: "{{SHARED_TABLES_DB_PORT}}"
+        - name: SHARED_TABLES_DB_USERNAME
+          value: {{SHARED_TABLES_DB_USERNAME}}
+        - name: SHARED_TABLES_DB_PASSWORD
+          value: {{SHARED_TABLES_DB_PASSWORD}}
+      restartPolicy: Never

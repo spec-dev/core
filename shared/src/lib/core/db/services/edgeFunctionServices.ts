@@ -25,3 +25,19 @@ export async function createEdgeFunction(
 
     return edgeFunction
 }
+
+export async function getEdgeFunction(namespaceId: number, name: string): Promise<EdgeFunction | null> { 
+    let edgeFunction
+
+    try {
+        edgeFunction = await edgeFunctions().findOneBy({
+            namespaceId,
+            name,
+        })
+    } catch (err) {
+        logger.error(`Error getting EdgeFunction for namespaceId=${namespaceId}, name=${name}: ${err}`)
+        throw err
+    }
+
+    return edgeFunction || null
+}
