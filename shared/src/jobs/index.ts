@@ -4,6 +4,8 @@ import createLiveObjectVersion from './createLiveObjectVersion'
 import createEdgeFunction from './createEdgeFunction'
 import createEdgeFunctionVersion from './createEdgeFunctionVersion'
 import createLiveEdgeFunctionVersion from './createLiveEdgeFunctionVersion'
+import getEdgeFunctions from './getEdgeFunctions'
+import getEdgeFunctionVersions from './getEdgeFunctionVersions'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -14,6 +16,8 @@ const jobs = {
     createEdgeFunction,
     createEdgeFunctionVersion,
     createLiveEdgeFunctionVersion,
+    getEdgeFunctions,
+    getEdgeFunctionVersions,
 }
 
 async function run() {
