@@ -1,5 +1,5 @@
 {
-    "name": "tables-api",
+    "name": "functions",
     "version": "1.0.0",
     "private": true,
     "main": "dist/index.js",

@@ -29,11 +29,12 @@ $shared_bin_dir/assert_env "ACM_WILDCARD_CERT_ARM" "$cert_arm"
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
-aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )  
 image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "FUNCTIONS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -49,5 +50,4 @@ template=$( cat "$template_path" | \
 echo "Creating functions resources..."
 
 # Apply the template.
-# echo "$template" | kubectl apply -f -
-echo "$template"
+echo "$template" | kubectl apply -f -
