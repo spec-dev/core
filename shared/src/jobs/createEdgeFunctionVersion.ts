@@ -5,7 +5,7 @@ import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(nsp: any, name: string, version: string, url: string, args?: object) {
+async function perform(nsp: any, efName: string, efvName: string, version: string, url: string, args?: object) {
     await CoreDB.initialize()
 
     const namespace = await getNamespace(nsp)
@@ -14,14 +14,14 @@ async function perform(nsp: any, name: string, version: string, url: string, arg
         exit(1)
     }
 
-    const edgeFunction = await getEdgeFunction(namespace.id, name)
+    const edgeFunction = await getEdgeFunction(namespace.id, efName)
     if (!edgeFunction) {
         logger.error(`No edge_function for namespace_id (${namespace.id}), name (${name}).`)
         exit(1)
     }
 
     logger.info(`Creating edge_function_version ${nsp}.${name}@${version}...`)
-    await createEdgeFunctionVersion(nsp, edgeFunction.id, name, version, url, args)
+    await createEdgeFunctionVersion(nsp, edgeFunction.id, efvName, version, url, args)
     logger.info('Success.')
     exit(0)
 }
