@@ -23,12 +23,13 @@ async function perform(
 
     const edgeFunction = await getEdgeFunction(namespace.id, efName)
     if (!edgeFunction) {
-        logger.error(`No edge_function for namespace_id (${namespace.id}), name (${name}).`)
+        logger.error(`No edge_function for namespace_id (${namespace.id}), name (${efName}).`)
         exit(1)
     }
 
-    logger.info(`Creating edge_function_version ${nsp}.${name}@${version}...`)
+    logger.info(`Creating edge_function_version ${nsp}.${efvName}@${version}...`)
     await createEdgeFunctionVersion(nsp, edgeFunction.id, efvName, version, url, args)
+    console.log(nsp, edgeFunction.id, efvName, version, url, args)
     logger.info('Success.')
     exit(0)
 }

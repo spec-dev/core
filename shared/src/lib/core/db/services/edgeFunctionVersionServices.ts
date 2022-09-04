@@ -14,11 +14,11 @@ export async function createEdgeFunctionVersion(
 ): Promise<EdgeFunctionVersion> {
     const edgeFunctionVersion = new EdgeFunctionVersion()
     edgeFunctionVersion.nsp = nsp
+    edgeFunctionVersion.edgeFunctionId = edgeFunctionId
     edgeFunctionVersion.name = name
     edgeFunctionVersion.version = version
     edgeFunctionVersion.url = url
     edgeFunctionVersion.args = args
-    edgeFunctionVersion.edgeFunctionId = edgeFunctionId
 
     try {
         await edgeFunctionVersions().save(edgeFunctionVersion)
