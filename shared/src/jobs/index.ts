@@ -6,6 +6,7 @@ import createEdgeFunctionVersion from './createEdgeFunctionVersion'
 import createLiveEdgeFunctionVersion from './createLiveEdgeFunctionVersion'
 import getEdgeFunctions from './getEdgeFunctions'
 import getEdgeFunctionVersions from './getEdgeFunctionVersions'
+import deleteEdgeFunctionVersions from './deleteEdgeFunctionVersions'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -18,6 +19,7 @@ const jobs = {
     createLiveEdgeFunctionVersion,
     getEdgeFunctions,
     getEdgeFunctionVersions,
+    deleteEdgeFunctionVersions,
 }
 
 async function run() {
