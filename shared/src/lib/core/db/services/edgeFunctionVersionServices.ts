@@ -62,3 +62,12 @@ export async function getLatestEdgeFunctionVersion(
 
     return edgeFunctionVersion || null
 }
+
+export async function getEdgeFunctionVersions(): Promise<EdgeFunctionVersion[] | null> {
+    try {
+        return await edgeFunctionVersions().find()
+    } catch (err) {
+        logger.error(`Error getting EdgeFunctionVersions: ${err}`)
+        return null
+    }
+}

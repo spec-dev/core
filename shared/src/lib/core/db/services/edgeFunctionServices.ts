@@ -46,3 +46,12 @@ export async function getEdgeFunction(
 
     return edgeFunction || null
 }
+
+export async function getEdgeFunctions(): Promise<EdgeFunction[] | null> {
+    try {
+        return await edgeFunctions().find()
+    } catch (err) {
+        logger.error(`Error getting EdgeFunctions: ${err}`)
+        return null
+    }
+}
