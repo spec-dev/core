@@ -8,7 +8,7 @@ const liveObjects = () => CoreDB.getRepository(LiveObject)
 export async function createLiveObject(
     namespaceId: number,
     name: string,
-    desc: string,
+    desc: string
 ): Promise<LiveObject> {
     const liveObject = new LiveObject()
     liveObject.uid = uuid4()
@@ -28,7 +28,7 @@ export async function createLiveObject(
     return liveObject
 }
 
-export async function getLiveObject(namespaceId: number, name: string): Promise<LiveObject | null> { 
+export async function getLiveObject(namespaceId: number, name: string): Promise<LiveObject | null> {
     let liveObject
 
     try {
@@ -37,7 +37,9 @@ export async function getLiveObject(namespaceId: number, name: string): Promise<
             name,
         })
     } catch (err) {
-        logger.error(`Error getting LiveObject for namespaceId=${namespaceId}, name=${name}: ${err}`)
+        logger.error(
+            `Error getting LiveObject for namespaceId=${namespaceId}, name=${name}: ${err}`
+        )
         throw err
     }
 

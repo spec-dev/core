@@ -26,7 +26,10 @@ export async function createEdgeFunction(
     return edgeFunction
 }
 
-export async function getEdgeFunction(namespaceId: number, name: string): Promise<EdgeFunction | null> { 
+export async function getEdgeFunction(
+    namespaceId: number,
+    name: string
+): Promise<EdgeFunction | null> {
     let edgeFunction
 
     try {
@@ -35,7 +38,9 @@ export async function getEdgeFunction(namespaceId: number, name: string): Promis
             name,
         })
     } catch (err) {
-        logger.error(`Error getting EdgeFunction for namespaceId=${namespaceId}, name=${name}: ${err}`)
+        logger.error(
+            `Error getting EdgeFunction for namespaceId=${namespaceId}, name=${name}: ${err}`
+        )
         throw err
     }
 

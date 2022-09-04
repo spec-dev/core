@@ -6,10 +6,10 @@ import { exit } from 'process'
 async function perform(name: string) {
     await CoreDB.initialize()
     logger.info(`Creating namespace ${name}...`)
-    
+
     await createNamespace(name)
     logger.info('Success.')
-    
+
     exit(0)
 }
 

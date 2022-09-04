@@ -16,6 +16,10 @@ export {
     fullTraceUpsertConfig,
 } from './lib/shared-tables/db/entities/EthTrace'
 export { EthContract, fullContractUpsertConfig } from './lib/shared-tables/db/entities/EthContract'
+export {
+    EthLatestInteraction,
+    EthLatestInteractionType,
+} from './lib/shared-tables/db/entities/EthLatestInteraction'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,

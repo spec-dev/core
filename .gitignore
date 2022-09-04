@@ -17,6 +17,7 @@ typings/
 # Scrap work
 scrap.js
 scrap.ts
+scrap/
 
 # Runtime data
 pids

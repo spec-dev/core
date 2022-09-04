@@ -7,11 +7,11 @@ import { exit } from 'process'
 import { LiveEdgeFunctionVersionRole } from '../lib/core/db/entities/LiveEdgeFunctionVersion'
 
 async function perform(
-    lov: string, 
-    efv: string, 
-    role: LiveEdgeFunctionVersionRole, 
+    lov: string,
+    efv: string,
+    role: LiveEdgeFunctionVersionRole,
     argsMap?: object,
-    metadata?: object,
+    metadata?: object
 ) {
     await CoreDB.initialize()
 
@@ -25,12 +25,20 @@ async function perform(
     const [nsp, name] = nspName.split('.')
     const edgeFunctionVersion = await getEdgeFunctionVersion(nsp, name, version)
     if (!edgeFunctionVersion) {
-        logger.error(`No edge_function_version for nsp (${nsp}), name (${name}), version (${version}).`)
+        logger.error(
+            `No edge_function_version for nsp (${nsp}), name (${name}), version (${version}).`
+        )
         exit(1)
     }
-    
+
     logger.info(`Creating live_edge_function_version ${nsp}.${name}@${version}...`)
-    await createLiveEdgeFunctionVersion(liveObjectVersion.id, edgeFunctionVersion.id, role, argsMap, metadata)
+    await createLiveEdgeFunctionVersion(
+        liveObjectVersion.id,
+        edgeFunctionVersion.id,
+        role,
+        argsMap,
+        metadata
+    )
     logger.info('Success.')
     exit(0)
 }

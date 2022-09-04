@@ -1,7 +1,7 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
 
-export enum EthAddressInteractionType {
+export enum EthLatestInteractionType {
     WalletToContract = 'wallet:contract',
     WalletToWallet = 'wallet:wallet',
     ContractToWallet = 'contract:wallet',
@@ -23,7 +23,7 @@ export class EthLatestInteraction {
 
     // Specifies whether the sender or recipient is a wallet or a contract.
     @Column('varchar', { name: 'interaction_type', length: 20 })
-    interactionType: EthAddressInteractionType
+    interactionType: EthLatestInteractionType
 
     // The transaction or trace hash.
     @Column('varchar', { length: 70 })
