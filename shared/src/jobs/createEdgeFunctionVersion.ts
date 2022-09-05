@@ -11,7 +11,7 @@ async function perform(
     efvName: string,
     version: string,
     url: string,
-    args?: object
+    args?: object | string
 ) {
     await CoreDB.initialize()
 
@@ -27,8 +27,12 @@ async function perform(
         exit(1)
     }
 
+    if (args && typeof args === 'string') {
+        args = JSON.parse(args)
+    }
+
     logger.info(`Creating edge_function_version ${nsp}.${efvName}@${version}...`)
-    await createEdgeFunctionVersion(nsp, edgeFunction.id, efvName, version, url, args)
+    await createEdgeFunctionVersion(nsp, edgeFunction.id, efvName, version, url, args as object)
     console.log(nsp, edgeFunction.id, efvName, version, url, args)
     logger.info('Success.')
     exit(0)
