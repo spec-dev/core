@@ -7,6 +7,7 @@ import {
 import { ExternalEthReceipt } from '../types'
 import { logger, sleep } from '../../../../../shared'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
+import config from '../../../config'
 
 const timing = {
     NOT_READY_DELAY: 300,
@@ -36,9 +37,9 @@ async function getBlockReceipts(
     if (receipts === null) {
         throw `Out of attempts - No receipts found for block ${blockNumber}.`
     } else if (receipts.length === 0) {
-        logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
     } else {
-        logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
     }
 
     return receipts.map((r) => r as unknown as ExternalEthReceipt)

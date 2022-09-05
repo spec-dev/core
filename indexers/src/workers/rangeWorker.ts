@@ -66,6 +66,7 @@ class RangeWorker {
         if (this.batchResults.length) {
             this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
         }
+        logger.info('DONE')
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
@@ -131,7 +132,6 @@ class RangeWorker {
             return [null, false]
         }
         const t1 = performance.now()
-        logger.info(`SAVE TIME: ${t1 - t0}ms`)
 
         // Group index results by block number.
         const retriedBlockNumbersThatSucceeded = []
