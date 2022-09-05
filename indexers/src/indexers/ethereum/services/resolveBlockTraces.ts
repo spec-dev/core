@@ -72,7 +72,7 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
     try {
         data = await resp.json()
     } catch (err) {
-        logger.error(
+        config.IS_RANGE_MODE || logger.error(
             `Error parsing json response while fetching traces for block ${hexBlockNumber}: ${err}`
         )
         data = {}

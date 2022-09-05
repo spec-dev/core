@@ -63,7 +63,6 @@ class RangeWorker {
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }
-
         if (this.batchResults.length) {
             this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
         }

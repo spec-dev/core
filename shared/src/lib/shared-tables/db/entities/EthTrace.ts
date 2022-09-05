@@ -36,7 +36,7 @@ export class EthTrace {
     // Primary key with the following calculated value:
     // * For transaction-scoped traces --> {trace_type}_{transaction_hash}_{trace_address}
     // * For block-scoped traces --> {trace_type}_{block_hash}_{index_within_block}
-    @PrimaryColumn('varchar', { length: 300 })
+    @PrimaryColumn('varchar')
     id: string
 
     // This trace's transaction hash.

@@ -54,7 +54,7 @@ export async function fetchBlock(
         error = err
     }
     if (error) {
-        logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
+        config.IS_RANGE_MODE || logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
         return null
     }
     
