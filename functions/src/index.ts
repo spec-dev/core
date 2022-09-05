@@ -16,19 +16,19 @@ if (config.ENV !== specEnvs.PROD) {
 }
 
 app.post('/:functionPath', async (req, res) => {
-    // Parse edge function components from url.
+    // Parse the edge function components from the url path.
     const { nsp, name, version } = parseEdgeFunctionCompsFromUrl(req.url)
     if (!nsp || !name || (version && !isValidVersionFormat(version))) {
         return res.status(codes.NOT_FOUND).json({ error: errors.FUNCTION_NOT_FOUND })
     }
 
-    // Get edge function.
+    // Get the edge function (if exists).
     const func = getEdgeFunction(nsp, name, version)
     if (!func) {
         return res.status(codes.NOT_FOUND).json({ error: errors.FUNCTION_NOT_FOUND })
     }
 
-    // Perform edge function.
+    // Perform the edge function.
     let output: any
     try {
         output = await func(req.body, res)
@@ -36,10 +36,11 @@ app.post('/:functionPath', async (req, res) => {
         logger.error(err)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: err?.message || err })
     }
-    if (!output) return
 
-    // Only return JSON response if not streaming the response per above.
-    return res.status(codes.SUCCESS).json(output)
+    // Return a basic JSON response if not streaming the response.
+    if (output) {
+        return res.status(codes.SUCCESS).json(output)
+    }
 })
 
 ;(async () => {

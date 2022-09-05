@@ -1,14 +1,16 @@
 import { StringKeyMap } from '../../lib/types'
 
-export function toArray(value: any): any[] | undefined {
-    if (value === undefined) return undefined
-    return Array.isArray(value) ? value : [value]
-}
-
-export function withArrayKeys(input: StringKeyMap): StringKeyMap {
-    const m: StringKeyMap = {}
-    for (let key in input) {
-        m[key] = toArray(input[key])
+export function groupInputKeys(input: StringKeyMap | StringKeyMap[]): StringKeyMap {
+    const inputs = Array.isArray(input) ? input : [input]
+    let groupedInputs = {}
+    for (const entry of inputs) {
+        for (const key in entry) {
+            groupedInputs[key] = groupedInputs[key] || []
+            groupedInputs[key].push(entry[key])
+        }
     }
-    return m
+    for (const key in groupedInputs) {
+        groupedInputs[key] = Array.from(new Set(groupedInputs[key]))
+    }
+    return groupedInputs
 }
