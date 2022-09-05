@@ -31,7 +31,7 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image"
 $shared_bin_dir/assert_env "AWS_ACCOUNT_ID" "$aws_account_id"
 $shared_bin_dir/assert_env "AWS_REGION" "$aws_region"
 $shared_bin_dir/assert_env "DOCKER_IMAGE_ORG" "$image_org"
-$shared_bin_dir/assert_env "INDEXER_IMAGE_NAME" "$image_sname"
+$shared_bin_dir/assert_env "INDEXER_IMAGE_NAME" "$image_name"
 
 # ======== BUILD IMAGE ======== #
 

@@ -33,9 +33,11 @@ async function resolveBlockTraces(
     if (externalTraces === null) {
         throw `Out of attempts - No traces found for block ${blockNumber}...`
     } else if (externalTraces.length === 0) {
-        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
+        logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
+        // config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No traces this block.`)
     } else {
-        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got traces.`)
+        logger.info(`[${chainId}:${blockNumber}] Got traces.`)
+        // config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got traces.`)
     }
 
     return externalToInternalTraces(externalTraces, chainId)
@@ -58,7 +60,10 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
         error = err
     }
 
-    if (error) return null
+    if (error) {
+        logger.error(`Error fetching traces: ${error}. Will retry`)
+        return null
+    }
     // if (error && shouldRetryOnWeb3ProviderError(error)) {
     //     return null
     // } else if (error) {

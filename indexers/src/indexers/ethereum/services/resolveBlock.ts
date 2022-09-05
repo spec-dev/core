@@ -34,7 +34,8 @@ export async function resolveBlock(
         throw `Out of attempts - No block found for ${blockNumber}...`
     }
 
-    config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
+    logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
+    // config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
 
     return [externalBlock, externalToInternalBlock(externalBlock)]
 }
@@ -53,7 +54,10 @@ export async function fetchBlock(
     } catch (err) {
         error = err
     }
-    if (error) return null
+    if (error) {
+        logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
+        return null
+    }
     
     return externalBlock
     // if (error && shouldRetryOnWeb3ProviderError(error)) {

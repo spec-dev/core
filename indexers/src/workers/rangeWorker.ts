@@ -123,6 +123,7 @@ class RangeWorker {
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {},
     ) {
+        logger.info(`Saving ${batchBlockNumbersIndexed[0]} -> ${batchBlockNumbersIndexed[batchBlockNumbersIndexed.length - 1]}`)
         const t0 = performance.now()
         try {
             await this._saveBatchResults(batchResults)

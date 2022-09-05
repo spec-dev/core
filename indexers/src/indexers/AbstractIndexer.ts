@@ -56,11 +56,13 @@ class AbstractIndexer {
     }
 
     async _info(msg: any, ...args: any[]) {
-        config.IS_RANGE_MODE || logger.info(`${this.logPrefix} ${msg}`, ...args)
+        logger.info(`${this.logPrefix} ${msg}`, ...args)
+        // config.IS_RANGE_MODE || logger.info(`${this.logPrefix} ${msg}`, ...args)
     }
 
     async _warn(msg: any, ...args: any[]) {
-        config.IS_RANGE_MODE || logger.warn(`${this.logPrefix} ${msg}`, ...args)
+        logger.warn(`${this.logPrefix} ${msg}`, ...args)
+        // config.IS_RANGE_MODE || logger.warn(`${this.logPrefix} ${msg}`, ...args)
     }
 
     async _error(msg: any, ...args: any[]) {
