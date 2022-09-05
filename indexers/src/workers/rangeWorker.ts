@@ -111,7 +111,7 @@ class RangeWorker {
             const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
             const batchResults = [...this.batchResults]
             const batchExistingBlocksMap = { ...this.batchExistingBlocksMap }
-            this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
+            await this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
             this.batchBlockNumbersIndexed = []
             this.batchResults = []
             this.batchExistingBlocksMap = {}

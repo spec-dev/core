@@ -78,5 +78,5 @@ spec:
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "500"
         - name: SAVE_BATCH_MULTIPLE
-          value: "40"
+          value: "20"
       restartPolicy: Never
