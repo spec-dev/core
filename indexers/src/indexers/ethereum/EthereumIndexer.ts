@@ -35,6 +35,7 @@ const timing = {
 }
 
 class EthereumIndexer extends AbstractIndexer {
+
     web3: AlchemyWeb3
 
     uniqueContractAddresses: Set<string>
@@ -58,7 +59,10 @@ class EthereumIndexer extends AbstractIndexer {
         if (config.IS_RANGE_MODE) {
             blockResult = await blockPromise
         } else {
-            ;([blockResult, receipts] = await Promise.all([blockPromise, this._getBlockReceiptsWithLogs()]))
+            ;([blockResult, receipts] = await Promise.all([
+                blockPromise, 
+                this._getBlockReceiptsWithLogs(),
+            ]))
         }
         const [externalBlock, block] = blockResult
         this.resolvedBlockHash = block.hash
