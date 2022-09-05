@@ -76,7 +76,7 @@ spec:
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
-          value: "400"
+          value: "500"
         - name: SAVE_BATCH_MULTIPLE
-          value: "1"
+          value: "10"
       restartPolicy: Never

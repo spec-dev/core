@@ -60,7 +60,6 @@ class RangeWorker {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
             const groupBlockNumbers = range(start, end)
-            logger.info(`Indexing ${start} --> ${end}...`)
             await this._indexBlockGroup(groupBlockNumbers)
             this.cursor = this.cursor + this.groupSize
         }
@@ -98,6 +97,8 @@ class RangeWorker {
         // Don't do anything if the entire block group has already *successfully* been indexed.
         if (!blockNumbersIndexed.length) return
 
+        logger.info(`Indexing ${blockNumbers[0]} --> ${blockNumbers[blockNumbers.length - 1]}...`)
+
         // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
         
@@ -111,7 +112,7 @@ class RangeWorker {
             const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
             const batchResults = [...this.batchResults]
             const batchExistingBlocksMap = { ...this.batchExistingBlocksMap }
-            await this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
+            this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
             this.batchBlockNumbersIndexed = []
             this.batchResults = []
             this.batchExistingBlocksMap = {}
@@ -123,7 +124,6 @@ class RangeWorker {
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {},
     ) {
-        logger.info(`Saving ${batchBlockNumbersIndexed[0]} -> ${batchBlockNumbersIndexed[batchBlockNumbersIndexed.length - 1]}`)
         const t0 = performance.now()
         try {
             await this._saveBatchResults(batchResults)
