@@ -34,8 +34,7 @@ export async function resolveBlock(
         throw `Out of attempts - No block found for ${blockNumber}...`
     }
 
-    logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
-    // config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
+    config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
 
     return [externalBlock, externalToInternalBlock(externalBlock)]
 }
