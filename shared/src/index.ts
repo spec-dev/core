@@ -19,6 +19,7 @@ export { EthContract, fullContractUpsertConfig } from './lib/shared-tables/db/en
 export {
     EthLatestInteraction,
     EthLatestInteractionType,
+    fullLatestInteractionUpsertConfig,
 } from './lib/shared-tables/db/entities/EthLatestInteraction'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
@@ -65,6 +66,7 @@ export {
     toNamespacedVersion,
     fromNamespacedVersion,
     uniqueByKeys,
+    toChunks,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
@@ -114,3 +116,4 @@ export {
 } from './lib/core/db/services/liveObjectVersionServices'
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
 export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'
+export { In } from 'typeorm'

@@ -26,6 +26,9 @@ const indexerConfig: StringKeyMap = {
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 10)),
     HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
     SAVE_BATCH_MULTIPLE: Number(ev('SAVE_BATCH_MULTIPLE', 15)),
+    NOT_READY_DELAY: 300,
+    MAX_ATTEMPTS: 100,
+    MAX_BINDINGS_SIZE: 2000,
 }
 
 export default indexerConfig

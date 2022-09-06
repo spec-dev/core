@@ -6,6 +6,7 @@ import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
+import initLatestInteractions from './services/initLatestInteractions'
 import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
@@ -25,14 +26,11 @@ import {
     fullLogUpsertConfig,
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
-    mapByKey,
+    fullLatestInteractionUpsertConfig,
     StringKeyMap,
+    EthLatestInteraction,
+    toChunks,
 } from '../../../../shared'
-
-const timing = {
-    NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 100,
-}
 
 class EthereumIndexer extends AbstractIndexer {
 
@@ -40,10 +38,22 @@ class EthereumIndexer extends AbstractIndexer {
 
     uniqueContractAddresses: Set<string>
 
+    block: EthBlock = null
+
+    transactions: EthTransaction[] = []
+
+    logs: EthLog[] = []
+
+    traces: EthTrace[] = []
+
+    contracts: EthContract[] = []
+
+    latestInteractions: EthLatestInteraction[] = []
+
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_ETH_MAINNET_REST_URL)
-        this.uniqueContractAddresses = new Set()
+        this.uniqueContractAddresses = new Set()        
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -51,19 +61,11 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
+        const receiptsPromise = this._getBlockReceiptsWithLogs()
         const tracesPromise = this._getTraces()
-        
-        // HACK
-        let blockResult
-        let receipts = null
-        if (config.IS_RANGE_MODE) {
-            blockResult = await blockPromise
-        } else {
-            ;([blockResult, receipts] = await Promise.all([
-                blockPromise, 
-                this._getBlockReceiptsWithLogs(),
-            ]))
-        }
+
+        // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
+        let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
         const [externalBlock, block] = blockResult
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
@@ -76,7 +78,7 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Ensure there's not a block hash mismatch between block and receipts.
         // This can happen when fetching by block number around chain re-orgs.
-        if (!config.IS_RANGE_MODE && receipts.length && receipts[0].blockHash !== block.hash) {
+        if (receipts.length && receipts[0].blockHash !== block.hash) {
             this._warn(
                 `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
             )
@@ -89,7 +91,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
+        if (externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -128,25 +130,24 @@ class EthereumIndexer extends AbstractIndexer {
         const [contracts, _] = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
+        // Format transactions as the latest interactions between addresses.
+        const latestInteractions = await initLatestInteractions(transactions, contracts)
+
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
             return
         }
 
-        if (config.IS_RANGE_MODE) {
-            return {
-                block,
-                transactions,
-                logs,
-                traces,
-                contracts,
-                pgBlockTimestamp: this.pgBlockTimestamp,
-            }
-        }
-
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs, traces, contracts)
+        await this._savePrimitives(
+            block, 
+            transactions, 
+            logs, 
+            traces, 
+            contracts,
+            latestInteractions,
+        )
 
         // Find all unique contract addresses 'involved' in this block.
         // this._findUniqueContractAddresses(transactions, logs, traces)
@@ -160,7 +161,8 @@ class EthereumIndexer extends AbstractIndexer {
         transactions: EthTransaction[],
         logs: EthLog[],
         traces: EthTrace[],
-        contracts: EthContract[]
+        contracts: EthContract[],
+        latestInteractions: EthLatestInteraction[],
     ) {
         this._info('Saving primitives...')
 
@@ -171,6 +173,7 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertLatestInteractions(latestInteractions, tx),
             ])
         })
     }
@@ -240,10 +243,10 @@ class EthereumIndexer extends AbstractIndexer {
 
         let receipts = null
         let numAttempts = 0
-        while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
+        while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
             receipts = await getReceipts()
             if (receipts === null) {
-                await sleep(timing.NOT_READY_DELAY)
+                await sleep(config.NOT_READY_DELAY)
             }
             numAttempts += 1
         }
@@ -262,10 +265,10 @@ class EthereumIndexer extends AbstractIndexer {
 
         let traces = null
         let numAttempts = 0
-        while (traces === null && numAttempts < timing.MAX_ATTEMPTS) {
+        while (traces === null && numAttempts < config.MAX_ATTEMPTS) {
             traces = await getTraces()
             if (traces === null) {
-                await sleep(timing.NOT_READY_DELAY)
+                await sleep(config.NOT_READY_DELAY)
             }
             numAttempts += 1
         }
@@ -298,69 +301,96 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _upsertBlock(block: EthBlock, tx: any) {
-        const [updateBlockCols, conflictBlockCols] = fullBlockUpsertConfig(block)
+        const [updateCols, conflictCols] = fullBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        await tx
+        this.block = (await tx
             .createQueryBuilder()
             .insert()
             .into(EthBlock)
             .values({ ...block, timestamp: () => blockTimestamp })
-            .orUpdate(updateBlockCols, conflictBlockCols)
+            .orUpdate(updateCols, conflictCols)
+            .returning('*')
             .execute()
+        ).generatedMaps[0] || null
     }
 
     async _upsertTransactions(transactions: EthTransaction[], tx: any) {
         if (!transactions.length) return
-        const [updateTransactionCols, conflictTransactionCols] = fullTransactionUpsertConfig(
+        const [updateCols, conflictCols] = fullTransactionUpsertConfig(
             transactions[0]
         )
         const blockTimestamp = this.pgBlockTimestamp
-        await tx
-            .createQueryBuilder({ })
+        this.transactions = (await tx
+            .createQueryBuilder()
             .insert()
             .into(EthTransaction)
             .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateTransactionCols, conflictTransactionCols)
+            .orUpdate(updateCols, conflictCols)
+            .returning('*')
             .execute()
+        ).generatedMaps
     }
 
     async _upsertLogs(logs: EthLog[], tx: any) {
         if (!logs.length) return
-        const [updateLogCols, conflictLogCols] = fullLogUpsertConfig(logs[0])
+        const [updateCols, conflictCols] = fullLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
-        await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthLog)
-            .values(logs.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateLogCols, conflictLogCols)
-            .execute()
+        this.logs = (await Promise.all(toChunks(logs, config.MAX_BINDINGS_SIZE).map(chunk => {
+            return tx.createQueryBuilder()
+                .createQueryBuilder()
+                .insert()
+                .into(EthLog)
+                .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        }))).map(result => result.generatedMaps).flat()
     }
 
     async _upsertTraces(traces: EthTrace[], tx: any) {
         if (!traces.length) return
-        const [updateTraceCols, conflictTraceCols] = fullTraceUpsertConfig(traces[0])
+        const [updateCols, conflictCols] = fullTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
-        await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthTrace)
-            .values(traces.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateTraceCols, conflictTraceCols)
-            .execute()
+        this.traces = (await Promise.all(toChunks(traces, config.MAX_BINDINGS_SIZE).map(chunk => {
+            return tx.createQueryBuilder()
+                .createQueryBuilder()
+                .insert()
+                .into(EthTrace)
+                .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        }))).map(result => result.generatedMaps).flat()
     }
 
     async _upsertContracts(contracts: EthContract[], tx: any) {
         if (!contracts.length) return
-        const [updateContractCols, conflictContractCols] = fullContractUpsertConfig(contracts[0])
+        const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
-        await tx
+        this.contracts = (await tx
             .createQueryBuilder()
             .insert()
             .into(EthContract)
             .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateContractCols, conflictContractCols)
+            .orUpdate(updateCols, conflictCols)
+            .returning('*')
             .execute()
+        ).generatedMaps
+    }
+
+    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], tx: any) {
+        if (!latestInteractions.length) return
+        const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
+        const blockTimestamp = this.pgBlockTimestamp
+        this.latestInteractions = (await tx
+            .createQueryBuilder()
+            .insert()
+            .into(EthLatestInteraction)
+            .values(latestInteractions.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
+            .orUpdate(updateCols, conflictCols)
+            .returning('*')
+            .execute()
+        ).generatedMaps
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {
