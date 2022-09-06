@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq'
+import { Queue, QueueScheduler } from 'bullmq'
 import config from './config'
 import { IndexedBlock, logger, NewReportedHead } from '../../shared'
 
@@ -9,11 +9,18 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
         port: config.INDEXER_REDIS_PORT,
     },
     defaultJobOptions: {
-        attempts: 3,
+        attempts: 5,
         backoff: {
             type: 'exponential',
-            delay: 100,
+            delay: 300,
         },
+    },
+})
+
+const queueScheduler = new QueueScheduler(config.HEAD_REPORTER_QUEUE_KEY, {
+    connection: {
+        host: config.INDEXER_REDIS_HOST,
+        port: config.INDEXER_REDIS_PORT,
     },
 })
 
