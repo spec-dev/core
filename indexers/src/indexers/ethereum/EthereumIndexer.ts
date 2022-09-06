@@ -9,7 +9,6 @@ import getContracts from './services/getContracts'
 import initLatestInteractions from './services/initLatestInteractions'
 import { publishDiffsAsEvents } from '../../events/relay'
 import { NewInteractions } from '../../events'
-import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
@@ -148,7 +147,11 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // Create and publish Spec events to the event relay.
-        await this._createAndPublishEvents()
+        try {
+            await this._createAndPublishEvents()
+        } catch (err) {
+            this._error('Publishing events failed:', err)
+        }
     }
 
     async _savePrimitives(
@@ -176,7 +179,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _createAndPublishEvents() {
         const eventOrigin = {
             chainId: this.chainId,
-            blockNumber: this.block.number,
+            blockNumber: this.blockNumber,
         }
         const eventSpecs = [
             { 
