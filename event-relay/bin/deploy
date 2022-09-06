@@ -20,7 +20,7 @@ $shared_bin_dir/validate_arg "image_version" "$image_version"
 
 # ======== SET KEY VARS ======== #
 
-port=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_PORT" )
+port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 
 # Core DB
@@ -32,7 +32,7 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "EVENT_RELAY_PORT" "$port"
+$shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 
 # Core DB
