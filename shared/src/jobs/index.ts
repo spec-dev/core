@@ -8,6 +8,7 @@ import getEdgeFunctions from './getEdgeFunctions'
 import getEdgeFunctionVersions from './getEdgeFunctionVersions'
 import deleteEdgeFunctionVersions from './deleteEdgeFunctionVersions'
 import deleteLiveEdgeFunctionVersions from './deleteLiveEdgeFunctionVersions'
+import getFailedIndexedBlocks from './getFailedIndexedBlocks'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -22,6 +23,7 @@ const jobs = {
     getEdgeFunctionVersions,
     deleteEdgeFunctionVersions,
     deleteLiveEdgeFunctionVersions,
+    getFailedIndexedBlocks,
 }
 
 async function run() {
