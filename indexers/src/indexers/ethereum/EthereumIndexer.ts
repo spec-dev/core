@@ -7,6 +7,8 @@ import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
 import initLatestInteractions from './services/initLatestInteractions'
+import { publishDiffsAsEvents } from '../../events/relay'
+import { NewInteractions } from '../../events'
 import runEventGenerators from './services/runEventGenerators'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
@@ -79,9 +81,7 @@ class EthereumIndexer extends AbstractIndexer {
         // Ensure there's not a block hash mismatch between block and receipts.
         // This can happen when fetching by block number around chain re-orgs.
         if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
-            )
+            this._warn(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
             receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
@@ -116,9 +116,7 @@ class EthereumIndexer extends AbstractIndexer {
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
-            )
+            this._warn(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
             traces = await this._waitAndRefetchTraces(block.hash)
         }
         traces = this._enrichTraces(traces, block)
@@ -142,18 +140,15 @@ class EthereumIndexer extends AbstractIndexer {
         // Save primitives to shared tables.
         await this._savePrimitives(
             block, 
-            transactions, 
-            logs, 
+            transactions,
+            logs,
             traces, 
             contracts,
             latestInteractions,
         )
 
-        // Find all unique contract addresses 'involved' in this block.
-        // this._findUniqueContractAddresses(transactions, logs, traces)
-
-        // Find and run event generators associated with the unique contract instances seen.
-        // runEventGenerators(this.uniqueContractAddresses, block, this.chainId)
+        // Create and publish Spec events to the event relay.
+        await this._createAndPublishEvents()
     }
 
     async _savePrimitives(
@@ -176,6 +171,20 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLatestInteractions(latestInteractions, tx),
             ])
         })
+    }
+
+    async _createAndPublishEvents() {
+        const eventOrigin = {
+            chainId: this.chainId,
+            blockNumber: this.block.number,
+        }
+        const eventSpecs = [
+            { 
+                namespacedVersion: 'eth.NewInteractions@0.0.1',
+                diff: NewInteractions(this.latestInteractions), 
+            },
+        ]
+        await publishDiffsAsEvents(eventSpecs, eventOrigin)
     }
 
     // TODO: Redo once you have contract addresses stored.
