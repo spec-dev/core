@@ -82,7 +82,7 @@ export class EthBlock {
     baseFeePerGas: string
 
     // Number of transactions included in this block.
-    @Column('int2', { name: 'transaction_count' })
+    @Column({ name: 'transaction_count' })
     transactionCount: number
 
     // Timestamp of when this block was collated.

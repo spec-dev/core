@@ -44,7 +44,7 @@ export class EthTrace {
     transactionHash: string
 
     // The index of this trace's transaction in this block.
-    @Column('int2', { name: 'transaction_index', nullable: true })
+    @Column({ name: 'transaction_index', nullable: true })
     transactionIndex: number
 
     // Address of the sender, null when trace_type is genesis or reward.
@@ -91,7 +91,7 @@ export class EthTrace {
     traceAddress: string
 
     // Index of trace in block (only works if traces were originally ordered correctly which is the case for Parity traces).
-    @Column('int2', { name: 'trace_index' })
+    @Column({ name: 'trace_index' })
     traceIndex: number
 
     // Error if message call failed. This field doesn't contain top-level trace errors.
@@ -115,7 +115,6 @@ export class EthTrace {
     blockHash: string
 
     // The number of the block this trace was included in.
-    @Index()
     @Column('int8', {
         name: 'block_number',
         transformer: {

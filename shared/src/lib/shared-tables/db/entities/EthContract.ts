@@ -20,7 +20,6 @@ export class EthContract {
     blockHash: string
 
     // The number of the block this transaction was included in.
-    @Index()
     @Column('int8', {
         name: 'block_number',
         transformer: {

@@ -21,11 +21,11 @@ export class EthTransaction {
     nonce: number
 
     // The index of this transaction in this block.
-    @Column('int2', { name: 'transaction_index' })
+    @Column({ name: 'transaction_index' })
     transactionIndex: number
 
     // Address this transaction was sent from.
-    @Column('varchar', { length: 50 })
+    @Column('varchar', { length: 50, nullable: true })
     from: string
 
     // Address this transaction was sent to.
@@ -89,7 +89,6 @@ export class EthTransaction {
     blockHash: string
 
     // The number of the block this transaction was included in.
-    @Index()
     @Column('int8', {
         name: 'block_number',
         transformer: {
