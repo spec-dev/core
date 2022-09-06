@@ -101,8 +101,8 @@ export {
 export { createContract } from './lib/core/db/services/contractServices'
 export { createContractInstance } from './lib/core/db/services/contractInstanceServices'
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
-export { createEvent } from './lib/core/db/services/eventServices'
-export { createEventVersion } from './lib/core/db/services/eventVersionServices'
+export { createEvent, getEvent } from './lib/core/db/services/eventServices'
+export { createEventVersion, getEventVersion } from './lib/core/db/services/eventVersionServices'
 export {
     initPublishedEvent,
     savePublishedEvents,
