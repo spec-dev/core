@@ -30,10 +30,7 @@ export async function createEvent(
     return event
 }
 
-export async function getEvent(
-    namespaceId: number,
-    name: string
-): Promise<Event | null> {
+export async function getEvent(namespaceId: number, name: string): Promise<Event | null> {
     let event
 
     try {
@@ -42,9 +39,7 @@ export async function getEvent(
             name,
         })
     } catch (err) {
-        logger.error(
-            `Error getting Event for namespaceId=${namespaceId}, name=${name}: ${err}`
-        )
+        logger.error(`Error getting Event for namespaceId=${namespaceId}, name=${name}: ${err}`)
         throw err
     }
 

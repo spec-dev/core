@@ -18,9 +18,7 @@ async function perform(lov: string, eventVersion: string) {
     const [nsp, name] = nspName.split('.')
     const eventVersionRecord = await getEventVersion(nsp, name, version)
     if (!eventVersionRecord) {
-        logger.error(
-            `No event_version for nsp (${nsp}), name (${name}), version (${version}).`
-        )
+        logger.error(`No event_version for nsp (${nsp}), name (${name}), version (${version}).`)
         exit(1)
     }
 
