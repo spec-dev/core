@@ -16,7 +16,7 @@ export class EthLog {
     transactionHash: string
 
     // The index of this log's transaction in this block.
-    @Column('int2', { name: 'transaction_index' })
+    @Column({ name: 'transaction_index' })
     transactionIndex: number
 
     // Address from which this log originated.
