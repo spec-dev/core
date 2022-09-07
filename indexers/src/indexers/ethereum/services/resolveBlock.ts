@@ -5,11 +5,6 @@ import { externalToInternalBlock } from '../transforms/blockTransforms'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 import config from '../../../config'
 
-const timing = {
-    NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 100,
-}
-
 export async function resolveBlock(
     web3: AlchemyWeb3,
     blockNumberOrHash: number | string,
@@ -19,10 +14,10 @@ export async function resolveBlock(
     let externalBlock = null
     let numAttempts = 0
     try {
-        while (externalBlock === null && numAttempts < timing.MAX_ATTEMPTS) {
+        while (externalBlock === null && numAttempts < config.MAX_ATTEMPTS) {
             externalBlock = await fetchBlock(web3, blockNumberOrHash)
             if (externalBlock === null) {
-                await sleep(timing.NOT_READY_DELAY)
+                await sleep(config.NOT_READY_DELAY)
             }
             numAttempts += 1
         }

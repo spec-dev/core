@@ -5,11 +5,6 @@ import { EthTrace, logger, sleep } from '../../../../../shared'
 import { externalToInternalTraces } from '../transforms/traceTransforms'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 
-const timing = {
-    NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 100,
-}
-
 async function resolveBlockTraces(
     hexBlockNumber: string,
     blockNumber: number,
@@ -19,10 +14,10 @@ async function resolveBlockTraces(
     let numAttempts = 0
 
     try {
-        while (externalTraces === null && numAttempts < timing.MAX_ATTEMPTS) {
+        while (externalTraces === null && numAttempts < config.MAX_ATTEMPTS) {
             externalTraces = await fetchTraces(hexBlockNumber)
             if (externalTraces === null) {
-                await sleep(timing.NOT_READY_DELAY)
+                await sleep(config.NOT_READY_DELAY)
             }
             numAttempts += 1
         }

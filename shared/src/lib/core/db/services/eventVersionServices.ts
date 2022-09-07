@@ -29,3 +29,16 @@ export async function createEventVersion(
 
     return eventVersion
 }
+
+export async function getEventVersion(
+    nsp: string,
+    name: string,
+    version: string
+): Promise<EventVersion | null> {
+    try {
+        return await eventVersions().findOneBy({ nsp, name, version })
+    } catch (err) {
+        logger.error(`Error getting EventVersion ${nsp}.${name}@${version}: ${err}`)
+        return null
+    }
+}

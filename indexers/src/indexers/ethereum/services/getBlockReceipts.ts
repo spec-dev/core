@@ -9,11 +9,6 @@ import { logger, sleep } from '../../../../../shared'
 import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 import config from '../../../config'
 
-const timing = {
-    NOT_READY_DELAY: 300,
-    MAX_ATTEMPTS: 100,
-}
-
 async function getBlockReceipts(
     web3: AlchemyWeb3,
     params: TransactionReceiptsParams,
@@ -23,10 +18,10 @@ async function getBlockReceipts(
     let receipts = null
     let numAttempts = 0
     try {
-        while (receipts === null && numAttempts < timing.MAX_ATTEMPTS) {
+        while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
             receipts = await fetchReceipts(web3, params)
             if (receipts === null) {
-                await sleep(timing.NOT_READY_DELAY)
+                await sleep(config.NOT_READY_DELAY)
             }
             numAttempts += 1
         }

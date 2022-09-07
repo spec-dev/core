@@ -1,5 +1,6 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
 import schemas from '../../schemas'
+import { decamelize } from 'humps'
 
 export enum EthLatestInteractionType {
     WalletToContract = 'wallet:contract',
@@ -46,4 +47,14 @@ export class EthLatestInteraction {
         },
     })
     blockNumber: number
+}
+
+export const fullLatestInteractionUpsertConfig = (
+    latestInteraction: EthLatestInteraction
+): string[][] => {
+    const conflictCols = ['from', 'to']
+    const updateCols = Object.keys(latestInteraction)
+        .map(decamelize)
+        .filter((col) => !conflictCols.includes(col))
+    return [updateCols, conflictCols]
 }

@@ -57,7 +57,7 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
                 if (i === givenBlock.number) {
                     newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
                 } else if (recentlySeenBlockNumbers.includes(i)) {
-                    continue // Previous block is probably just still processing here (close to race condition)
+                    continue // Previous block is probably just still processing here (race condition)
                 } else {
                     newBlockSpecs.push({ hash: null, number: i })
                 }

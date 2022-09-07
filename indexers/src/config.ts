@@ -19,13 +19,17 @@ const indexerConfig: StringKeyMap = {
     CHAIN_ID: isNumber(chainId) ? chainId : null,
     ALCHEMY_ETH_MAINNET_REST_URL: `https://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
-    EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME'),
+    EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
+    EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
     FROM_BLOCK: from,
     TO_BLOCK: to,
     IS_RANGE_MODE: isRangeMode,
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 10)),
     HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
     SAVE_BATCH_MULTIPLE: Number(ev('SAVE_BATCH_MULTIPLE', 15)),
+    NOT_READY_DELAY: 300,
+    MAX_ATTEMPTS: 100,
+    MAX_BINDINGS_SIZE: 2000,
 }
 
 export default indexerConfig

@@ -24,19 +24,18 @@ export async function savePublishedEvents(
 ): Promise<PublishedEvent[] | null> {
     let results
     try {
-        await CoreDB.manager.transaction(async (tx) => {
-            results = await tx
-                .createQueryBuilder()
-                .insert()
-                .into(PublishedEvent)
-                .values(records)
-                .execute()
-        })
+        results = await publishedEvents()
+            .createQueryBuilder()
+            .insert()
+            .into(PublishedEvent)
+            .values(records)
+            .returning('*')
+            .execute()
     } catch (err) {
         logger.error(`Failed to save published events: ${err?.message || err}`)
         return null
     }
-    return results
+    return results.generatedMaps
 }
 
 export async function getPublishedEventsAfterId(
