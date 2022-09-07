@@ -407,7 +407,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {
         return traces.map((t, i) => {
-            t.traceIndex = i
+            t.traceIndex = i > 32767 ? -1 : i
             t.blockTimestamp = block.timestamp
             return t
         })

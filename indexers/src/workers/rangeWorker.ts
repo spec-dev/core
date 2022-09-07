@@ -39,7 +39,9 @@ class RangeWorker {
     upsertConstraints: StringKeyMap
 
     batchResults: any[] = []
+
     batchBlockNumbersIndexed: number[] = []
+    
     batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
 
     chunkSize: number = 2000
