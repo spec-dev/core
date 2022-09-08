@@ -13,7 +13,7 @@ shared_bin_dir="$core_dir/bin"
 env="$1"
 from_block="$2"
 to_block="$3"
-range_worker_type="$4"
+range_worker_type="${4:-range}"
 
 # ======== VALIDATE ARGS ======== #
 
@@ -103,8 +103,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="1bfeb8b"
+image_version=$( $shared_bin_dir/latest_sha )
+# image_version="1bfeb8b"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

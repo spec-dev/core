@@ -103,17 +103,12 @@ class LogWorker {
     }
 
     async _saveBatches(batchBlockNumbersIndexed: number[], batchResults: any[]) {
-        const t0 = performance.now()
         try {
             await this._saveBatchResults(batchResults)
         } catch (err) {
             logger.error(`Error saving batch: ${err}`)
             return
         }
-        const t1 = performance.now()
-
-        logger.info(`SAVED: ${(t1 - t0 / 1000).toFixed(2)}s`)
-
         await registerBlockLogsAsIndexed(batchBlockNumbersIndexed)
     }
 
@@ -204,13 +199,13 @@ class LogWorker {
         }
         
         receipts = this.upsertConstraints.receipt
-            ? uniqueByKeys(receipts, this.upsertConstraints.transaction[1])
+            ? uniqueByKeys(receipts, this.upsertConstraints.receipt[1])
             : receipts
         
         logs = this.upsertConstraints.log 
             ? uniqueByKeys(logs, this.upsertConstraints.log[1])
             : logs
-                
+
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
                 this._upsertReceipts(receipts, tx),
