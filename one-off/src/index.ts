@@ -30,26 +30,9 @@ async function run() {
     let error
     try {
         await conn.query(
-            `INSERT INTO ethereum.latest_interactions_two (
-                "from",
-                "to",
-                "timestamp",
-                interaction_type,
-                "hash",
-                block_hash,
-                block_number
-            )
-            SELECT DISTINCT ON ("from", "to")
-                "from",
-                "to",
-                block_timestamp as "timestamp",
-                unnest(array['wallet:wallet']) as interaction_type,
-                "hash",
-                block_hash,
-                block_number
-            FROM ethereum.transactions
-            WHERE "from" IS NOT NULL AND "to" IS NOT NULL
-            ORDER BY "from", "to", block_timestamp DESC;`
+            `UPDATE ethereum.latest_interactions_two
+            SET interaction_type = 'wallet:contract'
+            WHERE "to" IN (SELECT "address" from ethereum.contracts);`
         )
     } catch (err) {
         error = err
