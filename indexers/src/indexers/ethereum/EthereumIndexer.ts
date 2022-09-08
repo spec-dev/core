@@ -30,7 +30,6 @@ import {
     fullLatestInteractionUpsertConfig,
     StringKeyMap,
     EthLatestInteraction,
-    numberToHex,
     toChunks,
 } from '../../../../shared'
 
@@ -350,7 +349,6 @@ class EthereumIndexer extends AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         this.logs = (await Promise.all(toChunks(logs, config.MAX_BINDINGS_SIZE).map(chunk => {
             return tx.createQueryBuilder()
-                .createQueryBuilder()
                 .insert()
                 .into(EthLog)
                 .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
@@ -366,7 +364,6 @@ class EthereumIndexer extends AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         this.traces = (await Promise.all(toChunks(traces, config.MAX_BINDINGS_SIZE).map(chunk => {
             return tx.createQueryBuilder()
-                .createQueryBuilder()
                 .insert()
                 .into(EthTrace)
                 .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
