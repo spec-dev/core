@@ -1,8 +1,8 @@
-import { EthLog, EthBlock } from '../../../../../shared'
+import { EthLog } from '../../../../../shared'
 import { ExternalEthReceipt, ExternalEthLog } from '../types'
 import { externalToInternalLog } from '../transforms/logTransforms'
 
-function initLogs(block: EthBlock, receipts: ExternalEthReceipt[]): EthLog[] {
+function initLogs(block: any, receipts: ExternalEthReceipt[]): EthLog[] {
     let logs = []
     for (let receipt of receipts) {
         for (let log of receipt.logs) {

@@ -31,6 +31,8 @@ export {
     EventVersionEntry,
     ContractEntry,
     getContractEventGeneratorData,
+    registerBlockLogsAsIndexed,
+    hasBlockBeenIndexedForLogs,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
@@ -117,3 +119,6 @@ export {
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
 export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'
 export { In } from 'typeorm'
+
+// Will be removed
+export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/entities/EthReceipt'

@@ -30,6 +30,7 @@ import {
     fullLatestInteractionUpsertConfig,
     StringKeyMap,
     EthLatestInteraction,
+    numberToHex,
     toChunks,
 } from '../../../../shared'
 

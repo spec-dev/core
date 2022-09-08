@@ -23,6 +23,8 @@ spec:
         env:
         - name: NODE_ENV
           value: production
+        - name: RANGE_WORKER_TYPE
+          value: {{RANGE_WORKER_TYPE}}
         - name: FROM_BLOCK
           value: "{{FROM_BLOCK}}"
         - name: TO_BLOCK

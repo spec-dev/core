@@ -13,6 +13,7 @@ shared_bin_dir="$core_dir/bin"
 env="$1"
 from_block="$2"
 to_block="$3"
+range_worker_type="$4"
 
 # ======== VALIDATE ARGS ======== #
 
@@ -110,12 +111,13 @@ image="$registry_image:$image_version"
 
 template_path="$indexers_dir/range-job.yaml"
 
-job_name="indexer-$image_version-$from_block-$to_block"
+job_name="indexer-$image_version-$from_block-$to_block-$range_worker_type"
 
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{RANGE_WORKER_TYPE}}|$range_worker_type|g" | \
     sed "s|{{FROM_BLOCK}}|$from_block|g" | \
     sed "s|{{TO_BLOCK}}|$to_block|g" | \
     sed "s|{{RANGE_GROUP_SIZE}}|$range_group_size|g" | \

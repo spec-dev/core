@@ -24,6 +24,7 @@ const indexerConfig: StringKeyMap = {
     FROM_BLOCK: from,
     TO_BLOCK: to,
     IS_RANGE_MODE: isRangeMode,
+    RANGE_WORKER_TYPE: ev('RANGE_WORKER_TYPE') || 'range',
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 10)),
     HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
     SAVE_BATCH_MULTIPLE: Number(ev('SAVE_BATCH_MULTIPLE', 15)),

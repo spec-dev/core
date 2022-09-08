@@ -1,13 +1,12 @@
 import {
     EthLog,
-    EthBlock,
     normalizeEthAddress,
     normalizeByteData,
     hexToNumber,
 } from '../../../../../shared'
 import { ExternalEthLog } from '../types'
 
-export function externalToInternalLog(externalLog: ExternalEthLog, block: EthBlock): EthLog {
+export function externalToInternalLog(externalLog: ExternalEthLog, block: any): EthLog {
     const topics = externalLog.topics || []
     const log = new EthLog()
     log.logIndex = hexToNumber(externalLog.logIndex)

@@ -40,6 +40,7 @@ const keys = {
     UNCLED_BLOCKS: 'uncled-blocks',
     CONTRACTS: 'contracts',
     CONTRACT_INSTANCES: 'contract-instances',
+    BLOCK_LOGS_INDEXED: 'block-logs-indexed',
 }
 
 const formatUncledBlockValue = (chainId: number, blockHash: string) => `${chainId}:${blockHash}`
@@ -216,4 +217,27 @@ export async function upsertContractCaches() {
     }
 
     await Promise.all(promises)
+}
+
+export async function registerBlockLogsAsIndexed(blockNumbers: number | number[]) {
+    const numbers = (Array.isArray(blockNumbers) ? blockNumbers : [blockNumbers]).map((n) =>
+        n.toString()
+    )
+
+    try {
+        await redis.sAdd(keys.BLOCK_LOGS_INDEXED, numbers)
+    } catch (err) {
+        logger.error(`Error adding ${blockNumbers} to ${keys.BLOCK_LOGS_INDEXED} set: ${err}.`)
+    }
+}
+
+export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<boolean> {
+    try {
+        return await redis.sIsMember(keys.BLOCK_LOGS_INDEXED, blockNumber.toString())
+    } catch (err) {
+        logger.error(
+            `Error checking if ${blockNumber} is a member of ${keys.BLOCK_LOGS_INDEXED} set: ${err}.`
+        )
+    }
+    return false
 }

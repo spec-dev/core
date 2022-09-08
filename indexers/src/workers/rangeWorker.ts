@@ -23,7 +23,6 @@ import {
     SharedTables,
     uniqueByKeys,
 } from '../../../shared'
-import { exit } from 'process'
 
 class RangeWorker {
     from: number
@@ -66,7 +65,7 @@ class RangeWorker {
             this.cursor = this.cursor + this.groupSize
         }
         if (this.batchResults.length) {
-            this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
+            await this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
         }
         logger.info('DONE')
     }
@@ -310,7 +309,6 @@ class RangeWorker {
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(this._toChunks(transactions, this.chunkSize).map(chunk => {
             return tx.createQueryBuilder()
-                .createQueryBuilder()
                 .insert()
                 .into(EthTransaction)
                 .values(chunk)
@@ -324,7 +322,6 @@ class RangeWorker {
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         await Promise.all(this._toChunks(logs, this.chunkSize).map(chunk => {
             return tx.createQueryBuilder()
-                .createQueryBuilder()
                 .insert()
                 .into(EthLog)
                 .values(chunk)
@@ -370,5 +367,10 @@ class RangeWorker {
 }
 
 export function getRangeWorker(): RangeWorker {
-    return new RangeWorker(config.FROM_BLOCK, config.TO_BLOCK, config.RANGE_GROUP_SIZE, config.SAVE_BATCH_MULTIPLE)
+    return new RangeWorker(
+        config.FROM_BLOCK, 
+        config.TO_BLOCK, 
+        config.RANGE_GROUP_SIZE, 
+        config.SAVE_BATCH_MULTIPLE,
+    )
 }
