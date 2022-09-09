@@ -5,7 +5,7 @@ import { Event } from './Event'
 import { LiveObject } from './LiveObject'
 
 /**
- * A globally unique namespace for functions, contracts, events, live objects, etc.,
+ * A globally unique namespace for functions, contracts, events, live objects, etc.
  */
 @Entity('namespaces')
 export class Namespace {

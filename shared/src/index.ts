@@ -86,6 +86,13 @@ export {
     LiveEdgeFunctionVersion,
     LiveEdgeFunctionVersionRole,
 } from './lib/core/db/entities/LiveEdgeFunctionVersion'
+export { User } from './lib/core/db/entities/User'
+export { Session } from './lib/core/db/entities/Session'
+export { Org } from './lib/core/db/entities/Org'
+export { OrgUser, OrgUserRole } from './lib/core/db/entities/OrgUser'
+export { Project } from './lib/core/db/entities/Project'
+export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
+export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
