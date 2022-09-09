@@ -44,6 +44,9 @@ const config: StringKeyMap = {
     CORE_REDIS_HOST: ev('CORE_REDIS_HOST', 'localhost'),
     CORE_REDIS_PORT: Number(ev('CORE_REDIS_PORT', 6379)),
 
+    // Core API
+    CORE_API_SESSION_LIFETIME: 7, // days
+
     // JWTs
     JWT_SECRET: ev('JWT_SECRET'),
 }

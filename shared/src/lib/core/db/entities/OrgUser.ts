@@ -1,4 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, DeleteDateColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    OneToMany,
+    ManyToOne,
+    JoinColumn,
+    CreateDateColumn,
+    DeleteDateColumn,
+} from 'typeorm'
 import { Org } from './Org'
 import { User } from './User'
 import { ProjectRole } from './ProjectRole'
@@ -32,7 +42,7 @@ export class OrgUser {
     })
     createdAt: Date
 
-    @DeleteDateColumn({ 
+    @DeleteDateColumn({
         type: 'timestamptz',
         name: 'deleted_at',
         nullable: true,

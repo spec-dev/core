@@ -1,7 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, OneToMany, ManyToOne, JoinColumn, CreateDateColumn, DeleteDateColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    OneToMany,
+    ManyToOne,
+    JoinColumn,
+    CreateDateColumn,
+    DeleteDateColumn,
+} from 'typeorm'
 import { Org } from './Org'
 import { ProjectRole } from './ProjectRole'
 import { Deployment } from './Deployment'
+import { StringKeyMap } from '../../../types'
 
 /**
  * A project on Spec within an organization.
@@ -20,7 +31,7 @@ export class Project {
     orgId: number
 
     @Column()
-    name: string    
+    name: string
 
     @Column()
     slug: string
@@ -30,7 +41,7 @@ export class Project {
 
     @Column({ name: 'admin_key' })
     adminKey: string
-    
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',
@@ -38,7 +49,7 @@ export class Project {
     })
     createdAt: Date
 
-    @DeleteDateColumn({ 
+    @DeleteDateColumn({
         type: 'timestamptz',
         name: 'deleted_at',
         nullable: true,
@@ -54,4 +65,14 @@ export class Project {
 
     @OneToMany(() => Deployment, (deployment) => deployment.project)
     deployments: Deployment[]
+
+    memberView(): StringKeyMap {
+        return {
+            id: this.uid,
+            name: this.name,
+            slug: this.slug,
+            apiKey: this.apiKey,
+            org: this.org?.publicView(),
+        }
+    }
 }

@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    CreateDateColumn,
+    ManyToOne,
+    JoinColumn,
+    Index,
+} from 'typeorm'
+import { serializeToken } from '../../../utils/auth'
 import { User } from './User'
 
 /**
@@ -12,7 +21,7 @@ export class Session {
     @Index({ unique: true })
     @Column()
     uid: string
-    
+
     @Column('int8', { name: 'user_id' })
     userId: number
 
@@ -39,4 +48,8 @@ export class Session {
     @ManyToOne(() => User, (user) => user.sessions)
     @JoinColumn({ name: 'user_id' })
     user: User
+
+    serializeToken(): string {
+        return serializeToken(this.uid, this.token)
+    }
 }

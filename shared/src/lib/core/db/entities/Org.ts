@@ -1,6 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany, DeleteDateColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    CreateDateColumn,
+    OneToMany,
+    DeleteDateColumn,
+} from 'typeorm'
 import { Project } from './Project'
 import { OrgUser } from './OrgUser'
+import { StringKeyMap } from '../../../types'
 
 /**
  * A user-created organization.
@@ -28,7 +37,7 @@ export class Org {
     })
     createdAt: Date
 
-    @DeleteDateColumn({ 
+    @DeleteDateColumn({
         type: 'timestamptz',
         name: 'deleted_at',
         nullable: true,
@@ -40,4 +49,11 @@ export class Org {
 
     @OneToMany(() => Project, (project) => project.org)
     projects: Project[]
+
+    publicView(): StringKeyMap {
+        return {
+            name: this.name,
+            slug: this.slug,
+        }
+    }
 }

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    ManyToOne,
+    JoinColumn,
+    CreateDateColumn,
+} from 'typeorm'
 import { Project } from './Project'
 
 export enum DeploymentStatus {

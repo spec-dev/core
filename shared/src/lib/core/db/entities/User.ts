@@ -1,6 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany, DeleteDateColumn } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    CreateDateColumn,
+    OneToMany,
+    DeleteDateColumn,
+} from 'typeorm'
 import { Session } from './Session'
 import { OrgUser } from './OrgUser'
+import { StringKeyMap } from '../../../types'
 
 /**
  * A top-level user.
@@ -40,7 +49,7 @@ export class User {
     })
     createdAt: Date
 
-    @DeleteDateColumn({ 
+    @DeleteDateColumn({
         type: 'timestamptz',
         name: 'deleted_at',
         nullable: true,
@@ -55,5 +64,14 @@ export class User {
 
     get name(): string {
         return [this.firstName || '', this.lastName || ''].join(' ').trim()
+    }
+
+    selfView(): StringKeyMap {
+        return {
+            id: this.uid,
+            email: this.email,
+            firstName: this.firstName,
+            lastName: this.lastName,
+        }
     }
 }

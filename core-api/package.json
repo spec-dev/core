@@ -1,0 +1,44 @@
+{
+    "name": "core-api",
+    "description": "Spec Core APi",
+    "version": "1.0.0",
+    "private": true,
+    "main": "dist/index.js",
+    "scripts": {
+        "start": "node dist/index.js",
+        "dev": "ts-node ./src/index.ts",
+        "clean": "rimraf dist",
+        "format": "prettier --write \"{src,test}/**/*.ts\"",
+        "build": "run-s clean format build:main",
+        "build:main": "tsc -p tsconfig.json"
+    },
+    "dependencies": {
+        "@spec.types/spec": "^0.0.11",
+        "connect": "^3.6.6",
+        "eetase": "^4.0.0",
+        "express": "^4.16.3",
+        "install": "^0.13.0",
+        "morgan": "^1.7.0",
+        "sc-errors": "^2.0.1",
+        "scc-broker-client": "^8.1.0",
+        "serve-static": "^1.13.2",
+        "socketcluster-client": "^16.1.1",
+        "socketcluster-server": "^16.2.1",
+        "uuid4": "^2.0.2"
+    },
+    "devDependencies": {
+        "@types/express": "^4.17.13",
+        "@types/node": "^18.0.3",
+        "@types/scc-broker-client": "^8.0.0",
+        "@types/socketcluster-server": "^16.1.0",
+        "npm-run-all": "^4.1.5",
+        "prettier": "^2.1.2",
+        "pretty-quick": "^3.1.0",
+        "rimraf": "^3.0.2",
+        "ts-jest": "^26.3.0",
+        "ts-loader": "^8.0.11",
+        "ts-node": "^10.8.2",
+        "typedoc": "^0.22.11",
+        "typescript": "^4.5.5"
+    }
+}

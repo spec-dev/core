@@ -27,10 +27,12 @@
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
         "@spec.types/spec": "^0.0.11",
+        "bcrypt": "^5.0.1",
         "humps": "^2.0.1",
         "jsonwebtoken": "^8.5.1",
         "pg": "^8.7.3",
         "pg-hstore": "^2.3.4",
+        "rand-token": "^1.0.1",
         "redis": "^4.2.0",
         "reflect-metadata": "^0.1.13",
         "short-uuid": "^4.2.0",

@@ -95,6 +95,9 @@ export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
+export { getUserByEmail } from './lib/core/db/services/userServices'
+export { getProjectByUid } from './lib/core/db/services/projectServices'
+export { createSession, getSession } from './lib/core/db/services/sessionServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
 export {
     createEdgeFunctionVersion,
@@ -117,7 +120,7 @@ export {
     savePublishedEvents,
     getPublishedEventsAfterId,
 } from './lib/core/db/services/publishedEventServices'
-export { parseClaims, canPublishEvents, Claims, ClaimRole } from './lib/utils/auth'
+export * from './lib/utils/auth'
 export { createLiveObject } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
