@@ -115,6 +115,7 @@ export { createContractInstance } from './lib/core/db/services/contractInstanceS
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
 export { createEvent, getEvent } from './lib/core/db/services/eventServices'
 export { createEventVersion, getEventVersion } from './lib/core/db/services/eventVersionServices'
+export { createDeployment, updateDeploymentStatus, deploymentFailed } from './lib/core/db/services/deploymentServices'
 export {
     initPublishedEvent,
     savePublishedEvents,

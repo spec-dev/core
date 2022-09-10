@@ -17,7 +17,7 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    // Find a project by uid that the current user has access to.
+    // Find project by uid that current user has access to.
     const project = await getProjectByUid(payload.id, { 
         relations: {
             org: true,

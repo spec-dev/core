@@ -42,6 +42,9 @@ export class Project {
     @Column({ name: 'admin_key' })
     adminKey: string
 
+    @Column({ name: 'admin_channel', nullable: true })
+    adminChannel: string
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',

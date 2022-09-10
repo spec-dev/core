@@ -1,6 +1,7 @@
 const prefix = {
     USER: '/user',
     PROJECT: '/project',
+    DEPLOYMENT: '/deployment',
 }
 
 const paths = {
@@ -12,6 +13,9 @@ const paths = {
 
     // Project paths.
     PROJECT_WITH_KEY: prefix.PROJECT + '/with-key',
+
+    // Deployment paths.
+    NEW_DEPLOYMENT: prefix.DEPLOYMENT,
 }
 
 export default paths

@@ -8,7 +8,7 @@ import config from '../../config'
 /**
  * Basic user auth route. Sign in with email/password.
  */
-app.get(paths.USER_LOGIN, async (req, res) => {
+app.post(paths.USER_LOGIN, async (req, res) => {
     // Parse & validate payload.
     const { payload, isValid, error } = parseUserLoginPayload(req.body)
     if (!isValid) {

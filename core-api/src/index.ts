@@ -1,24 +1,10 @@
-import http from 'http'
-import eetase from 'eetase'
-import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
 import { logger, CoreDB } from '../../shared'
 import { app as expressApp } from './routes'
+import { agServer, httpServer } from './server'
 
 const coreDBPromise = CoreDB.initialize()
-
-// Create SocketCluster server options.
-const agOptions = {
-    authKey: config.JWT_SECRET,
-}
-if (config.SOCKETCLUSTER_OPTIONS) {
-    Object.assign(agOptions, JSON.parse(config.SOCKETCLUSTER_OPTIONS))
-}
-
-// Create HTTP + SocketCluster server.
-const httpServer = eetase(http.createServer())
-const agServer = socketClusterServer.attach(httpServer, agOptions)
 
 // Prevent all broad publishes.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {

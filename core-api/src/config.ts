@@ -28,6 +28,12 @@ const coreApiConfig: StringKeyMap = {
 
     // Auth
     USER_AUTH_HEADER_NAME: 'Spec-User-Auth-Token',
+
+    // Cloud file storage.
+    AWS_ACCESS_KEY_ID: ev('AWS_ACCESS_KEY_ID'),
+    AWS_SECRET_ACCESS_KEY: ev('AWS_SECRET_ACCESS_KEY'),
+    S3_BUCKET_NAME: ev('S3_BUCKET_NAME'),
+    S3_REGION: ev('S3_REGION'),
 }
 
 export default coreApiConfig
