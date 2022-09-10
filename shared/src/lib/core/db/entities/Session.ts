@@ -7,7 +7,6 @@ import {
     JoinColumn,
     Index,
 } from 'typeorm'
-import { serializeToken } from '../../../utils/auth'
 import { User } from './User'
 
 /**
@@ -48,8 +47,4 @@ export class Session {
     @ManyToOne(() => User, (user) => user.sessions)
     @JoinColumn({ name: 'user_id' })
     user: User
-
-    serializeToken(): string {
-        return serializeToken(this.uid, this.token)
-    }
 }

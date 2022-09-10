@@ -12,6 +12,7 @@ import getFailedIndexedBlocks from './getFailedIndexedBlocks'
 import createEvent from './createEvent'
 import createEventVersion from './createEventVersion'
 import createLiveEventVersion from './createLiveEventVersion'
+import createUser from './createUser'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -30,6 +31,7 @@ const jobs = {
     createEvent,
     createEventVersion,
     createLiveEventVersion,
+    createUser,
 }
 
 async function run() {

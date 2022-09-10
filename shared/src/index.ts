@@ -95,7 +95,7 @@ export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
-export { getUserByEmail } from './lib/core/db/services/userServices'
+export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProjectByUid } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
@@ -115,7 +115,11 @@ export { createContractInstance } from './lib/core/db/services/contractInstanceS
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
 export { createEvent, getEvent } from './lib/core/db/services/eventServices'
 export { createEventVersion, getEventVersion } from './lib/core/db/services/eventVersionServices'
-export { createDeployment, updateDeploymentStatus, deploymentFailed } from './lib/core/db/services/deploymentServices'
+export {
+    createDeployment,
+    updateDeploymentStatus,
+    deploymentFailed,
+} from './lib/core/db/services/deploymentServices'
 export {
     initPublishedEvent,
     savePublishedEvents,

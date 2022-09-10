@@ -19,15 +19,11 @@ export async function createDeployment(projectId: number): Promise<Deployment | 
 }
 
 export async function updateDeploymentStatus(
-    id: number, 
-    status: DeploymentStatus,
+    id: number,
+    status: DeploymentStatus
 ): Promise<boolean> {
     try {
-        await deployments()
-            .createQueryBuilder()
-            .update({ status })
-            .where({ id })
-            .execute()
+        await deployments().createQueryBuilder().update({ status }).where({ id }).execute()
     } catch (err) {
         logger.error(`Error setting Deployment(id=${id}) to status ${status}: ${err}`)
         return false
@@ -37,11 +33,7 @@ export async function updateDeploymentStatus(
 
 export async function deploymentFailed(id: number) {
     try {
-        await deployments()
-            .createQueryBuilder()
-            .update({ failed: true })
-            .where({ id })
-            .execute()
+        await deployments().createQueryBuilder().update({ failed: true }).where({ id }).execute()
     } catch (err) {
         logger.error(`Error setting Deployment(id=${id}) to failed: ${err}`)
     }

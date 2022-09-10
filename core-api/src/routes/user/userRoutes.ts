@@ -1,9 +1,10 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseUserLoginPayload } from './userPayloads'
-import { logger, getUserByEmail, createSession, verifyHash } from '../../../../shared'
+import { logger, getUserByEmail, createSession, verifyHash, serializeToken } from '../../../../shared'
 import { codes, errors } from '../../utils/requests'
 import config from '../../config'
+import { getLoginMessage } from '../../utils/fun'
 
 /**
  * Basic user auth route. Sign in with email/password.
@@ -30,7 +31,7 @@ app.post(paths.USER_LOGIN, async (req, res) => {
     }
 
     // Validate password.
-    if (!(await verifyHash(user.hashedPw, password))) {
+    if (!(await verifyHash(user.hashedPw, [password, user.salt].join('')))) {
         logger.error('Invalid password during sign-in attempt for user:', email)
         return res.status(codes.UNAUTHORIZED).json({ error: errors.INVALID_CREDENTIALS })
     }
@@ -41,6 +42,9 @@ app.post(paths.USER_LOGIN, async (req, res) => {
     // Return user with new session auth token in header.
     return res
         .status(codes.SUCCESS)
-        .header(config.USER_AUTH_HEADER_NAME, session.serializeToken())
-        .json(user.selfView())
+        .header(config.USER_AUTH_HEADER_NAME, serializeToken(session.uid, session.token))
+        .json({
+            ...user.selfView(),
+            message: getLoginMessage(user),
+        })
 })
