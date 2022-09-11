@@ -13,6 +13,10 @@ import createEvent from './createEvent'
 import createEventVersion from './createEventVersion'
 import createLiveEventVersion from './createLiveEventVersion'
 import createUser from './createUser'
+import createOrg from './createOrg'
+import createOrgUser from './createOrgUser'
+import createProject from './createProject'
+import createProjectRole from './createProjectRole'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -32,6 +36,10 @@ const jobs = {
     createEventVersion,
     createLiveEventVersion,
     createUser,
+    createOrg,
+    createOrgUser,
+    createProject,
+    createProjectRole,
 }
 
 async function run() {

@@ -69,6 +69,7 @@ export {
     fromNamespacedVersion,
     uniqueByKeys,
     toChunks,
+    toSlug,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
@@ -96,7 +97,7 @@ export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { CoreDB } from './lib/core/db/dataSource'
 export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
-export { getProjectByUid } from './lib/core/db/services/projectServices'
+export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
 export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
 export {

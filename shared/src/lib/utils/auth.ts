@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import config from '../config'
 import randToken from 'rand-token'
 import bcrypt from 'bcrypt'
+import uuid4 from 'uuid4'
 
 export enum ClaimRole {
     EventPublisher = 'event-publisher',
@@ -37,6 +38,10 @@ export function canPublishEvents(token: string): boolean {
 
 export function newSalt(): string {
     return randToken.generate(32)
+}
+
+export async function newApiKey(): Promise<string> {
+    return (await hash(uuid4())).replace('$2b$10$', '')
 }
 
 export async function hash(...args: any[]): Promise<string> {
