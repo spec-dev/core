@@ -21,9 +21,11 @@ export const codes = {
 }
 
 export async function authorizeRequest(req, res): Promise<User | null> {
+    const headers = req.headers || {}
+
     // Get auth header token.
-    const authHeader = req.headers.get(config.USER_AUTH_HEADER_NAME)
-    if (!authHeader) {
+    const authHeader = headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
+        if (!authHeader) {
         res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
         return null
     }
