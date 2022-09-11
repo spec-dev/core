@@ -29,10 +29,13 @@ async function run() {
     // Perform the query.
     let error
     try {
+        console.log('ONE')
         await conn.query(
-            `UPDATE ethereum.latest_interactions_two
-            SET interaction_type = 'wallet:contract'
-            WHERE "to" IN (SELECT "address" from ethereum.contracts);`
+            `CREATE INDEX "li_from_type" ON "latest_interactions" ("from", "interaction_type")`
+        )
+        console.log('TWO')
+        await conn.query(
+            `CREATE INDEX "li_to_type" ON "latest_interactions" ("to", "interaction_type")`
         )
     } catch (err) {
         error = err
