@@ -17,9 +17,9 @@ async function initLatestInteractions(
 ): Promise<EthLatestInteraction[]> {
     if (!transactions.length) return []
 
-    // Create latest interaction models for each successful transaction with non-empty to/from properties. 
+    // Create latest interaction models for each transaction with non-empty to/from properties. 
     let latestInteractions = uniqueByKeys(transactions
-        .filter(tx => !!tx.from && !!tx.to && tx.status === EthTransactionStatus.Success)
+        .filter(tx => !!tx.from && !!tx.to)
         .map(tx => newLatestInteractionFromTransaction(tx)),
         ['from', 'to']
     )
@@ -48,6 +48,7 @@ async function initLatestInteractions(
     const contractAddressesInteractedWith = await getContractAddresses(
         maybeContractInteractions.map(i => i.to)
     )
+
     const walletInteractions = []
     for (const interaction of maybeContractInteractions) {
         if (contractAddressesInteractedWith.has(interaction.to)) {
@@ -62,16 +63,16 @@ async function initLatestInteractions(
 }
 
 async function getContractAddresses(addresses: string[]): Promise<Set<string>> {
-    let contractAddresses = []
+    let contractRecords = []
     try {
-        contractAddresses = await contracts().find({
+        contractRecords = await contracts().find({
             select: { address: true },
             where: { address: In(addresses) },
         })
     } catch (err) {
         throw `Error querying contracts: ${err}`
     }
-    return new Set<string>(contractAddresses || [])
+    return new Set<string>((contractRecords || []).map(c => c.address))
 }
 
 function newLatestInteractionFromTransaction(transaction: EthTransaction): EthLatestInteraction {

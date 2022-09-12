@@ -90,7 +90,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
+        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -134,6 +134,19 @@ class EthereumIndexer extends AbstractIndexer {
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
             return
+        }
+
+        // Return early with the indexed primitives if in range mode.
+        if (config.IS_RANGE_MODE) {
+            return {
+                block, 
+                transactions,
+                logs,
+                traces, 
+                contracts,
+                latestInteractions,
+                pgBlockTimestamp: this.pgBlockTimestamp
+            }
         }
 
         // Save primitives to shared tables.

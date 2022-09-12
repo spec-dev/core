@@ -20,8 +20,10 @@ import {
     fullLogUpsertConfig,
     fullTraceUpsertConfig,
     fullTransactionUpsertConfig,
+    fullLatestInteractionUpsertConfig,
     SharedTables,
     uniqueByKeys,
+    EthLatestInteraction,
 } from '../../../shared'
 
 class RangeWorker {
@@ -187,24 +189,11 @@ class RangeWorker {
             result = await (getIndexer(this._atNumber(blockNumber)).perform())
         } catch (err) {
             logger.error(`Error indexing block ${blockNumber}:`, err)
-            // return [null, false]
             return null
         }
-        if (!result) {
-            // return [null, false]
-            return null
-        }
-        // result = result as StringKeyMap
-        return result as StringKeyMap
-        
-        // try {
-        //     await this._saveBatchResults([result])
-        // } catch (err) {
-        //     logger.error(`Error saving batch: ${err}`)
-        //     return [null, false]
-        // }
+        if (!result) return null
 
-        // return [result.block?.hash, true]
+        return result as StringKeyMap
     }
 
     async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
@@ -235,6 +224,7 @@ class RangeWorker {
         let logs = []
         let traces = []
         let contracts = []
+        let latestInteractions = []
 
         for (const result of results) {
             if (!result) continue
@@ -243,6 +233,7 @@ class RangeWorker {
             logs.push(...result.logs.map(l => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp })))
             traces.push(...result.traces.map(t => ({ ...t, blockTimestamp: () => result.pgBlockTimestamp })))
             contracts.push(...result.contracts.map(c => ({ ...c, blockTimestamp: () => result.pgBlockTimestamp })))
+            latestInteractions.push(...result.latestInteractions.map(c => ({ ...c, timestamp: () => result.pgBlockTimestamp })))
         }
 
         if (!this.upsertConstraints.block && blocks.length) {
@@ -259,6 +250,9 @@ class RangeWorker {
         }
         if (!this.upsertConstraints.contract && contracts.length) {
             this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
+        }
+        if (!this.upsertConstraints.latestInteraction && latestInteractions.length) {
+            this.upsertConstraints.latestInteraction = fullLatestInteractionUpsertConfig(latestInteractions[0])
         }
 
         blocks = this.upsertConstraints.block
@@ -280,6 +274,10 @@ class RangeWorker {
         contracts = this.upsertConstraints.contract
             ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
             : contracts
+
+        latestInteractions = this.upsertConstraints.latestInteraction
+            ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
+            : latestInteractions
         
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
@@ -288,6 +286,7 @@ class RangeWorker {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertLatestInteractions(latestInteractions, tx),
             ])
         })
     }
@@ -352,6 +351,19 @@ class RangeWorker {
                 .into(EthContract)
                 .values(chunk)
                 .orUpdate(updateContractCols, conflictContractCols)
+                .execute()
+        }))
+    }
+
+    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any) {
+        if (!latestInteractions.length) return
+        const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
+        await Promise.all(this._toChunks(latestInteractions, this.chunkSize).map(chunk => {
+            return tx.createQueryBuilder()
+                .insert()
+                .into(EthLatestInteraction)
+                .values(chunk)
+                .orUpdate(updateCols, conflictCols)
                 .execute()
         }))
     }
