@@ -275,6 +275,7 @@ class RangeWorker {
             ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
             : contracts
 
+        latestInteractions = latestInteractions.sort((a, b) => b.blockNumber - a.blockNumber)
         latestInteractions = this.upsertConstraints.latestInteraction
             ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
             : latestInteractions

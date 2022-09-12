@@ -20,6 +20,7 @@ async function initLatestInteractions(
     // Create latest interaction models for each transaction with non-empty to/from properties. 
     let latestInteractions = uniqueByKeys(transactions
         .filter(tx => !!tx.from && !!tx.to)
+        .sort((a, b) => b.transactionIndex - a.transactionIndex)
         .map(tx => newLatestInteractionFromTransaction(tx)),
         ['from', 'to']
     )
