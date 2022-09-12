@@ -31,11 +31,11 @@ async function run() {
     try {
         console.log('ONE')
         await conn.query(
-            `CREATE INDEX "li_from_type" ON "ethereum.latest_interactions" ("from", "interaction_type")`
+            `CREATE INDEX "li_from_type" ON ethereum.latest_interactions ("from", "interaction_type")`
         )
         console.log('TWO')
         await conn.query(
-            `CREATE INDEX "li_to_type" ON "ethereum.latest_interactions" ("to", "interaction_type")`
+            `CREATE INDEX "li_to_type" ON ethereum.latest_interactions ("to", "interaction_type")`
         )
     } catch (err) {
         error = err
