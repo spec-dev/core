@@ -97,12 +97,12 @@ export const toNamespacedVersion = (nsp: string, name: string, version: string) 
 export const fromNamespacedVersion = (
     namespacedVersion: string
 ): { nsp: string; name: string; version: string } => {
-    const atSplit = namespacedVersion.split('@')
+    const atSplit = (namespacedVersion || '').split('@')
     if (atSplit.length !== 2) {
         return { nsp: '', name: '', version: '' }
     }
     const [nspName, version] = atSplit
-    const dotSplit = nspName.split('.')
+    const dotSplit = (nspName || '').split('.')
     if (dotSplit.length !== 2) {
         return { nsp: '', name: '', version: '' }
     }
