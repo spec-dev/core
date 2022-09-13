@@ -50,7 +50,7 @@ export function getHeadWorker(): Worker {
         const head = job.data as NewReportedHead
         const { chainId, blockNumber } = head
         await setIndexedBlockToFailed(head.id)
-        logger.error(`[${chainId}:${blockNumber}] Index block job #${job.id} failed with ${err}.`)
+        logger.error(`[${chainId}:${blockNumber}] Index block job failed -- ${err}.`)
     })
 
     worker.on('error', (err) => {

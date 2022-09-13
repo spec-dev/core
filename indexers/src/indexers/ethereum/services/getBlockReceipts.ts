@@ -23,6 +23,14 @@ async function getBlockReceipts(
             if (receipts === null) {
                 await sleep(config.NOT_READY_DELAY)
             }
+            else if (receipts.length === 0) {
+                await sleep(config.NOT_READY_DELAY)
+
+                // Keep trying on empty up to 10 attempts.
+                if (numAttempts <= 10) {
+                    receipts = null
+                }
+            }
             numAttempts += 1
         }
     } catch (err) {

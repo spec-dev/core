@@ -184,9 +184,9 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
-                this._upsertLatestInteractions(latestInteractions, tx),
             ])
         })
+        await this._upsertLatestInteractions(latestInteractions)
     }
 
     async _createAndPublishEvents() {
@@ -401,19 +401,35 @@ class EthereumIndexer extends AbstractIndexer {
         ).generatedMaps
     }
 
-    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], tx: any) {
+    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], attempt: number = 0) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
         const blockTimestamp = this.pgBlockTimestamp
-        this.latestInteractions = (await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthLatestInteraction)
-            .values(latestInteractions.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
-            .orUpdate(updateCols, conflictCols)
-            .returning('*')
-            .execute()
-        ).generatedMaps
+
+        try {
+            await SharedTables.manager.transaction(async (tx) => {
+                this.latestInteractions = (await (tx as any)
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthLatestInteraction)
+                    .values(latestInteractions.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+                ).generatedMaps
+            })
+        } catch (err) {
+            this._error(err)
+            const message = err?.message || ''
+            this.latestInteractions = []
+
+            // Wait and try again if deadlocked.
+            if (attempt < 3 && message.toLowerCase().includes('deadlock')) {
+                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
+                await sleep(this.blockNumber / 150000)
+                await this._upsertLatestInteractions(latestInteractions, attempt + 1)
+            }
+        }
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {

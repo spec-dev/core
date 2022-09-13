@@ -39,7 +39,7 @@ class AbstractIndexer {
     }
 
     async perform(): Promise<StringKeyMap | void> {
-        this._info(`Indexing block ${this.blockNumber} (${this.blockHash})...`)
+        config.IS_RANGE_MODE || logger.info(`\n${this.logPrefix} Indexing block ${this.blockNumber} (${this.blockHash})...`)
 
         if (this.head.replace) {
             this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
