@@ -6,10 +6,10 @@ RUN apk add --no-cache --virtual .gyp g++ make py3-pip
 RUN mkdir -p /usr/app
 WORKDIR /usr/app
 
-COPY event-relay/package.json ./
-COPY event-relay/tsconfig.json ./
+COPY core-api/package.json ./
+COPY core-api/tsconfig.json ./
 
-COPY event-relay/src ./src
+COPY core-api/src ./src
 COPY shared /usr/shared
 
 RUN npm install
@@ -31,7 +31,7 @@ COPY --from=builder /usr/shared/dist ./dist
 # Tables API
 RUN mkdir -p /usr/app
 WORKDIR /usr/app
-COPY event-relay/package.json ./
+COPY core-api/package.json ./
 RUN npm install --only=production
 COPY --from=builder /usr/app/dist ./dist
 

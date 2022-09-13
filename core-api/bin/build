@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Build the event-relay docker image --- #
+# --- Build the Core API docker image --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -20,7 +20,7 @@ $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
 aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
 image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
-image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
+image_name=$( $shared_bin_dir/env_reader "$env" "CORE_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 image_version=$( $shared_bin_dir/latest_sha )
 image="$image_repo:$image_version"
@@ -31,7 +31,7 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image"
 $shared_bin_dir/assert_env "AWS_ACCOUNT_ID" "$aws_account_id"
 $shared_bin_dir/assert_env "AWS_REGION" "$aws_region"
 $shared_bin_dir/assert_env "DOCKER_IMAGE_ORG" "$image_org"
-$shared_bin_dir/assert_env "EVENT_RELAY_IMAGE_NAME" "$image_name"
+$shared_bin_dir/assert_env "CORE_API_IMAGE_NAME" "$image_name"
 
 # ======== BUILD IMAGE ======== #
 
@@ -39,7 +39,7 @@ $shared_bin_dir/assert_env "EVENT_RELAY_IMAGE_NAME" "$image_name"
 cd "$core_dir"
 
 # Build and tag the image.
-docker buildx build --platform linux/amd64 -t "$image" -f event-relay/Dockerfile .
+docker buildx build --platform linux/amd64 -t "$image" -f core-api/Dockerfile .
 docker tag "$image" "$registry_image"
 
 echo "Successfully built image $registry_image"

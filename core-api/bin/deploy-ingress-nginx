@@ -8,7 +8,7 @@ set -e # exit if any child script exits with non-zero status
 
 this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
-event_relay_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+core_api_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
 
@@ -28,7 +28,7 @@ $shared_bin_dir/assert_env "ACM_WILDCARD_CERT_ARM" "$cert_arm"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
-template_path="$event_relay_dir/ingress-nginx.yaml"
+template_path="$core_api_dir/ingress-nginx.yaml"
 
 # Create the config template.
 template=$( cat "$template_path" | \

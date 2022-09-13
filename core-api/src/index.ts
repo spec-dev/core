@@ -3,20 +3,33 @@ import config from './config'
 import { logger, CoreDB } from '../../shared'
 import { app as expressApp } from './routes'
 import { agServer, httpServer } from './server'
+import { authConnection } from './utils/auth'
 
 const coreDBPromise = CoreDB.initialize()
 
-// Prevent all broad publishes.
+// Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
     for await (let action of stream) {
-        if (action.type === action.PUBLISH_IN) {
+        // Auth new connections.
+        if (action.type === action.AUTHENTICATE) {
+            const authToken = action.socket.authToken
+
+            if (!authToken || !(await authConnection(authToken))) {
+                const authError = new Error('Unauthorized')
+                authError.name = 'AuthError'
+                action.block(authError)
+                continue
+            }
+        }
+
+        // Secure who can publish.
+        else if (action.type === action.PUBLISH_IN) {
             const publishError = new Error('You are not authorized to publish events.')
             publishError.name = 'PublishError'
             action.block(publishError)
             continue
         }
 
-        // Any unhandled case will be allowed by default.
         action.allow()
     }
 })
@@ -33,12 +46,7 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
     await coreDBPromise
     
     for await (let {socket} of agServer.listener('connection')) {
-        // ;(async () => {
-        //     // RPC - Resolve the given live objects.
-        //     for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
-        //         resolveLiveObjectVersions(request)
-        //     }
-        // })()
+        // RPCs...
     }
 })()
 
@@ -53,9 +61,10 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
     })()
 }
 
+logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
+
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
-    logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
     ;(async () => {
         for await (let { warning } of agServer.listener('warning')) {
             logger.error(`AGServer Warning - ${warning}`)

@@ -20,7 +20,7 @@ $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
 aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
 image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
-image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
+image_name=$( $shared_bin_dir/env_reader "$env" "CORE_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
@@ -30,7 +30,7 @@ image_version=$( $shared_bin_dir/latest_sha )
 $shared_bin_dir/assert_env "AWS_ACCOUNT_ID" "$aws_account_id"
 $shared_bin_dir/assert_env "AWS_REGION" "$aws_region"
 $shared_bin_dir/assert_env "DOCKER_IMAGE_ORG" "$image_org"
-$shared_bin_dir/assert_env "EVENT_RELAY_IMAGE_NAME" "$image_name"
+$shared_bin_dir/assert_env "CORE_API_IMAGE_NAME" "$image_name"
 
 # ======== PUSH IMAGE ======== #
 
