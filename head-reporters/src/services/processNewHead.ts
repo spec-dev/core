@@ -91,7 +91,7 @@ async function handleNewBlocks(
 
     // Recurse.
     if (i < blockSpecs.length - 1) {
-        setTimeout(() => handleNewBlocks(chainId, blockSpecs, i + 1, replace), 100)
+        setTimeout(() => handleNewBlocks(chainId, blockSpecs, i + 1, replace), 200)
     }
 }
 
