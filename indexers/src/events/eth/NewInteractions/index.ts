@@ -1,4 +1,4 @@
-import { EthLatestInteraction } from '../../../../../shared/src'
+import { EthLatestInteraction } from '../../../../../shared'
 import { EthLatestInteraction as Diff } from '@spec.types/spec'
 
 function NewInteractions(latestInteractions: EthLatestInteraction[]): Diff[] {

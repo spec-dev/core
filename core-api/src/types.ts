@@ -1,4 +1,4 @@
-import { StringKeyMap } from '../../shared/src'
+import { StringKeyMap } from '../../shared'
 export { StringKeyMap }
 
 export interface ValidatedPayload<T> {

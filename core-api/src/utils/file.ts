@@ -1,7 +1,7 @@
 import AWS from 'aws-sdk'
 import config from '../config'
 import { UploadedFile } from 'express-fileupload'
-import { logger } from '../../../shared/src'
+import { logger } from '../../../shared'
 import { HttpRequest } from '@aws-sdk/protocol-http'
 import { S3RequestPresigner } from '@aws-sdk/s3-request-presigner'
 import { parseUrl } from '@aws-sdk/url-parser'

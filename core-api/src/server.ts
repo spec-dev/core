@@ -3,7 +3,7 @@ import eetase from 'eetase'
 import socketClusterServer from 'socketcluster-server'
 import config from './config'
 import { StringKeyMap } from './types'
-import { logger } from '../../shared/src'
+import { logger } from '../../shared'
 
 // Create SocketCluster server options.
 const agOptions = {
