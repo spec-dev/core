@@ -7,6 +7,7 @@ import sccBrokerClient from 'scc-broker-client'
 import config from './config'
 import { specEnvs, logger, ClaimRole, CoreDB } from '../../shared'
 import { resolveLiveObjectVersions, getEventsAfterCursors, RPC } from './rpcs'
+import { authConnection } from './utils/auth'
 
 const coreDBPromise = CoreDB.initialize()
 
@@ -22,11 +23,24 @@ if (config.SOCKETCLUSTER_OPTIONS) {
 const httpServer = eetase(http.createServer())
 const agServer = socketClusterServer.attach(httpServer, agOptions)
 
-// Secure who can publish events.
+// Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
     for await (let action of stream) {
-        if (action.type === action.PUBLISH_IN) {
-            let authToken = action.socket.authToken
+        // Auth new connections.
+        if (action.type === action.AUTHENTICATE) {
+            const authToken = action.socket.authToken
+
+            if (!authToken || !(await authConnection(authToken))) {
+                const authError = new Error('Unauthorized')
+                authError.name = 'AuthError'
+                action.block(authError)
+                continue
+            }
+        }
+
+        // Secure who can publish.
+        else if (action.type === action.PUBLISH_IN) {
+            const authToken = action.socket.authToken
 
             // Must be an event publisher.
             if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
@@ -37,7 +51,6 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
             }
         }
 
-        // Any unhandled case will be allowed by default.
         action.allow()
     }
 })
@@ -61,8 +74,11 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
     await coreDBPromise
-    
+
     for await (let {socket} of agServer.listener('connection')) {
+        
+        // TODO: Auth
+
         ;(async () => {
             // RPC - Resolve the given live objects.
             for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
