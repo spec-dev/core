@@ -76,9 +76,6 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
     await coreDBPromise
 
     for await (let {socket} of agServer.listener('connection')) {
-        
-        // TODO: Auth
-
         ;(async () => {
             // RPC - Resolve the given live objects.
             for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
@@ -105,9 +102,10 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
     })()
 }
 
+logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
+
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
-    logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
     ;(async () => {
         for await (let { warning } of agServer.listener('warning')) {
             logger.error(`AGServer Warning - ${warning}`)
