@@ -40,6 +40,7 @@ export class Project {
     @Column({ name: 'api_key' })
     apiKey: string
 
+    @Index()
     @Column({ name: 'admin_key' })
     adminKey: string
 

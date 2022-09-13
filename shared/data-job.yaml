@@ -10,6 +10,8 @@ spec:
         image: {{IMAGE}}
         command: {{JOB_COMMAND}}
         env:
+        - name: JWT_SECRET
+          value: {{JWT_SECRET}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT

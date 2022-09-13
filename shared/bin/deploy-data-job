@@ -27,6 +27,8 @@ $shared_bin_dir/validate_arg "data_job_name" "$data_job_name"
 
 # ======== SET KEY VARS ======== #
 
+jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
@@ -57,6 +59,8 @@ shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -110,6 +114,7 @@ template=$( cat "$template_path" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JOB_COMMAND}}|$job_cmd|g" | \
+    sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
