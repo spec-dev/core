@@ -25,12 +25,14 @@ const agServer = socketClusterServer.attach(httpServer, agOptions)
 
 // Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
-    for await (let action of stream) {
+    for await (let action of stream) { 
         // Auth new connections.
         if (action.type === action.AUTHENTICATE) {
             const authToken = action.socket.authToken
+            logger.info('Got authenticate with token', authToken)
 
             if (!authToken || !(await authConnection(authToken))) {
+                logger.info('Blocking auth')
                 const authError = new Error('Unauthorized')
                 authError.name = 'AuthError'
                 action.block(authError)
@@ -39,7 +41,7 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
         }
 
         // Secure who can publish.
-        else if (action.type === action.PUBLISH_IN) {
+        if (action.type === action.PUBLISH_IN) {
             const authToken = action.socket.authToken
 
             // Must be an event publisher.
