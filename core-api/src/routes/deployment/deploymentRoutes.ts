@@ -1,7 +1,7 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseNewDeploymentPayload } from './deploymentPayloads'
-import { logger, getProjectByUid, deploymentFailed } from '../../../../shared/dist/main'
+import { logger, getProject, deploymentFailed } from '../../../../shared/dist/main'
 import { codes, errors, authorizeRequest } from '../../utils/requests'
 import { TOML_MIME_TYPE } from '../../utils/file'
 import { UploadedFile } from 'express-fileupload'
@@ -30,13 +30,14 @@ app.post(paths.NEW_DEPLOYMENT, async (req, res) => {
     }
 
     // Find project by uid that current user has access to.
-    const project = await getProjectByUid(payload.projectId, { 
+    const project = await getProject({ 
         relations: {
             org: true,
             projectRoles: {
                 orgUser: true,
             },
-        }
+        },
+        where: { uid: payload.projectId, }
     })
     if (!project || !project.projectRoles.find(pr => pr.orgUser.userId === user.id)) {
         logger.error('No project exists for uid that user has access to:', payload.projectId)
