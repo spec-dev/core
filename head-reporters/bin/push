@@ -23,7 +23,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version="$( docker images $registry_image | sed -n 2p | awk '{print $2}' )"
+image_version=$( $shared_bin_dir/latest_sha )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 

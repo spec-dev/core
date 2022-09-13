@@ -23,7 +23,6 @@ const registerNumberAsSeen = (blockNumber: number) => {
 }
 
 async function processNewHead(chainId: number, givenBlock: BlockHeader) {
-    logger.info(`Received block: ${givenBlock.number}`)
     registerNumberAsSeen(givenBlock.number)
 
     // Get the last seen block + the non-uncled block for the given block number (if it exists).
@@ -69,6 +68,7 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
             )
         }
 
+        newBlockSpecs = newBlockSpecs.sort((a, b) => a.number - b.number)
         await handleNewBlocks(chainId, newBlockSpecs, 0, replace)
     } catch (err) {
         logger.error(`Error processing new head at block number ${givenBlock.number}`, err)

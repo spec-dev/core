@@ -45,8 +45,6 @@ class EthereumReporter extends AbstractReporter {
             const head = this.buffer.shift()
             processNewHead(this.chainId, head)
         }
-
-        console.log(this.buffer.map(h => h.number))
     }
 }
 

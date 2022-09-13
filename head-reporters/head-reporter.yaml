@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: head-reporter
+  labels:
+    app: head-reporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: head-reporter
+  template:
+    metadata:
+      labels:
+        app: head-reporter 
+    spec:
+      containers:
+      - name: head-reporter
+        image: {{IMAGE}}
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: CHAIN_ID
+          value: "{{CHAIN_ID}}"
+        - name: ALCHEMY_API_KEY
+          value: {{ALCHEMY_API_KEY}}
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
+        - name: INDEXER_DB_NAME
+          value: {{INDEXER_DB_NAME}}
+        - name: INDEXER_DB_HOST
+          value: {{INDEXER_DB_HOST}}
+        - name: INDEXER_DB_PORT
+          value: "{{INDEXER_DB_PORT}}"
+        - name: INDEXER_DB_USERNAME
+          value: {{INDEXER_DB_USERNAME}}
+        - name: INDEXER_DB_PASSWORD
+          value: {{INDEXER_DB_PASSWORD}}
+

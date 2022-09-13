@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# --- Create and deploy a new K8S head reporter --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+hr_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+
+# ======== SET KEY VARS ======== #
+
+chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
+alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
+
+# Indexer Redis
+indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
+indexer_redis_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
+
+# Indexer DB
+indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
+indexer_db_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_HOST" )
+indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
+indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
+indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
+$shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
+
+# Indexer Redis
+$shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
+$shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_password"
+
+# Indexer DB
+$shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
+$shared_bin_dir/assert_env "INDEXER_DB_HOST" "$indexer_db_host"
+$shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
+$shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
+$shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
+
+# ======== GET LATEST IMAGE ======== #
+
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
+
+# ======== CREATE & APPLY TEMPLATE ======== #
+
+template_path="$hr_dir/head-reporter.yaml"
+
+# Create the config template.
+template=$( cat "$template_path" | \
+    sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{CHAIN_ID}}|$chain_id|g" | \
+    sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
+    sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
+    sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
+    sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
+    sed "s|{{INDEXER_DB_HOST}}|$indexer_db_host|g" | \
+    sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
+    sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
+    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" )
+
+echo "Creating head reporter job resources..."
+
+# Apply the template.
+echo "$template" | kubectl apply -f -
