@@ -27,9 +27,9 @@ spec:
           value: prod
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
-        - name: SOCKETCLUSTER_PORT
+        - name: CORE_SOCKETCLUSTER_PORT
           value: "{{SOCKETCLUSTER_PORT}}"
-        - name: SOCKETCLUSTER_LOG_LEVEL
+        - name: CORE_SOCKETCLUSTER_LOG_LEVEL
           value: "{{SOCKETCLUSTER_LOG_LEVEL}}"
         - name: CORE_DB_NAME
           value: {{CORE_DB_NAME}}
