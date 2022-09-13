@@ -14,7 +14,7 @@ async function perform(name: string, orgId: number) {
         exit(0)
     }
 
-    logger.info('Success.')
+    logger.info(`Success.`)
     exit(0)
 }
 

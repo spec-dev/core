@@ -3,19 +3,24 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toSlug } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
-import uuid4 from 'uuid4'
-import { hash, newApiKey } from '../../../utils/auth'
+import { newApiKey, newJWT, ClaimRole, Claims } from '../../../utils/auth'
+import randToken from 'rand-token'
 
 const projects = () => CoreDB.getRepository(Project)
 
 export async function createProject(name: string, orgId: number): Promise<Project> {
     const project = new Project()
-    project.uid = uuid4()
+    project.uid = randToken.generate(20, 'abcdefghijklmnopqrstuvwxyz')
     project.orgId = orgId
     project.name = name
     project.slug = toSlug(name)
     project.apiKey = await newApiKey()
     project.adminKey = await newApiKey()
+    project.signedApiKey = newJWT({ role: ClaimRole.EventSubscriber, key: project.apiKey }, '10y')
+    project.signedAdminKey = newJWT(
+        { role: ClaimRole.EventSubscriber, key: project.adminKey },
+        '10y'
+    )
 
     try {
         await projects().save(project)

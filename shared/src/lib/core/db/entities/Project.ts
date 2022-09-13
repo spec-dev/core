@@ -36,11 +36,18 @@ export class Project {
     @Column()
     slug: string
 
+    @Index()
     @Column({ name: 'api_key' })
     apiKey: string
 
     @Column({ name: 'admin_key' })
     adminKey: string
+
+    @Column({ name: 'signed_api_key' })
+    signedApiKey: string
+
+    @Column({ name: 'signed_admin_key' })
+    signedAdminKey: string
 
     @Column({ name: 'admin_channel', nullable: true })
     adminChannel: string
@@ -74,7 +81,7 @@ export class Project {
             id: this.uid,
             name: this.name,
             slug: this.slug,
-            apiKey: this.apiKey,
+            apiKey: this.signedApiKey,
             org: this.org?.publicView(),
         }
     }

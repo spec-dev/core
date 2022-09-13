@@ -6,10 +6,13 @@ import uuid4 from 'uuid4'
 
 export enum ClaimRole {
     EventPublisher = 'event-publisher',
+    EventSubscriber = 'event-subscriber',
+    Admin = 'admin',
 }
 
 export interface Claims {
     role: ClaimRole
+    key?: string
 }
 
 export function newJWT(claims: Claims, exp: string | number) {
