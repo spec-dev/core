@@ -11,16 +11,15 @@ core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 event_relay_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
-image_version="$2"
 
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
-$shared_bin_dir/validate_arg "image_version" "$image_version"
 
 # ======== SET KEY VARS ======== #
 
 port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
+log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 
 # Core DB
@@ -33,6 +32,7 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
+$shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 
 # Core DB
@@ -50,6 +50,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -61,6 +62,7 @@ template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
+    sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
