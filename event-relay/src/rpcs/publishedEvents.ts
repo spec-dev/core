@@ -13,12 +13,11 @@ export async function getEventsAfterCursors(request: any, socket: AGServerSocket
     const { cursors, channel } = request.data as GetEventsAfterCursorsPayload
     const eventCursors = uniqueEventCursors(cursors)
     if (!eventCursors.length) {
-        request.end([])
         return
     }
+
     // Transfer all events to the client from the given cursors.
     await Promise.all(eventCursors.map(ec => getEventsAfterCursor(ec, socket, channel)))
-    request.end([])
 }
 
 async function getEventsAfterCursor(cursor: EventCursor, socket: AGServerSocket, channel: string) {
