@@ -90,6 +90,12 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
                 getEventsAfterCursors(request, socket)
             }
         })()
+        ;(async () => {
+            // RPC - Ping / Pong.
+            for await (let request of socket.procedure(RPC.Ping)) {
+                request.end({ pong: true })
+            }
+        })()
     }
 })()
 
