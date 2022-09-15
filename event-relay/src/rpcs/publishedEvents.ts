@@ -8,19 +8,21 @@ interface GetEventsAfterCursorsPayload {
     channel: string
 }
 
-export async function getEventsAfterCursors(request: any, socket: AGServerSocket) {
+export async function getEventsAfterCursors(request: any) {
     // Parse payload and ensure event cursors are unique by event.
-    const { cursors, channel } = request.data as GetEventsAfterCursorsPayload
+    const { cursors } = request.data as GetEventsAfterCursorsPayload
     const eventCursors = uniqueEventCursors(cursors)
     if (!eventCursors.length) {
+        request.end([])
         return
     }
 
     // Transfer all events to the client from the given cursors.
-    await Promise.all(eventCursors.map(ec => getEventsAfterCursor(ec, socket, channel)))
+    await Promise.all(eventCursors.map(ec => getEventsAfterCursor(request, ec)))
+    request.end([])
 }
 
-async function getEventsAfterCursor(cursor: EventCursor, socket: AGServerSocket, channel: string) {
+async function getEventsAfterCursor(request: any, cursor: EventCursor) {
     const eventsAfterCursor = await getPublishedEventsAfterId(cursor.nonce, cursor.name)
     if (!eventsAfterCursor.length) return
 
@@ -39,7 +41,7 @@ async function getEventsAfterCursor(cursor: EventCursor, socket: AGServerSocket,
     
     for (let batch of batches) {
         try {
-            await socket.exchange.invokePublish(channel, batch)
+            request.send(batch)
         } catch (err) {
             logger.error(`Error sending missed events over the wire: ${err}.`)
         }

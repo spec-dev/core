@@ -85,8 +85,7 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
         ;(async () => {
             // RPC - Get events that occurred after the given event cursors.
             for await (let request of socket.procedure(RPC.GetEventsAfterCursors)) {
-                getEventsAfterCursors(request, socket)
-                request.end([])
+                getEventsAfterCursors(request)
             }
         })()
         ;(async () => {
