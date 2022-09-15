@@ -71,6 +71,8 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
     }
 })()
 
+const pub = async (channel, data) => await agServer.exchange.invokePublish(channel, data)
+
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
     await coreDBPromise
@@ -85,7 +87,7 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
         ;(async () => {
             // RPC - Get events that occurred after the given event cursors.
             for await (let request of socket.procedure(RPC.GetEventsAfterCursors)) {
-                getEventsAfterCursors(request)
+                getEventsAfterCursors(request, pub)
             }
         })()
         ;(async () => {
