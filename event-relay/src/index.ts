@@ -110,7 +110,7 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
     })()
 }
 
-logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
+logger.info(`[${config.SCC_INSTANCE_ID}]: Event Relay listening on port ${config.SOCKETCLUSTER_PORT}...`)
 
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
