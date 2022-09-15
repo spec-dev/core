@@ -44,5 +44,5 @@ app.post('/:functionPath', async (req, res) => {
 })
 
 ;(async () => {
-    app.listen(config.PORT, () => logger.info(`Listening on port ${config.PORT}...`))
+    app.listen(config.PORT, () => logger.info(`Functions API listening on port ${config.PORT}...`))
 })()
