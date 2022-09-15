@@ -29,10 +29,8 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
         // Auth new connections.
         if (action.type === action.AUTHENTICATE) {
             const authToken = action.socket.authToken
-            logger.info('Got authenticate with token', authToken)
 
             if (!authToken || !(await authConnection(authToken))) {
-                logger.info('Blocking auth')
                 const authError = new Error('Unauthorized')
                 authError.name = 'AuthError'
                 action.block(authError)
