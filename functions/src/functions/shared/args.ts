@@ -1,16 +1,16 @@
 import { StringKeyMap } from '../../lib/types'
 
-export function groupInputKeys(input: StringKeyMap | StringKeyMap[]): StringKeyMap {
-    const inputs = Array.isArray(input) ? input : [input]
-    let groupedInputs = {}
-    for (const entry of inputs) {
-        for (const key in entry) {
-            groupedInputs[key] = groupedInputs[key] || []
-            groupedInputs[key].push(entry[key])
-        }
+export function toNonEmptyArray(val: any): any[] | null {
+    if (Array.isArray(val)) {
+        return val.length ? val : null
     }
-    for (const key in groupedInputs) {
-        groupedInputs[key] = Array.from(new Set(groupedInputs[key]))
+    return val === undefined || val === null ? null : [val]
+}
+
+export function keysAsNonEmptyArrays(obj: StringKeyMap): StringKeyMap {
+    const m = {}
+    for (const key in obj) {
+        m[key] = toNonEmptyArray(obj[key])
     }
-    return groupedInputs
+    return m
 }

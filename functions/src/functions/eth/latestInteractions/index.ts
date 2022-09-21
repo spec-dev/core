@@ -1,24 +1,30 @@
 import { streamQuery, ethereum } from '@spec.dev/table-client'
 import { EthLatestInteractionType } from '@spec.types/spec'
-import { groupInputKeys } from '../../shared/args'
+import { keysAsNonEmptyArrays } from '../../shared/args'
+import { applyFilter } from '../../shared/filters'
+import { Filter } from '../../shared/types'
 
-export type Input = {
-    from?: string
-    to?: string
-    interactionType?: EthLatestInteractionType
+type Input = {
+    from?: string | string[]
+    to?: string | string[]
+    interactionType?: EthLatestInteractionType | EthLatestInteractionType[]
+    timestamp?: string | string[] | Filter<string> | Filter<string>[]
 }
 
-async function latestInteractions(input: Input | Input[], res: Response) {
-    // Group input keys into arrays.
-    const { from, to, interactionType } = groupInputKeys(input)
+async function latestInteractions(input: Input, res: Response) {
+    // Format inputs as arrays of values (or null if empty).
+    const { from, to, interactionType, timestamp } = keysAsNonEmptyArrays(input)
 
-    // Query ethereum.latest_interactions for all records "WHERE IN" the given input args.
+    // Start a query against the "ethereum.latest_interactions" table.
     let query = ethereum.latestInteractions()
+
+    // Apply the given filters.
     from && query.whereIn('from', from)
     to && query.whereIn('to', to)
     interactionType && query.whereIn('interaction_type', interactionType)
+    timestamp && applyFilter(query, 'timestamp', timestamp)
 
-    // Stream the query results in batches.
+    // Stream the query response as results become available.
     streamQuery(query, res)
 }
 
