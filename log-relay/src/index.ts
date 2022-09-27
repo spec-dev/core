@@ -5,9 +5,11 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole } from '../../shared'
+import { specEnvs, logger, ClaimRole, coreRedis } from '../../shared'
 import { processLog, RPC } from './rpcs'
 import { Log } from './types'
+
+const coreRedisPromise = coreRedis.connect()
 
 // Create SocketCluster server options.
 const agOptions = {
@@ -66,6 +68,8 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
 
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
+    await coreRedisPromise
+
     for await (let {socket} of agServer.listener('connection')) {
         ;(async () => {
             // Event - New Log.
