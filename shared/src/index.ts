@@ -110,6 +110,7 @@ export {
     setEdgeFunctionUrl,
     getEdgeFunctionUrl,
     formatEdgeFunctionVersionStr,
+    addLog,
 } from './lib/core/redis'
 export { createContract } from './lib/core/db/services/contractServices'
 export { createContractInstance } from './lib/core/db/services/contractInstanceServices'

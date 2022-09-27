@@ -1,6 +1,7 @@
 import { createClient } from 'redis'
 import config from '../config'
 import logger from '../logger'
+import { StringKeyMap } from '../types'
 
 // Create redis client.
 export const redis = createClient({ url: config.CORE_REDIS_URL })
@@ -45,4 +46,23 @@ export async function getEdgeFunctionUrl(
     }
 
     return urls[0] || null
+}
+
+export async function addLog(projectId: string, data: StringKeyMap) {
+    try {
+        await redis.xAdd(projectId, '*', data)
+    } catch (err) {
+        logger.error(`Error adding log for projectId=${projectId}: ${data}: ${err}.`)
+    }
+}
+
+export async function getLastXLogs(projectId: string, x: number) {
+    let results = []
+    try {
+        results = await redis.xRevRange(projectId, '-', '+', { COUNT: x })
+    } catch (err) {
+        logger.error(`Error getting last ${x} logs for projectId=${projectId}: ${err}.`)
+        return []
+    }
+    return results.reverse()
 }
