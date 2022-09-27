@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: log-relay
+  template:
+    metadata:
+      labels:
+        component: log-relay
+    spec:
+      containers:
+      - name: log-relay
+        image: {{IMAGE}}
+        ports:
+        - name: log-relay
+          containerPort: {{SOCKETCLUSTER_PORT}}
+        env:
+        - name: SCC_INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: ENV
+          value: prod
+        - name: JWT_SECRET
+          value: {{JWT_SECRET}}
+        - name: LOG_RELAY_SOCKETCLUSTER_PORT
+          value: "{{SOCKETCLUSTER_PORT}}"
+        - name: LOG_RELAY_SOCKETCLUSTER_LOG_LEVEL
+          value: "{{SOCKETCLUSTER_LOG_LEVEL}}"
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
+        readinessProbe:
+          httpGet:
+            path: /health-check
+            port: log-relay
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health-check
+            port: log-relay
+          initialDelaySeconds: 15
+          timeoutSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-relay
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: {{SOCKETCLUSTER_PORT}}
+  selector:
+    component: log-relay
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: log-relay
+  annotations:
+    kubernetes.io/ingress.class: "logs-nginx"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: log-relay
+            port:
+              number: 80
