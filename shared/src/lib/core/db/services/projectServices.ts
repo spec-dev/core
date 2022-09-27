@@ -16,9 +16,9 @@ export async function createProject(name: string, orgId: number): Promise<Projec
     project.slug = toSlug(name)
     project.apiKey = await newApiKey()
     project.adminKey = await newApiKey()
-    project.signedApiKey = newJWT({ role: ClaimRole.EventSubscriber, key: project.apiKey }, '10y')
+    project.signedApiKey = newJWT({ id: project.uid, role: ClaimRole.EventSubscriber, key: project.apiKey }, '10y')
     project.signedAdminKey = newJWT(
-        { role: ClaimRole.EventSubscriber, key: project.adminKey },
+        { id: project.uid, role: ClaimRole.Admin, key: project.adminKey },
         '10y'
     )
 
