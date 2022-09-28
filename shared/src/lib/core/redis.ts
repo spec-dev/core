@@ -50,7 +50,9 @@ export async function getEdgeFunctionUrl(
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
     try {
-        await redis.xAdd(projectUid, '*', data)
+        await redis.xAdd(projectUid, '*', data, {
+            TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
+        })
     } catch (err) {
         logger.error(`Error adding log for project.uid=${projectUid}: ${data}: ${err}.`)
     }
