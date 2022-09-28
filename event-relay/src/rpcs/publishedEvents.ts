@@ -1,4 +1,3 @@
-import { AGServerSocket } from 'socketcluster-server'
 import { EventCursor } from '../types'
 import config from '../config'
 import { getPublishedEventsAfterId, logger, toChunks } from '../../../shared'
