@@ -55,7 +55,7 @@ const expressApp = express()
 if (config.ENV !== specEnvs.PROD) {
     expressApp.use(morgan('dev'))
 }
-
+ 
 // Health check route.
 expressApp.get('/health-check', (_, res) => res.sendStatus(200))
 
