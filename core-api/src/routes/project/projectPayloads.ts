@@ -5,6 +5,10 @@ export interface GetProjectPayload {
     org: string // slug
 }
 
+export interface IdPayload {
+    id: string
+}
+
 export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<GetProjectPayload> {
     const project = data?.project
     if (!project) {
@@ -18,5 +22,16 @@ export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<Get
     return { 
         isValid: true,
         payload: { project, org },
+    }
+}
+
+export function parseIdPayload(data: StringKeyMap): ValidatedPayload<IdPayload> {
+    const id = data?.id
+    if (!id) {
+        return { isValid: false, error: '"id" key required' }
+    }
+    return { 
+        isValid: true,
+        payload: { id },
     }
 }

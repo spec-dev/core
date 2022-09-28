@@ -34,6 +34,8 @@ const coreApiConfig: StringKeyMap = {
     AWS_SECRET_ACCESS_KEY: ev('AWS_SECRET_ACCESS_KEY'),
     S3_BUCKET_NAME: ev('S3_BUCKET_NAME'),
     S3_REGION: ev('S3_REGION'),
+
+    TRAILING_LOGS_BATCH_SIZE: 20,
 }
 
 export default coreApiConfig

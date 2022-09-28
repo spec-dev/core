@@ -13,6 +13,7 @@ const paths = {
 
     // Project paths.
     PROJECT_WITH_KEY: prefix.PROJECT + '/with-key',
+    PROJECT_LOGS: prefix.PROJECT + '/logs',
 
     // Deployment paths.
     NEW_DEPLOYMENT: prefix.DEPLOYMENT,
