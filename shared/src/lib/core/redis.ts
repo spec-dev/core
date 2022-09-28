@@ -1,4 +1,4 @@
-import { createClient } from 'redis'
+import { createClient, commandOptions } from 'redis'
 import config from '../config'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
@@ -48,21 +48,38 @@ export async function getEdgeFunctionUrl(
     return urls[0] || null
 }
 
-export async function addLog(projectId: string, data: StringKeyMap) {
+export async function addLog(projectUid: string, data: StringKeyMap) {
     try {
-        await redis.xAdd(projectId, '*', data)
+        await redis.xAdd(projectUid, '*', data)
     } catch (err) {
-        logger.error(`Error adding log for projectId=${projectId}: ${data}: ${err}.`)
+        logger.error(`Error adding log for project.uid=${projectUid}: ${data}: ${err}.`)
     }
 }
 
-export async function getLastXLogs(projectId: string, x: number) {
+export async function getLastXLogs(projectUid: string, x: number) {
     let results = []
     try {
-        results = await redis.xRevRange(projectId, '-', '+', { COUNT: x })
+        results = await redis.xRevRange(projectUid, '+', '-', { COUNT: x })
     } catch (err) {
-        logger.error(`Error getting last ${x} logs for projectId=${projectId}: ${err}.`)
+        logger.error(`Error getting last ${x} logs for project.uid=${projectUid}: ${err}.`)
         return []
     }
     return results.reverse()
+}
+
+export async function tailLogs(projectUid: string, id: string = '$') {
+    try {
+        const resp = await redis.xRead(
+            commandOptions({ isolated: true }),
+            {
+                key: projectUid,
+                id,
+            },
+            { COUNT: 1, BLOCK: 0 }
+        )
+        if (!resp?.length) return []
+        return resp[0].messages || []
+    } catch (err) {
+        logger.error(`Error tailing logs for project.uid=${projectUid}: ${err}.`)
+    }
 }
