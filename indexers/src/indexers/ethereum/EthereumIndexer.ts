@@ -8,7 +8,7 @@ import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
 import initLatestInteractions from './services/initLatestInteractions'
 import { publishDiffsAsEvents } from '../../events/relay'
-import { NewInteractions } from '../../events'
+import { NewInteractions, NewTransactions } from '../../events'
 import config from '../../config'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
@@ -196,6 +196,10 @@ class EthereumIndexer extends AbstractIndexer {
         }
         const eventSpecs = [
             { 
+                namespacedVersion: 'eth.NewTransactions@0.0.1',
+                diff: NewTransactions(this.transactions), 
+            },
+            { 
                 namespacedVersion: 'eth.NewInteractions@0.0.1',
                 diff: NewInteractions(this.latestInteractions), 
             },
@@ -203,7 +207,6 @@ class EthereumIndexer extends AbstractIndexer {
         await publishDiffsAsEvents(eventSpecs, eventOrigin)
     }
 
-    // TODO: Redo once you have contract addresses stored.
     _findUniqueContractAddresses(
         transactions: EthTransaction[],
         logs: EthLog[],

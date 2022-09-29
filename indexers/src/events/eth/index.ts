@@ -1,2 +1,6 @@
 import NewInteractions from './NewInteractions'
-export { NewInteractions }
+import NewTransactions from './NewTransactions'
+export { 
+    NewInteractions, 
+    NewTransactions,
+}
