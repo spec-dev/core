@@ -1,10 +1,18 @@
-import { createClient, commandOptions } from 'redis'
+import { createClient, createCluster, commandOptions } from 'redis'
 import config from '../config'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
+import { range } from '../utils/math'
 
 // Create redis client.
-export const redis = createClient({ url: config.CORE_REDIS_URL })
+const url = config.CORE_REDIS_URL
+const useCluster = !url?.includes('localhost')
+
+export const redis = useCluster
+    ? createCluster({
+        rootNodes: range(1, config.CORE_REDIS_NODE_COUNT).map(n => ({ url: url.replace('NODE', n) })),
+    })
+    : createClient({ url })
 
 // Log any redis client errors.
 redis.on('error', (err) => logger.error(`Redis error: ${err}`))

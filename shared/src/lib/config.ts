@@ -43,6 +43,7 @@ const config: StringKeyMap = {
     // Core Redis Instance
     CORE_REDIS_HOST: ev('CORE_REDIS_HOST', 'localhost'),
     CORE_REDIS_PORT: Number(ev('CORE_REDIS_PORT', 6379)),
+    CORE_REDIS_NODE_COUNT: 3,
 
     // Core API
     CORE_API_SESSION_LIFETIME: 7, // days
