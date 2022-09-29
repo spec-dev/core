@@ -10,8 +10,10 @@ const useCluster = !url?.includes('localhost')
 
 export const redis = useCluster
     ? createCluster({
-        rootNodes: range(1, config.CORE_REDIS_NODE_COUNT).map(n => ({ url: url.replace('NODE', n) })),
-    })
+          rootNodes: range(1, config.CORE_REDIS_NODE_COUNT).map((n) => ({
+              url: url.replace('NODE', n),
+          })),
+      })
     : createClient({ url })
 
 // Log any redis client errors.
