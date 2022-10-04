@@ -7,7 +7,7 @@ export function streamQuery(stream, res) {
         'Content-Type': 'application/json',
         'Transfer-Encoding': 'chunked',
     })
-    res.on('close', () =>{
+    res.on('close', () => {
         logger.info('Response closed.')
         cleanupStream(stream)
     })
@@ -21,14 +21,12 @@ export function streamQuery(stream, res) {
     })
     stream.on('error', err => {
         logger.error('Stream error', err)
-        stream.push({ error: err.message })
         cleanupStream(stream)
         res.end()
     })
     const jsonPipe = JSONStream.stringify()
     jsonPipe.on('error', err => {
         logger.error('JSON Stream error', err)
-        stream.push({ error: err.message })
         cleanupStream(stream)
         res.end()
     })

@@ -14,6 +14,11 @@ export const pool = new Pool({
     database : config.SHARED_TABLES_DB_NAME,
     min: 2,
     max: config.SHARED_TABLES_MAX_POOL_SIZE,
+    idleTimeoutMillis: 0,
+    query_timeout: 0,
+    connectionTimeoutMillis: 0,
+    statement_timeout: 0,
+    idle_in_transaction_session_timeout: 0,
 })
 pool.on('error', err => logger.error('PG client error', err))
 
@@ -84,3 +89,5 @@ export async function createQueryStream(query: QueryPayload) {
         throw `${errors.STREAM_CONSTRUCTION_FAILED}: ${err?.message || err}`
     }
 }
+
+//asdfasdf
