@@ -25,7 +25,14 @@ export function streamQuery(stream, res) {
         cleanupStream(stream)
         res.end()
     })
-    stream.pipe(JSONStream.stringify()).pipe(res)
+    const jsonPipe = JSONStream.stringify()
+    jsonPipe.on('error', err => {
+        logger.error('JSON Stream error', err)
+        stream.push({ error: err.message })
+        cleanupStream(stream)
+        res.end()
+    })
+    stream.pipe(jsonPipe).pipe(res)
 }
 
 export function cleanupStream(stream) {
