@@ -5,7 +5,7 @@ import codes from './codes'
 export function streamQuery(stream, res) {
     res.writeHead(codes.SUCCESS, {
         'Content-Type': 'application/json',
-        'Transfer-Encoding': 'chunked',
+        // 'Transfer-Encoding': 'chunked',
     })
     res.on('close', () => {
         logger.info('Response closed.')
