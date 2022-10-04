@@ -45,6 +45,6 @@ app.post('/:functionPath', async (req, res) => {
 
 ;(async () => {
     const server = app.listen(config.PORT, () => logger.info(`Functions API listening on port ${config.PORT}...`))
-    server.keepAliveTimeout = 65000
-    server.headersTimeout = 66000
+    server.timeout = 0
+    server.keepAliveTimeout = 0
 })()
