@@ -27,7 +27,7 @@ async function latestInteractions(input: Input, res: Response) {
     timestamp && applyFilter(query, 'timestamp', timestamp)
 
     // Stream the query response as results become available.
-    streamQuery(query, res)
+    await streamQuery(query, res)
 }
 
 export default latestInteractions
