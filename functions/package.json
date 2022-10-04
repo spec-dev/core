@@ -13,7 +13,7 @@
         "build:main": "tsc -p tsconfig.json"
     },
     "dependencies": {
-        "@spec.dev/table-client": "^0.0.41",
+        "@spec.dev/table-client": "^0.0.42",
         "@spec.types/spec": "^0.0.14",
         "compare-versions": "^5.0.1",
         "express": "^4.16.3",
