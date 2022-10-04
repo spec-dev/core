@@ -1,6 +1,6 @@
 # --- Builder ----------------------------------------
 
-FROM node:16-alpine AS builder
+FROM node:16.15.0 AS builder
 RUN apk add --no-cache --virtual .gyp g++ make py3-pip
 
 RUN mkdir -p /usr/app
@@ -17,7 +17,7 @@ RUN npm run build
 
 # --- Runner -----------------------------------------
 
-FROM node:16-alpine
+FROM node:16.15.0
 RUN apk add --no-cache --virtual .gyp g++ make py3-pip
 
 RUN mkdir -p /usr/app
