@@ -11,12 +11,10 @@ core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 tables_api_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
-image_version="$2"
 
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
-$shared_bin_dir/validate_arg "image_version" "$image_version"
 
 # ======== SET KEY VARS ======== #
 
@@ -52,6 +50,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

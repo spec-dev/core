@@ -7,8 +7,14 @@ export function streamQuery(stream, res) {
         'Content-Type': 'application/json',
         'Transfer-Encoding': 'chunked',
     })
-    res.on('close', () => cleanupStream(stream))
-    res.on('destroy', () => cleanupStream(stream))
+    res.on('close', () =>{
+        logger.info('Response closed.')
+        cleanupStream(stream)
+    })
+    res.on('destroy', () => {
+        logger.info('Response destroyed.')
+        cleanupStream(stream)
+    })
     res.on('error', err => {
         logger.error('Stream response error', err)
         cleanupStream(stream)

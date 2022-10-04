@@ -65,11 +65,18 @@ export async function createQueryStream(query: QueryPayload) {
 
     // Build and return the stream.
     try {
+        logger.info(sql, bindings)
         const stream = conn.query(
             new QueryStream(sql, bindings, { batchSize: config.STREAM_BATCH_SIZE })
         )
-        stream.on('end', () => conn.release())
-        stream.on('error', () => conn.release())
+        stream.on('end', () => {
+            logger.error(`Query stream ended.`)
+            conn.release()
+        })
+        stream.on('error', error => {
+            logger.error(`Query stream error: ${error}`)
+            conn.release()
+        })
         return stream
     } catch (err) {
         conn.release()

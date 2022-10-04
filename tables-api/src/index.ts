@@ -56,9 +56,14 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     }
 
     // Ensure stream closes when a request is cancelled.
-    req.on('close', () => cleanupStream(stream))
+    req.on('close', () => {
+        logger.info('Request closed.')
+        cleanupStream(stream)
+    })
 })
 
 ;(async () => {
-    app.listen(config.PORT, () => logger.info(`Listening on port ${config.PORT}...`))
+    const server = app.listen(config.PORT, () => logger.info(`Listening on port ${config.PORT}...`))
+    server.keepAliveTimeout = 65000
+    server.headersTimeout = 66000
 })()
