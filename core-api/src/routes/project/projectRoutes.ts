@@ -77,7 +77,7 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
     
     // Stream logs as a response.
     try {
-        streamLogs(project.uid, req, res)
+        await streamLogs(project.uid, req, res)
     } catch (error) {
         logger.error(error)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
