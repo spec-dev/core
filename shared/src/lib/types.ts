@@ -12,3 +12,5 @@ export interface SpecFunctionResponse {
 }
 
 export type StringKeyMap = { [key: string]: any }
+
+export type StringMap = { [key: string]: string }

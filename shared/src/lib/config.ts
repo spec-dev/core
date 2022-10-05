@@ -45,6 +45,10 @@ const config: StringKeyMap = {
     CORE_REDIS_PORT: Number(ev('CORE_REDIS_PORT', 6379)),
     CORE_REDIS_NODE_COUNT: 3,
 
+    // ABI Store Redis Instance
+    ABI_REDIS_HOST: ev('ABI_REDIS_HOST', 'localhost'),
+    ABI_REDIS_PORT: Number(ev('ABI_REDIS_PORT', 6379)),
+
     // Core API
     CORE_API_SESSION_LIFETIME: 7, // days
 
@@ -54,5 +58,6 @@ const config: StringKeyMap = {
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`
 config.CORE_REDIS_URL = `redis://${config.CORE_REDIS_HOST}:${config.CORE_REDIS_PORT}`
+config.ABI_REDIS_URL = `redis://${config.ABI_REDIS_HOST}:${config.ABI_REDIS_PORT}`
 
 export default config
