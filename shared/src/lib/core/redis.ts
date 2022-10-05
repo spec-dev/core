@@ -89,7 +89,6 @@ export async function tailLogs(projectUid: string, id: string = '$') {
             },
             { COUNT: 1, BLOCK: 0 }
         )
-        console.log('TailLogs', projectUid, id, resp)
         if (!resp?.length) return []
         return resp[0].messages || []
     } catch (err) {
