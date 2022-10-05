@@ -5,10 +5,10 @@ import { Abi } from './types'
 import { StringMap } from '../types'
 
 // Create redis client.
-export const redis = createClient({ url: config.ABI_REDIS_URL })
+export const redis = config.ABI_REDIS_URL ? createClient({ url: config.ABI_REDIS_URL }) : null
 
 // Log any redis client errors.
-redis.on('error', (err) => logger.error(`Redis error: ${err}`))
+redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
 const keys = {
     ETH_CONTRACTS: 'eth-contracts',
@@ -19,7 +19,7 @@ export async function saveAbis(
     nsp: string = keys.ETH_CONTRACTS
 ): Promise<boolean> {
     try {
-        await redis.hSet(nsp, abisMap)
+        await redis?.hSet(nsp, abisMap)
     } catch (err) {
         logger.error(`Error saving ABIs: ${err}.`)
         return false
@@ -32,7 +32,7 @@ export async function getAbi(
     nsp: string = keys.ETH_CONTRACTS
 ): Promise<Abi | null> {
     try {
-        const abiStr = (await redis.hGet(nsp, address)) || null
+        const abiStr = (await redis?.hGet(nsp, address)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : null
     } catch (err) {
         logger.error(`Error getting ABI for ${address}: ${err}.`)
@@ -46,7 +46,7 @@ export async function getMissingAbiAddresses(
 ): Promise<string[]> {
     let results = []
     try {
-        results = (await redis.hmGet(nsp, addresses)) || []
+        results = (await redis?.hmGet(nsp, addresses)) || []
     } catch (err) {
         logger.error(`Error getting ABIs: ${err}.`)
         return []
