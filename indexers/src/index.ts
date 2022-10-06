@@ -23,12 +23,12 @@ async function run() {
 
     logger.info(
         config.IS_RANGE_MODE
-            ? `Indexing block range ${config.FROM_BLOCK} -> ${config.TO_BLOCK}...`
+            ? `Indexing block range ${config.FROM} -> ${config.TO}...`
             : `Listening for new block heads...`
     )
 
-    // Start dat bish.
-    getWorker().run()
+    const worker = await getWorker()
+    worker.run()
 }
 
 run()

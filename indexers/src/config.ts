@@ -7,12 +7,9 @@ const parseBlockRangeBoundary = (envVar: string): number | null => {
     return isNumber(boundary) ? boundary : null
 }
 
-const from = parseBlockRangeBoundary('FROM_BLOCK')
-const to = parseBlockRangeBoundary('TO_BLOCK')
-const isRangeMode = from !== null || to !== null
-if ((from === null && to !== null) || (from !== null && to === null)) {
-    throw `Must have both FROM_BLOCK and TO_BLOCK set when running range mode.`
-}
+const from = parseBlockRangeBoundary('FROM')
+const to = parseBlockRangeBoundary('TO')
+const isRangeMode = from !== null && to !== null
 
 const indexerConfig: StringKeyMap = {
     ...config,
@@ -21,8 +18,8 @@ const indexerConfig: StringKeyMap = {
     PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
     EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
     EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
-    FROM_BLOCK: from,
-    TO_BLOCK: to,
+    FROM: from,
+    TO: to,
     IS_RANGE_MODE: isRangeMode,
     RANGE_WORKER_TYPE: ev('RANGE_WORKER_TYPE') || 'range',
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 10)),
@@ -31,6 +28,7 @@ const indexerConfig: StringKeyMap = {
     NOT_READY_DELAY: 300,
     MAX_ATTEMPTS: 100,
     MAX_BINDINGS_SIZE: 2000,
+    ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
 }
 
 export default indexerConfig

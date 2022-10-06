@@ -440,7 +440,7 @@ class GapWorker {
 
 export function getGapWorker(): GapWorker {
     return new GapWorker(
-        config.FROM_BLOCK, 
-        config.TO_BLOCK,
+        config.FROM, 
+        config.TO,
     )
 }

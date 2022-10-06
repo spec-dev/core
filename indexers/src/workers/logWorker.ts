@@ -252,8 +252,8 @@ class LogWorker {
 
 export function getLogWorker(): LogWorker {
     return new LogWorker(
-        config.FROM_BLOCK,
-        config.TO_BLOCK,
+        config.FROM,
+        config.TO,
         config.RANGE_GROUP_SIZE,
         config.SAVE_BATCH_MULTIPLE,
     )

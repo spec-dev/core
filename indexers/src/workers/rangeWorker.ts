@@ -381,8 +381,8 @@ class RangeWorker {
 
 export function getRangeWorker(): RangeWorker {
     return new RangeWorker(
-        config.FROM_BLOCK, 
-        config.TO_BLOCK, 
+        config.FROM, 
+        config.TO, 
         config.RANGE_GROUP_SIZE, 
         config.SAVE_BATCH_MULTIPLE,
     )

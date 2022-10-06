@@ -25,10 +25,10 @@ spec:
           value: production
         - name: RANGE_WORKER_TYPE
           value: {{RANGE_WORKER_TYPE}}
-        - name: FROM_BLOCK
-          value: "{{FROM_BLOCK}}"
-        - name: TO_BLOCK
-          value: "{{TO_BLOCK}}"
+        - name: FROM
+          value: "{{FROM}}"
+        - name: TO
+          value: "{{TO}}"
         - name: RANGE_GROUP_SIZE
           value: "{{RANGE_GROUP_SIZE}}"
         - name: CHAIN_ID
@@ -77,6 +77,10 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: ABI_REDIS_HOST
+          value: {{ABI_REDIS_HOST}}
+        - name: ABI_REDIS_PORT
+          value: "{{ABI_REDIS_PORT}}"
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "400"
         - name: SAVE_BATCH_MULTIPLE
