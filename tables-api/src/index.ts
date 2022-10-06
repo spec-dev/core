@@ -46,19 +46,20 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     }
 
     // Create a query stream and stream the response.
-    let stream
+    let stream, conn
     try {
-        stream = await createQueryStream(query)
-        streamQuery(stream, res)
+        ;([stream, conn] = await createQueryStream(query))
+        streamQuery(stream, conn, res)
     } catch (error) {
         logger.error(error)
+        cleanupStream(stream, conn)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
 
     // Ensure stream closes when a request is cancelled.
     req.on('close', () => {
         logger.info('Request closed.')
-        cleanupStream(stream)
+        cleanupStream(stream, conn)
     })
 })
 
@@ -66,4 +67,5 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     const server = app.listen(config.PORT, () => logger.info(`Listening on port ${config.PORT}...`))
     server.timeout = 0
     server.keepAliveTimeout = 0
+    server.headersTimeout = 0
 })()

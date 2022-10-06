@@ -18,7 +18,7 @@ export const pool = new Pool({
     query_timeout: 0,
     connectionTimeoutMillis: 0,
     statement_timeout: 0,
-    idle_in_transaction_session_timeout: 0,
+    // idle_in_transaction_session_timeout: 0,
 })
 pool.on('error', err => logger.error('PG client error', err))
 
@@ -82,12 +82,10 @@ export async function createQueryStream(query: QueryPayload) {
             logger.error(`Query stream error: ${error}`)
             conn.release()
         })
-        return stream
+        return [stream, conn]
     } catch (err) {
         conn.release()
         logger.error(errors.STREAM_CONSTRUCTION_FAILED, query, err)
         throw `${errors.STREAM_CONSTRUCTION_FAILED}: ${err?.message || err}`
     }
 }
-
-//asdfasdf
