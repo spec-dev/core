@@ -9,27 +9,31 @@ export function streamQuery(stream, conn, res) {
         'Content-Type': 'application/json',
         'Transfer-Encoding': 'chunked',
     })
+    
     res.on('close', () => {
         logger.info('Response closed.')
         cleanupStream(stream, conn, keepAliveTimer)
     })
+    
     res.on('destroy', () => {
         logger.info('Response destroyed.')
         cleanupStream(stream, conn, keepAliveTimer)
     })
+    
     res.on('error', err => {
         logger.error('Stream response error', err)
         cleanupStream(stream, conn, keepAliveTimer)
     })
+    
     stream.on('error', err => {
         logger.error('Stream error', err)
         cleanupStream(stream, conn, keepAliveTimer)
         res.end()
     })
+    
     stream.on('end', () => {
         logger.error(`Query stream ended.`)
         cleanupStream(stream, conn, keepAliveTimer)
-        res.end()
     })
 
     const jsonPipe = JSONStream.stringify()
@@ -41,7 +45,7 @@ export function streamQuery(stream, conn, res) {
 
     keepAliveTimer = setInterval(() => {
         try {
-            res.write(new TextEncoder().encode(' '))
+            res.writable && res.write(new TextEncoder().encode(' '))
         } catch (err) {}
     }, 1000)
 

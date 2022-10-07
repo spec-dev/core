@@ -69,7 +69,7 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
 
-echo "Creating index range job resources..."
+echo "Creating Tables API resources..."
 
 # Apply the template.
 echo "$template" | kubectl apply -f -
