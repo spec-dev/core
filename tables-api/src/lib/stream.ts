@@ -4,6 +4,7 @@ import codes from './codes'
 
 export function streamQuery(stream, conn, res) {
     let keepAliveTimer = null
+    let streamEnded = false
 
     res.writeHead(codes.SUCCESS, {
         'Content-Type': 'application/json',
@@ -33,7 +34,8 @@ export function streamQuery(stream, conn, res) {
     
     stream.on('end', () => {
         logger.error(`Query stream ended.`)
-        cleanupStream(stream, conn, keepAliveTimer)
+        cleanupStream(stream, conn)
+        streamEnded = true
     })
 
     const jsonPipe = JSONStream.stringify()
@@ -46,6 +48,7 @@ export function streamQuery(stream, conn, res) {
     keepAliveTimer = setInterval(() => {
         try {
             res.writable && res.write(new TextEncoder().encode(' '))
+            streamEnded && res.end()
         } catch (err) {}
     }, 1000)
 
