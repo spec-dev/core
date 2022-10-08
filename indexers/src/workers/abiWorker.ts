@@ -11,12 +11,12 @@ import {
     AbiItemType,
     sleep,
     getMissingAbiAddresses,
+    toChunks,
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import qs from 'querystring'
-import { PromisePool } from '@supercharge/promise-pool'
 
 const contractsRepo = () => SharedTables.getRepository(EthContract)
 
@@ -89,10 +89,13 @@ class AbiWorker {
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
-        const { results } = await PromisePool
-            .withConcurrency(5)
-            .for(contracts)
-            .process(c => this._fetchAbi(c))
+        const chunks = toChunks(contracts, 5) as EthContract[][]
+
+        const results = []
+        for (const chunk of chunks) {
+            const chunkResults = await Promise.all(chunk.map(c => this._fetchAbi(c)))
+            results.push(...chunkResults)
+        }
         
         const abisMap = {}
         for (let i = 0; i < contracts.length; i++) {
