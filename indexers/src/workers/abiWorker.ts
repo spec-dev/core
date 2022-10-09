@@ -56,9 +56,13 @@ class AbiWorker {
         const contracts = await this._getContracts(numbers)
         if (!contracts.length) return
 
+        logger.info(`     Got ${contracts.length} contracts.`)
+
         // Filter out contracts we've already fetched ABIs for.
         const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
         if (!contractsThatNeedAbis.length) return
+
+        logger.info(`     ${contractsThatNeedAbis.length} contracts need ABIs....`)
 
         // Fetch & save new ABIs.
         const abisMap = await this._fetchAbis(contractsThatNeedAbis)
@@ -92,11 +96,13 @@ class AbiWorker {
         const chunks = toChunks(contracts, 5) as EthContract[][]
 
         const results = []
-        for (const chunk of chunks) {
-            const chunkResults = await Promise.all(chunk.map(c => this._fetchAbi(c)))
+        for (let i = 0; i < chunks.length; i++) {
+            logger.info(`    Chunk ${i} / ${chunks.length}`)
+            const chunkResults = await Promise.all(chunks[i].map(c => this._fetchAbi(c)))
             results.push(...chunkResults)
         }
-        
+
+
         const abisMap = {}
         for (let i = 0; i < contracts.length; i++) {
             const abi = results[i]
@@ -114,6 +120,7 @@ class AbiWorker {
     }
 
     async _fetchAbiFromEtherscan(address: string, attempt: number = 1): Promise<Abi | null> {
+        logger.info(`    Fetching Etherscan ABI for ${address}...`)
         let resp, error
         try {
             resp = await fetch(
@@ -143,6 +150,7 @@ class AbiWorker {
         }
 
         if (data.status != 1 || !data.result) {
+            logger.info(`    No Etherscan ABI for ${address}.`)
             return null
         }
 
@@ -154,11 +162,14 @@ class AbiWorker {
             return null
         }
 
+        logger.info(`    Got Etherscan ABI for ${address}.`)
+
         return abi
     }
 
     async _fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1): Promise<Abi | null> {
         const { address, bytecode } = contract
+        logger.info(`    Getting Samczsun selectors from bytecode for ${address}...`)
 
         let funcSigHexes
         try {
@@ -167,6 +178,8 @@ class AbiWorker {
             logger.error(`Error extracting function sig hexes from bytecode for contract ${address}: ${err}`)
             return null
         }
+
+        logger.info(`    Fetching Samczsun ABI for ${address}...`)
 
         let resp, error
         try {
@@ -201,6 +214,8 @@ class AbiWorker {
             return null
         }
 
+        logger.info(`      Got Samczsun ABI function results for ${address}...`)
+
         const functionResults = data.result?.function || {}
         const abi: Abi = []
         for (const signature in functionResults) {
@@ -214,7 +229,10 @@ class AbiWorker {
                 signature,
             })
         }
-        if (!abi.length) return null
+        if (!abi.length) {
+            logger.info(`      No matching Samczsun ABI for ${address}...`)
+            return null
+        }
 
         return abi
     }
@@ -228,7 +246,12 @@ class AbiWorker {
             if (!abiStr) continue
             stringified[address] = abiStr
         }
-        if (!Object.keys(stringified).length) return
+        if (!Object.keys(stringified).length) {
+            logger.info(`    No stringified ABIs.`)
+            return
+        }
+
+        logger.info(`    Saving ${Object.keys(stringified).length} ABIs...`)
 
         if (!(await saveAbis(stringified))) {
             logger.error(`Failed to save ABI batch.`)
