@@ -31,11 +31,11 @@ async function run() {
     try {
         console.log('ONE')
         await conn.query(
-            `CREATE INDEX "tx_from" ON ethereum.transactions ("from")`
+            `CREATE INDEX "trace_from" ON ethereum.traces ("from")`
         )
         console.log('TWO')
         await conn.query(
-            `CREATE INDEX "tx_to" ON ethereum.transactions ("to")`
+            `CREATE INDEX "trace_to" ON ethereum.traces ("to")`
         )
     } catch (err) {
         error = err
