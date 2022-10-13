@@ -56,13 +56,13 @@ class AbiWorker {
         const contracts = await this._getContracts(numbers)
         if (!contracts.length) return
 
-        logger.info(`     Got ${contracts.length} contracts.`)
+        logger.info(`    Got ${contracts.length} contracts.`)
 
         // Filter out contracts we've already fetched ABIs for.
         const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
         if (!contractsThatNeedAbis.length) return
 
-        logger.info(`     ${contractsThatNeedAbis.length} contracts need ABIs....`)
+        logger.info(`    ${contractsThatNeedAbis.length} contracts need ABIs....`)
 
         // Fetch & save new ABIs.
         const abisMap = await this._fetchAbis(contractsThatNeedAbis)
@@ -102,7 +102,6 @@ class AbiWorker {
             results.push(...chunkResults)
         }
 
-
         const abisMap = {}
         for (let i = 0; i < contracts.length; i++) {
             const abi = results[i]
@@ -121,6 +120,12 @@ class AbiWorker {
 
     async _fetchAbiFromEtherscan(address: string, attempt: number = 1): Promise<Abi | null> {
         logger.info(`    Fetching Etherscan ABI for ${address}...`)
+        
+        const abortController = new AbortController()
+        const abortTimer = setTimeout(() => {
+            logger.warn('Aborting due to timeout.')
+            abortController.abort()
+        }, 30000)        
         let resp, error
         try {
             resp = await fetch(
@@ -129,7 +134,8 @@ class AbiWorker {
         } catch (err) {
             error = err
         }
-
+        clearTimeout(abortTimer)
+    
         if (error || resp?.status !== 200) {
             logger.error(`[Attempt ${attempt}] Error fetching ABI from etherscan for address ${address}: ${error || resp?.status}`)
             if (attempt <= 3) {
@@ -181,12 +187,18 @@ class AbiWorker {
 
         logger.info(`    Fetching Samczsun ABI for ${address}...`)
 
+        const abortController = new AbortController()
+        const abortTimer = setTimeout(() => {
+            logger.warn('Aborting due to timeout.')
+            abortController.abort()
+        }, 30000)
         let resp, error
         try {
             resp = await fetch(`https://sig.eth.samczsun.com/api/v1/signatures?${qs.stringify({ function: funcSigHexes })}`)
         } catch (err) {
             error = err
         }
+        clearTimeout(abortTimer)
 
         if (error || resp?.status !== 200) {
             logger.error(`[Attempt ${attempt}] Error fetching signatures from samczsun for address ${address}: ${error || resp?.status}`)
@@ -214,7 +226,7 @@ class AbiWorker {
             return null
         }
 
-        logger.info(`      Got Samczsun ABI function results for ${address}...`)
+        logger.info(`    Got Samczsun ABI function results for ${address}...`)
 
         const functionResults = data.result?.function || {}
         const abi: Abi = []
@@ -230,7 +242,7 @@ class AbiWorker {
             })
         }
         if (!abi.length) {
-            logger.info(`      No matching Samczsun ABI for ${address}...`)
+            logger.info(`    No matching Samczsun ABI for ${address}...`)
             return null
         }
 

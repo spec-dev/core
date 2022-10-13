@@ -12,7 +12,7 @@ COPY indexers/tsconfig.json ./
 COPY indexers/src ./src
 COPY shared /usr/shared
 
-RUN npm install
+RUN npm install --maxsockets=1
 RUN apk del .gyp
 RUN npm run build
 
