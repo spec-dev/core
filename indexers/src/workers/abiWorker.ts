@@ -93,7 +93,7 @@ class AbiWorker {
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
-        const chunks = toChunks(contracts, 5) as EthContract[][]
+        const chunks = toChunks(contracts, 4) as EthContract[][]
 
         const results = []
         for (let i = 0; i < chunks.length; i++) {
@@ -125,7 +125,7 @@ class AbiWorker {
         const abortTimer = setTimeout(() => {
             logger.warn('Aborting due to timeout.')
             abortController.abort()
-        }, 30000)
+        }, 20000)
         let resp, error
         try {
             resp = await fetch(
@@ -192,7 +192,7 @@ class AbiWorker {
         const abortTimer = setTimeout(() => {
             logger.warn('Aborting due to timeout.')
             abortController.abort()
-        }, 30000)
+        }, 20000)
         let resp, error
         try {
             resp = await fetch(

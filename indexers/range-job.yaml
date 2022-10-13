@@ -82,7 +82,7 @@ spec:
         - name: ABI_REDIS_PORT
           value: "{{ABI_REDIS_PORT}}"
         - name: ETHERSCAN_API_KEY
-          value: G5XVJA5D97W4FYZID6ZIFU4F5C5FG6YM99
+          value: K59MG4SV3A1SV47VQBF6Z24JWUFH8TYH1B
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "400"
         - name: SAVE_BATCH_MULTIPLE
