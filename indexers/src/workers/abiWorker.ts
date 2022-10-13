@@ -125,11 +125,12 @@ class AbiWorker {
         const abortTimer = setTimeout(() => {
             logger.warn('Aborting due to timeout.')
             abortController.abort()
-        }, 30000)        
+        }, 30000)
         let resp, error
         try {
             resp = await fetch(
-                `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${config.ETHERSCAN_API_KEY}`
+                `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${config.ETHERSCAN_API_KEY}`, 
+                { signal: abortController.signal }
             )
         } catch (err) {
             error = err
@@ -194,7 +195,10 @@ class AbiWorker {
         }, 30000)
         let resp, error
         try {
-            resp = await fetch(`https://sig.eth.samczsun.com/api/v1/signatures?${qs.stringify({ function: funcSigHexes })}`)
+            resp = await fetch(
+                `https://sig.eth.samczsun.com/api/v1/signatures?${qs.stringify({ function: funcSigHexes })}`,
+                { signal: abortController.signal },
+            )
         } catch (err) {
             error = err
         }
