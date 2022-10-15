@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# --- Create and deploy K8S abi-tracker job resources --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+abi_tracker_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+
+# ======== SET KEY VARS ======== #
+
+# ABI Redis
+abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
+abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+# ABI Redis
+$shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
+$shared_bin_dir/assert_env "ABI_REDIS_PORT" "$abi_redis_port"
+
+# ======== GET LATEST IMAGE ======== #
+
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "ABI_TRACKER_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
+
+# ======== CREATE & APPLY TEMPLATE ======== #
+
+template_path="$abi_tracker_dir/abi-tracker.yaml"
+
+# Create the config template.
+template=$( cat "$template_path" | \
+    sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
+    sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" )
+
+echo "Creating abi-tracker job resources..."
+
+# Apply the template.
+echo "$template" | kubectl apply -f -
