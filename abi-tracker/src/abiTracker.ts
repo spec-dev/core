@@ -199,7 +199,10 @@ class AbiTracker {
         try {
             resp = await fetch(
                 `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=G5XVJA5D97W4FYZID6ZIFU4F5C5FG6YM99`, 
-                { signal: abortController.signal }
+                { 
+                    signal: abortController.signal,
+                    headers: {'User-Agent': 'Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'}
+                }
             )
         } catch (err) {
             error = err
