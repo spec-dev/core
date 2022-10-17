@@ -87,9 +87,10 @@ class AbiWorker {
     }
 
     async _getContractsThatNeedAbis(contracts: EthContract[]): Promise<EthContract[]> {
-        const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
-        const addressesThatNeedAbis = new Set(missingAddresses)
-        return contracts.filter(c => addressesThatNeedAbis.has(c.address))
+        return contracts
+        // const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
+        // const addressesThatNeedAbis = new Set(missingAddresses)
+        // return contracts.filter(c => addressesThatNeedAbis.has(c.address))
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
