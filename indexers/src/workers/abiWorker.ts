@@ -93,13 +93,12 @@ class AbiWorker {
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
-        const chunks = toChunks(contracts, 4) as EthContract[][]
+        const chunks = toChunks(contracts, 5) as EthContract[][]
 
         const results = []
         for (let i = 0; i < chunks.length; i++) {
-            logger.info(`    Chunk ${i} / ${chunks.length}`)
-            const chunkResults = await Promise.all(chunks[i].map(c => this._fetchAbi(c)))
-            results.push(...chunkResults)
+            logger.info(`    Chunk ${i + 1} / ${chunks.length}`)
+            results.push(...(await this._groupFetchAbis(chunks[i])))
         }
 
         const abisMap = {}
@@ -110,6 +109,19 @@ class AbiWorker {
             abisMap[address] = abi
         }
         return abisMap
+    }
+
+    async _groupFetchAbis(contracts: EthContract[]): Promise<string[]> {        
+        const abiPromises = []
+
+        let i = 0
+        while (i < contracts.length) {
+            await sleep(200)
+            abiPromises.push(this._fetchAbi(contracts[i]))
+            i++
+        }
+
+        return await Promise.all(abiPromises)
     }
 
     async _fetchAbi(contract: EthContract) {
@@ -157,6 +169,10 @@ class AbiWorker {
         }
 
         if (data.status != 1 || !data.result) {
+            if (data.result?.toLowerCase()?.includes('rate limit')) {
+                await sleep(500)
+                return this._fetchAbiFromEtherscan(address, attempt)
+            }
             logger.info(`    No Etherscan ABI for ${address}.`)
             return null
         }
