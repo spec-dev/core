@@ -111,7 +111,8 @@ class AbiTracker {
                         'sec-ch-ua-mobile': '?0',
                         'sec-ch-ua-platform': '"macOS"',
                         'cache-control': 'no-cache',
-                        'pragma': 'no-cache'
+                        'pragma': 'no-cache',
+                        'authority': 'etherscan.io'
                     }
                 }
             )
