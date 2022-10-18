@@ -34,7 +34,6 @@ class LogWorker {
         this.from = from
         this.to = to
         this.cursor = from
-        this._createJSONStream()
     }
 
     async run() {
@@ -58,6 +57,8 @@ class LogWorker {
     async _streamLogs(resp) {
         this.pendingDataPromise = null
         this.batch = []
+
+        this._createJSONStream()
 
         const readData = () => new Promise((resolve, _) => {
             resp.on('data', async chunk => {

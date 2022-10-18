@@ -18,8 +18,8 @@ RUN npm run build
 
 # --- Runner -----------------------------------------
 
-FROM node:16.15.0
-# RUN apk add --no-cache --virtual .gyp g++ make py3-pip
+FROM node:16-alpine
+RUN apk add --no-cache --virtual .gyp g++ make py3-pip
 
 RUN mkdir -p /usr/shared
 WORKDIR /usr/shared
@@ -35,6 +35,6 @@ COPY indexers/package.json ./
 RUN npm install --only=production
 COPY --from=builder /usr/app/dist ./dist
 
-# RUN apk del .gyp
+RUN apk del .gyp
 
 ENTRYPOINT ["npm", "start"]
