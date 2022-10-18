@@ -1,5 +1,6 @@
 import config from '../config'
-import { JSONParser } from '@streamparser/json'
+// import { JSONParser } from '@streamparser/json'
+import JSONStream from 'JSONStream'
 import {
     logger,
     StringKeyMap,
@@ -23,7 +24,7 @@ class LogWorker {
 
     saveBatchSize: number = 1000
 
-    jsonParser: JSONParser
+    jsonStream: JSONStream
 
     batch: StringKeyMap[] = []
 
@@ -33,7 +34,7 @@ class LogWorker {
         this.from = from
         this.to = to
         this.cursor = from
-        this._upsertJSONParser()
+        this._createJSONStream()
     }
 
     async run() {
@@ -58,16 +59,13 @@ class LogWorker {
         this.pendingDataPromise = null
         this.batch = []
 
-        this._upsertJSONParser()
-        this.jsonParser.write('[')
-
         const readData = () => new Promise((resolve, _) => {
             resp.on('data', async chunk => {
                 if (this.pendingDataPromise) {
                     await this.pendingDataPromise
                     this.pendingDataPromise = null
                 }
-                this.jsonParser.write(chunk.toString().replace(/[}]/g, '},'))
+                this.jsonStream.write(chunk)
             })
             resp.on('end', () => resolve(null))
         })
@@ -83,21 +81,16 @@ class LogWorker {
         }
     }
 
-    _upsertJSONParser() {
-        this.jsonParser = new JSONParser({
-            stringBufferSize: undefined,
-            paths: ['$.*'],
-            keepStack: false,
-    
-         })
-        this.jsonParser.onValue = (obj) => {
-            if (!obj) return
-            this.batch.push(obj as StringKeyMap)
+    _createJSONStream() {
+        this.jsonStream = JSONStream.parse()
+        this.jsonStream.on('data', data => {
+            if (!data) return
+            this.batch.push(data as StringKeyMap)
             if (this.batch.length === this.saveBatchSize) {
                 this.pendingDataPromise = this._saveLogs([...this.batch])
                 this.batch = []
             }
-        }
+        })
     }
 
     async _makeSliceRequest(
