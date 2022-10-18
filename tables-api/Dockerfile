@@ -13,7 +13,9 @@ COPY tables-api/src ./src
 COPY shared /usr/shared
 
 RUN npm install
+
 # RUN apk del .gyp
+
 RUN npm run build
 
 # --- Runner -----------------------------------------

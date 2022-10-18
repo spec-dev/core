@@ -5,7 +5,7 @@ metadata:
   labels:
     app: tables-api
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: tables-api
@@ -38,6 +38,8 @@ spec:
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "100"
+        - name: FLIP
+          value: heads
 ---
 apiVersion: v1
 kind: Service
