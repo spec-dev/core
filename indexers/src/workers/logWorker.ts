@@ -22,13 +22,15 @@ class LogWorker {
 
     cursor: number
 
-    saveBatchSize: number = 1000
+    saveBatchSize: number = 2000
 
     jsonStream: JSONStream
 
     batch: StringKeyMap[] = []
 
     pendingDataPromise: any = null
+
+    savePromises: any[] = []
     
     constructor(from: number, to: number) {
         this.from = from
@@ -57,15 +59,16 @@ class LogWorker {
     async _streamLogs(resp) {
         this.pendingDataPromise = null
         this.batch = []
+        this.savePromises = []
 
         this._createJSONStream()
 
         const readData = () => new Promise((resolve, _) => {
             resp.on('data', async chunk => {
-                if (this.pendingDataPromise) {
-                    await this.pendingDataPromise
-                    this.pendingDataPromise = null
-                }
+                // if (this.pendingDataPromise) {
+                //     await this.pendingDataPromise
+                //     this.pendingDataPromise = null
+                // }
                 this.jsonStream.write(chunk)
             })
             resp.on('end', () => resolve(null))
@@ -78,17 +81,18 @@ class LogWorker {
         }
     
         if (this.batch.length) {
-            await this._saveLogs([...this.batch])
+            this.savePromises.push(this._saveLogs([...this.batch]))
         }
+
+        await Promise.all(this.savePromises)
     }
 
     _createJSONStream() {
         this.jsonStream = JSONStream.parse()
         this.jsonStream.on('data', data => {
-            if (!data) return
             this.batch.push(data as StringKeyMap)
             if (this.batch.length === this.saveBatchSize) {
-                this.pendingDataPromise = this._saveLogs([...this.batch])
+                this.savePromises.push(this._saveLogs([...this.batch]))
                 this.batch = []
             }
         })
