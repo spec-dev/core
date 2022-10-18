@@ -1,250 +1,167 @@
 import config from '../config'
-import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
-import getBlockReceipts from '../indexers/ethereum/services/getBlockReceipts'
-import initLogs from '../indexers/ethereum/services/initLogs'
+import { JSONParser } from '@streamparser/json'
 import {
     logger,
-    range,
     StringKeyMap,
     EthLog,
-    EthTransaction,
-    fullLogUpsertConfig,
-    fullReceiptUpsertConfig,
     SharedTables,
     uniqueByKeys,
-    hasBlockBeenIndexedForLogs,
-    registerBlockLogsAsIndexed,
-    hexToNumber,
     normalizeEthAddress,
-    normalize32ByteHash,
-    hexToNumberString,
-    numberToHex,
-    EthReceipt,
+    normalizeByteData,
 } from '../../../shared'
+import { exit } from 'process'
+import https from 'https'
 
 class LogWorker {
-    web3: AlchemyWeb3
 
     from: number
 
-    to: number | null
-
-    groupSize: number
-
-    saveBatchMultiple: number
+    to: number
 
     cursor: number
 
-    upsertConstraints: StringKeyMap
+    saveBatchSize: number = 1000
 
-    batchResults: any[] = []
+    jsonParser: JSONParser
 
-    batchBlockNumbersIndexed: number[] = []
+    batch: StringKeyMap[] = []
 
-    chunkSize: number = 2000
-
-    saveBatchIndex: number = 0
-
-    chainId: number = 1
-
-    constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
+    pendingDataPromise: any = null
+    
+    constructor(from: number, to: number) {
         this.from = from
         this.to = to
         this.cursor = from
-        this.groupSize = groupSize || 1
-        this.saveBatchMultiple = saveBatchMultiple || 1
-        this.upsertConstraints = {}
-        this.web3 = createAlchemyWeb3(config.ALCHEMY_ETH_MAINNET_REST_URL)
+        this._upsertJSONParser()
     }
 
     async run() {
+        this.jsonParser.write('[')
         while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const groupBlockNumbers = range(start, end)
-            await this._indexBlockGroup(groupBlockNumbers)
-            this.cursor = this.cursor + this.groupSize
-        }
-        if (this.batchResults.length) {
-            await this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults) 
+            logger.info(`Slice ${this.cursor} / ${this.to}`)
+            await this._pullLogsForSlice(this.cursor)
+            this.cursor++
         }
         logger.info('DONE')
+        exit(0)
     }
 
-    async _indexBlockGroup(blockNumbers: number[]) {
-        const blockNumbersToIndex = await this._getBlockNumbersThatNeedLogsIndexed(blockNumbers)
-        if (!blockNumbersToIndex.length) return
-
-        logger.info(`Indexing logs for ${blockNumbersToIndex.join(', ')}...`)
-        const results = await Promise.all(blockNumbersToIndex.map(n => this._indexLogsForBlockNumber(n)))
-
-        const successfulResults = []
-        const successfulBlockNumbersIndexed = []
-        for (let i = 0; i < blockNumbersToIndex.length; i++) {
-            const blockNumber = blockNumbersToIndex[i]
-            const result = results[i]
-            if (result === null) continue
-            successfulResults.push(result)
-            successfulBlockNumbersIndexed.push(blockNumber)
-        }
-        
-        this.batchResults.push(...successfulResults)
-        this.batchBlockNumbersIndexed.push(...successfulBlockNumbersIndexed)
-        this.saveBatchIndex++
-
-        if (this.saveBatchIndex === this.saveBatchMultiple) {
-            this.saveBatchIndex = 0
-            const batchResults = [...this.batchResults]
-            const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
-            this._saveBatches(batchBlockNumbersIndexed, batchResults)
-            this.batchResults = []
-            this.batchBlockNumbersIndexed = []
-        }
+    async _pullLogsForSlice(slice: number) {
+        const abortController = new AbortController()
+        const initialRequestTimer = setTimeout(() => abortController.abort(), 20000)
+        const resp = await this._makeSliceRequest(slice, abortController)
+        clearTimeout(initialRequestTimer)
+        await this._streamLogs(resp)
     }
 
-    async _saveBatches(batchBlockNumbersIndexed: number[], batchResults: any[]) {
-        try {
-            await this._saveBatchResults(batchResults)
-        } catch (err) {
-            logger.error(`Error saving batch: ${err}`)
-            return
-        }
-        await registerBlockLogsAsIndexed(batchBlockNumbersIndexed)
-    }
+    async _streamLogs(resp) {
+        this.pendingDataPromise = null
+        this.batch = []
 
-    async _indexLogsForBlockNumber(blockNumber: number): Promise<StringKeyMap | null> {
-        const hexBlockNumber = numberToHex(blockNumber)
-
-        // Get receipts.
-        let receipts
-        try {
-            receipts = await getBlockReceipts(
-                this.web3,
-                { blockNumber: hexBlockNumber },
-                blockNumber,
-                this.chainId,
-            )
-        } catch (err) {
-            logger.error(`Error getting receipts for block ${blockNumber}:`, err)
-            return null
-        }
-        if (!receipts?.length) return {}
-
-        // Get block timestamp from one transaction in this block.
-        const firstTxHash = receipts[0].transactionHash
-        let transaction
-        try {
-            transaction = await SharedTables.getRepository(EthTransaction).findOneBy({
-                hash: firstTxHash
-            })    
-        } catch (err) {
-            logger.error(`Error fetching transaction for hash: ${firstTxHash}`)
-            return null
-        }
-        if (!transaction) {
-            logger.error(`Couldn't find a transaction for receipt transactionHash ${firstTxHash}`)
-            return null
-        }
-
-        const block = { 
-            number: blockNumber,
-            hash: transaction.blockHash,
-            timestamp: transaction.blockTimestamp
-        }
-        
-        const logs = initLogs(block, receipts)
-    
-        const ethReceipts: EthReceipt[] = receipts.map(receipt => {
-            const ethReceipt = new EthReceipt()
-            ethReceipt.hash = receipt.transactionHash
-            ethReceipt.contractAddress = normalizeEthAddress(receipt.contractAddress)
-            ethReceipt.status = hexToNumber(receipt.status)
-            ethReceipt.root = normalize32ByteHash(receipt.root)
-            ethReceipt.gasUsed = hexToNumberString(receipt.gasUsed)
-            ethReceipt.cumulativeGasUsed = hexToNumberString(receipt.cumulativeGasUsed)
-            ethReceipt.effectiveGasPrice = hexToNumberString(receipt.effectiveGasPrice)
-            return ethReceipt
+        const readData = new Promise((resolve, _) => {
+            resp.on('data', async chunk => {
+                if (this.pendingDataPromise) {
+                    await this.pendingDataPromise
+                    this.pendingDataPromise = null
+                }
+                this.jsonParser.write(chunk.toString().replace(/[}]/g, '},'))
+            })
+            resp.on('end', () => resolve(null))
         })
-        
-        return {
-            logs,
-            receipts: ethReceipts,
+    
+        try {
+            await readData
+        } catch (err) {
+            logger.error(`Error iterating response stream: ${err?.message || err}`)
+        }
+    
+        if (this.batch.length) {
+            await this._saveLogs([...this.batch])
         }
     }
 
-    async _getBlockNumbersThatNeedLogsIndexed(blockNumbers: number[]): Promise<number[]> {
-        const alreadyIndexed = await Promise.all(blockNumbers.map(hasBlockBeenIndexedForLogs))
-        const notIndexed = []
-        for (let i = 0; i < alreadyIndexed.length; i++) {
-            if (alreadyIndexed[i]) continue
-            notIndexed.push(blockNumbers[i])
+    _upsertJSONParser() {
+        this.jsonParser = new JSONParser({
+            stringBufferSize: undefined,
+            paths: ['$.*'],
+            keepStack: false,
+    
+         })
+        this.jsonParser.onValue = (obj) => {
+            if (!obj) return
+            this.batch.push(obj as StringKeyMap)
+            if (this.batch.length === this.saveBatchSize) {
+                this.pendingDataPromise = this._saveLogs([...this.batch])
+                this.batch = []
+            }
         }
-        return notIndexed
     }
 
-    async _saveBatchResults(results: any[]) {
-        let receipts = []
-        let logs = []
-        for (const result of results) {
-            if (!result || !Object.keys(result).length) continue
-            receipts.push(...result.receipts)
-            logs.push(...result.logs)
-        }
+    async _makeSliceRequest(
+        slice: number,
+        abortController: AbortController,
+        attempt = 1,
+    ): Promise<any> {    
+        return new Promise((resolve, _) => {
+            https.get(this._sliceToUrl(slice), resp => {
+                resolve(resp)
+            }).on('error', (error) => {
+                logger.error(`Error fetching JSON slice ${slice}:`, error)
+                if (attempt <= 3) {
+                    logger.error(`Retrying with attempt ${attempt}...`)
+                    return this._makeSliceRequest(slice, abortController, attempt + 1)
+                }
+            })    
+        })
+    }
 
-        if (!this.upsertConstraints.receipt && receipts.length) {
-            this.upsertConstraints.receipt = fullReceiptUpsertConfig(receipts[0])
-        }
-        if (!this.upsertConstraints.log && logs.length) {
-            this.upsertConstraints.log = fullLogUpsertConfig(logs[0])
-        }
-        
-        receipts = this.upsertConstraints.receipt
-            ? uniqueByKeys(receipts, this.upsertConstraints.receipt[1])
-            : receipts
-        
-        logs = this.upsertConstraints.log 
-            ? uniqueByKeys(logs, this.upsertConstraints.log[1])
-            : logs
+    async _saveLogs(logs: StringKeyMap[]) {
+        logs = uniqueByKeys(logs.map(l => this._bigQueryLogToEthLog(l)), 
+            ['logIndex', 'transactionHash'],
+        )
 
         await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertReceipts(receipts, tx),
-                this._upsertLogs(logs, tx),
-            ])
+            await tx.createQueryBuilder()
+                .insert()
+                .into(EthLog)
+                .values(logs)
+                .orIgnore()
+                .execute()
         })
     }
 
-    async _upsertReceipts(receipts: StringKeyMap[], tx: any) {
-        if (!receipts.length) return
-        const [updateCols, conflictCols] = this.upsertConstraints.receipt
-        await Promise.all(this._toChunks(receipts, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthReceipt)
-                .values(chunk)
-                .orUpdate(updateCols, conflictCols)
-                .execute()
-        }))
+    _bigQueryLogToEthLog(bqLog: StringKeyMap): StringKeyMap {
+        const topics = bqLog.topics || []
+        const topic0 = topics[0] || null
+        const topic1 = topics[1] || null
+        const topic2 = topics[2] || null
+        const topic3 = topics[3] || null
+        
+        return {
+            logIndex: Number(bqLog.log_index),
+            transactionHash: bqLog.transaction_hash,
+            transactionIndex: Number(bqLog.transaction_index),
+            address: normalizeEthAddress(bqLog.address),
+            data: normalizeByteData(bqLog.data),
+            topic0,
+            topic1,
+            topic2,
+            topic3,
+            blockHash: bqLog.block_hash,
+            blockNumber: Number(bqLog.block_number),
+            blockTimestamp: new Date(bqLog.block_timestamp).toISOString(),
+        }
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any) {
-        if (!logs.length) return
-        const [updateCols, conflictCols] = this.upsertConstraints.log
-        await Promise.all(this._toChunks(logs, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthLog)
-                .values(chunk)
-                .orUpdate(updateCols, conflictCols)
-                .execute()
-        }))
+    _sliceToUrl(slice: number): string {
+        const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
+        return `https://storage.googleapis.com/spec_eth/logs/records-${paddedSlice}.json`
     }
 
-    _toChunks(arr: any[], chunkSize: number): any[][] {
-        const result = []
-        for (let i = 0; i < arr.length; i += chunkSize) {
-            const chunk = arr.slice(i, i + chunkSize)
-            result.push(chunk)
+    _padNumberWithLeadingZeroes(val: number, length: number): string {
+        let result = val.toString()
+        while (result.length < length) {
+            result = '0' + result
         }
         return result
     }
@@ -254,7 +171,5 @@ export function getLogWorker(): LogWorker {
     return new LogWorker(
         config.FROM,
         config.TO,
-        config.RANGE_GROUP_SIZE,
-        config.SAVE_BATCH_MULTIPLE,
     )
 }

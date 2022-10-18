@@ -142,7 +142,7 @@ class EthereumIndexer extends AbstractIndexer {
                 block, 
                 transactions,
                 logs,
-                traces, 
+                traces,
                 contracts,
                 latestInteractions,
                 pgBlockTimestamp: this.pgBlockTimestamp
