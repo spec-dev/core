@@ -61,7 +61,7 @@ class LogWorker {
         this._upsertJSONParser()
         this.jsonParser.write('[')
 
-        const readData = new Promise((resolve, _) => {
+        const readData = () => new Promise((resolve, _) => {
             resp.on('data', async chunk => {
                 if (this.pendingDataPromise) {
                     await this.pendingDataPromise
@@ -73,7 +73,7 @@ class LogWorker {
         })
     
         try {
-            await readData
+            await readData()
         } catch (err) {
             logger.error(`Error iterating response stream: ${err?.message || err}`)
         }
