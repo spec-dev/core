@@ -10,6 +10,7 @@ import {
 } from '../../shared'
 import fetch from 'cross-fetch'
 import { parse } from 'node-html-parser'
+import { client } from './api/client'
 
 const addressesPerPage = 25
 const totalRecentlyVerifiedAddresses = 500
@@ -19,7 +20,7 @@ class AbiTracker {
     frontPageAddresses: string[] = []
 
     async run() {
-        // Fetch abis for the all recently verified contracts.
+        // Fetch abis for all recently verified contracts.
         await this._upsertAllLatestVerifiedAbis()
 
         // Start cron job that re-pulls front page addresses and upserts abis when diffs occur.
@@ -90,6 +91,7 @@ class AbiTracker {
             logger.warn('Aborting due to timeout.')
             abortController.abort()
         }, 20000)
+        
         let resp, error
         try {
             resp = await fetch(
@@ -171,9 +173,14 @@ class AbiTracker {
         return addresses
     }
 
+    // async _upsertAbisForAddresses(addresses: string[]) {
+    //     const abisMap = await this._fetchAbis(addresses)
+    //     await this._saveAbis(abisMap)
+    // }
+
     async _upsertAbisForAddresses(addresses: string[]) {
-        const abisMap = await this._fetchAbis(addresses)
-        await this._saveAbis(abisMap)
+        const { error } = await client.upsertAbis(addresses)
+        if (error) logger.error(error)
     }
 
     async _fetchAbis(addresses: string[]): Promise<StringKeyMap> {
