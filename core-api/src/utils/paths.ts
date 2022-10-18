@@ -2,6 +2,7 @@ const prefix = {
     USER: '/user',
     PROJECT: '/project',
     DEPLOYMENT: '/deployment',
+    ADMIN: '/admin',
 }
 
 const paths = {
@@ -17,6 +18,9 @@ const paths = {
 
     // Deployment paths.
     NEW_DEPLOYMENT: prefix.DEPLOYMENT,
+
+    // ABI paths.
+    UPSERT_ABIS: prefix.ADMIN + '/abis',
 }
 
 export default paths

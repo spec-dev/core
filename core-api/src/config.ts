@@ -28,6 +28,8 @@ const coreApiConfig: StringKeyMap = {
 
     // Auth
     USER_AUTH_HEADER_NAME: 'Spec-User-Auth-Token',
+    ADMIN_AUTH_HEADER_NAME: 'Spec-Admin-Auth-Token',
+    CORE_API_ADMIN_TOKEN: ev('CORE_API_ADMIN_TOKEN'),
 
     // Cloud file storage.
     AWS_ACCESS_KEY_ID: ev('AWS_ACCESS_KEY_ID'),

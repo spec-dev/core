@@ -25,7 +25,7 @@ export async function authorizeRequest(req, res): Promise<User | null> {
 
     // Get auth header token.
     const authHeader = headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
-        if (!authHeader) {
+    if (!authHeader) {
         res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
         return null
     }
@@ -45,4 +45,14 @@ export async function authorizeRequest(req, res): Promise<User | null> {
     }
 
     return session.user || null
+}
+
+export async function authorizeAdminRequest(req, res): Promise<boolean> {
+    const headers = req.headers || {}
+    const adminHeader = headers[config.ADMIN_AUTH_HEADER_NAME] || headers[config.ADMIN_AUTH_HEADER_NAME.toLowerCase()]
+    if (!adminHeader || adminHeader !== config.CORE_API_ADMIN_TOKEN) {
+        res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+        return false
+    }
+    return true
 }

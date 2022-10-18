@@ -1,3 +1,5 @@
 import './user/userRoutes'
 import './project/projectRoutes'
+import './deployment/deploymentRoutes'
+import './admin/abi/abiRoutes'
 export { app } from './express'
