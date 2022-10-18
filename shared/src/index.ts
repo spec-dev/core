@@ -145,3 +145,5 @@ export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/enti
 export { redis as abiRedis, saveAbis, getAbi, getMissingAbiAddresses } from './lib/abi/redis'
 
 export * from './lib/abi/types'
+
+export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'

@@ -20,6 +20,9 @@ const config: StringKeyMap = {
     HEAD_REPORTER_QUEUE_KEY: ev('HEAD_REPORTER_QUEUE_KEY', 'head-reporter-queue'),
     INDEX_BLOCK_JOB_NAME: ev('INDEX_BLOCK_JOB_NAME', 'index-block'),
 
+    // Delayed job redis queue
+    DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'delayed-jobs'),
+
     // Public Tables Postgres Instance
     SHARED_TABLES_DB_NAME: ev('SHARED_TABLES_DB_NAME', 'shared-tables'),
     SHARED_TABLES_DB_HOST: ev('SHARED_TABLES_DB_HOST', 'localhost'),
