@@ -8,6 +8,7 @@ import {
     uniqueByKeys,
     normalizeEthAddress,
     normalizeByteData,
+    sleep,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
@@ -36,7 +37,6 @@ class LogWorker {
     }
 
     async run() {
-        this.jsonParser.write('[')
         while (this.cursor < this.to) {
             logger.info(`Slice ${this.cursor} / ${this.to}`)
             await this._pullLogsForSlice(this.cursor)
@@ -57,6 +57,9 @@ class LogWorker {
     async _streamLogs(resp) {
         this.pendingDataPromise = null
         this.batch = []
+
+        this._upsertJSONParser()
+        this.jsonParser.write('[')
 
         const readData = new Promise((resolve, _) => {
             resp.on('data', async chunk => {
@@ -105,10 +108,11 @@ class LogWorker {
         return new Promise((resolve, _) => {
             https.get(this._sliceToUrl(slice), resp => {
                 resolve(resp)
-            }).on('error', (error) => {
+            }).on('error', async (error) => {
                 logger.error(`Error fetching JSON slice ${slice}:`, error)
                 if (attempt <= 3) {
                     logger.error(`Retrying with attempt ${attempt}...`)
+                    await sleep(50)
                     return this._makeSliceRequest(slice, abortController, attempt + 1)
                 }
             })    
