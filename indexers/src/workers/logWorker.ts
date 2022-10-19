@@ -15,7 +15,6 @@ import { exit } from 'process'
 import https from 'https'
 
 class LogWorker {
-
     from: number
 
     to: number
@@ -31,7 +30,7 @@ class LogWorker {
     pendingDataPromise: any = null
 
     savePromises: any[] = []
-    
+
     constructor(from: number, to: number) {
         this.from = from
         this.to = to
@@ -63,23 +62,24 @@ class LogWorker {
 
         this._createJSONStream()
 
-        const readData = () => new Promise((resolve, _) => {
-            resp.on('data', async chunk => {
-                // if (this.pendingDataPromise) {
-                //     await this.pendingDataPromise
-                //     this.pendingDataPromise = null
-                // }
-                this.jsonStream.write(chunk)
+        const readData = () =>
+            new Promise((resolve, _) => {
+                resp.on('data', async (chunk) => {
+                    // if (this.pendingDataPromise) {
+                    //     await this.pendingDataPromise
+                    //     this.pendingDataPromise = null
+                    // }
+                    this.jsonStream.write(chunk)
+                })
+                resp.on('end', () => resolve(null))
             })
-            resp.on('end', () => resolve(null))
-        })
-    
+
         try {
             await readData()
         } catch (err) {
             logger.error(`Error iterating response stream: ${err?.message || err}`)
         }
-    
+
         if (this.batch.length) {
             this.savePromises.push(this._saveLogs([...this.batch]))
         }
@@ -89,7 +89,7 @@ class LogWorker {
 
     _createJSONStream() {
         this.jsonStream = JSONStream.parse()
-        this.jsonStream.on('data', data => {
+        this.jsonStream.on('data', (data) => {
             this.batch.push(data as StringKeyMap)
             if (this.batch.length === this.saveBatchSize) {
                 this.savePromises.push(this._saveLogs([...this.batch]))
@@ -101,34 +101,32 @@ class LogWorker {
     async _makeSliceRequest(
         slice: number,
         abortController: AbortController,
-        attempt = 1,
-    ): Promise<any> {    
+        attempt = 1
+    ): Promise<any> {
         return new Promise((resolve, _) => {
-            https.get(this._sliceToUrl(slice), resp => {
-                resolve(resp)
-            }).on('error', async (error) => {
-                logger.error(`Error fetching JSON slice ${slice}:`, error)
-                if (attempt <= 3) {
-                    logger.error(`Retrying with attempt ${attempt}...`)
-                    await sleep(50)
-                    return this._makeSliceRequest(slice, abortController, attempt + 1)
-                }
-            })    
+            https
+                .get(this._sliceToUrl(slice), (resp) => {
+                    resolve(resp)
+                })
+                .on('error', async (error) => {
+                    logger.error(`Error fetching JSON slice ${slice}:`, error)
+                    if (attempt <= 3) {
+                        logger.error(`Retrying with attempt ${attempt}...`)
+                        await sleep(50)
+                        return this._makeSliceRequest(slice, abortController, attempt + 1)
+                    }
+                })
         })
     }
 
     async _saveLogs(logs: StringKeyMap[]) {
-        logs = uniqueByKeys(logs.map(l => this._bigQueryLogToEthLog(l)), 
-            ['logIndex', 'transactionHash'],
+        logs = uniqueByKeys(
+            logs.map((l) => this._bigQueryLogToEthLog(l)),
+            ['logIndex', 'transactionHash']
         )
 
         await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder()
-                .insert()
-                .into(EthLog)
-                .values(logs)
-                .orIgnore()
-                .execute()
+            await tx.createQueryBuilder().insert().into(EthLog).values(logs).orIgnore().execute()
         })
     }
 
@@ -138,7 +136,7 @@ class LogWorker {
         const topic1 = topics[1] || null
         const topic2 = topics[2] || null
         const topic3 = topics[3] || null
-        
+
         return {
             logIndex: Number(bqLog.log_index),
             transactionHash: bqLog.transaction_hash,
@@ -170,8 +168,5 @@ class LogWorker {
 }
 
 export function getLogWorker(): LogWorker {
-    return new LogWorker(
-        config.FROM,
-        config.TO,
-    )
+    return new LogWorker(config.FROM, config.TO)
 }

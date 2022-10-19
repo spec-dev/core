@@ -1,4 +1,4 @@
-import { 
+import {
     EthTransaction,
     EthTransactionStatus,
     EthContract,
@@ -12,21 +12,22 @@ import {
 const contracts = () => SharedTables.getRepository(EthContract)
 
 async function initLatestInteractions(
-    transactions: EthTransaction[], 
-    contracts: EthContract[],
+    transactions: EthTransaction[],
+    contracts: EthContract[]
 ): Promise<EthLatestInteraction[]> {
     if (!transactions.length) return []
 
-    // Create latest interaction models for each transaction with non-empty to/from properties. 
-    let latestInteractions = uniqueByKeys(transactions
-        .filter(tx => !!tx.from && !!tx.to)
-        .sort((a, b) => b.transactionIndex - a.transactionIndex)
-        .map(tx => newLatestInteractionFromTransaction(tx)),
+    // Create latest interaction models for each transaction with non-empty to/from properties.
+    let latestInteractions = uniqueByKeys(
+        transactions
+            .filter((tx) => !!tx.from && !!tx.to)
+            .sort((a, b) => b.transactionIndex - a.transactionIndex)
+            .map((tx) => newLatestInteractionFromTransaction(tx)),
         ['from', 'to']
     )
 
     // Format this block's contract addresses as a set.
-    const blockContractAddresses = new Set(contracts.map(c => c.address))
+    const blockContractAddresses = new Set(contracts.map((c) => c.address))
 
     // Break out / recategorize the interactions that interacted with one of this block's contracts.
     const contractInteractions = []
@@ -44,10 +45,10 @@ async function initLatestInteractions(
         return contractInteractions
     }
 
-    // For the uncategorized interactions that are left, use the contracts shared table 
+    // For the uncategorized interactions that are left, use the contracts shared table
     // to see which of these interactions were sent to a contract.
     const contractAddressesInteractedWith = await getContractAddresses(
-        maybeContractInteractions.map(i => i.to)
+        maybeContractInteractions.map((i) => i.to)
     )
 
     const walletInteractions = []
@@ -73,7 +74,7 @@ async function getContractAddresses(addresses: string[]): Promise<Set<string>> {
     } catch (err) {
         throw `Error querying contracts: ${err}`
     }
-    return new Set<string>((contractRecords || []).map(c => c.address))
+    return new Set<string>((contractRecords || []).map((c) => c.address))
 }
 
 function newLatestInteractionFromTransaction(transaction: EthTransaction): EthLatestInteraction {

@@ -1,26 +1,31 @@
 import { SpecEvent, SpecEventOrigin } from '@spec.types/spec'
-import { StringKeyMap, logger, initPublishedEvent, PublishedEvent, savePublishedEvents } from '../../../shared'
+import {
+    StringKeyMap,
+    logger,
+    initPublishedEvent,
+    PublishedEvent,
+    savePublishedEvents,
+} from '../../../shared'
 import { EventOrigin } from '../types'
 import { createEventClient } from '@spec.dev/event-client'
 import config from '../config'
 
-const eventClient = config.IS_RANGE_MODE ? null : createEventClient({
-    hostname: config.EVENT_RELAY_HOSTNAME,
-    signedAuthToken: config.PUBLISHER_ROLE_KEY,
-})
+const eventClient = config.IS_RANGE_MODE
+    ? null
+    : createEventClient({
+          hostname: config.EVENT_RELAY_HOSTNAME,
+          signedAuthToken: config.PUBLISHER_ROLE_KEY,
+      })
 
 export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
     logger.info(`Publishing ${event.name}...`)
     eventClient.socket.transmitPublish(event.name, event)
 }
 
-export async function publishDiffsAsEvents(
-    eventSpecs: StringKeyMap[],
-    eventOrigin: EventOrigin,
-) {
+export async function publishDiffsAsEvents(eventSpecs: StringKeyMap[], eventOrigin: EventOrigin) {
     // Format diffs as PublishedEvents.
-    let publishedEvents: PublishedEvent[] = eventSpecs.map(({ namespacedVersion, diff }) => (
-        initPublishedEvent(namespacedVersion, eventOrigin, diff))
+    let publishedEvents: PublishedEvent[] = eventSpecs.map(({ namespacedVersion, diff }) =>
+        initPublishedEvent(namespacedVersion, eventOrigin, diff)
     )
 
     // Save list of PublishedEvents to ensure we have ids.
@@ -28,7 +33,9 @@ export async function publishDiffsAsEvents(
     if (!publishedEvents) return
 
     // Format PublishedEvents as SpecEvents and publish.
-    await Promise.all(publishedEvents.map(publishedEvent => emit(formatSpecEvent(publishedEvent))))
+    await Promise.all(
+        publishedEvents.map((publishedEvent) => emit(formatSpecEvent(publishedEvent)))
+    )
 }
 
 function formatSpecEvent(publishedEvent: PublishedEvent): SpecEvent<StringKeyMap> {

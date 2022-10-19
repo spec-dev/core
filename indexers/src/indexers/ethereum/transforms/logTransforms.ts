@@ -1,9 +1,4 @@
-import {
-    EthLog,
-    normalizeEthAddress,
-    normalizeByteData,
-    hexToNumber,
-} from '../../../../../shared'
+import { EthLog, normalizeEthAddress, normalizeByteData, hexToNumber } from '../../../../../shared'
 import { ExternalEthLog } from '../types'
 
 export function externalToInternalLog(externalLog: ExternalEthLog, block: any): EthLog {

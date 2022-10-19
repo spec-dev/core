@@ -35,7 +35,6 @@ import {
 } from '../../../../shared'
 
 class EthereumIndexer extends AbstractIndexer {
-
     web3: AlchemyWeb3
 
     uniqueContractAddresses: Set<string>
@@ -55,7 +54,7 @@ class EthereumIndexer extends AbstractIndexer {
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_ETH_MAINNET_REST_URL)
-        this.uniqueContractAddresses = new Set()        
+        this.uniqueContractAddresses = new Set()
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -81,7 +80,9 @@ class EthereumIndexer extends AbstractIndexer {
         // Ensure there's not a block hash mismatch between block and receipts.
         // This can happen when fetching by block number around chain re-orgs.
         if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(`Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`)
+            this._warn(
+                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+            )
             receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
@@ -116,7 +117,9 @@ class EthereumIndexer extends AbstractIndexer {
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
-            this._warn(`Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`)
+            this._warn(
+                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
+            )
             traces = await this._waitAndRefetchTraces(block.hash)
         }
         traces = this._enrichTraces(traces, block)
@@ -140,25 +143,18 @@ class EthereumIndexer extends AbstractIndexer {
         // Return early with the indexed primitives if in range mode.
         if (config.IS_RANGE_MODE) {
             return {
-                block, 
+                block,
                 transactions,
                 logs,
                 traces,
                 contracts,
                 latestInteractions,
-                pgBlockTimestamp: this.pgBlockTimestamp
+                pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
 
         // Save primitives to shared tables.
-        await this._savePrimitives(
-            block, 
-            transactions,
-            logs,
-            traces, 
-            contracts,
-            latestInteractions,
-        )
+        await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
 
         // Create and publish Spec events to the event relay.
         try {
@@ -168,7 +164,7 @@ class EthereumIndexer extends AbstractIndexer {
         }
 
         // Kick off delayed job to fetch abis for new contracts.
-        contracts.length && await this._fetchAbisForNewContracts(contracts)
+        contracts.length && (await this._fetchAbisForNewContracts(contracts))
     }
 
     async _savePrimitives(
@@ -177,7 +173,7 @@ class EthereumIndexer extends AbstractIndexer {
         logs: EthLog[],
         traces: EthTrace[],
         contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[],
+        latestInteractions: EthLatestInteraction[]
     ) {
         this._info('Saving primitives...')
 
@@ -199,20 +195,20 @@ class EthereumIndexer extends AbstractIndexer {
             blockNumber: this.blockNumber,
         }
         const eventSpecs = [
-            { 
+            {
                 namespacedVersion: 'eth.NewTransactions@0.0.1',
-                diff: NewTransactions(this.transactions), 
+                diff: NewTransactions(this.transactions),
             },
-            { 
+            {
                 namespacedVersion: 'eth.NewInteractions@0.0.1',
-                diff: NewInteractions(this.latestInteractions), 
+                diff: NewInteractions(this.latestInteractions),
             },
         ]
         await publishDiffsAsEvents(eventSpecs, eventOrigin)
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {
-        const addresses = contracts.map(c => c.address)
+        const addresses = contracts.map((c) => c.address)
         await enqueueDelayedJob('upsertAbis', { addresses })
     }
 
@@ -340,31 +336,32 @@ class EthereumIndexer extends AbstractIndexer {
     async _upsertBlock(block: EthBlock, tx: any) {
         const [updateCols, conflictCols] = fullBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        this.block = (await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthBlock)
-            .values({ ...block, timestamp: () => blockTimestamp })
-            .orUpdate(updateCols, conflictCols)
-            .returning('*')
-            .execute()
-        ).generatedMaps[0] || null
+        this.block =
+            (
+                await tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthBlock)
+                    .values({ ...block, timestamp: () => blockTimestamp })
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps[0] || null
     }
 
     async _upsertTransactions(transactions: EthTransaction[], tx: any) {
         if (!transactions.length) return
-        const [updateCols, conflictCols] = fullTransactionUpsertConfig(
-            transactions[0]
-        )
+        const [updateCols, conflictCols] = fullTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
-        this.transactions = (await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthTransaction)
-            .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateCols, conflictCols)
-            .returning('*')
-            .execute()
+        this.transactions = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthTransaction)
+                .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
         ).generatedMaps
     }
 
@@ -372,62 +369,86 @@ class EthereumIndexer extends AbstractIndexer {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
-        this.logs = (await Promise.all(toChunks(logs, config.MAX_BINDINGS_SIZE).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthLog)
-                .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        }))).map(result => result.generatedMaps).flat()
+        this.logs = (
+            await Promise.all(
+                toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthLog)
+                        .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
     }
 
     async _upsertTraces(traces: EthTrace[], tx: any) {
         if (!traces.length) return
         const [updateCols, conflictCols] = fullTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
-        this.traces = (await Promise.all(toChunks(traces, config.MAX_BINDINGS_SIZE).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthTrace)
-                .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        }))).map(result => result.generatedMaps).flat()
+        this.traces = (
+            await Promise.all(
+                toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthTrace)
+                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
     }
 
     async _upsertContracts(contracts: EthContract[], tx: any) {
         if (!contracts.length) return
         const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
-        this.contracts = (await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EthContract)
-            .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
-            .orUpdate(updateCols, conflictCols)
-            .returning('*')
-            .execute()
+        this.contracts = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthContract)
+                .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
         ).generatedMaps
     }
 
-    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], attempt: number = 0) {
+    async _upsertLatestInteractions(
+        latestInteractions: EthLatestInteraction[],
+        attempt: number = 0
+    ) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
         const blockTimestamp = this.pgBlockTimestamp
 
         try {
             await SharedTables.manager.transaction(async (tx) => {
-                this.latestInteractions = (await (tx as any)
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLatestInteraction)
-                    .values(latestInteractions.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
-                    .orUpdate(updateCols, conflictCols)
-                    .returning('*')
-                    .execute()
+                this.latestInteractions = (
+                    await (tx as any)
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthLatestInteraction)
+                        .values(
+                            latestInteractions.map((li) => ({
+                                ...li,
+                                timestamp: () => blockTimestamp,
+                            }))
+                        )
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 ).generatedMaps
             })
         } catch (err) {

@@ -22,8 +22,7 @@ async function getBlockReceipts(
             receipts = await fetchReceipts(web3, params)
             if (receipts === null) {
                 await sleep(config.NOT_READY_DELAY)
-            }
-            else if (receipts.length === 0) {
+            } else if (receipts.length === 0) {
                 await sleep(config.NOT_READY_DELAY)
 
                 // Keep trying on empty up to 10 attempts.
@@ -61,7 +60,8 @@ async function fetchReceipts(
     }
     if (!resp || error) {
         return null
-    } else if (error) { // not used per change in above if statement (hack right now)
+    } else if (error) {
+        // not used per change in above if statement (hack right now)
         throw `Error fetching receipts for ${
             (params as any).blockHash || (params as any).blockNumber
         }: ${error.message}`

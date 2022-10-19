@@ -46,7 +46,7 @@ class GapWorker {
     batchResults: any[] = []
 
     batchBlockNumbersIndexed: number[] = []
-    
+
     batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
 
     chunkSize: number = 2000
@@ -71,7 +71,11 @@ class GapWorker {
             this.cursor = this.cursor + this.groupSize
         }
         if (this.batchResults.length) {
-            await this._saveBatches(this.batchBlockNumbersIndexed, this.batchResults, this.batchExistingBlocksMap) 
+            await this._saveBatches(
+                this.batchBlockNumbersIndexed,
+                this.batchResults,
+                this.batchExistingBlocksMap
+            )
         }
         logger.info('DONE')
         exit(0)
@@ -109,10 +113,13 @@ class GapWorker {
 
         // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
-        
+
         this.batchBlockNumbersIndexed.push(...blockNumbersIndexed)
         this.batchResults.push(...indexResults)
-        this.batchExistingBlocksMap = { ...this.batchExistingBlocksMap, ...existingIndexedBlocksMap }
+        this.batchExistingBlocksMap = {
+            ...this.batchExistingBlocksMap,
+            ...existingIndexedBlocksMap,
+        }
         this.saveBatchIndex++
 
         if (this.saveBatchIndex === this.saveBatchMultiple) {
@@ -130,7 +137,7 @@ class GapWorker {
     async _saveBatches(
         batchBlockNumbersIndexed: number[] = [],
         batchResults: any[],
-        batchExistingBlocksMap: { [key: number]: IndexedBlock } = {},
+        batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
     ) {
         const t0 = performance.now()
         try {
@@ -191,7 +198,7 @@ class GapWorker {
     async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
         let result
         try {
-            result = await (getIndexer(this._atNumber(blockNumber)).perform())
+            result = await getIndexer(this._atNumber(blockNumber)).perform()
         } catch (err) {
             logger.error(`Error indexing block ${blockNumber}:`, err)
             return null
@@ -234,11 +241,33 @@ class GapWorker {
         for (const result of results) {
             if (!result) continue
             blocks.push({ ...result.block, timestamp: () => result.pgBlockTimestamp })
-            transactions.push(...result.transactions.map(t => ({ ...t, blockTimestamp: () => result.pgBlockTimestamp })))
-            logs.push(...result.logs.map(l => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp })))
-            traces.push(...result.traces.map(t => ({ ...t, blockTimestamp: () => result.pgBlockTimestamp })))
-            contracts.push(...result.contracts.map(c => ({ ...c, blockTimestamp: () => result.pgBlockTimestamp })))
-            latestInteractions.push(...result.latestInteractions.map(c => ({ ...c, timestamp: () => result.pgBlockTimestamp })))
+            transactions.push(
+                ...result.transactions.map((t) => ({
+                    ...t,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            logs.push(
+                ...result.logs.map((l) => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp }))
+            )
+            traces.push(
+                ...result.traces.map((t) => ({
+                    ...t,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            contracts.push(
+                ...result.contracts.map((c) => ({
+                    ...c,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            latestInteractions.push(
+                ...result.latestInteractions.map((c) => ({
+                    ...c,
+                    timestamp: () => result.pgBlockTimestamp,
+                }))
+            )
         }
 
         if (!this.upsertConstraints.block && blocks.length) {
@@ -257,25 +286,25 @@ class GapWorker {
             this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
         }
         if (!this.upsertConstraints.latestInteraction && latestInteractions.length) {
-            this.upsertConstraints.latestInteraction = fullLatestInteractionUpsertConfig(latestInteractions[0])
+            this.upsertConstraints.latestInteraction = fullLatestInteractionUpsertConfig(
+                latestInteractions[0]
+            )
         }
 
         blocks = this.upsertConstraints.block
             ? uniqueByKeys(blocks, this.upsertConstraints.block[1])
             : blocks
-        
+
         transactions = this.upsertConstraints.transaction
             ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
             : transactions
-        
-        logs = this.upsertConstraints.log 
-            ? uniqueByKeys(logs, this.upsertConstraints.log[1])
-            : logs
-        
+
+        logs = this.upsertConstraints.log ? uniqueByKeys(logs, this.upsertConstraints.log[1]) : logs
+
         traces = this.upsertConstraints.trace
             ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
             : traces
-        
+
         contracts = this.upsertConstraints.contract
             ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
             : contracts
@@ -284,7 +313,7 @@ class GapWorker {
         latestInteractions = this.upsertConstraints.latestInteraction
             ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
             : latestInteractions
-        
+
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
@@ -312,53 +341,65 @@ class GapWorker {
     async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
         if (!transactions.length) return
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
-        await Promise.all(this._toChunks(transactions, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthTransaction)
-                .values(chunk)
-                .orUpdate(updateTransactionCols, conflictTransactionCols)
-                .execute()
-        }))
+        await Promise.all(
+            this._toChunks(transactions, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthTransaction)
+                    .values(chunk)
+                    .orUpdate(updateTransactionCols, conflictTransactionCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertLogs(logs: StringKeyMap[], tx: any) {
         if (!logs.length) return
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
-        await Promise.all(this._toChunks(logs, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthLog)
-                .values(chunk)
-                .orUpdate(updateLogCols, conflictLogCols)
-                .execute()
-        }))
+        await Promise.all(
+            this._toChunks(logs, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthLog)
+                    .values(chunk)
+                    .orUpdate(updateLogCols, conflictLogCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertTraces(traces: StringKeyMap[], tx: any) {
         if (!traces.length) return
         const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
-        await Promise.all(this._toChunks(traces, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthTrace)
-                .values(chunk)
-                .orUpdate(updateTraceCols, conflictTraceCols)
-                .execute()
-        }))
+        await Promise.all(
+            this._toChunks(traces, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthTrace)
+                    .values(chunk)
+                    .orUpdate(updateTraceCols, conflictTraceCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertContracts(contracts: StringKeyMap[], tx: any) {
         if (!contracts.length) return
         const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
-        await Promise.all(this._toChunks(contracts, this.chunkSize).map(chunk => {
-            return tx.createQueryBuilder()
-                .insert()
-                .into(EthContract)
-                .values(chunk)
-                .orUpdate(updateContractCols, conflictContractCols)
-                .execute()
-        }))
+        await Promise.all(
+            this._toChunks(contracts, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthContract)
+                    .values(chunk)
+                    .orUpdate(updateContractCols, conflictContractCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertLatestInteractions(latestInteractions: StringKeyMap[], attempt: number = 0) {
@@ -368,7 +409,8 @@ class GapWorker {
         const writes = []
 
         for (const latestInteraction of latestInteractions) {
-            const existingRecord = existingInteractionsMap[`${latestInteraction.from}:${latestInteraction.to}`]
+            const existingRecord =
+                existingInteractionsMap[`${latestInteraction.from}:${latestInteraction.to}`]
             if (!existingRecord) {
                 writes.push(latestInteraction)
                 continue
@@ -383,14 +425,17 @@ class GapWorker {
 
         try {
             await SharedTables.manager.transaction(async (tx) => {
-                await Promise.all(this._toChunks(writes, this.chunkSize).map(chunk => {
-                    return tx.createQueryBuilder()
-                        .insert()
-                        .into(EthLatestInteraction)
-                        .values(chunk)
-                        .orUpdate(updateCols, conflictCols)
-                        .execute()
-                }))
+                await Promise.all(
+                    this._toChunks(writes, this.chunkSize).map((chunk) => {
+                        return tx
+                            .createQueryBuilder()
+                            .insert()
+                            .into(EthLatestInteraction)
+                            .values(chunk)
+                            .orUpdate(updateCols, conflictCols)
+                            .execute()
+                    })
+                )
             })
         } catch (err) {
             logger.error(`Error saving latest interactions`, err)
@@ -405,11 +450,13 @@ class GapWorker {
         }
     }
 
-    async _getLatestInteractions(preSavedRecords: StringKeyMap[]): Promise<{ [key: string]: EthLatestInteraction }> {
+    async _getLatestInteractions(
+        preSavedRecords: StringKeyMap[]
+    ): Promise<{ [key: string]: EthLatestInteraction }> {
         let records = []
         try {
             records = await latestInteractions().find({
-                where: preSavedRecords.map(li => ({ from: li.from, to: li.to }))
+                where: preSavedRecords.map((li) => ({ from: li.from, to: li.to })),
             })
         } catch (err) {
             logger.error(err)
@@ -439,8 +486,5 @@ class GapWorker {
 }
 
 export function getGapWorker(): GapWorker {
-    return new GapWorker(
-        config.FROM, 
-        config.TO,
-    )
+    return new GapWorker(config.FROM, config.TO)
 }

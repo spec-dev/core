@@ -49,10 +49,11 @@ export async function fetchBlock(
         error = err
     }
     if (error) {
-        config.IS_RANGE_MODE || logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
+        config.IS_RANGE_MODE ||
+            logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
         return null
     }
-    
+
     return externalBlock
     // if (error && shouldRetryOnWeb3ProviderError(error)) {
     //     return null

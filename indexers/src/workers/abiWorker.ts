@@ -20,7 +20,6 @@ import qs from 'querystring'
 const contractsRepo = () => SharedTables.getRepository(EthContract)
 
 class AbiWorker {
-
     from: number
 
     to: number | null
@@ -28,7 +27,7 @@ class AbiWorker {
     groupSize: number
 
     cursor: number
- 
+
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
@@ -73,12 +72,14 @@ class AbiWorker {
         const limit = numbers.length
 
         try {
-            return (await contractsRepo().find({
-                select: { address: true, bytecode: true },
-                order: { address: 'ASC' },
-                skip: offset,
-                take: limit,
-            })) || []
+            return (
+                (await contractsRepo().find({
+                    select: { address: true, bytecode: true },
+                    order: { address: 'ASC' },
+                    skip: offset,
+                    take: limit,
+                })) || []
+            )
         } catch (err) {
             logger.error(`Error getting contracts (offset=${offset}): ${err}`)
             return []
@@ -111,7 +112,7 @@ class AbiWorker {
         return abisMap
     }
 
-    async _groupFetchAbis(contracts: EthContract[]): Promise<string[]> {        
+    async _groupFetchAbis(contracts: EthContract[]): Promise<string[]> {
         const abiPromises = []
 
         let i = 0
@@ -132,7 +133,7 @@ class AbiWorker {
 
     async _fetchAbiFromEtherscan(address: string, attempt: number = 1): Promise<Abi | null> {
         logger.info(`    Fetching Etherscan ABI for ${address}...`)
-        
+
         const abortController = new AbortController()
         const abortTimer = setTimeout(() => {
             logger.warn('Aborting due to timeout.')
@@ -141,16 +142,20 @@ class AbiWorker {
         let resp, error
         try {
             resp = await fetch(
-                `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${config.ETHERSCAN_API_KEY}`, 
+                `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${config.ETHERSCAN_API_KEY}`,
                 { signal: abortController.signal }
             )
         } catch (err) {
             error = err
         }
         clearTimeout(abortTimer)
-    
+
         if (error || resp?.status !== 200) {
-            logger.error(`[Attempt ${attempt}] Error fetching ABI from etherscan for address ${address}: ${error || resp?.status}`)
+            logger.error(
+                `[Attempt ${attempt}] Error fetching ABI from etherscan for address ${address}: ${
+                    error || resp?.status
+                }`
+            )
             if (attempt <= 3) {
                 await sleep(500)
                 return this._fetchAbiFromEtherscan(address, attempt + 1)
@@ -198,7 +203,9 @@ class AbiWorker {
         try {
             funcSigHexes = selectorsFromBytecode(bytecode)
         } catch (err) {
-            logger.error(`Error extracting function sig hexes from bytecode for contract ${address}: ${err}`)
+            logger.error(
+                `Error extracting function sig hexes from bytecode for contract ${address}: ${err}`
+            )
             return null
         }
 
@@ -212,8 +219,10 @@ class AbiWorker {
         let resp, error
         try {
             resp = await fetch(
-                `https://sig.eth.samczsun.com/api/v1/signatures?${qs.stringify({ function: funcSigHexes })}`,
-                { signal: abortController.signal },
+                `https://sig.eth.samczsun.com/api/v1/signatures?${qs.stringify({
+                    function: funcSigHexes,
+                })}`,
+                { signal: abortController.signal }
             )
         } catch (err) {
             error = err
@@ -221,7 +230,11 @@ class AbiWorker {
         clearTimeout(abortTimer)
 
         if (error || resp?.status !== 200) {
-            logger.error(`[Attempt ${attempt}] Error fetching signatures from samczsun for address ${address}: ${error || resp?.status}`)
+            logger.error(
+                `[Attempt ${attempt}] Error fetching signatures from samczsun for address ${address}: ${
+                    error || resp?.status
+                }`
+            )
             if (attempt <= 3) {
                 await sleep(500)
                 return this._fetchAbiFromSamczsun(contract, attempt + 1)
@@ -240,9 +253,7 @@ class AbiWorker {
         }
 
         if (!data.ok) {
-            logger.error(
-                `Fetching signatures failed for address ${address}: ${data}`
-            )
+            logger.error(`Fetching signatures failed for address ${address}: ${data}`)
             return null
         }
 
@@ -257,7 +268,9 @@ class AbiWorker {
             abi.push({
                 name: functionName,
                 type: AbiItemType.Function,
-                inputs: argTypes.map(type => { type }),
+                inputs: argTypes.map((type) => {
+                    type
+                }),
                 signature,
             })
         }
@@ -308,8 +321,8 @@ class AbiWorker {
         const argTypes = argsGroup
             .slice(0, argsGroup.length - 1)
             .split(',')
-            .map(a => a.trim())
-            .filter(a => !!a)
+            .map((a) => a.trim())
+            .filter((a) => !!a)
         return {
             functionName,
             argTypes,
@@ -318,9 +331,5 @@ class AbiWorker {
 }
 
 export function getAbiWorker(): AbiWorker {
-    return new AbiWorker(
-        config.FROM, 
-        config.TO,
-        config.RANGE_GROUP_SIZE, 
-    )
+    return new AbiWorker(config.FROM, config.TO, config.RANGE_GROUP_SIZE)
 }
