@@ -31,6 +31,7 @@ import {
     StringKeyMap,
     EthLatestInteraction,
     toChunks,
+    enqueueDelayedJob,
 } from '../../../../shared'
 
 class EthereumIndexer extends AbstractIndexer {
@@ -165,6 +166,9 @@ class EthereumIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
+
+        // Kick off delayed job to fetch abis for new contracts.
+        contracts.length && await this._fetchAbisForNewContracts(contracts)
     }
 
     async _savePrimitives(
@@ -205,6 +209,11 @@ class EthereumIndexer extends AbstractIndexer {
             },
         ]
         await publishDiffsAsEvents(eventSpecs, eventOrigin)
+    }
+
+    async _fetchAbisForNewContracts(contracts: EthContract[]) {
+        const addresses = contracts.map(c => c.address)
+        await enqueueDelayedJob('upsertAbis', { addresses })
     }
 
     _findUniqueContractAddresses(
