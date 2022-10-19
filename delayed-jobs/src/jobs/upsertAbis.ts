@@ -11,7 +11,6 @@ import {
     SharedTables,
     In,
     ev,
-    abiRedis,
 } from '../../../shared'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
@@ -36,7 +35,6 @@ async function upsertAbis(addresses: string[]) {
     // Fall back to Samczsun.
     let samczsunAbisMap = {}
     if (addressesNotVerifiedOnEtherscan.length) {
-        await SharedTables.initialize()
         const contracts = await getContracts(addressesNotVerifiedOnEtherscan)
         if (contracts.length) {
             samczsunAbisMap = await fetchAbis(contracts, providers.SAMCZSUN)
@@ -48,10 +46,6 @@ async function upsertAbis(addresses: string[]) {
     logger.info(
         `Upserting ABIs:\n  Etherscan: ${numAbisFromEtherscan}\n  Samczsun: ${numAbisFromSamczsun}`
     )
-
-    if (!abiRedis.isOpen) {
-        await abiRedis.connect()
-    }
     
     await saveAbisMap({ ...etherscanAbisMap, ...samczsunAbisMap })
 }
