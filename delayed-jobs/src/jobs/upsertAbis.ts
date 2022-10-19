@@ -49,7 +49,10 @@ async function upsertAbis(addresses: string[]) {
         `Upserting ABIs:\n  Etherscan: ${numAbisFromEtherscan}\n  Samczsun: ${numAbisFromSamczsun}`
     )
 
-    await abiRedis.connect()
+    if (!abiRedis.isOpen) {
+        await abiRedis.connect()
+    }
+    
     await saveAbisMap({ ...etherscanAbisMap, ...samczsunAbisMap })
 }
 
