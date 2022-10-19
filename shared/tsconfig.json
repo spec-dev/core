@@ -16,6 +16,7 @@
         "allowSyntheticDefaultImports": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-        "composite": true
+        "composite": true,
+        "typeRoots": [ "./node_modules/@types" ]
     }
 }
