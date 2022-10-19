@@ -21,6 +21,7 @@ $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
 port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
 log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+core_api_admin_token=$( $shared_bin_dir/env_reader "$env" "CORE_API_ADMIN_TOKEN" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -33,11 +34,16 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
 core_redis_password=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
 
+# Indexer Redis
+indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
+indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
+$shared_bin_dir/assert_env "CORE_API_ADMIN_TOKEN" "$core_api_admin_token"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -49,6 +55,10 @@ $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 # Core Redis
 $shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
 $shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_password"
+
+# Indexer Redis
+$shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
+$shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -71,13 +81,16 @@ template=$( cat "$template_path" | \
     sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
+    sed "s|{{CORE_API_ADMIN_TOKEN}}|$core_api_admin_token|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
     sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
     sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
-    sed "s|{{CORE_REDIS_PORT}}|$core_redis_password|g" )
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_password|g" | \
+    sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
+    sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" )
 
 echo "Creating Core API resources..."
 
