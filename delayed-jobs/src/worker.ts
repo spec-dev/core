@@ -15,8 +15,8 @@ export function getWorker(): Worker {
         {
             autorun: false,
             connection: {
-                host: config.CORE_REDIS_HOST,
-                port: config.CORE_REDIS_PORT,
+                host: config.INDEXER_REDIS_HOST,
+                port: config.INDEXER_REDIS_PORT,
             },
             concurrency: config.DELAYED_JOB_CONCURRENCY_LIMIT,
         }

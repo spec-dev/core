@@ -25,9 +25,9 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
-# Core Redis
-core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
-core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+# Indexer Redis
+indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
+indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -38,9 +38,9 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 
-# Core Redis
-$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
-$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
+# Indexer Redis
+$shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
+$shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -60,8 +60,8 @@ template_path="$delayed_jobs_dir/delayed-jobs.yaml"
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
-    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
-    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
+    sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
+    sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \

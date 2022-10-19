@@ -5,8 +5,8 @@ import logger from '../logger'
 
 const queue = new Queue(config.DELAYED_JOB_QUEUE_KEY, {
     connection: {
-        host: config.CORE_REDIS_HOST,
-        port: config.CORE_REDIS_PORT,
+        host: config.INDEXER_REDIS_HOST,
+        port: config.INDEXER_REDIS_PORT,
     },
     defaultJobOptions: {
         attempts: 5,
@@ -19,8 +19,8 @@ const queue = new Queue(config.DELAYED_JOB_QUEUE_KEY, {
 
 const queueScheduler = new QueueScheduler(config.HEAD_REPORTER_QUEUE_KEY, {
     connection: {
-        host: config.CORE_REDIS_HOST,
-        port: config.CORE_REDIS_PORT,
+        host: config.INDEXER_REDIS_HOST,
+        port: config.INDEXER_REDIS_PORT,
     },
 })
 
