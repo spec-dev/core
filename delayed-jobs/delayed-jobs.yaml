@@ -36,5 +36,9 @@ spec:
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
           value: "{{INDEXER_REDIS_PORT}}"
+        - name: ABI_REDIS_HOST
+          value: {{ABI_REDIS_HOST}}
+        - name: ABI_REDIS_PORT
+          value: "{{ABI_REDIS_PORT}}"
         - name: ETHERSCAN_API_KEY
           value: XHRPWSKDAEVI7EDN9DGICSCVPKUYMQ9BYW

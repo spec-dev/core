@@ -11,6 +11,7 @@ import {
     SharedTables,
     In,
     ev,
+    abiRedis,
 } from '../../../shared'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
@@ -45,9 +46,10 @@ async function upsertAbis(addresses: string[]) {
     const numAbisFromEtherscan = Object.keys(etherscanAbisMap).length
     const numAbisFromSamczsun = Object.keys(samczsunAbisMap).length
     logger.info(
-        `Upserting ABIs\nEtherscan: ${numAbisFromEtherscan}\nSamczsun: ${numAbisFromSamczsun}`
+        `Upserting ABIs:\n  Etherscan: ${numAbisFromEtherscan}\n  Samczsun: ${numAbisFromSamczsun}`
     )
 
+    await abiRedis.connect()
     await saveAbisMap({ ...etherscanAbisMap, ...samczsunAbisMap })
 }
 
