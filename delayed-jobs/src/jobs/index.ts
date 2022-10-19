@@ -8,5 +8,5 @@ const jobs = {
 export function getJob(spec: DelayedJobSpec) {
     const jobGetter = jobs[spec.name]
     if (!jobGetter) return null
-    return jobGetter()
+    return jobGetter(spec.params)
 }
