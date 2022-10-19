@@ -11,7 +11,7 @@ app.post(paths.UPSERT_ABIS, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
-    const { payload, isValid, error } = parseUpsertAbisPayload(req.query)
+    const { payload, isValid, error } = parseUpsertAbisPayload(req.body)
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
