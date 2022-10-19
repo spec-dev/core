@@ -11,6 +11,7 @@ import {
     AbiItemType,
     sleep,
     toChunks,
+    getMissingAbiAddresses,
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
@@ -87,10 +88,9 @@ class AbiWorker {
     }
 
     async _getContractsThatNeedAbis(contracts: EthContract[]): Promise<EthContract[]> {
-        return contracts
-        // const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
-        // const addressesThatNeedAbis = new Set(missingAddresses)
-        // return contracts.filter(c => addressesThatNeedAbis.has(c.address))
+        const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
+        const addressesThatNeedAbis = new Set(missingAddresses)
+        return contracts.filter(c => addressesThatNeedAbis.has(c.address))
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
