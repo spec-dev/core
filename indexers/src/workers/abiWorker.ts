@@ -21,7 +21,7 @@ import qs from 'querystring'
 const contractsRepo = () => SharedTables.getRepository(EthContract)
 
 class AbiWorker {
-    from: number
+    from: number 
 
     to: number | null
 
