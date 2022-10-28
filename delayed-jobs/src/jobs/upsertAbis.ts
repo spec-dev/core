@@ -232,7 +232,7 @@ async function fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1):
         abi.push({
             name: functionName,
             type: AbiItemType.Function,
-            inputs: argTypes.map(type => { type }),
+            inputs: argTypes.map(type => ({ type })),
             signature,
         })
     }
