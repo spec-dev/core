@@ -40,7 +40,7 @@ class AbiWorker {
     async run() {
         const abi1 = await getAbi('0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
         const abi2 = await getAbi('0x388c818ca8b9251b393131c08a736a67ccb19297')
-        const abi3 = await getAbi('0xffed1c1ef43bd0e20010a5e97743463cc07e6f0c')
+        const abi3 = await getAbi('0xc39f09cccc0639fe174f467d9792c49fd2414ff4')
 
         console.log('ONE')
         console.log(abi1)
