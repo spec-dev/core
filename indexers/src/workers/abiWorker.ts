@@ -12,6 +12,7 @@ import {
     sleep,
     toChunks,
     getMissingAbiAddresses,
+    getAbi,
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
@@ -37,15 +38,29 @@ class AbiWorker {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
-        }
-        logger.info('DONE')
-        exit()
+        const abi1 = await getAbi('0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
+        const abi2 = await getAbi('0x388c818ca8b9251b393131c08a736a67ccb19297')
+        const abi3 = await getAbi('0xffed1c1ef43bd0e20010a5e97743463cc07e6f0c')
+
+        console.log('ONE')
+        console.log(abi1)
+        
+        console.log('\nTWO')
+        console.log(abi2)
+
+        console.log('\nTHREE')
+        console.log(abi3)
+
+
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
+        // logger.info('DONE')
+        // exit()
     }
 
     async _indexGroup(numbers: number[]) {
