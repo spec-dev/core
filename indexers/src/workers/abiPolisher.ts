@@ -130,8 +130,6 @@ class AbiPolisher {
 
     async _fetchAbiFromSamczsun(contract: StringKeyMap, attempt: number = 1): Promise<Abi | null> {
         const { address, funcSigHexes } = contract
-        logger.info(`    Fetching Samczsun ABI for ${address}...`)
-
         const abortController = new AbortController()
         const abortTimer = setTimeout(() => {
             logger.warn('Aborting due to timeout.')
@@ -178,8 +176,6 @@ class AbiPolisher {
             return null
         }
 
-        logger.info(`    Got Samczsun ABI function results for ${address}...`)
-
         const functionResults = data.result?.function || {}
         const abi: Abi = []
         for (const signature in functionResults) {
@@ -199,8 +195,6 @@ class AbiPolisher {
             logger.info(`    No matching Samczsun ABI for ${address}...`)
             return null
         }
-
-        logger.info(`   Got abi for ${address}`, abi?.map(a => a.inputs))
 
         return abi
     }
