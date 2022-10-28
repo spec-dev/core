@@ -200,7 +200,7 @@ class AbiPolisher {
             return null
         }
 
-        logger.info('    Got abi', abi)
+        logger.info(`   Got abi for ${address}`, abi?.map(a => a.inputs))
 
         return abi
     }
