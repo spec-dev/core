@@ -12,7 +12,7 @@ import {
     sleep,
     toChunks,
     getMissingAbiAddresses,
-    getAbi,
+    abiRedis
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
@@ -38,20 +38,8 @@ class AbiWorker {
     }
 
     async run() {
-        const abi1 = await getAbi('0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
-        const abi2 = await getAbi('0x388c818ca8b9251b393131c08a736a67ccb19297')
-        const abi3 = await getAbi('0xc39f09cccc0639fe174f467d9792c49fd2414ff4')
-
-        console.log('ONE')
-        console.log(abi1)
-        
-        console.log('\nTWO')
-        console.log(abi2)
-
-        console.log('\nTHREE')
-        console.log(abi3)
-
-
+        const length = await abiRedis.hLen('eth-contracts')
+        console.log(length)
         // while (this.cursor < this.to) {
         //     const start = this.cursor
         //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
@@ -283,9 +271,9 @@ class AbiWorker {
             abi.push({
                 name: functionName,
                 type: AbiItemType.Function,
-                inputs: argTypes.map((type) => {
+                inputs: argTypes.map(type => ({
                     type
-                }),
+                })),
                 signature,
             })
         }
