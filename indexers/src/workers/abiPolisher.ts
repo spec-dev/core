@@ -100,6 +100,12 @@ class AbiPolisher {
             const newAbi = []
             let modified = false
             for (const item of abi) {
+                if (item.inputs?.includes(null)) {
+                    logger.info('FOUND NULL', address, item)
+                    newAbi.push(item)
+                    continue
+                }
+
                 let signature = item.signature
 
                 if (signature) {
