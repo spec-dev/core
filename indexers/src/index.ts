@@ -39,7 +39,7 @@ async function run() {
 
 
     const addr = '0x862309bd8802061293541645a1e09e677cfe571a'
-    const abi = JSON.parse((await getAbi(addr)) as any)
+    const abi = await getAbi(addr)
 
     for (const item of abi) {
         switch (item.type) {
