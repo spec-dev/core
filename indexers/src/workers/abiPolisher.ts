@@ -132,10 +132,13 @@ class AbiPolisher {
 
     _createAbiItemSignature(item: StringKeyMap): string | null {
         switch (item.type) {
+            case 'function':
+            case 'constructor':
+                return web3.eth.abi.encodeFunctionSignature(item as any)
             case 'event':
                 return web3.eth.abi.encodeEventSignature(item as any)
             default:
-                return web3.eth.abi.encodeFunctionSignature(item as any)
+                return null
         }
     }
 
