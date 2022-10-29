@@ -32,15 +32,17 @@ class AbiPolisher {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
-        }
-        logger.info('DONE')
-        logger.info(await abiRedis.sCard('refetch-abis'))
+        const abi = await getAbi('0x1fb3837c946bf5f6dd6c0d664e72f9d97ac8408a')
+        console.log(JSON.stringify(abi))
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
+        // logger.info('DONE')
+        // logger.info(await abiRedis.sCard('refetch-abis'))
         exit()
     }
 
