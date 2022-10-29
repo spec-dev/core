@@ -53,14 +53,13 @@ class AbiPolisher {
 
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        for (const entry of addressAbis) {
-            console.log(entry.address)
-        }
+        // Fetch & save new ABIs.
+        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
-        // // Fetch & save new ABIs.
-        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
-
-        // await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
+        await Promise.all([
+            this._saveAbis(abisMapToSave), 
+            this._saveFuncSigHashes(funcSigHashesMap),
+        ])
     }
 
     async _getAbisBatch(numbers: number[]) {
@@ -110,7 +109,7 @@ class AbiPolisher {
                     signature = this._createAbiItemSignature(item)
                     if (signature) {
                         modified = true
-                        newAbi.push({ ...item, signature }) 
+                        newAbi.push({ ...item, signature })
                     } else {
                         newAbi.push(item)
                     }
