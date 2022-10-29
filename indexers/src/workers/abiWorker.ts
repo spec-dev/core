@@ -12,12 +12,16 @@ import {
     sleep,
     toChunks,
     getMissingAbiAddresses,
-    abiRedis
+    abiRedis,
+    In
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import qs from 'querystring'
+import Web3 from 'web3'
+
+const web3 = new Web3()
 
 const contractsRepo = () => SharedTables.getRepository(EthContract)
 
@@ -52,8 +56,10 @@ class AbiWorker {
     async _indexGroup(numbers: number[]) {
         logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
 
+        const addresses = await this._getAddressesBatch(numbers)
+
         // Get this batch of contracts (offset + limit).
-        const contracts = await this._getContracts(numbers)
+        const contracts = await this._getContracts(addresses)
         if (!contracts.length) return
 
         logger.info(`    Got ${contracts.length} contracts.`)
@@ -65,33 +71,91 @@ class AbiWorker {
         logger.info(`    ${contractsThatNeedAbis.length} contracts need ABIs....`)
 
         // Fetch & save new ABIs.
-        const abisMap = await this._fetchAbis(contractsThatNeedAbis)
+        let abisMap = await this._fetchAbis(contractsThatNeedAbis)
+
+        // Polish abis.
+        abisMap = this._polishAbis(abisMap)
+
         await this._saveAbis(abisMap)
     }
 
-    async _getContracts(numbers: number[]): Promise<EthContract[]> {
+    _polishAbis(abis: StringKeyMap): StringKeyMap {
+        const abisMap = {}
+    
+        for (const address in abis) {
+            const abi = abis[address]
+            const newAbi = []
+    
+            for (const item of abi) {
+                let signature = item.signature
+                if (signature) {
+                    newAbi.push(item)
+                } else {
+                    signature = this._createAbiItemSignature(item)
+                    if (signature) {
+                        newAbi.push({ ...item, signature })
+                    } else {
+                        newAbi.push(item)
+                    }
+                }
+            }
+    
+            abisMap[address] = newAbi
+        }
+    
+        return abisMap
+    }
+
+    _createAbiItemSignature(item: StringKeyMap): string | null {
+        switch (item.type) {
+            case 'function':
+            case 'constructor':
+                return web3.eth.abi.encodeFunctionSignature(item as any)
+            case 'event':
+                return web3.eth.abi.encodeEventSignature(item as any)
+            default:
+                return null
+        }
+    }
+
+    async _getAddressesBatch(numbers: number[]): Promise<string[]> {
         const offset = numbers[0]
         const limit = numbers.length
 
+        let results
+        try {
+            results = await abiRedis.sScan('refetch-abis', offset, { COUNT: limit })
+        } catch (err) {
+            logger.error(`Error getting addresses: ${err}.`)
+            return []
+        }
+        return results?.members || []
+    }
+
+    async _getContracts(addresses: string[]): Promise<EthContract[]> {
         try {
             return (
                 (await contractsRepo().find({
                     select: { address: true, bytecode: true },
-                    order: { address: 'ASC' },
-                    skip: offset,
-                    take: limit,
+                    where: {
+                        address: In(addresses)
+                    }
+                    // order: { address: 'ASC' },
+                    // skip: offset,
+                    // take: limit,
                 })) || []
             )
         } catch (err) {
-            logger.error(`Error getting contracts (offset=${offset}): ${err}`)
+            logger.error(`Error getting contracts (offset=): ${err}`)
             return []
         }
     }
 
     async _getContractsThatNeedAbis(contracts: EthContract[]): Promise<EthContract[]> {
-        const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
-        const addressesThatNeedAbis = new Set(missingAddresses)
-        return contracts.filter(c => addressesThatNeedAbis.has(c.address))
+        return contracts
+        // const missingAddresses = await getMissingAbiAddresses(contracts.map(c => c.address))
+        // const addressesThatNeedAbis = new Set(missingAddresses)
+        // return contracts.filter(c => addressesThatNeedAbis.has(c.address))
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {

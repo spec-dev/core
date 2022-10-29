@@ -63,8 +63,10 @@ class AbiPolisher {
             }
         }
 
-        abiRedis.sAdd('refetch-abis', refetch)
-
+        if (refetch.length) {
+            await abiRedis.sAdd('refetch-abis', refetch)
+        }
+        
         // // Fetch & save new ABIs.
         // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
