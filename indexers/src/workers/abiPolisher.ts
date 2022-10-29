@@ -53,6 +53,7 @@ class AbiPolisher {
 
         // Fetch & save new ABIs.
         const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+
         await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
     }
 
@@ -146,6 +147,8 @@ class AbiPolisher {
 
         logger.info(`    Saving ${Object.keys(stringified).length} ABIs...`)
 
+        logger.info('ABIs', stringified)
+
         if (!(await saveAbis(stringified))) {
             logger.error(`Failed to save ABI batch.`)
             return
@@ -167,6 +170,7 @@ class AbiPolisher {
         }
 
         logger.info(`    Saving ${Object.keys(stringified).length} function sig hashes...`)
+        logger.info('Signatures', stringified)
 
         if (!(await saveFunctionSignatures(stringified))) {
             logger.error(`Failed to save function sig hashes.`)
