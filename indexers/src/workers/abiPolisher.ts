@@ -40,6 +40,7 @@ class AbiPolisher {
             this.cursor = this.cursor + this.groupSize
         }
         logger.info('DONE')
+        logger.info(await abiRedis.sCard('refetch-abis'))
         exit()
     }
 
@@ -52,13 +53,25 @@ class AbiPolisher {
 
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        // Fetch & save new ABIs.
-        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+        const refetch = []
+        for (const entry of addressAbis) {
+            for (const item of entry.abi) {
+                if (item.inputs?.includes(null)) {
+                    refetch.push(entry.address)
+                    break
+                }
+            }
+        }
 
-        await Promise.all([
-            this._saveAbis(abisMapToSave), 
-            this._saveFuncSigHashes(funcSigHashesMap),
-        ])
+        abiRedis.sAdd('refetch-abis', refetch)
+
+        // // Fetch & save new ABIs.
+        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+
+        // await Promise.all([
+        //     this._saveAbis(abisMapToSave), 
+        //     this._saveFuncSigHashes(funcSigHashesMap),
+        // ])
     }
 
     async _getAbisBatch(numbers: number[]) {
