@@ -6,7 +6,6 @@ import {
     SharedTables,
     CoreDB,
     upsertContractCaches,
-    abiRedis,
 } from '../../shared'
 import { getWorker } from './workers'
 
@@ -17,7 +16,6 @@ async function run() {
         SharedTables.initialize(),
         CoreDB.initialize(),
         indexerRedis.connect(),
-        abiRedis.connect(),
     ])
 
     // // Make sure verified contracts and instances are cached.
