@@ -3,6 +3,7 @@ import {
     StringKeyMap,
     StringMap,
     saveAbis,
+    saveFunctionSignatures,
     Abi,
     AbiItemType,
     sleep,
@@ -15,6 +16,9 @@ import {
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import qs from 'querystring'
+import Web3 from 'web3'
+
+const web3 = new Web3()
 
 const providers = {
     ETHERSCAN: 'etherscan',
@@ -46,8 +50,13 @@ async function upsertAbis(addresses: string[]) {
     logger.info(
         `Upserting ABIs:\n  Etherscan: ${numAbisFromEtherscan}\n  Samczsun: ${numAbisFromSamczsun}`
     )
-    
-    await saveAbisMap({ ...etherscanAbisMap, ...samczsunAbisMap })
+
+    const [abisMap, funcSigHashesMap] = polishAbis({ ...etherscanAbisMap, ...samczsunAbisMap })
+
+    await Promise.all([
+        saveAbisMap(abisMap),
+        saveFuncSigHashes(funcSigHashesMap),
+    ])
 }
 
 async function getContracts(addresses: string[]): Promise<EthContract[]> {
@@ -243,12 +252,61 @@ async function fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1):
     return abi
 }
 
+function polishAbis(abis: StringKeyMap): StringKeyMap[] {
+    const abisMap = {}
+    const funcSigHashesMap = {}
+
+    for (const address in abis) {
+        const abi = abis[address]
+        const newAbi = []
+
+        for (const item of abi) {
+            let signature = item.signature
+            if (signature) {
+                newAbi.push(item)
+            } else {
+                signature = createAbiItemSignature(item)
+                if (signature) {
+                    newAbi.push({ ...item, signature })
+                } else {
+                    newAbi.push(item)
+                }
+            }
+
+            if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
+                funcSigHashesMap[signature] = {
+                    name: item.name,
+                    type: item.type,
+                    inputs: (item.inputs || []).map(({ type }) => ({ type })),
+                    signature,
+                }
+            }
+        }
+
+        abisMap[address] = newAbi
+    }
+
+    return [abisMap, funcSigHashesMap]
+}
+
+function createAbiItemSignature(item: StringKeyMap): string | null {
+    switch (item.type) {
+        case 'function':
+        case 'constructor':
+            return web3.eth.abi.encodeFunctionSignature(item as any)
+        case 'event':
+            return web3.eth.abi.encodeEventSignature(item as any)
+        default:
+            return null
+    }
+}
+
 async function saveAbisMap(abisMap: StringKeyMap) {
     const stringified: StringMap = {}
 
     for (const address in abisMap) {
         const abi = abisMap[address]
-        const abiStr = stringifyAbi(address, abi)
+        const abiStr = stringify(abi)
         if (!abiStr) continue
         stringified[address] = abiStr
     }
@@ -256,19 +314,40 @@ async function saveAbisMap(abisMap: StringKeyMap) {
         return
     }
 
+    console.log(Object.values(stringified))
+
     if (!(await saveAbis(stringified))) {
         logger.error(`Failed to save ABI batch.`)
         return
     }
 }
 
-function stringifyAbi(address: string, abi: Abi): string | null {
+async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {
+    const stringified: StringMap = {}
+
+    for (const signature in funcSigHashes) {
+        const abiItem = funcSigHashes[signature]
+        const abiStr = stringify(abiItem)
+        if (!abiStr) continue
+        stringified[signature] = abiStr
+    }
+    if (!Object.keys(stringified).length) {
+        return
+    }
+
+    if (!(await saveFunctionSignatures(stringified))) {
+        logger.error(`Failed to save function sig hashes.`)
+        return
+    }
+}
+
+function stringify(abi: any): string | null {
     if (!abi) return null
     let abiStr
     try {
         abiStr = JSON.stringify(abi)
     } catch (err) {
-        logger.error(`Error stringifying abi for ${address}: ${abi} - ${err}`)
+        logger.error(`Error stringifying abi for: ${abi} - ${err}`)
         return null
     }
     return abiStr
