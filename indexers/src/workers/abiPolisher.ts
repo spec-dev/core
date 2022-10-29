@@ -8,8 +8,7 @@ import {
     saveFunctionSignatures,
     Abi,
     abiRedis,
-    getAbi,
-    sleep,
+    getAbi
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -39,6 +38,7 @@ class AbiPolisher {
             const group = range(start, end)
             await this._indexGroup(group)
             this.cursor = this.cursor + this.groupSize
+            break
         }
         logger.info('DONE')
         exit()
@@ -53,10 +53,11 @@ class AbiPolisher {
 
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        console.log(addressAbis[0].address, addressAbis[0].abi)
-        await sleep(10000)
+        for (const entry of addressAbis) {
+            console.log(entry.address)
+        }
 
-        // Fetch & save new ABIs.
+        // // Fetch & save new ABIs.
         // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
         // await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
