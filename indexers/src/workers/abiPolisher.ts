@@ -31,13 +31,15 @@ class AbiPolisher {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
-        }
+        console.log(await abiRedis.hLen('eth-contracts'))
+        console.log(await abiRedis.hLen('eth-function-signatures'))
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
         logger.info('DONE')
         exit()
     }
@@ -146,7 +148,7 @@ class AbiPolisher {
         }
 
         logger.info(`    Saving ${Object.keys(stringified).length} ABIs...`)
-        
+
         if (!(await saveAbis(stringified))) {
             logger.error(`Failed to save ABI batch.`)
             return
