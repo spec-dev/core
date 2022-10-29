@@ -7,7 +7,8 @@ import {
     saveAbis,
     saveFunctionSignatures,
     Abi,
-    abiRedis
+    abiRedis,
+    getAbi
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -31,15 +32,18 @@ class AbiPolisher {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
-        }
-        logger.info('DONE')
-        exit()
+        const abi = await getAbi('0x5d3a536e4d6dbd6114cc1ead35777bab948e3643')
+        console.log(abi)
+
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
+        // logger.info('DONE')
+        // exit()
     }
 
     async _indexGroup(numbers: number[]) {
