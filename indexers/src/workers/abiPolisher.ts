@@ -93,21 +93,24 @@ class AbiPolisher {
         for (const entry of addressAbis) {
             const { address, abi = [] } = entry
 
-            console.log('address', address)
-            console.log('abi', abi)
-
             const newAbi = []
             for (const item of abi) {
                 console.log('item', item)
                 let signature = item.signature
 
-                if (!signature) {
-                    logger.info(`No sig yet for ${address} item`)
+                if (signature) {
+                    logger.info(`Sig already exists for ${address}`, signature)
+                } else {
+                    logger.info(`No sig yet for ${address}`)
                     signature = this._createAbiItemSignature(item)
-                    logger.info(`Sig Post Function Call: ${signature}, ${item}`)
-                    if (!signature) continue
-                    logger.info(`Made it past sig continue`)
-                    newAbi.push({ ...item, signature })
+                    
+                    if (signature) {
+                        logger.info(address, signature)
+                        newAbi.push({ ...item, signature }) 
+                    } else {
+                        logger.info('no sig', address, item)
+                        newAbi.push(item)
+                    }
                 }
 
                 if (item.type === 'function' && !funcSigHashesMap.hasOwnProperty(signature)) {
@@ -128,14 +131,11 @@ class AbiPolisher {
     }
 
     _createAbiItemSignature(item: StringKeyMap): string | null {
-        console.log('inside item', item, item.type)
         switch (item.type) {
-            case 'function':
-                return web3.eth.abi.encodeFunctionSignature(item as any)
             case 'event':
                 return web3.eth.abi.encodeEventSignature(item as any)
             default:
-                return null
+                return web3.eth.abi.encodeFunctionSignature(item as any)
         }
     }
 
