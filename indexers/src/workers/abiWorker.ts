@@ -38,17 +38,15 @@ class AbiWorker {
     }
 
     async run() {
-        const length = await abiRedis.hLen('eth-contracts')
-        console.log(length)
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
-        // logger.info('DONE')
-        // exit()
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const group = range(start, end)
+            await this._indexGroup(group)
+            this.cursor = this.cursor + this.groupSize
+        }
+        logger.info('DONE')
+        exit()
     }
 
     async _indexGroup(numbers: number[]) {

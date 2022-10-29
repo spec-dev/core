@@ -35,6 +35,7 @@ import {
 } from '../../../../shared'
 
 class EthereumIndexer extends AbstractIndexer {
+    
     web3: AlchemyWeb3
 
     uniqueContractAddresses: Set<string>
