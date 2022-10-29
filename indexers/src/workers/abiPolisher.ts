@@ -38,7 +38,6 @@ class AbiPolisher {
             const group = range(start, end)
             await this._indexGroup(group)
             this.cursor = this.cursor + this.groupSize
-            break
         }
         logger.info('DONE')
         exit()
