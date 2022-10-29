@@ -210,6 +210,9 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {
         const addresses = contracts.map((c) => c.address)
+
+        // TODO: Check abi redis to see if these abis already exist and only add the new ones.
+
         await enqueueDelayedJob('upsertAbis', { addresses })
     }
 

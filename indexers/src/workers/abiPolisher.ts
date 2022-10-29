@@ -8,7 +8,8 @@ import {
     saveFunctionSignatures,
     Abi,
     abiRedis,
-    getAbi
+    getAbi,
+    sleep,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -32,18 +33,15 @@ class AbiPolisher {
     }
 
     async run() {
-        const abi = await getAbi('0x5d3a536e4d6dbd6114cc1ead35777bab948e3643')
-        console.log(abi)
-
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
-        // logger.info('DONE')
-        // exit()
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const group = range(start, end)
+            await this._indexGroup(group)
+            this.cursor = this.cursor + this.groupSize
+        }
+        logger.info('DONE')
+        exit()
     }
 
     async _indexGroup(numbers: number[]) {
@@ -55,10 +53,13 @@ class AbiPolisher {
 
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        // Fetch & save new ABIs.
-        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+        console.log(addressAbis[0].address, addressAbis[0].abi)
+        await sleep(10000)
 
-        await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
+        // Fetch & save new ABIs.
+        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+
+        // await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
     }
 
     async _getAbisBatch(numbers: number[]) {
