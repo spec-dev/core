@@ -7,8 +7,7 @@ import {
     saveAbis,
     saveFunctionSignatures,
     Abi,
-    abiRedis,
-    sleep
+    abiRedis
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -28,7 +27,7 @@ class AbiPolisher {
         this.from = from
         this.to = to
         this.cursor = from
-        this.groupSize = 1
+        this.groupSize = groupSize || 1
     }
 
     async run() {
@@ -37,7 +36,6 @@ class AbiPolisher {
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
             const group = range(start, end)
             await this._indexGroup(group)
-            await sleep(1000)
             this.cursor = this.cursor + this.groupSize
         }
         logger.info('DONE')
@@ -54,9 +52,9 @@ class AbiPolisher {
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
         // Fetch & save new ABIs.
-        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
-        // await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
+        await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
     }
 
     async _getAbisBatch(numbers: number[]) {
@@ -77,9 +75,6 @@ class AbiPolisher {
             const address = entry.field
             let abi = entry.value
             if (!abi) continue
-
-            console.log(address, abi)
-
             try {
                 abi = JSON.parse(abi) || []
             } catch (err) {
@@ -88,7 +83,6 @@ class AbiPolisher {
             }
             batch.push({ address, abi })
         }
-
         return batch
     }
 
@@ -104,8 +98,10 @@ class AbiPolisher {
                 let signature = item.signature
 
                 if (!signature) {
+                    logger.info(`No sig yet for ${address} item`)
                     signature = this._createAbiItemSignature(item)
                     if (!signature) continue
+                    logger.info(`Made it past sig continue`)
                     newAbi.push({ ...item, signature })
                 }
 
@@ -152,7 +148,7 @@ class AbiPolisher {
         }
 
         logger.info(`    Saving ${Object.keys(stringified).length} ABIs...`)
-
+        
         if (!(await saveAbis(stringified))) {
             logger.error(`Failed to save ABI batch.`)
             return
