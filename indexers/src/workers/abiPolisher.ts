@@ -93,13 +93,13 @@ class AbiPolisher {
         for (const entry of addressAbis) {
             const { address, abi = [] } = entry
 
+            console.log('address', address)
+            console.log('abi', abi)
+
             const newAbi = []
             for (const item of abi) {
+                console.log('item', item)
                 let signature = item.signature
-                logger.info(`
-                    Address: ${address}
-                    Signature: ${signature}
-                `)
 
                 if (!signature) {
                     logger.info(`No sig yet for ${address} item`)
@@ -128,6 +128,7 @@ class AbiPolisher {
     }
 
     _createAbiItemSignature(item: StringKeyMap): string | null {
+        console.log('inside item', item, item.type)
         switch (item.type) {
             case 'function':
                 return web3.eth.abi.encodeFunctionSignature(item as any)
