@@ -94,26 +94,23 @@ class AbiPolisher {
             const { address, abi = [] } = entry
 
             const newAbi = []
+            let modified = false
             for (const item of abi) {
-                console.log('item', item)
                 let signature = item.signature
 
                 if (signature) {
-                    logger.info(`Sig already exists for ${address}`, signature)
+                    newAbi.push(item)
                 } else {
-                    logger.info(`No sig yet for ${address}`)
                     signature = this._createAbiItemSignature(item)
-                    
                     if (signature) {
-                        logger.info(address, signature)
+                        modified = true
                         newAbi.push({ ...item, signature }) 
                     } else {
-                        logger.info('no sig', address, item)
                         newAbi.push(item)
                     }
                 }
 
-                if (item.type === 'function' && !funcSigHashesMap.hasOwnProperty(signature)) {
+                if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
                     funcSigHashesMap[signature] = {
                         name: item.name,
                         type: item.type,
@@ -122,7 +119,7 @@ class AbiPolisher {
                     }
                 }
             }
-            if (newAbi.length) {
+            if (modified) {
                 abisToUpdate[address] = newAbi
             }
         }
