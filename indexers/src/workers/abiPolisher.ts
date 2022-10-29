@@ -96,10 +96,15 @@ class AbiPolisher {
             const newAbi = []
             for (const item of abi) {
                 let signature = item.signature
+                logger.info(`
+                    Address: ${address}
+                    Signature: ${signature}
+                `)
 
                 if (!signature) {
                     logger.info(`No sig yet for ${address} item`)
                     signature = this._createAbiItemSignature(item)
+                    logger.info(`Sig Post Function Call: ${signature}, ${item}`)
                     if (!signature) continue
                     logger.info(`Made it past sig continue`)
                     newAbi.push({ ...item, signature })
