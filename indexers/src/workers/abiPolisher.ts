@@ -7,7 +7,8 @@ import {
     saveAbis,
     saveFunctionSignatures,
     Abi,
-    abiRedis
+    abiRedis,
+    sleep
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -27,19 +28,18 @@ class AbiPolisher {
         this.from = from
         this.to = to
         this.cursor = from
-        this.groupSize = groupSize || 1
+        this.groupSize = 1
     }
 
     async run() {
-        console.log(await abiRedis.hLen('eth-contracts'))
-        console.log(await abiRedis.hLen('eth-function-signatures'))
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const group = range(start, end)
+            await this._indexGroup(group)
+            await sleep(1000)
+            this.cursor = this.cursor + this.groupSize
+        }
         logger.info('DONE')
         exit()
     }
@@ -54,9 +54,9 @@ class AbiPolisher {
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
         // Fetch & save new ABIs.
-        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
-        await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
+        // await Promise.all([this._saveAbis(abisMapToSave), this._saveFuncSigHashes(funcSigHashesMap)])
     }
 
     async _getAbisBatch(numbers: number[]) {
@@ -77,6 +77,9 @@ class AbiPolisher {
             const address = entry.field
             let abi = entry.value
             if (!abi) continue
+
+            console.log(address, abi)
+
             try {
                 abi = JSON.parse(abi) || []
             } catch (err) {
@@ -85,6 +88,7 @@ class AbiPolisher {
             }
             batch.push({ address, abi })
         }
+
         return batch
     }
 
