@@ -35,6 +35,15 @@ export class LiveObjectVersion {
     @Column()
     version: string
 
+    @Column('json', { nullable: true })
+    properties: object[]
+
+    @Column('json', { nullable: true })
+    example: object
+
+    @Column('json', { nullable: true })
+    config: object
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',

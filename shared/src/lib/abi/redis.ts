@@ -12,6 +12,20 @@ redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
 const keys = {
     ETH_CONTRACTS: 'eth-contracts',
+    ETH_FUNCTION_SIGNATURES: 'eth-function-signatures',
+}
+
+export async function saveFunctionSignatures(
+    sigsMap: StringMap,
+    nsp: string = keys.ETH_FUNCTION_SIGNATURES
+): Promise<boolean> {
+    try {
+        await redis?.hSet(nsp, sigsMap)
+    } catch (err) {
+        logger.error(`Error saving function signatures: ${err}.`)
+        return false
+    }
+    return true
 }
 
 export async function saveAbis(

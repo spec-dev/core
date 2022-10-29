@@ -142,7 +142,13 @@ export { In } from 'typeorm'
 // Will be removed
 export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/entities/EthReceipt'
 
-export { redis as abiRedis, saveAbis, getAbi, getMissingAbiAddresses } from './lib/abi/redis'
+export {
+    redis as abiRedis,
+    saveAbis,
+    saveFunctionSignatures,
+    getAbi,
+    getMissingAbiAddresses,
+} from './lib/abi/redis'
 
 export * from './lib/abi/types'
 
