@@ -44,6 +44,14 @@ export class EthTransaction {
     @Column('varchar', { nullable: true })
     input: string
 
+    // Name of the contract function executed.
+    @Column('varchar', { name: 'function_name', nullable: true })
+    functionName: string
+
+    // Arguments provided to the contract function.
+    @Column('json', { name: 'function_args', nullable: true })
+    functionArgs: object[]
+
     // EIP transaction type.
     @Column('int2', { name: 'transaction_type', nullable: true })
     transactionType: number
