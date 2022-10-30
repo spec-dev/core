@@ -42,41 +42,65 @@ class AbiWorker {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
+        let cursor = null
+        let batch
+        let count = 0
+        while (true) {
+            const results = await this._getAddressesBatch(cursor || 0)
+            cursor = results[0]
+            batch = results[1]
+            count += 1000
+            logger.info('\nCOUNT', count.toLocaleString())
+
+            // Get this batch of contracts (offset + limit).
+            const contracts = await this._getContracts(batch)
+            if (!contracts.length) continue
+
+            // Fetch & save new ABIs.
+            let abisMap = await this._fetchAbis(contracts)
+
+            // Polish abis.
+            abisMap = this._polishAbis(abisMap)
+
+            await this._saveAbis(abisMap)
+
+            if (cursor === 0) break
         }
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
         logger.info('DONE')
         exit()
     }
 
     async _indexGroup(numbers: number[]) {
-        logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
+        // logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
 
-        const addresses = await this._getAddressesBatch(numbers)
+        // const addresses = await this._getAddressesBatch(numbers)
 
-        // Get this batch of contracts (offset + limit).
-        const contracts = await this._getContracts(addresses)
-        if (!contracts.length) return
+        // // Get this batch of contracts (offset + limit).
+        // const contracts = await this._getContracts(addresses)
+        // if (!contracts.length) return
 
-        logger.info(`    Got ${contracts.length} contracts.`)
+        // logger.info(`    Got ${contracts.length} contracts.`)
 
-        // Filter out contracts we've already fetched ABIs for.
-        const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
-        if (!contractsThatNeedAbis.length) return
+        // // Filter out contracts we've already fetched ABIs for.
+        // const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
+        // if (!contractsThatNeedAbis.length) return
 
-        logger.info(`    ${contractsThatNeedAbis.length} contracts need ABIs....`)
+        // logger.info(`    ${contractsThatNeedAbis.length} contracts need ABIs....`)
 
-        // Fetch & save new ABIs.
-        let abisMap = await this._fetchAbis(contractsThatNeedAbis)
+        // // Fetch & save new ABIs.
+        // let abisMap = await this._fetchAbis(contractsThatNeedAbis)
 
-        // Polish abis.
-        abisMap = this._polishAbis(abisMap)
+        // // Polish abis.
+        // abisMap = this._polishAbis(abisMap)
 
-        await this._saveAbis(abisMap)
+        // await this._saveAbis(abisMap)
     }
 
     _polishAbis(abis: StringKeyMap): StringKeyMap {
@@ -118,18 +142,18 @@ class AbiWorker {
         }
     }
 
-    async _getAddressesBatch(numbers: number[]): Promise<string[]> {
-        const offset = numbers[0]
-        const limit = numbers.length
+    async _getAddressesBatch(cursor: number): Promise<string[]> {
+        // const offset = numbers[0]
+        // const limit = numbers.length
 
         let results
         try {
-            results = await abiRedis.sScan('refetch-abis', offset, { COUNT: limit })
+            results = await abiRedis.sScan('refetch-abis2', cursor, { COUNT: 1000, MATCH: '*' })
         } catch (err) {
             logger.error(`Error getting addresses: ${err}.`)
             return []
         }
-        return results?.members || []
+        return [results.cursor, results.members || []]
     }
 
     async _getContracts(addresses: string[]): Promise<EthContract[]> {
@@ -159,7 +183,7 @@ class AbiWorker {
     }
 
     async _fetchAbis(contracts: EthContract[]): Promise<StringKeyMap> {
-        const chunks = toChunks(contracts, 5) as EthContract[][]
+        const chunks = toChunks(contracts, 10) as EthContract[][]
 
         const results = []
         for (let i = 0; i < chunks.length; i++) {
@@ -182,7 +206,7 @@ class AbiWorker {
 
         let i = 0
         while (i < contracts.length) {
-            await sleep(200)
+            await sleep(50)
             abiPromises.push(this._fetchAbi(contracts[i]))
             i++
         }
@@ -191,8 +215,8 @@ class AbiWorker {
     }
 
     async _fetchAbi(contract: EthContract) {
-        let abi = await this._fetchAbiFromEtherscan(contract.address)
-        if (abi) return abi
+        // let abi = await this._fetchAbiFromEtherscan(contract.address)
+        // if (abi) return abi
         return await this._fetchAbiFromSamczsun(contract)
     }
 
