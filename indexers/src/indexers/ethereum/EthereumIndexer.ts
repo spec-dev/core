@@ -33,7 +33,13 @@ import {
     toChunks,
     enqueueDelayedJob,
     getMissingAbiAddresses,
+    getAbis,
+    getFunctionSignatures,
+    Abi,
+    AbiItem,
 } from '../../../../shared'
+import Web3 from 'web3'
+const web3js = new Web3()
 
 class EthereumIndexer extends AbstractIndexer {
     
@@ -114,8 +120,21 @@ class EthereumIndexer extends AbstractIndexer {
         let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
             : []
-        const logs = receipts?.length ? initLogs(block, receipts) : []
+        let logs = receipts?.length ? initLogs(block, receipts) : []
 
+        // Get all abis for addresses needed to decode both transactions and logs.
+        const txToAddresses = transactions.map(t => t.to)
+        const logAddresses = logs.map(l => l.address)
+        const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
+        const [abis, functionSignatures] = await Promise.all([
+            getAbis(Array.from(new Set([ ...txToAddresses, ...logAddresses ]))),
+            getFunctionSignatures(Array.from(new Set(sigs))),
+        ])
+
+        // Decode transactions and logs.
+        transactions = this._decodeTransactions(transactions, abis, functionSignatures)
+        logs = this._decodeLogs(logs, abis)
+        
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
@@ -213,7 +232,7 @@ class EthereumIndexer extends AbstractIndexer {
         const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
         missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
     }
-
+    
     _findUniqueContractAddresses(
         transactions: EthTransaction[],
         logs: EthLog[],
@@ -233,6 +252,79 @@ class EthereumIndexer extends AbstractIndexer {
                 trace.to && this.uniqueContractAddresses.add(trace.to)
             }
         })
+    }
+
+    _decodeTransactions(
+        transactions: EthTransaction[], 
+        abis: { [key: string]: Abi },
+        functionSignatures: { [key: string]: AbiItem },
+    ): EthTransaction[] {
+        const finalTxs = []
+        for (let tx of transactions) {
+            if (!tx.to || !abis.hasOwnProperty(tx.to) || !tx.input) {
+                finalTxs.push(tx)
+                continue
+            }
+            try {
+                tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
+            } catch (err) {
+                this._error(`Error decoding transaction ${tx.hash}: ${err}`)
+            }
+            finalTxs.push(tx)
+        }
+        return finalTxs
+    }
+
+    _decodeTransaction(
+        tx: EthTransaction,
+        abi: Abi,
+        functionSignatures: { [key: string]: AbiItem },
+    ): EthTransaction {
+        const sig = tx.input?.slice(0, 10) || ''
+        const argData = tx.input?.slice(10) || ''
+        if (!sig) return tx
+
+        const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
+        if (!abiItem) return tx
+        
+        const argNames = []
+        const argTypes = []
+        for (const input of abiItem.inputs || []) {
+            input.name && argNames.push(input.name)
+            argTypes.push(input.type)
+        }
+
+        const decodedArgs = web3js.eth.abi.decodeParameters(argTypes, `0x${argData}`)
+        
+        const argValues = []
+        for (let i = 0; i < decodedArgs.__length__; i++) {
+            const stringIndex = i.toString()
+            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
+            argValues.push(decodedArgs[stringIndex])
+        }
+        if (argValues.length !== argTypes.length) return tx
+
+        const includeArgNames = argNames.length === argTypes.length
+        const functionArgs = []
+        for (let j = 0; j < argValues.length; j++) {
+            const entry: StringKeyMap = {
+                type: argTypes[j],
+                value: argValues[j],
+            }
+            if (includeArgNames) {
+                entry.name = argNames[j]
+            }
+            functionArgs.push(entry)
+        }
+
+        tx.functionName = abiItem.name
+        tx.functionArgs = functionArgs
+        
+        return tx
+    }
+
+    _decodeLogs(logs: EthLog[], abis: { [key: string]: Abi }): EthLog[] {
+        return logs
     }
 
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {

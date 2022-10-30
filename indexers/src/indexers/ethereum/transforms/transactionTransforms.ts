@@ -24,6 +24,8 @@ export function externalToInternalTransaction(
     transaction.contractAddress = receipt ? normalizeEthAddress(receipt?.contractAddress) : null
     transaction.value = externalTransaction.value
     transaction.input = normalizeByteData(externalTransaction.input)
+    transaction.functionName = null
+    transaction.functionArgs = null
     transaction.transactionType = externalTransaction.type
     transaction.status = receipt ? hexToNumber(receipt?.status) : null
     transaction.root = receipt ? normalize32ByteHash(receipt?.root) : null
@@ -39,3 +41,4 @@ export function externalToInternalTransaction(
     transaction.blockTimestamp = block.timestamp
     return transaction
 }
+
