@@ -32,17 +32,32 @@ class AbiPolisher {
     }
 
     async run() {
-        console.log('\n0x1263bf9d96a97785f4d5eb4a0b2bea3870f3839c', JSON.stringify(await getAbi('0x1263bf9d96a97785f4d5eb4a0b2bea3870f3839c')))
-        console.log('\n0x5ec3751afd4355759612111abc36a20af234abd0', JSON.stringify(await getAbi('0x5ec3751afd4355759612111abc36a20af234abd0')))
-        console.log('\n0x5d3a536e4d6dbd6114cc1ead35777bab948e3643', JSON.stringify(await getAbi('0x5d3a536e4d6dbd6114cc1ead35777bab948e3643')))
-        console.log('\n0x1e24186783999dd8a0d4fa4c825a7b321f68b47c', JSON.stringify(await getAbi('0x1e24186783999dd8a0d4fa4c825a7b321f68b47c')))
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
+        let cursor = null
+        let batch
+        while (true) {
+            const results = this._getAbisBatch(cursor || 0)
+            cursor = results[0]
+            batch = results[1]
+
+            logger.info(`CURSOR: ${cursor}`)
+
+            const [abisMapToSave, funcSigHashesMap] = this._polishAbis(batch)
+    
+            await Promise.all([
+                this._saveAbis(abisMapToSave), 
+                this._saveFuncSigHashes(funcSigHashesMap),
+            ])
+
+            if (cursor === 0) {
+                break
+            }
+    
+            // const start = this.cursor
+            // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            // const group = range(start, end)
+            // await this._indexGroup(group)
+            // this.cursor = this.cursor + this.groupSize
+        }
         logger.info('DONE')
         exit()
     }
@@ -50,32 +65,33 @@ class AbiPolisher {
     async _indexGroup(numbers: number[]) {
         logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
 
-        // Get this batch of abis (offset + limit).
-        const addressAbis = await this._getAbisBatch(numbers)
-        if (!addressAbis.length) return
+        // // Get this batch of abis (offset + limit).
+        // const addressAbis = await this._getAbisBatch(numbers)
+        // if (!addressAbis.length) return
 
-        logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
+        // logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
+        // const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
-        await Promise.all([
-            this._saveAbis(abisMapToSave), 
-            this._saveFuncSigHashes(funcSigHashesMap),
-        ])
+        // await Promise.all([
+        //     this._saveAbis(abisMapToSave), 
+        //     this._saveFuncSigHashes(funcSigHashesMap),
+        // ])
     }
 
-    async _getAbisBatch(numbers: number[]) {
-        const offset = numbers[0]
-        const limit = numbers.length
+    async _getAbisBatch(inputCursor: number) {
+        // const offset = numbers[0]
+        // const limit = numbers.length
 
         let results
         try {
-            results = await abiRedis.hScan('eth-contracts', offset, { COUNT: limit })
+            results = await abiRedis.hScan('eth-contracts', inputCursor, { COUNT: 1000, MATCH: '*' })
         } catch (err) {
             logger.error(`Error getting ABIs: ${err}.`)
             return []
         }
 
+        const cursor = results.cursor
         const tuples = results.tuples || []
         const batch = []
         for (const entry of tuples) {
@@ -90,7 +106,7 @@ class AbiPolisher {
             }
             batch.push({ address, abi })
         }
-        return batch
+        return [cursor, batch]
     }
 
     _polishAbis(addressAbis: StringKeyMap[]): StringKeyMap[] {
