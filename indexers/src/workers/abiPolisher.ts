@@ -32,13 +32,17 @@ class AbiPolisher {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const group = range(start, end)
-            await this._indexGroup(group)
-            this.cursor = this.cursor + this.groupSize
-        }
+        console.log('\n0x1263bf9d96a97785f4d5eb4a0b2bea3870f3839c', JSON.stringify(await getAbi('0x1263bf9d96a97785f4d5eb4a0b2bea3870f3839c')))
+        console.log('\n0x5ec3751afd4355759612111abc36a20af234abd0', JSON.stringify(await getAbi('0x5ec3751afd4355759612111abc36a20af234abd0')))
+        console.log('\n0x5d3a536e4d6dbd6114cc1ead35777bab948e3643', JSON.stringify(await getAbi('0x5d3a536e4d6dbd6114cc1ead35777bab948e3643')))
+        console.log('\n0x1e24186783999dd8a0d4fa4c825a7b321f68b47c', JSON.stringify(await getAbi('0x1e24186783999dd8a0d4fa4c825a7b321f68b47c')))
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const group = range(start, end)
+        //     await this._indexGroup(group)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
         logger.info('DONE')
         exit()
     }

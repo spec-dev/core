@@ -73,7 +73,7 @@ class DecodeTxWorker {
         const tempTableName = `tx_${short.generate()}`
 
         // // Merge primary keys and updates into individual records.
-        // const tempRecords = []
+        // const tempRecords = transactions.map(tx => ({ hash: tx.hash,  }))
         // for (let i = 0; i < this.op.where.length; i++) {
         //     tempRecords.push({ ...this.op.where[i], ...this.op.data[i] })
         // }
@@ -88,7 +88,7 @@ class DecodeTxWorker {
         //     .flat()
         // const insertQuery = db
         //     .raw(
-        //         `INSERT INTO ${tempTableName} (${valueColNames.join(
+        //         `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${valuePlaceholders}
         //             ', '
         //         )}) VALUES ${valuePlaceholders}`,
         //         valueBindings
@@ -106,7 +106,7 @@ class DecodeTxWorker {
         //     )
 
         //     // Bulk insert the updated records to the temp table.
-        //     await client.query(insertQuery.sql, insertQuery.bindings)
+        //     await client.query(, insertQuery.bindings)
 
         //     // Merge the temp table updates into the target table ("bulk update").
         //     await client.query(
