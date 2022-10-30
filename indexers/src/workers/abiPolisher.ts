@@ -32,14 +32,13 @@ class AbiPolisher {
     }
 
     async run() {
-        await abiRedis.del('eth-function-signatures')
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const group = range(start, end)
+            await this._indexGroup(group)
+            this.cursor = this.cursor + this.groupSize
+        }
         logger.info('DONE')
         exit()
     }
@@ -53,7 +52,6 @@ class AbiPolisher {
 
         logger.info(`    Got ${addressAbis.length} ABIs to polish starting at ${addressAbis[0]?.address}.`)
 
-        // Fetch & save new ABIs.
         const [abisMapToSave, funcSigHashesMap] = this._polishAbis(addressAbis)
 
         await Promise.all([

@@ -70,7 +70,7 @@ class DecodeTxWorker {
     }
 
     async _updateTransactions(transactions: EthTransaction[]) {
-        // const tempTableName = `tx_${short.generate()}`
+        const tempTableName = `tx_${short.generate()}`
 
         // // Merge primary keys and updates into individual records.
         // const tempRecords = []
@@ -96,23 +96,13 @@ class DecodeTxWorker {
         //     .toSQL()
         //     .toNative()
 
-        // // Which columns to merge over from the temp table and how the target table should join against it.
-        // const updateSet = updateColNames
-        //     .map((colName) => `${colName} = ${tempTableName}.${colName}`)
-        //     .join(', ')
-        // const updateWhere = primaryKeyColNames
-        //     .map((colName) => `${this.tablePath}.${colName} = ${tempTableName}.${colName}`)
-        //     .join(' AND ')
-
-        // // Since knex.js is FUCKING trash and can't understand how to
-        // // work with temp tables, acquire a connection from 'pg' directly.
         // const client = await pool.connect()
 
         // try {
         //     // Create temp table and insert updates + primary key data.
         //     await client.query('BEGIN')
         //     await client.query(
-        //         `CREATE TEMP TABLE ${tempTableName} (${innerTableDef}) ON COMMIT DROP`
+        //         `CREATE TEMP TABLE ${tempTableName} (hash character varying(70) primary key, function_name character varying, function_args json) ON COMMIT DROP`
         //     )
 
         //     // Bulk insert the updated records to the temp table.
@@ -120,7 +110,7 @@ class DecodeTxWorker {
 
         //     // Merge the temp table updates into the target table ("bulk update").
         //     await client.query(
-        //         `UPDATE ${this.tablePath} SET ${updateSet} FROM ${tempTableName} WHERE ${updateWhere}`
+        //         `UPDATE ethereum.transactions SET function_name = ${tempTableName}.function_name, function_args = ${tempTableName}.function_args FROM ${tempTableName} WHERE ethereum.transactions.hash = ${tempTableName}.hash`
         //     )
         //     await client.query('COMMIT')
         // } catch (e) {
