@@ -41,12 +41,12 @@ class AbiPolisher {
 
             logger.info(`CURSOR: ${cursor}`)
 
-            const [abisMapToSave, funcSigHashesMap] = this._polishAbis(batch)
+            await this._polishAbis(batch)
     
-            await Promise.all([
-                this._saveAbis(abisMapToSave), 
-                this._saveFuncSigHashes(funcSigHashesMap),
-            ])
+            // await Promise.all([
+            //     this._saveAbis(abisMapToSave), 
+            //     this._saveFuncSigHashes(funcSigHashesMap),
+            // ])
 
             if (cursor === 0) {
                 break
@@ -59,6 +59,7 @@ class AbiPolisher {
             // this.cursor = this.cursor + this.groupSize
         }
         logger.info('DONE')
+        logger.info(await abiRedis.sCard('refetch-abis2'))
         exit()
     }
 
@@ -109,9 +110,11 @@ class AbiPolisher {
         return [cursor, batch]
     }
 
-    _polishAbis(addressAbis: StringKeyMap[]): StringKeyMap[] {
+    async _polishAbis(addressAbis: StringKeyMap[]) {
         const abisToUpdate = {}
         const funcSigHashesMap = {}
+
+        const refetchSet = new Set()
 
         for (const entry of addressAbis) {
             const { address, abi = [] } = entry
@@ -120,9 +123,10 @@ class AbiPolisher {
             let modified = false
             for (const item of abi) {
                 if (item.inputs?.includes(null)) {
-                    logger.info('FOUND NULL', address, item)
-                    newAbi.push(item)
-                    continue
+                    refetchSet.add(address)
+                    break
+                    // newAbi.push(item)
+                    // continue
                 }
 
                 let signature = item.signature
@@ -139,21 +143,26 @@ class AbiPolisher {
                     }
                 }
 
-                if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
-                    funcSigHashesMap[signature] = {
-                        name: item.name,
-                        type: item.type,
-                        inputs: (item.inputs || []).map(({ type }) => ({ type })),
-                        signature,
-                    }
-                }
+                // if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
+                //     funcSigHashesMap[signature] = {
+                //         name: item.name,
+                //         type: item.type,
+                //         inputs: (item.inputs || []).map(({ type }) => ({ type })),
+                //         signature,
+                //     }
+                // }
             }
             if (modified) {
-                abisToUpdate[address] = newAbi
+                // abisToUpdate[address] = newAbi
             }
         }
 
-        return [abisToUpdate, funcSigHashesMap]
+        const refetch = Array.from(refetchSet) as string[]
+        if (refetch.length) {
+            await abiRedis.sAdd('refetch-abis2', refetch)
+        }
+
+        // return [abisToUpdate, funcSigHashesMap]
     }
 
     _createAbiItemSignature(item: StringKeyMap): string | null {
