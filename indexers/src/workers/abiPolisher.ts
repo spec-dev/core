@@ -35,7 +35,7 @@ class AbiPolisher {
         let cursor = null
         let batch
         while (true) {
-            const results = this._getAbisBatch(cursor || 0)
+            const results = await this._getAbisBatch(cursor || 0)
             cursor = results[0]
             batch = results[1]
 
