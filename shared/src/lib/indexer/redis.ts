@@ -241,3 +241,19 @@ export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<b
     }
     return false
 }
+
+export async function storePublishedEvent(specEvent: StringKeyMap): Promise<string | null> {
+    try {
+        return await redis.xAdd(
+            specEvent.name,
+            '*',
+            { event: JSON.stringify(specEvent) },
+            {
+                TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 500 },
+            }
+        )
+    } catch (err) {
+        logger.error(`Error storing spec event ${specEvent.name}: ${err}.`)
+        return null
+    }
+}

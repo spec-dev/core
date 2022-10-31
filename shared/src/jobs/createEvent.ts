@@ -4,7 +4,7 @@ import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 import { getNamespace } from '../lib/core/db/services/namespaceServices'
 
-async function perform(nsp: any, name: string, desc: string, isContractEvent: boolean) {
+async function perform(nsp: any, name: string, desc: string) {
     await CoreDB.initialize()
 
     const namespace = await getNamespace(nsp)
@@ -13,10 +13,8 @@ async function perform(nsp: any, name: string, desc: string, isContractEvent: bo
         exit(1)
     }
 
-    isContractEvent = [true, 'true'].includes(isContractEvent)
-
     logger.info(`Creating event ${name}...`)
-    await createEvent(namespace.id, name, isContractEvent, desc)
+    await createEvent(namespace.id, name, desc)
     logger.info('Success.')
     exit(0)
 }

@@ -1,12 +1,12 @@
-import { EthBlock, EthTransaction, mapByKey } from '../../../../../shared'
+import { PolygonBlock, PolygonTransaction, mapByKey } from '../../../../../shared'
 import { externalToInternalTransaction } from '../transforms/transactionTransforms'
-import { ExternalEthTransaction, ExternalEthReceipt } from '../types'
+import { ExternalPolygonTransaction, ExternalPolygonReceipt } from '../types'
 
 function initTransactions(
-    block: EthBlock,
-    externalTransactions: ExternalEthTransaction[],
-    receipts: ExternalEthReceipt[]
-): EthTransaction[] {
+    block: PolygonBlock,
+    externalTransactions: ExternalPolygonTransaction[],
+    receipts: ExternalPolygonReceipt[]
+): PolygonTransaction[] {
     // Index receipts by transaction hash.
     const receiptsMap = mapByKey(receipts || [], 'transactionHash')
 

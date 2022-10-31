@@ -15,13 +15,12 @@ import { Contract } from './Contract'
  * Instances of deployed contracts.
  */
 @Entity('contract_instances')
-@Unique(['contractId', 'address'])
+@Index(['address', 'chainId'], { unique: true })
 export class ContractInstance {
     @PrimaryGeneratedColumn()
     id: number
 
     @Column()
-    @Index()
     address: string
 
     @Column()
@@ -29,6 +28,9 @@ export class ContractInstance {
 
     @Column({ nullable: true })
     desc: string
+
+    @Column({ name: 'chain_id' })
+    chainId: number
 
     @CreateDateColumn({
         type: 'timestamptz',

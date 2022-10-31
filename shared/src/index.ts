@@ -33,6 +33,7 @@ export {
     getContractEventGeneratorData,
     registerBlockLogsAsIndexed,
     hasBlockBeenIndexedForLogs,
+    storePublishedEvent,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
@@ -50,12 +51,12 @@ export {
 } from './lib/indexer/db/services/indexedBlockServices'
 export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
-import chainIds from './lib/utils/chainIds'
+import chainIds, { productionChainNameForChainId } from './lib/utils/chainIds'
 import config from './lib/config'
 import logger from './lib/logger'
-export { chainIds, config, logger }
+export { chainIds, productionChainNameForChainId, config, logger }
 export * from './lib/types'
-export { unixTimestampToDate } from './lib/utils/date'
+export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export {
     mapByKey,
     normalizeEthAddress,
@@ -70,6 +71,8 @@ export {
     uniqueByKeys,
     toChunks,
     toSlug,
+    formatAbiValueWithType,
+    attemptToParseNumber,
 } from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
@@ -144,12 +147,29 @@ export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/enti
 
 export {
     redis as abiRedis,
+    abiRedisKeys,
     saveAbis,
     saveFunctionSignatures,
     getAbi,
+    getAbis,
     getMissingAbiAddresses,
+    getFunctionSignatures,
 } from './lib/abi/redis'
 
 export * from './lib/abi/types'
 
 export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'
+
+export {
+    PolygonBlock,
+    fullBlockUpsertConfig as fullPolygonBlockUpsertConfig,
+} from './lib/shared-tables/db/entities/PolygonBlock'
+export {
+    PolygonTransaction,
+    PolygonTransactionStatus,
+    fullTransactionUpsertConfig as fullPolygonTransactionUpsertConfig,
+} from './lib/shared-tables/db/entities/PolygonTransaction'
+export {
+    PolygonLog,
+    fullLogUpsertConfig as fullPolygonLogUpsertConfig,
+} from './lib/shared-tables/db/entities/PolygonLog'

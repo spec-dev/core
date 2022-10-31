@@ -1,7 +1,7 @@
 import { createClient } from 'redis'
 import config from '../config'
 import logger from '../logger'
-import { Abi } from './types'
+import { Abi, AbiItem } from './types'
 import { StringMap } from '../types'
 
 // Create redis client.
@@ -10,14 +10,16 @@ export const redis = config.ABI_REDIS_URL ? createClient({ url: config.ABI_REDIS
 // Log any redis client errors.
 redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
-const keys = {
+export const abiRedisKeys = {
     ETH_CONTRACTS: 'eth-contracts',
     ETH_FUNCTION_SIGNATURES: 'eth-function-signatures',
+    POLYGON_CONTRACTS: 'polygon-contracts',
+    POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
 }
 
 export async function saveFunctionSignatures(
     sigsMap: StringMap,
-    nsp: string = keys.ETH_FUNCTION_SIGNATURES
+    nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
 ): Promise<boolean> {
     try {
         await redis?.hSet(nsp, sigsMap)
@@ -30,7 +32,7 @@ export async function saveFunctionSignatures(
 
 export async function saveAbis(
     abisMap: StringMap,
-    nsp: string = keys.ETH_CONTRACTS
+    nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<boolean> {
     try {
         await redis?.hSet(nsp, abisMap)
@@ -43,7 +45,7 @@ export async function saveAbis(
 
 export async function getAbi(
     address: string,
-    nsp: string = keys.ETH_CONTRACTS
+    nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<Abi | null> {
     try {
         const abiStr = (await redis?.hGet(nsp, address)) || null
@@ -54,9 +56,30 @@ export async function getAbi(
     }
 }
 
+export async function getAbis(
+    addresses: string[],
+    nsp: string = abiRedisKeys.ETH_CONTRACTS
+): Promise<{ [key: string]: Abi }> {
+    try {
+        const results = (await redis?.hmGet(nsp, addresses)) || []
+        const abis = {}
+        for (let i = 0; i < addresses.length; i++) {
+            const address = addresses[i]
+            const abiStr = results[i]
+            if (!abiStr) continue
+            const abi = JSON.parse(abiStr) as Abi
+            abis[address] = abi
+        }
+        return abis
+    } catch (err) {
+        logger.error(`Error getting ABIs for addresses ${addresses.join(', ')}: ${err}.`)
+        return {}
+    }
+}
+
 export async function getMissingAbiAddresses(
     addresses: string[],
-    nsp: string = keys.ETH_CONTRACTS
+    nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<string[]> {
     let results = []
     try {
@@ -72,4 +95,25 @@ export async function getMissingAbiAddresses(
         }
     }
     return missingAddresses
+}
+
+export async function getFunctionSignatures(
+    signatures: string[],
+    nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
+): Promise<{ [key: string]: AbiItem }> {
+    try {
+        const results = (await redis?.hmGet(nsp, signatures)) || []
+        const sigs = {}
+        for (let i = 0; i < signatures.length; i++) {
+            const sig = signatures[i]
+            const sigStr = results[i]
+            if (!sigStr) continue
+            const abi = JSON.parse(sigStr) as AbiItem
+            sigs[sig] = abi
+        }
+        return sigs
+    } catch (err) {
+        logger.error(`Error getting function signatures for ${signatures.join(', ')}: ${err}.`)
+        return {}
+    }
 }

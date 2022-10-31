@@ -8,7 +8,6 @@ const events = () => CoreDB.getRepository(Event)
 export async function createEvent(
     namespaceId: number,
     name: string,
-    isContractEvent: boolean,
     desc?: string
 ): Promise<Event> {
     const event = new Event()
@@ -16,7 +15,6 @@ export async function createEvent(
     event.namespaceId = namespaceId
     event.name = name
     event.desc = desc
-    event.isContractEvent = isContractEvent
 
     try {
         await events().save(event)

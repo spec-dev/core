@@ -1,4 +1,4 @@
-export interface ExternalEthTransaction {
+export interface ExternalPolygonTransaction {
     hash: string
     from: string
     nonce: number
@@ -15,7 +15,7 @@ export interface ExternalEthTransaction {
     blockNumber: number
 }
 
-export interface ExternalEthBlock {
+export interface ExternalPolygonBlock {
     baseFeePerGas?: number
     difficulty: string
     extraData: string
@@ -35,10 +35,10 @@ export interface ExternalEthBlock {
     timestamp: number
     totalDifficulty: string
     transactionsRoot: string
-    transactions: ExternalEthTransaction[]
+    transactions: ExternalPolygonTransaction[]
 }
 
-export interface ExternalEthLog {
+export interface ExternalPolygonLog {
     logIndex: string
     address?: string | null
     topics?: string[] | null
@@ -49,33 +49,19 @@ export interface ExternalEthLog {
     transactionIndex: string
 }
 
-export interface ExternalEthReceipt {
+export interface ExternalPolygonReceipt {
     transactionHash: string
     transactionIndex: string
     from: string
-    logs: ExternalEthLog[]
+    logs: ExternalPolygonLog[]
     logsBloom: string
     contractAddress?: string | null
     gasUsed?: string | null
     cumulativeGasUsed?: string | null
     effectiveGasPrice?: string | null
-    root?: string | null
     status?: string | null
     to?: string | null
     type?: string | null
     blockHash: string
     blockNumber: string
-}
-
-export interface ExternalEthTrace {
-    action?: { [key: string]: any } | null
-    blockHash: string
-    blockNumber: number
-    result?: { [key: string]: any } | null
-    subtraces: number
-    traceAddress?: number[] | null
-    transactionHash?: string | null
-    transactionPosition?: number | null
-    type: string
-    error?: string | null
 }

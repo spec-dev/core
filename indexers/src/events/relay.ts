@@ -1,53 +1,64 @@
-import { SpecEvent, SpecEventOrigin } from '@spec.types/spec'
+import { SpecEvent } from '@spec.types/spec'
 import {
     StringKeyMap,
     logger,
-    initPublishedEvent,
-    PublishedEvent,
-    savePublishedEvents,
+    nowAsUTCDateString,
+    storePublishedEvent,
+    SharedTables,
 } from '../../../shared'
-import { EventOrigin } from '../types'
 import { createEventClient } from '@spec.dev/event-client'
 import config from '../config'
+import short from 'short-uuid'
 
-const eventClient = config.IS_RANGE_MODE
-    ? null
-    : createEventClient({
-          hostname: config.EVENT_RELAY_HOSTNAME,
-          signedAuthToken: config.PUBLISHER_ROLE_KEY,
-      })
+const eventClient = config.IS_RANGE_MODE ? null : createEventClient({
+    hostname: config.EVENT_RELAY_HOSTNAME,
+    signedAuthToken: config.PUBLISHER_ROLE_KEY,
+})
+
+export async function publishEventSpecs(eventSpecs: StringKeyMap[]) {
+    // Format event specs as spec events.
+    const eventTimestamp = await getDBTimestamp()
+    const events = eventSpecs.map(es => formatEvent(es, eventTimestamp))
+
+    // Save each event instance to its redis stream, adding its nonce once saved.
+    const finalEvents = []
+    for (const event of events) {
+        const nonce = await storePublishedEvent(event)
+        if (!nonce) continue
+        finalEvents.push({
+            ...event,
+            nonce,
+        })
+    }
+
+    // Emit all spec events.
+    finalEvents.forEach(emit)
+}
 
 export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
     logger.info(`Publishing ${event.name}...`)
-    eventClient.socket.transmitPublish(event.name, event)
+    console.log(event)
+    // await eventClient.socket.transmitPublish(event.name, event)
 }
 
-export async function publishDiffsAsEvents(eventSpecs: StringKeyMap[], eventOrigin: EventOrigin) {
-    // Format diffs as PublishedEvents.
-    let publishedEvents: PublishedEvent[] = eventSpecs.map(({ namespacedVersion, diff }) =>
-        initPublishedEvent(namespacedVersion, eventOrigin, diff)
-    )
-
-    // Save list of PublishedEvents to ensure we have ids.
-    publishedEvents = await savePublishedEvents(publishedEvents)
-    if (!publishedEvents) return
-
-    // Format PublishedEvents as SpecEvents and publish.
-    await Promise.all(
-        publishedEvents.map((publishedEvent) => emit(formatSpecEvent(publishedEvent)))
-    )
-}
-
-function formatSpecEvent(publishedEvent: PublishedEvent): SpecEvent<StringKeyMap> {
-    const specEvent: SpecEvent<StringKeyMap> = {
-        id: publishedEvent.uid,
-        nonce: publishedEvent.id,
-        name: publishedEvent.name,
+function formatEvent(eventSpec: StringKeyMap, eventTimestamp: string): StringKeyMap {
+    const { specEventName, specEventData, specEventOrigin } = eventSpec
+    return {
+        id: short.generate(),
+        name: specEventName,
         origin: {
-            ...publishedEvent.origin,
-            eventTimestamp: publishedEvent.timestamp.toISOString(),
-        } as SpecEventOrigin,
-        data: publishedEvent.data,
+            ...specEventOrigin,
+            eventTimestamp,
+        },
+        data: specEventData,
     }
-    return specEvent
+}
+
+async function getDBTimestamp(): Promise<string> {
+    try {
+        const result = await SharedTables.query(`select timezone('UTC', now())`)
+        return new Date(result[0].timezone.toUTCString()).toISOString()    
+    } catch (err) {
+        return nowAsUTCDateString()
+    }
 }

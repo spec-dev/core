@@ -131,3 +131,16 @@ export const toChunks = (arr: any[], chunkSize: number): any[][] => {
     }
     return result
 }
+
+export const formatAbiValueWithType = (value: any, dataType: string): any => {
+    return dataType?.includes('int') ? attemptToParseNumber(value) : value
+}
+
+export const attemptToParseNumber = (originalValue: any): any => {
+    try {
+        const numberValue = Number(originalValue)
+        return numberValue > Number.MAX_SAFE_INTEGER ? originalValue : numberValue
+    } catch (err) {
+        return originalValue
+    }
+}

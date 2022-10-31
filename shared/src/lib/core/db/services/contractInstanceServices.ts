@@ -6,11 +6,13 @@ const contractInstances = () => CoreDB.getRepository(ContractInstance)
 
 export async function createContractInstance(
     contractId: number,
+    chainId: number,
     address: string,
     name: string,
     desc?: string | null
 ): Promise<ContractInstance> {
     const contractInstance = new ContractInstance()
+    contractInstance.chainId = chainId
     contractInstance.address = address
     contractInstance.name = name
     contractInstance.desc = desc

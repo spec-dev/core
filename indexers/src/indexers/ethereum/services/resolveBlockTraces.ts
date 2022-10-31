@@ -39,7 +39,7 @@ async function resolveBlockTraces(
 async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] | null> {
     let resp, error
     try {
-        resp = await fetch(config.ALCHEMY_ETH_MAINNET_REST_URL, {
+        resp = await fetch(config.ALCHEMY_REST_URL, {
             method: 'POST',
             body: JSON.stringify({
                 method: 'trace_block',

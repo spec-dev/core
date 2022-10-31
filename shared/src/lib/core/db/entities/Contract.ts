@@ -16,7 +16,7 @@ import { ContractInstance } from './ContractInstance'
  * Unique contract interfaces.
  */
 @Entity('contracts')
-@Unique(['namespaceId', 'slug'])
+@Unique(['namespaceId', 'name'])
 export class Contract {
     @PrimaryGeneratedColumn()
     id: number
@@ -26,11 +26,8 @@ export class Contract {
     uid: string
 
     @Column()
-    name: string
-
-    @Column()
     @Index()
-    slug: string
+    name: string
 
     @Column()
     desc: string

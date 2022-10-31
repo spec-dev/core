@@ -1,7 +1,6 @@
 import { Contract } from '../entities/Contract'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
-import { toSlug } from '../../../utils/formatters'
 import uuid4 from 'uuid4'
 
 const contracts = () => CoreDB.getRepository(Contract)
@@ -14,7 +13,6 @@ export async function createContract(
     const contract = new Contract()
     contract.uid = uuid4()
     contract.name = name
-    contract.slug = toSlug(name)
     contract.desc = desc
     contract.namespaceId = namespaceId
 

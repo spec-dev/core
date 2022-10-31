@@ -36,6 +36,7 @@ export interface AbiItem {
     outputs?: AbiItemOutput[]
     payable?: boolean
     stateMutability?: AbiItemStateMutability
+    anonymous?: boolean
 }
 
 export type Abi = AbiItem[]

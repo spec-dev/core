@@ -1,77 +1,62 @@
 import AbstractIndexer from '../AbstractIndexer'
+import Web3 from 'web3'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
-import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
-import getContracts from './services/getContracts'
-import initLatestInteractions from './services/initLatestInteractions'
-import { publishEventSpecs } from '../../events/relay'
-import { NewInteractions, NewTransactions } from '../../events'
 import config from '../../config'
-import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
+import { publishEventSpecs } from '../../events/relay'
+import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
     sleep,
-    EthBlock,
-    EthTrace,
-    EthLog,
-    EthContract,
+    PolygonBlock,
+    PolygonLog,
     NewReportedHead,
     SharedTables,
-    EthTransaction,
-    EthTransactionStatus,
-    EthTraceStatus,
-    fullBlockUpsertConfig,
-    fullContractUpsertConfig,
-    fullLogUpsertConfig,
-    fullTraceUpsertConfig,
-    fullTransactionUpsertConfig,
-    fullLatestInteractionUpsertConfig,
+    PolygonTransaction,
+    fullPolygonBlockUpsertConfig,
+    fullPolygonLogUpsertConfig,
+    fullPolygonTransactionUpsertConfig,
     StringKeyMap,
-    EthLatestInteraction,
     toChunks,
-    enqueueDelayedJob,
-    getMissingAbiAddresses,
     getAbis,
     getFunctionSignatures,
+    abiRedisKeys,
     Abi,
     AbiItem,
+    CoreDB,
+    ContractInstance,
+    In,
+    formatAbiValueWithType,
+    productionChainNameForChainId,
 } from '../../../../shared'
-import Web3 from 'web3'
+
 const web3js = new Web3()
 
-class EthereumIndexer extends AbstractIndexer {
+const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
+
+class PolygonIndexer extends AbstractIndexer {
     
     web3: AlchemyWeb3
 
-    uniqueContractAddresses: Set<string>
+    block: PolygonBlock = null
 
-    block: EthBlock = null
+    transactions: PolygonTransaction[] = []
 
-    transactions: EthTransaction[] = []
-
-    logs: EthLog[] = []
-
-    traces: EthTrace[] = []
-
-    contracts: EthContract[] = []
-
-    latestInteractions: EthLatestInteraction[] = []
+    logs: PolygonLog[] = []
 
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
-        this.uniqueContractAddresses = new Set()
     }
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
 
-        // Get blocks (+transactions), receipts (+logs), and traces.
+        // Get blocks (+transactions), receipts (+logs).
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
-        const tracesPromise = this._getTraces()
 
         // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
         let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
@@ -96,7 +81,7 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(
-            (t) => t as unknown as ExternalEthTransaction
+            (t) => t as unknown as ExternalPolygonTransaction
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
@@ -127,33 +112,23 @@ class EthereumIndexer extends AbstractIndexer {
         const logAddresses = logs.map(l => l.address)
         const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
         const [abis, functionSignatures] = await Promise.all([
-            getAbis(Array.from(new Set([ ...txToAddresses, ...logAddresses ]))),
-            getFunctionSignatures(Array.from(new Set(sigs))),
+            getAbis(
+                Array.from(new Set([ ...txToAddresses, ...logAddresses ])),
+                abiRedisKeys.POLYGON_CONTRACTS,
+            ),
+            getFunctionSignatures(
+                Array.from(new Set(sigs)),
+                abiRedisKeys.POLYGON_FUNCTION_SIGNATURES,
+            ),
         ])
 
         // Decode transactions and logs.
         transactions = transactions.length ? this._decodeTransactions(transactions, abis, functionSignatures) : []
         logs = logs.length ? this._decodeLogs(logs, abis) : []
-        
+
         // Wait for traces to resolve and ensure there's not block hash mismatch.
-        let traces = await tracesPromise
-        if (traces.length && traces[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
-            )
-            traces = await this._waitAndRefetchTraces(block.hash)
-        }
-        traces = this._enrichTraces(traces, block)
-
         // Perform one final block hash mismatch check and error out if so.
-        this._ensureAllShareSameBlockHash(block, receipts || [], traces)
-
-        // Get any new contracts deployed this block.
-        const [contracts, _] = getContracts(traces)
-        contracts.length && this._info(`Got ${contracts.length} new contracts.`)
-
-        // Format transactions as the latest interactions between addresses.
-        const latestInteractions = await initLatestInteractions(transactions, contracts)
+        this._ensureAllShareSameBlockHash(block, receipts || [])
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
@@ -167,15 +142,12 @@ class EthereumIndexer extends AbstractIndexer {
                 block,
                 transactions,
                 logs,
-                traces,
-                contracts,
-                latestInteractions,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
 
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
+        await this._savePrimitives(block, transactions, logs)
 
         // Create and publish Spec events to the event relay.
         try {
@@ -183,18 +155,12 @@ class EthereumIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
-
-        // Kick off delayed job to fetch abis for new contracts.
-        contracts.length && (await this._fetchAbisForNewContracts(contracts))
     }
 
     async _savePrimitives(
-        block: EthBlock,
-        transactions: EthTransaction[],
-        logs: EthLog[],
-        traces: EthTrace[],
-        contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[]
+        block: PolygonBlock,
+        transactions: PolygonTransaction[],
+        logs: PolygonLog[],
     ) {
         this._info('Saving primitives...')
 
@@ -203,62 +169,79 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertBlock(block, tx),
                 this._upsertTransactions(transactions, tx),
                 this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
             ])
         })
-        await this._upsertLatestInteractions(latestInteractions)
     }
 
     async _createAndPublishEvents() {
-        // const eventOrigin = {
-        //     chainId: this.chainId,
-        //     blockNumber: this.blockNumber,
-        // }
-        // const eventSpecs = [
-        //     {
-        //         namespacedVersion: 'eth.NewTransactions@0.0.1',
-        //         diff: NewTransactions(this.transactions),
-        //     },
-        //     {
-        //         namespacedVersion: 'eth.NewInteractions@0.0.1',
-        //         diff: NewInteractions(this.latestInteractions),
-        //     },
-        // ]
-        // await publishDiffsAsEvents(eventSpecs, eventOrigin)
-    }
-
-    async _fetchAbisForNewContracts(contracts: EthContract[]) {
-        const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
-        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
+        const eventSpecs = await this._getDetectedContractEventSpecs()
+        eventSpecs.length && await publishEventSpecs(eventSpecs)
     }
     
-    _findUniqueContractAddresses(
-        transactions: EthTransaction[],
-        logs: EthLog[],
-        traces: EthTrace[]
-    ) {
-        transactions.forEach((tx) => {
-            if (tx.status === EthTransactionStatus.Success) {
-                tx.to && this.uniqueContractAddresses.add(tx.to)
-                tx.contractAddress && this.uniqueContractAddresses.add(tx.contractAddress)
+    async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
+        const decodedLogs = this.logs.filter(log => !!log.eventName)
+        if (!decodedLogs.length) return []
+
+        const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
+        const contractInstances = await this._getContractInstancesForAddresses(addresses)
+        if (!contractInstances.length) return []
+
+        const namespacedContractInfoByAddress = {}
+        for (const contractInstance of contractInstances) {
+            const contractName = contractInstance.contract?.name
+            const nsp = contractInstance.contract?.namespace?.slug
+            if (!contractName || !nsp) continue
+            namespacedContractInfoByAddress[contractInstance.address] = {
+                nsp,
+                contractName,
             }
-        })
-        logs.forEach((log) => {
-            log.address && this.uniqueContractAddresses.add(log.address)
-        })
-        traces.forEach((trace) => {
-            if (trace.status === EthTraceStatus.Success) {
-                trace.to && this.uniqueContractAddresses.add(trace.to)
-            }
-        })
+        }
+        if (!Object.keys(namespacedContractInfoByAddress)) return []
+
+        const chainName = productionChainNameForChainId(this.chainId)
+        const specEventNamePrefix = chainName ? `${chainName}:` : ''
+        const sortedDecodedLogs = decodedLogs.sort((a, b) => 
+            (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
+        )
+
+        const eventSpecs = []
+        for (const decodedLog of sortedDecodedLogs) {
+            const { eventName, address } = decodedLog
+            if (!namespacedContractInfoByAddress.hasOwnProperty(address)) continue
+            const { nsp, contractName } = namespacedContractInfoByAddress[address]
+            const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
+            const namespacedEventName = [nsp, contractName, eventName].join('.')
+            eventSpecs.push({
+                specEventName: `${specEventNamePrefix}${namespacedEventName}`,
+                specEventData: data,
+                specEventOrigin: eventOrigin,
+            })
+        }
+        return eventSpecs
+    }
+
+    async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
+        let contractInstances = []
+        try {
+            contractInstances = await contractInstancesRepo().find({
+                relations: { contract: { namespace: true } },
+                where: {
+                    address: In(addresses),
+                    chainId: this.chainId,
+                }
+            })
+        } catch (err) {
+            this._error(`Error getting contract_instances: ${err}`)
+            return []
+        }
+        return contractInstances || []        
     }
 
     _decodeTransactions(
-        transactions: EthTransaction[], 
+        transactions: PolygonTransaction[], 
         abis: { [key: string]: Abi },
         functionSignatures: { [key: string]: AbiItem },
-    ): EthTransaction[] {
+    ): PolygonTransaction[] {
         const finalTxs = []
         for (let tx of transactions) {
             if (!tx.to || !abis.hasOwnProperty(tx.to) || !tx.input) {
@@ -276,10 +259,10 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     _decodeTransaction(
-        tx: EthTransaction,
+        tx: PolygonTransaction,
         abi: Abi,
         functionSignatures: { [key: string]: AbiItem },
-    ): EthTransaction {
+    ): PolygonTransaction {
         const sig = tx.input?.slice(0, 10) || ''
         const argData = tx.input?.slice(10) || ''
         if (!sig) return tx
@@ -295,9 +278,10 @@ class EthereumIndexer extends AbstractIndexer {
         }
 
         const decodedArgs = web3js.eth.abi.decodeParameters(argTypes, `0x${argData}`)
-        
+        const numArgs = parseInt(decodedArgs.__length__)
+
         const argValues = []
-        for (let i = 0; i < decodedArgs.__length__; i++) {
+        for (let i = 0; i < numArgs; i++) {
             const stringIndex = i.toString()
             if (!decodedArgs.hasOwnProperty(stringIndex)) continue
             argValues.push(decodedArgs[stringIndex])
@@ -319,15 +303,93 @@ class EthereumIndexer extends AbstractIndexer {
 
         tx.functionName = abiItem.name
         tx.functionArgs = functionArgs
-        
+    
         return tx
     }
 
-    _decodeLogs(logs: EthLog[], abis: { [key: string]: Abi }): EthLog[] {
-        return logs
+    _decodeLogs(logs: PolygonLog[], abis: { [key: string]: Abi }): PolygonLog[] {
+        const finalLogs = []
+        for (let log of logs) {
+            if (!log.address || !abis.hasOwnProperty(log.address) || !log.topic0) {
+                finalLogs.push(log)
+                continue
+            }
+            try {
+                log = this._decodeLog(log, abis[log.address])
+            } catch (err) {
+                this._error(`Error decoding log for address ${log.address}: ${err}`)
+            }
+            finalLogs.push(log)
+        }
+        return finalLogs
     }
 
-    async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
+    _decodeLog(log: PolygonLog, abi: Abi): PolygonLog {
+        const abiItem = abi.find(item => item.signature === log.topic0)
+        if (!abiItem) return log
+
+        const argNames = []
+        const argTypes = []
+        for (const input of abiItem.inputs || []) {
+            input.name && argNames.push(input.name)
+            argTypes.push(input.type)
+        }
+        if (argNames.length !== argTypes.length) {
+            return log
+        }
+
+        const topics = []
+        abiItem.anonymous && topics.push(log.topic0)
+        log.topic1 && topics.push(log.topic1)
+        log.topic2 && topics.push(log.topic2)
+        log.topic3 && topics.push(log.topic3)
+
+        const decodedArgs = web3js.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
+        const numArgs = parseInt(decodedArgs.__length__)
+
+        const argValues = []
+        for (let i = 0; i < numArgs; i++) {
+            const stringIndex = i.toString()
+            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
+            argValues.push(decodedArgs[stringIndex])
+        }
+        if (argValues.length !== argTypes.length) return log
+
+        const eventArgs = []
+        for (let j = 0; j < argValues.length; j++) {
+            eventArgs.push({
+                name: argNames[j],
+                type: argTypes[j],
+                value: argValues[j],
+            })
+        }
+
+        log.eventName = abiItem.name
+        log.eventArgs = eventArgs
+
+        return log
+    }
+
+    _formatLogEventArgsForSpecEvent(log: PolygonLog): StringKeyMap {
+        const eventOrigin = {
+            chainId: this.chainId,
+            transactionHash: log.transactionHash,
+            contractAddress: log.address,
+            blockNumber: Number(log.blockNumber),
+            blockHash: log.blockHash,
+            blockTimestamp: log.blockTimestamp.toISOString(),
+        }
+        const data = {}
+        const eventArgs = (log.eventArgs || []) as StringKeyMap[]
+        for (const arg of eventArgs) {
+            if (arg.name) {
+                data[arg.name] = formatAbiValueWithType(arg.value, arg.type)
+            }
+        }
+        return { data, eventOrigin }
+    }
+
+    async _getBlockWithTransactions(): Promise<[ExternalPolygonBlock, PolygonBlock]> {
         return resolveBlock(
             this.web3,
             this.blockHash || this.blockNumber,
@@ -336,7 +398,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
     }
 
-    async _getBlockReceiptsWithLogs(): Promise<ExternalEthReceipt[]> {
+    async _getBlockReceiptsWithLogs(): Promise<ExternalPolygonReceipt[]> {
         return getBlockReceipts(
             this.web3,
             this.blockHash ? { blockHash: this.blockHash } : { blockNumber: this.hexBlockNumber },
@@ -345,15 +407,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
     }
 
-    async _getTraces(): Promise<EthTrace[]> {
-        try {
-            return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.chainId)
-        } catch (err) {
-            throw err
-        }
-    }
-
-    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
+    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalPolygonReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
                 this.web3,
@@ -380,32 +434,9 @@ class EthereumIndexer extends AbstractIndexer {
         return receipts || []
     }
 
-    async _waitAndRefetchTraces(blockHash: string): Promise<EthTrace[]> {
-        const getTraces = async () => {
-            const traces = await this._getTraces()
-            if (traces.length && traces[0].blockHash !== blockHash) {
-                return null
-            } else {
-                return traces
-            }
-        }
-
-        let traces = null
-        let numAttempts = 0
-        while (traces === null && numAttempts < config.MAX_ATTEMPTS) {
-            traces = await getTraces()
-            if (traces === null) {
-                await sleep(config.NOT_READY_DELAY)
-            }
-            numAttempts += 1
-        }
-        return traces || []
-    }
-
     _ensureAllShareSameBlockHash(
-        block: EthBlock,
-        receipts: ExternalEthReceipt[],
-        traces: EthTrace[]
+        block: PolygonBlock,
+        receipts: ExternalPolygonReceipt[],
     ) {
         const hash = this.head.blockHash || block.hash
         if (block.hash !== hash) {
@@ -418,24 +449,17 @@ class EthereumIndexer extends AbstractIndexer {
                 }
             })
         }
-        if (traces.length > 0) {
-            traces.forEach((t) => {
-                if (t.blockHash !== hash) {
-                    throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${t.blockHash}`
-                }
-            })
-        }
     }
 
-    async _upsertBlock(block: EthBlock, tx: any) {
-        const [updateCols, conflictCols] = fullBlockUpsertConfig(block)
+    async _upsertBlock(block: PolygonBlock, tx: any) {
+        const [updateCols, conflictCols] = fullPolygonBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
         this.block =
             (
                 await tx
                     .createQueryBuilder()
                     .insert()
-                    .into(EthBlock)
+                    .into(PolygonBlock)
                     .values({ ...block, timestamp: () => blockTimestamp })
                     .orUpdate(updateCols, conflictCols)
                     .returning('*')
@@ -443,15 +467,15 @@ class EthereumIndexer extends AbstractIndexer {
             ).generatedMaps[0] || null
     }
 
-    async _upsertTransactions(transactions: EthTransaction[], tx: any) {
+    async _upsertTransactions(transactions: PolygonTransaction[], tx: any) {
         if (!transactions.length) return
-        const [updateCols, conflictCols] = fullTransactionUpsertConfig(transactions[0])
+        const [updateCols, conflictCols] = fullPolygonTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         this.transactions = (
             await tx
                 .createQueryBuilder()
                 .insert()
-                .into(EthTransaction)
+                .into(PolygonTransaction)
                 .values(transactions.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
@@ -459,9 +483,9 @@ class EthereumIndexer extends AbstractIndexer {
         ).generatedMaps
     }
 
-    async _upsertLogs(logs: EthLog[], tx: any) {
+    async _upsertLogs(logs: PolygonLog[], tx: any) {
         if (!logs.length) return
-        const [updateCols, conflictCols] = fullLogUpsertConfig(logs[0])
+        const [updateCols, conflictCols] = fullPolygonLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
         this.logs = (
             await Promise.all(
@@ -469,7 +493,7 @@ class EthereumIndexer extends AbstractIndexer {
                     return tx
                         .createQueryBuilder()
                         .insert()
-                        .into(EthLog)
+                        .into(PolygonLog)
                         .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
                         .orUpdate(updateCols, conflictCols)
                         .returning('*')
@@ -481,133 +505,33 @@ class EthereumIndexer extends AbstractIndexer {
             .flat()
     }
 
-    async _upsertTraces(traces: EthTrace[], tx: any) {
-        if (!traces.length) return
-        const [updateCols, conflictCols] = fullTraceUpsertConfig(traces[0])
-        const blockTimestamp = this.pgBlockTimestamp
-        this.traces = (
-            await Promise.all(
-                toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthTrace)
-                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
-                })
-            )
-        )
-            .map((result) => result.generatedMaps)
-            .flat()
-    }
-
-    async _upsertContracts(contracts: EthContract[], tx: any) {
-        if (!contracts.length) return
-        const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
-        const blockTimestamp = this.pgBlockTimestamp
-        this.contracts = (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthContract)
-                .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps
-    }
-
-    async _upsertLatestInteractions(
-        latestInteractions: EthLatestInteraction[],
-        attempt: number = 0
-    ) {
-        if (!latestInteractions.length) return
-        const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
-        const blockTimestamp = this.pgBlockTimestamp
-
-        try {
-            await SharedTables.manager.transaction(async (tx) => {
-                this.latestInteractions = (
-                    await (tx as any)
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthLatestInteraction)
-                        .values(
-                            latestInteractions.map((li) => ({
-                                ...li,
-                                timestamp: () => blockTimestamp,
-                            }))
-                        )
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
-                ).generatedMaps
-            })
-        } catch (err) {
-            this._error(err)
-            const message = err?.message || ''
-            this.latestInteractions = []
-
-            // Wait and try again if deadlocked.
-            if (attempt < 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(this.blockNumber / 150000)
-                await this._upsertLatestInteractions(latestInteractions, attempt + 1)
-            }
-        }
-    }
-
-    _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {
-        return traces.map((t, i) => {
-            t.traceIndex = i > 32767 ? -1 : i
-            t.blockTimestamp = block.timestamp
-            return t
-        })
-    }
-
     async _deleteRecordsWithBlockNumber() {
         await SharedTables.manager.transaction(async (tx) => {
             const deleteBlock = tx
                 .createQueryBuilder()
                 .delete()
-                .from(EthBlock)
+                .from(PolygonBlock)
                 .where('number = :number', { number: this.blockNumber })
                 .execute()
             const deleteTransactions = tx
                 .createQueryBuilder()
                 .delete()
-                .from(EthTransaction)
+                .from(PolygonTransaction)
                 .where('blockNumber = :number', { number: this.blockNumber })
                 .execute()
             const deleteLogs = tx
                 .createQueryBuilder()
                 .delete()
-                .from(EthLog)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteTraces = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthTrace)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteContracts = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthContract)
+                .from(PolygonLog)
                 .where('blockNumber = :number', { number: this.blockNumber })
                 .execute()
             await Promise.all([
                 deleteBlock,
                 deleteTransactions,
                 deleteLogs,
-                deleteTraces,
-                deleteContracts,
             ])
         })
     }
 }
 
-export default EthereumIndexer
+export default PolygonIndexer
