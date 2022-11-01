@@ -111,8 +111,8 @@ class PolygonIndexer extends AbstractIndexer {
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
         // Get all abis for addresses needed to decode both transactions and logs.
-        const txToAddresses = transactions.map(t => t.to)
-        const logAddresses = logs.map(l => l.address)
+        const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
+        const logAddresses = logs.map(l => l.address).filter(v => !!v)
         const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
         const [abis, functionSignatures] = await Promise.all([
             getAbis(
