@@ -133,13 +133,26 @@ export const toChunks = (arr: any[], chunkSize: number): any[][] => {
 }
 
 export const formatAbiValueWithType = (value: any, dataType: string): any => {
-    return dataType?.includes('int') ? attemptToParseNumber(value) : value
+    if (dataType?.includes('int')) {
+        return attemptToParseNumber(value)
+    }
+    if (dataType === 'address') {
+        return attemptToLowerCase(value)
+    }
 }
 
 export const attemptToParseNumber = (originalValue: any): any => {
     try {
         const numberValue = Number(originalValue)
         return numberValue > Number.MAX_SAFE_INTEGER ? originalValue : numberValue
+    } catch (err) {
+        return originalValue
+    }
+}
+
+export const attemptToLowerCase = (originalValue: string): string => {
+    try {
+        return originalValue.toLowerCase()
     } catch (err) {
         return originalValue
     }
