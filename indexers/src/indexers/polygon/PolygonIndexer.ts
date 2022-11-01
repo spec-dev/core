@@ -304,7 +304,7 @@ class PolygonIndexer extends AbstractIndexer {
         for (let j = 0; j < argValues.length; j++) {
             const entry: StringKeyMap = {
                 type: argTypes[j],
-                value: argValues[j],
+                value: formatAbiValueWithType(argValues[j], argTypes[j]),
             }
             if (includeArgNames) {
                 entry.name = argNames[j]
@@ -371,7 +371,7 @@ class PolygonIndexer extends AbstractIndexer {
             eventArgs.push({
                 name: argNames[j],
                 type: argTypes[j],
-                value: argValues[j],
+                value: formatAbiValueWithType(argValues[j], argTypes[j]),
             })
         }
 
@@ -394,7 +394,7 @@ class PolygonIndexer extends AbstractIndexer {
         const eventArgs = (log.eventArgs || []) as StringKeyMap[]
         for (const arg of eventArgs) {
             if (arg.name) {
-                data[arg.name] = formatAbiValueWithType(arg.value, arg.type)
+                data[arg.name] = arg.value
             }
         }
         return { data, eventOrigin }

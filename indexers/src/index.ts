@@ -30,7 +30,7 @@ async function run() {
     )
 
     const worker = await getWorker()
-    worker.run()
+    worker?.run()
 }
 
 run()

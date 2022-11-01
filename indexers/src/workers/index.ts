@@ -1,11 +1,13 @@
 import { IndexerWorker } from '../types'
 import config from '../config'
 import { getHeadWorker } from './headWorker'
-import { getRangeWorker } from './rangeWorker'
+import { getEthRangeWorker } from './ethRangeWorker'
+import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getLogWorker } from './logWorker'
 import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
 import { getAbiPolisher } from './abiPolisher'
+import { productionChainNameForChainId } from '../../../shared'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -23,5 +25,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (config.RANGE_WORKER_TYPE === 'abi-polisher') {
         return getAbiPolisher()
     }
-    return getRangeWorker()
+
+    const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
+    return prodChainName === 'polygon' 
+        ? getPolygonRangeWorker()
+        : getEthRangeWorker()
 }

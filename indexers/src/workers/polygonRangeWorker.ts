@@ -10,23 +10,20 @@ import {
     getBlocksInNumberRange,
     range,
     StringKeyMap,
-    EthBlock,
-    EthTrace,
-    EthContract,
-    EthLog,
-    EthTransaction,
-    fullBlockUpsertConfig,
-    fullContractUpsertConfig,
-    fullLogUpsertConfig,
-    fullTraceUpsertConfig,
-    fullTransactionUpsertConfig,
-    fullLatestInteractionUpsertConfig,
+    PolygonBlock,
+    PolygonLog,
+    PolygonTransaction,
+    fullPolygonBlockUpsertConfig,
+    fullPolygonLogUpsertConfig,
+    fullPolygonTransactionUpsertConfig,
     SharedTables,
     uniqueByKeys,
-    EthLatestInteraction,
+    formatAbiValueWithType,
+    toChunks,
 } from '../../../shared'
 
-class RangeWorker {
+class PolygonRangeWorker {
+    
     from: number
 
     to: number | null
@@ -134,14 +131,12 @@ class RangeWorker {
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
     ) {
-        const t0 = performance.now()
         try {
             await this._saveBatchResults(batchResults)
         } catch (err) {
             logger.error(`Error saving batch: ${err}`)
             return [null, false]
         }
-        const t1 = performance.now()
 
         // Group index results by block number.
         const retriedBlockNumbersThatSucceeded = []
@@ -229,9 +224,6 @@ class RangeWorker {
         let blocks = []
         let transactions = []
         let logs = []
-        let traces = []
-        let contracts = []
-        let latestInteractions = []
 
         for (const result of results) {
             if (!result) continue
@@ -245,45 +237,16 @@ class RangeWorker {
             logs.push(
                 ...result.logs.map((l) => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp }))
             )
-            traces.push(
-                ...result.traces.map((t) => ({
-                    ...t,
-                    blockTimestamp: () => result.pgBlockTimestamp,
-                }))
-            )
-            contracts.push(
-                ...result.contracts.map((c) => ({
-                    ...c,
-                    blockTimestamp: () => result.pgBlockTimestamp,
-                }))
-            )
-            latestInteractions.push(
-                ...result.latestInteractions.map((c) => ({
-                    ...c,
-                    timestamp: () => result.pgBlockTimestamp,
-                }))
-            )
         }
 
         if (!this.upsertConstraints.block && blocks.length) {
-            this.upsertConstraints.block = fullBlockUpsertConfig(blocks[0])
+            this.upsertConstraints.block = fullPolygonBlockUpsertConfig(blocks[0])
         }
         if (!this.upsertConstraints.transaction && transactions.length) {
-            this.upsertConstraints.transaction = fullTransactionUpsertConfig(transactions[0])
+            this.upsertConstraints.transaction = fullPolygonTransactionUpsertConfig(transactions[0])
         }
         if (!this.upsertConstraints.log && logs.length) {
-            this.upsertConstraints.log = fullLogUpsertConfig(logs[0])
-        }
-        if (!this.upsertConstraints.trace && traces.length) {
-            this.upsertConstraints.trace = fullTraceUpsertConfig(traces[0])
-        }
-        if (!this.upsertConstraints.contract && contracts.length) {
-            this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
-        }
-        if (!this.upsertConstraints.latestInteraction && latestInteractions.length) {
-            this.upsertConstraints.latestInteraction = fullLatestInteractionUpsertConfig(
-                latestInteractions[0]
-            )
+            this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
         }
 
         blocks = this.upsertConstraints.block
@@ -294,31 +257,61 @@ class RangeWorker {
             ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
             : transactions
 
-        logs = this.upsertConstraints.log ? uniqueByKeys(logs, this.upsertConstraints.log[1]) : logs
-
-        traces = this.upsertConstraints.trace
-            ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
-            : traces
-
-        contracts = this.upsertConstraints.contract
-            ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
-            : contracts
-
-        latestInteractions = latestInteractions.sort((a, b) => b.blockNumber - a.blockNumber)
-        latestInteractions = this.upsertConstraints.latestInteraction
-            ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
-            : latestInteractions
+        logs = this.upsertConstraints.log ? uniqueByKeys(logs, ['logIndex', 'transactionHash']) : logs
 
         await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
+            let x, y
+            ;([x, y, logs] = await Promise.all([
                 this._upsertBlocks(blocks, tx),
                 this._upsertTransactions(transactions, tx),
                 this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
-                this._upsertLatestInteractions(latestInteractions, tx),
-            ])
+            ]))
         })
+        
+        const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
+        ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
+    }
+
+    _getIvySmartWallets(logs: StringKeyMap[]): StringKeyMap[] {
+        logs = logs.sort((a, b) => 
+            (Number(b.blockNumber) - Number(a.blockNumber)) || 
+            (b.transactionIndex - a.transactionIndex) || 
+            (b.logIndex - a.logIndex)
+        )
+        const smartWallets = []
+        for (const log of logs) {
+            if (log.address === '0xfaf2b3ad1b211a2fe5434c75b50d256069d1b51f' && log.eventName === 'WalletCreated') {
+                const eventArgs = log.eventArgs || []
+                if (!eventArgs.length) continue
+                const data = this._logEventArgsAsMap(eventArgs)
+                const contractAddress = data.smartWallet
+                const ownerAddress = data.owner
+                if (!contractAddress || !ownerAddress) continue           
+                
+                smartWallets.push({
+                    chainId: config.CHAIN_ID,
+                    contractAddress,
+                    ownerAddress,
+                    transactionHash: log.transactionHash,
+                    blockNumber: Number(log.blockNumber),
+                    blockHash: log.blockHash,
+                    blockTimestamp: log.blockTimestamp.toISOString(),
+                })
+            }
+        }
+        if (!smartWallets.length) return []
+
+        return uniqueByKeys(smartWallets, ['chainId', 'contractAddress'])
+    }
+
+    _logEventArgsAsMap(eventArgs: StringKeyMap[]): StringKeyMap {
+        const data = {}
+        for (const arg of eventArgs) {
+            if (arg.name) {
+                data[arg.name] = formatAbiValueWithType(arg.value, arg.type)
+            }
+        }
+        return data
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
@@ -327,7 +320,7 @@ class RangeWorker {
         await tx
             .createQueryBuilder()
             .insert()
-            .into(EthBlock)
+            .into(PolygonBlock)
             .values(blocks)
             .orUpdate(updateBlockCols, conflictBlockCols)
             .execute()
@@ -337,11 +330,11 @@ class RangeWorker {
         if (!transactions.length) return
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
-            this._toChunks(transactions, this.chunkSize).map((chunk) => {
+            toChunks(transactions, this.chunkSize).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
-                    .into(EthTransaction)
+                    .into(PolygonTransaction)
                     .values(chunk)
                     .orUpdate(updateTransactionCols, conflictTransactionCols)
                     .execute()
@@ -349,82 +342,50 @@ class RangeWorker {
         )
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any) {
-        if (!logs.length) return
+    async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
+        if (!logs.length) return []
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
-        await Promise.all(
-            this._toChunks(logs, this.chunkSize).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLog)
-                    .values(chunk)
-                    .orUpdate(updateLogCols, conflictLogCols)
-                    .execute()
-            })
-        )
+        return (
+            await Promise.all(
+                toChunks(logs, this.chunkSize).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(PolygonLog)
+                        .values(chunk)
+                        .orUpdate(updateLogCols, conflictLogCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        ).map(result => result.generatedMaps).flat()
     }
 
-    async _upsertTraces(traces: StringKeyMap[], tx: any) {
-        if (!traces.length) return
-        const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
-        await Promise.all(
-            this._toChunks(traces, this.chunkSize).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthTrace)
-                    .values(chunk)
-                    .orUpdate(updateTraceCols, conflictTraceCols)
-                    .execute()
-            })
-        )
-    }
-
-    async _upsertContracts(contracts: StringKeyMap[], tx: any) {
-        if (!contracts.length) return
-        const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
-        await Promise.all(
-            this._toChunks(contracts, this.chunkSize).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthContract)
-                    .values(chunk)
-                    .orUpdate(updateContractCols, conflictContractCols)
-                    .execute()
-            })
-        )
-    }
-
-    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any) {
-        if (!latestInteractions.length) return
-        const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
-        await Promise.all(
-            this._toChunks(latestInteractions, this.chunkSize).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLatestInteraction)
-                    .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
-                    .execute()
-            })
-        )
-    }
-
-    _toChunks(arr: any[], chunkSize: number): any[][] {
-        const result = []
-        for (let i = 0; i < arr.length; i += chunkSize) {
-            const chunk = arr.slice(i, i + chunkSize)
-            result.push(chunk)
+    async _upsertIvySmartWallets(smartWallets: StringKeyMap[]) {
+        for (const smartWallet of smartWallets) {
+            try {
+                await SharedTables.query(`INSERT INTO ivy.smart_wallets (chain_id, contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (chain_id, contract_address) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
+                    [
+                        smartWallet.chainId,
+                        smartWallet.contractAddress,
+                        smartWallet.ownerAddress,
+                        smartWallet.transactionHash,
+                        smartWallet.blockNumber,
+                        smartWallet.blockHash,
+                        smartWallet.blockTimestamp,
+                    ]
+                )
+            } catch (err) {
+                logger.error('Failed to insert smart wallet', err)
+                return
+            }
+            logger.info('\nADDED SMART WALLET!', smartWallet)
         }
-        return result
     }
 }
 
-export function getRangeWorker(): RangeWorker {
-    return new RangeWorker(
+export function getPolygonRangeWorker(): PolygonRangeWorker {
+    return new PolygonRangeWorker(
         config.FROM,
         config.TO,
         config.RANGE_GROUP_SIZE,
