@@ -139,6 +139,7 @@ export const formatAbiValueWithType = (value: any, dataType: string): any => {
     if (dataType === 'address') {
         return attemptToLowerCase(value)
     }
+    return value
 }
 
 export const attemptToParseNumber = (originalValue: any): any => {
