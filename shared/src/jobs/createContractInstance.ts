@@ -3,7 +3,13 @@ import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(contractId: any, chainId: any, address: string, name: string, desc?: string) {
+async function perform(
+    contractId: any,
+    chainId: any,
+    address: string,
+    name: string,
+    desc?: string
+) {
     await CoreDB.initialize()
 
     logger.info(`Creating contract instance ${name}...`)
@@ -13,7 +19,7 @@ async function perform(contractId: any, chainId: any, address: string, name: str
         Number(chainId),
         address,
         name,
-        desc || null,
+        desc || null
     )
 
     logger.info('Success', contractInstance.id)

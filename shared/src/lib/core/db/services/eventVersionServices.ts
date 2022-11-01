@@ -43,7 +43,9 @@ export async function getEventVersion(
     try {
         return await eventVersions().findOneBy({ nsp, name, version, chainId })
     } catch (err) {
-        logger.error(`Error getting EventVersion ${nsp}.${name}@${version}, chainId=${chainId}: ${err}`)
+        logger.error(
+            `Error getting EventVersion ${nsp}.${name}@${version}, chainId=${chainId}: ${err}`
+        )
         return null
     }
 }

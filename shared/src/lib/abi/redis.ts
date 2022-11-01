@@ -21,6 +21,7 @@ export async function saveFunctionSignatures(
     sigsMap: StringMap,
     nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
 ): Promise<boolean> {
+    if (!Object.keys(sigsMap).length) return true
     try {
         await redis?.hSet(nsp, sigsMap)
     } catch (err) {
@@ -34,6 +35,7 @@ export async function saveAbis(
     abisMap: StringMap,
     nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<boolean> {
+    if (!Object.keys(abisMap).length) return true
     try {
         await redis?.hSet(nsp, abisMap)
     } catch (err) {
@@ -47,6 +49,7 @@ export async function getAbi(
     address: string,
     nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<Abi | null> {
+    if (!address) return null
     try {
         const abiStr = (await redis?.hGet(nsp, address)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : null
@@ -60,6 +63,7 @@ export async function getAbis(
     addresses: string[],
     nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<{ [key: string]: Abi }> {
+    if (!addresses?.length) return {}
     try {
         const results = (await redis?.hmGet(nsp, addresses)) || []
         const abis = {}
@@ -81,6 +85,7 @@ export async function getMissingAbiAddresses(
     addresses: string[],
     nsp: string = abiRedisKeys.ETH_CONTRACTS
 ): Promise<string[]> {
+    if (!addresses?.length) return []
     let results = []
     try {
         results = (await redis?.hmGet(nsp, addresses)) || []
@@ -101,6 +106,7 @@ export async function getFunctionSignatures(
     signatures: string[],
     nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
 ): Promise<{ [key: string]: AbiItem }> {
+    if (!signatures?.length) return {}
     try {
         const results = (await redis?.hmGet(nsp, signatures)) || []
         const sigs = {}
