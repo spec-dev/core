@@ -257,3 +257,41 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
         return null
     }
 }
+
+export async function getPublishedEventsAfterEventCursors(
+    cursors: StringKeyMap[]
+): Promise<{ [key: string]: StringKeyMap[] }> {
+    if (!cursors?.length) return {}
+    const streams = cursors.map((cursor) => ({
+        key: cursor.name,
+        id: cursor.nonce,
+    }))
+    try {
+        const results = await redis.xRead(streams)
+        if (!results?.length) return {}
+
+        const eventsMap = {}
+        for (const eventGroup of results) {
+            const { name: eventName, messages = [] } = eventGroup
+            if (!messages.length) continue
+            const events = messages
+                .filter((entry) => !!entry)
+                .map((entry) => {
+                    const nonce = entry.id
+                    const event = (entry.message || {}).event
+                    if (!event) return null
+                    return {
+                        ...JSON.parse(event),
+                        nonce,
+                    }
+                })
+                .filter((event) => !!event)
+            if (!events.length) continue
+            eventsMap[eventName] = events
+        }
+        return eventsMap
+    } catch (err) {
+        logger.error(`Error fetching published events after cursors: ${err}.`, streams)
+        return {}
+    }
+}

@@ -34,6 +34,7 @@ export {
     registerBlockLogsAsIndexed,
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
+    getPublishedEventsAfterEventCursors,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
