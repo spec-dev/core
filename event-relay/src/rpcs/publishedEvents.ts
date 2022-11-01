@@ -1,6 +1,6 @@
 import { EventCursor } from '../types'
 import config from '../config'
-import { getPublishedEventsAfterId, logger, toChunks } from '../../../shared'
+import { getPublishedEventsAfterId, getPublishedEventsAfterEventCursors, logger, toChunks } from '../../../shared'
 
 interface GetEventsAfterCursorsPayload {
     cursors: EventCursor[]
@@ -18,13 +18,37 @@ export async function getEventsAfterCursors(request: any, publish: any) {
 
     request.end([])
 
-    // Transfer all events to the client from the given cursors.
-    await Promise.all(eventCursors.map(ec => getEventsAfterCursor(ec, publish, channel)))
+    const useNewMethod = !!eventCursors.find(ec => ec.name.includes(':'))
+    if (useNewMethod) {
+        await getNewEventsAfterCursors(eventCursors, publish, channel)
+    } else {
+        await Promise.all(eventCursors.map(ec => getEventsAfterCursor(ec, publish, channel)))
+    }
+
     await publish(channel, { done: true })
 }
 
+async function getNewEventsAfterCursors(cursors: EventCursor[], publish, channel) {
+    const eventsMap = await getPublishedEventsAfterEventCursors(cursors)
+
+    for (const eventName in eventsMap) {
+        const specEvents = eventsMap[eventName] || []
+        if (!specEvents.length) continue
+
+        const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)
+    
+        for (let batch of batches) {
+            try {
+                await publish(channel, batch)
+            } catch (err) {
+                logger.error(`Error sending missed events over the wire: ${err}.`)
+            }
+        }    
+    }
+}
+
 async function getEventsAfterCursor(cursor: EventCursor, publish, channel) {
-    const eventsAfterCursor = await getPublishedEventsAfterId(cursor.nonce, cursor.name)
+    const eventsAfterCursor = await getPublishedEventsAfterId(cursor.nonce as number, cursor.name)
     if (!eventsAfterCursor.length) return
 
     const specEvents = eventsAfterCursor.map(publishedEvent => ({
@@ -36,8 +60,8 @@ async function getEventsAfterCursor(cursor: EventCursor, publish, channel) {
             eventTimestamp: publishedEvent.timestamp.toISOString(),
         },
         data: publishedEvent.data,
-    }))
-    
+    }))    
+
     const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)
     
     for (let batch of batches) {
