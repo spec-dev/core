@@ -146,7 +146,7 @@ async function publishDiffsAsEvents(
     publishedEvents.forEach((publishedEvent) => {
         const specEvent: SpecEvent<StringKeyMap> = {
             id: publishedEvent.uid,
-            nonce: publishedEvent.id,
+            nonce: publishedEvent.id.toString(),
             name: publishedEvent.name,
             origin: {
                 ...publishedEvent.origin,
