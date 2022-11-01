@@ -21,7 +21,7 @@ async function perform(nsp: any, eventName: string, name: string, version: strin
     }
 
     logger.info(`Creating event_version ${nsp}.${name}@${version}...`)
-    await createEventVersion(nsp, event.id, name, version)
+    await createEventVersion(nsp, event.id, name, version, chainId)
     logger.info('Success.')
     exit(0)
 }
