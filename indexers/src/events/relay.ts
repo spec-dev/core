@@ -37,20 +37,19 @@ export async function publishEventSpecs(eventSpecs: StringKeyMap[]) {
 
 export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
     logger.info(`Publishing ${event.name}...`)
-    console.log(event)
-    // await eventClient.socket.transmitPublish(event.name, event)
+    await eventClient.socket.transmitPublish(event.name, event)
 }
 
 function formatEvent(eventSpec: StringKeyMap, eventTimestamp: string): StringKeyMap {
-    const { specEventName, specEventData, specEventOrigin } = eventSpec
+    const { name, data, origin } = eventSpec
     return {
         id: short.generate(),
-        name: specEventName,
+        name,
         origin: {
-            ...specEventOrigin,
+            ...origin,
             eventTimestamp,
         },
-        data: specEventData,
+        data,
     }
 }
 

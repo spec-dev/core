@@ -6,6 +6,7 @@ import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
+import { onIvyWalletCreatedContractEvent } from '../../events'
 import { publishEventSpecs } from '../../events/relay'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
@@ -35,6 +36,8 @@ import {
 const web3js = new Web3()
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
+
+const ivySmartWalletInitializerWalletCreated = 'polygon:ivy.SmartWalletInitializer.WalletCreated'
 
 class PolygonIndexer extends AbstractIndexer {
     
@@ -175,7 +178,15 @@ class PolygonIndexer extends AbstractIndexer {
 
     async _createAndPublishEvents() {
         const eventSpecs = await this._getDetectedContractEventSpecs()
-        eventSpecs.length && await publishEventSpecs(eventSpecs)
+        if (!eventSpecs.length) return
+        
+        await publishEventSpecs(eventSpecs)
+
+        for (const eventSpec of eventSpecs) {
+            if (eventSpec.name === ivySmartWalletInitializerWalletCreated) {
+                await onIvyWalletCreatedContractEvent(eventSpec)
+            }
+        }
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
@@ -212,9 +223,9 @@ class PolygonIndexer extends AbstractIndexer {
             const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
             const namespacedEventName = [nsp, contractName, eventName].join('.')
             eventSpecs.push({
-                specEventName: `${specEventNamePrefix}${namespacedEventName}`,
-                specEventData: data,
-                specEventOrigin: eventOrigin,
+                name: `${specEventNamePrefix}${namespacedEventName}`,
+                data: data,
+                origin: eventOrigin,
             })
         }
         return eventSpecs

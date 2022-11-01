@@ -8,12 +8,18 @@ import {
     saveFunctionSignatures,
     Abi,
     abiRedis,
-    getAbi
+    getAbi,
+    abiRedisKeys,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
 
 const web3 = new Web3()
+
+const ivyAbi = [{"type":"constructor","payable":false,"inputs":[{"type":"address","name":"trustedForwarder_"}],"signature":"0x88495b5f"},{"type":"event","anonymous":false,"name":"OwnershipTransferred","inputs":[{"type":"address","name":"previousOwner","indexed":true},{"type":"address","name":"newOwner","indexed":true}],"signature":"0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"},{"type":"event","anonymous":false,"name":"SmartWalletImpSet","inputs":[{"type":"address","name":"smartWalletImpl","indexed":true}],"signature":"0xccf229c32b4b7ac08f8e696ce64fa21c8f59b7c7662fa66ceebe5bdf2a144f67"},{"type":"event","anonymous":false,"name":"WalletCreated","inputs":[{"type":"address","name":"owner","indexed":true},{"type":"address","name":"smartWallet","indexed":true}],"signature":"0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081"},{"type":"function","name":"getSmartWalletImpl","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"address"}],"signature":"0x6e067962"},{"type":"function","name":"initWallet","constant":false,"payable":false,"inputs":[{"type":"address","name":"user_"}],"outputs":[{"type":"address"}],"signature":"0x9da8be21"},{"type":"function","name":"initWalletWithPayment","constant":false,"stateMutability":"payable","payable":true,"inputs":[{"type":"address","name":"user_"}],"outputs":[{"type":"address"}],"signature":"0x5660356c"},{"type":"function","name":"isTrustedForwarder","constant":true,"stateMutability":"view","payable":false,"inputs":[{"type":"address","name":"forwarder"}],"outputs":[{"type":"bool"}],"signature":"0x572b6c05"},{"type":"function","name":"name","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"string"}],"signature":"0x06fdde03"},{"type":"function","name":"owner","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"address"}],"signature":"0x8da5cb5b"},{"type":"function","name":"renounceOwnership","constant":false,"payable":false,"inputs":[],"outputs":[],"signature":"0x715018a6"},{"type":"function","name":"setSmartWalletImplementation","constant":false,"payable":false,"inputs":[{"type":"address","name":"smartWalletImpl_"}],"outputs":[],"signature":"0x3b08da7c"},{"type":"function","name":"transferOwnership","constant":false,"payable":false,"inputs":[{"type":"address","name":"newOwner"}],"outputs":[],"signature":"0xf2fde38b"}]
+const ivyAbiMap = {
+    '0xfaf2b3ad1b211a2fe5434c75b50d256069d1b51f': JSON.stringify(ivyAbi)
+}
 
 class AbiPolisher {
     from: number 
@@ -32,35 +38,39 @@ class AbiPolisher {
     }
 
     async run() {
-        let cursor = null
-        let batch
-        while (true) {
-            const results = await this._getAbisBatch(cursor || 0)
-            cursor = results[0]
-            batch = results[1]
-
-            logger.info(`CURSOR: ${cursor}`)
-
-            await this._polishAbis(batch)
-    
-            // await Promise.all([
-            //     this._saveAbis(abisMapToSave), 
-            //     this._saveFuncSigHashes(funcSigHashesMap),
-            // ])
-
-            if (cursor === 0) {
-                break
-            }
-    
-            // const start = this.cursor
-            // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            // const group = range(start, end)
-            // await this._indexGroup(group)
-            // this.cursor = this.cursor + this.groupSize
-        }
+        await saveAbis(ivyAbiMap, abiRedisKeys.POLYGON_CONTRACTS)
         logger.info('DONE')
-        logger.info(await abiRedis.sCard('refetch-abis2'))
         exit()
+
+        // let cursor = null
+        // let batch
+        // while (true) {
+        //     const results = await this._getAbisBatch(cursor || 0)
+        //     cursor = results[0]
+        //     batch = results[1]
+
+        //     logger.info(`CURSOR: ${cursor}`)
+
+        //     await this._polishAbis(batch)
+    
+        //     // await Promise.all([
+        //     //     this._saveAbis(abisMapToSave), 
+        //     //     this._saveFuncSigHashes(funcSigHashesMap),
+        //     // ])
+
+        //     if (cursor === 0) {
+        //         break
+        //     }
+    
+        //     // const start = this.cursor
+        //     // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     // const group = range(start, end)
+        //     // await this._indexGroup(group)
+        //     // this.cursor = this.cursor + this.groupSize
+        // }
+        // logger.info('DONE')
+        // logger.info(await abiRedis.sCard('refetch-abis2'))
+        // exit()
     }
 
     async _indexGroup(numbers: number[]) {
