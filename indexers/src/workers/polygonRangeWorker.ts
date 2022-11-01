@@ -21,6 +21,7 @@ import {
     formatAbiValueWithType,
     toChunks,
 } from '../../../shared'
+import { exit } from 'process'
 
 class PolygonRangeWorker {
     
@@ -71,6 +72,7 @@ class PolygonRangeWorker {
             )
         }
         logger.info('DONE')
+        exit()
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {

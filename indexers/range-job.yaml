@@ -35,6 +35,8 @@ spec:
           value: "{{CHAIN_ID}}"
         - name: ALCHEMY_API_KEY
           value: {{ALCHEMY_API_KEY}}
+        - name: ALCHEMY_REST_URL
+          value: {{ALCHEMY_REST_URL}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME
@@ -84,7 +86,7 @@ spec:
         - name: ETHERSCAN_API_KEY
           value: 2AVI7MJT2URAPWS32TEC9TYV25NIUCUSYR
         - name: SHARED_TABLES_MAX_POOL_SIZE
-          value: "10"
+          value: "100"
         - name: SAVE_BATCH_MULTIPLE
-          value: "1"
+          value: "5"
       restartPolicy: Never
