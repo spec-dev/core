@@ -1,5 +1,4 @@
-import { StringKeyMap, logger } from '../../../../shared'
-import { SharedTables } from '../../../../shared/src'
+import { StringKeyMap, logger, SharedTables } from '../../../../shared'
 import { publishEventSpecs } from '../relay'
 
 export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap) {

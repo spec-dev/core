@@ -20,7 +20,7 @@ async function run() {
         abiRedis.connect(),
     ])
 
-    // // Make sure verified contracts and instances are cached.
+    // Make sure verified contracts and instances are cached.
     await upsertContractCaches()
 
     logger.info(
