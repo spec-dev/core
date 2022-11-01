@@ -9,7 +9,8 @@ export async function createEventVersion(
     nsp: string,
     eventId: number,
     name: string,
-    version: string
+    version: string,
+    chainId?: number | null
 ): Promise<EventVersion> {
     const eventVersion = new EventVersion()
     eventVersion.uid = uuid4()
@@ -17,6 +18,9 @@ export async function createEventVersion(
     eventVersion.name = name
     eventVersion.version = version
     eventVersion.eventId = eventId
+    if (chainId) {
+        eventVersion.chainId = chainId
+    }
 
     try {
         await eventVersions().save(eventVersion)
@@ -33,12 +37,13 @@ export async function createEventVersion(
 export async function getEventVersion(
     nsp: string,
     name: string,
-    version: string
+    version: string,
+    chainId: number
 ): Promise<EventVersion | null> {
     try {
-        return await eventVersions().findOneBy({ nsp, name, version })
+        return await eventVersions().findOneBy({ nsp, name, version, chainId })
     } catch (err) {
-        logger.error(`Error getting EventVersion ${nsp}.${name}@${version}: ${err}`)
+        logger.error(`Error getting EventVersion ${nsp}.${name}@${version}, chainId=${chainId}: ${err}`)
         return null
     }
 }

@@ -5,7 +5,7 @@ import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(nsp: any, eventName: string, name: string, version: string) {
+async function perform(nsp: any, eventName: string, name: string, version: string, chainId: any) {
     await CoreDB.initialize()
 
     const namespace = await getNamespace(nsp)

@@ -17,6 +17,8 @@ import createOrg from './createOrg'
 import createOrgUser from './createOrgUser'
 import createProject from './createProject'
 import createProjectRole from './createProjectRole'
+import createContract from './createContract'
+import createContractInstance from './createContractInstance'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -40,6 +42,8 @@ const jobs = {
     createOrgUser,
     createProject,
     createProjectRole,
+    createContract,
+    createContractInstance,
 }
 
 async function run() {
