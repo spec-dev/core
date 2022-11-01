@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: head-indexer
+  name: head-indexer-{{CHAIN_ID}}
   labels:
-    app: head-indexer
+    app: head-indexer-{{CHAIN_ID}}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: head-indexer
+      app: head-indexer-{{CHAIN_ID}}
   template:
     metadata:
       labels:
-        app: head-indexer
+        app: head-indexer-{{CHAIN_ID}}
     spec:
       containers:
-      - name: head-indexer
+      - name: head-indexer-{{CHAIN_ID}}
         image: {{IMAGE}}
         env:
         - name: NODE_ENV
@@ -24,10 +24,14 @@ spec:
           value: "{{CHAIN_ID}}"
         - name: ALCHEMY_API_KEY
           value: {{ALCHEMY_API_KEY}}
+        - name: ALCHEMY_REST_URL
+          value: {{ALCHEMY_REST_URL}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME
           value: {{EVENT_RELAY_HOSTNAME}}
+        - name: HEAD_REPORTER_QUEUE_KEY
+          value: {{HEAD_REPORTER_QUEUE_KEY}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
