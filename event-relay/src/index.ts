@@ -5,11 +5,12 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole, CoreDB } from '../../shared'
+import { specEnvs, logger, ClaimRole, CoreDB, indexerRedis } from '../../shared'
 import { resolveLiveObjectVersions, getEventsAfterCursors, RPC } from './rpcs'
 import { authConnection } from './utils/auth'
 
 const coreDBPromise = CoreDB.initialize()
+const indexerRedisPromise = indexerRedis.connect()
 
 // Create SocketCluster server options.
 const agOptions = {
@@ -75,7 +76,7 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
 
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
-    await coreDBPromise
+    await Promise.all([coreDBPromise, indexerRedisPromise])
 
     for await (let {socket} of agServer.listener('connection')) {
         ;(async () => {

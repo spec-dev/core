@@ -45,7 +45,7 @@ async function getNewEventsAfterCursors(cursors: EventCursor[], publish, channel
             }
         }    
     }
-}
+}   
 
 async function getEventsAfterCursor(cursor: EventCursor, publish, channel) {
     const eventsAfterCursor = await getPublishedEventsAfterId(cursor.nonce as number, cursor.name)

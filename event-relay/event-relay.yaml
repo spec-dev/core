@@ -41,6 +41,10 @@ spec:
           value: {{CORE_DB_USERNAME}}
         - name: CORE_DB_PASSWORD
           value: {{CORE_DB_PASSWORD}}
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
         readinessProbe:
           httpGet:
             path: /health-check
