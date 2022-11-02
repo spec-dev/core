@@ -10,6 +10,7 @@ import {
     abiRedis,
     getAbi,
     abiRedisKeys,
+    CoreDB,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -38,7 +39,10 @@ class AbiPolisher {
     }
 
     async run() {
-        await saveAbis(ivyAbiMap, abiRedisKeys.POLYGON_CONTRACTS)
+        // await saveAbis(ivyAbiMap, abiRedisKeys.POLYGON_CONTRACTS)
+
+        await CoreDB.query(`CREATE TABLE "sessions" ("id" SERIAL NOT NULL, "uid" character varying NOT NULL, "user_id" integer NOT NULL, "token" character varying NOT NULL, "salt" character varying NOT NULL, "expiration_date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_3238ef96f18b355b671619111bc" PRIMARY KEY ("id"))`)
+
         logger.info('DONE')
         exit()
 
