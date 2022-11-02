@@ -6,7 +6,7 @@ import { range } from '../utils/math'
 
 // Create redis client.
 const url = config.CORE_REDIS_URL
-const useCluster = !url?.includes('localhost')
+const useCluster = !url?.includes('localhost') && !url?.includes('dev')
 
 export const redis = useCluster
     ? createCluster({
