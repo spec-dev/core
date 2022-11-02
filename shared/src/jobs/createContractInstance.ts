@@ -14,7 +14,6 @@ async function perform(
 
     await CoreDB.query('delete from "contract_instances"')
 
-
     // logger.info(`Creating contract instance ${name}...`)
 
     // const contractInstance = await createContractInstance(
