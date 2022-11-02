@@ -19,6 +19,7 @@ export const getIndexer = (head: NewReportedHead): Indexer | null => {
 
         // Polygon
         case chainIds.POLYGON_MAINNET:
+        case chainIds.POLYGON_MUMBAI:
             return new PolygonIndexer(head, getWeb3())
 
         default:
