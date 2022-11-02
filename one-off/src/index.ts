@@ -31,12 +31,12 @@ async function run() {
     try {
         console.log('ONE')
         await conn.query(
-            `CREATE INDEX "trace_from" ON ethereum.traces ("from")`
+            `CREATE TABLE "sessions" ("id" SERIAL NOT NULL, "uid" character varying NOT NULL, "user_id" integer NOT NULL, "token" character varying NOT NULL, "salt" character varying NOT NULL, "expiration_date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_3238ef96f18b355b671619111bc" PRIMARY KEY ("id"))`
         )
-        console.log('TWO')
-        await conn.query(
-            `CREATE INDEX "trace_to" ON ethereum.traces ("to")`
-        )
+        // console.log('TWO')
+        // await conn.query(
+        //     `CREATE INDEX "trace_to" ON ethereum.traces ("to")`
+        // )
     } catch (err) {
         error = err
     } finally {

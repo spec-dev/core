@@ -25,6 +25,13 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
+# Core DB
+core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
+core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
+core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
+core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
+core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 # Shared Tables DB
@@ -33,6 +40,13 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
+# Core DB
+$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
+$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
+$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
+$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
+$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -56,6 +70,11 @@ job_name="one-off-$image_version-$RANDOM-end"
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
+    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
+    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
+    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
+    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
+    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \

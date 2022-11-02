@@ -9,7 +9,7 @@ WORKDIR /usr/app
 COPY one-off/package.json ./
 COPY one-off/tsconfig.json ./
 
-COPY one-off/src ./src
+COPY one-off/src ./sr
 
 RUN npm install
 RUN apk del .gyp

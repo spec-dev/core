@@ -33,4 +33,14 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
       restartPolicy: Never
