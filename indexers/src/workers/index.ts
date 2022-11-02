@@ -3,6 +3,7 @@ import config from '../config'
 import { getHeadWorker } from './headWorker'
 import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
+import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
 import { getLogWorker } from './logWorker'
 import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
@@ -27,6 +28,14 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
 
     const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
+    switch (prodChainName) {
+        case 'polygon':
+            return config.SPECIFIC_INDEX_NUMBERS.length
+                ? getPolygonSpecificNumbersWorker() 
+                : getPolygonRangeWorker()
+        case 'eth':
+            break
+    }
     return prodChainName === 'polygon' 
         ? getPolygonRangeWorker()
         : getEthRangeWorker()
