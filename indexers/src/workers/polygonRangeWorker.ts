@@ -282,7 +282,7 @@ class PolygonRangeWorker {
         )
         const smartWallets = []
         for (const log of logs) {
-            if (log.address === '0xfaf2b3ad1b211a2fe5434c75b50d256069d1b51f' && log.eventName === 'WalletCreated') {
+            if (log.address === '0x395b1b4cbd34c1ec7aaf47e6bf2a2356af558fe2' && log.eventName === 'WalletCreated') {
                 const eventArgs = log.eventArgs || []
                 if (!eventArgs.length) continue
                 const data = this._logEventArgsAsMap(eventArgs)

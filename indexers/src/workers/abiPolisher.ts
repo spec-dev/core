@@ -19,7 +19,7 @@ const web3 = new Web3()
 
 const ivyAbi = [{"type":"constructor","payable":false,"inputs":[{"type":"address","name":"trustedForwarder_"}],"signature":"0x88495b5f"},{"type":"event","anonymous":false,"name":"OwnershipTransferred","inputs":[{"type":"address","name":"previousOwner","indexed":true},{"type":"address","name":"newOwner","indexed":true}],"signature":"0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"},{"type":"event","anonymous":false,"name":"SmartWalletImpSet","inputs":[{"type":"address","name":"smartWalletImpl","indexed":true}],"signature":"0xccf229c32b4b7ac08f8e696ce64fa21c8f59b7c7662fa66ceebe5bdf2a144f67"},{"type":"event","anonymous":false,"name":"WalletCreated","inputs":[{"type":"address","name":"owner","indexed":true},{"type":"address","name":"smartWallet","indexed":true}],"signature":"0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081"},{"type":"function","name":"getSmartWalletImpl","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"address"}],"signature":"0x6e067962"},{"type":"function","name":"initWallet","constant":false,"payable":false,"inputs":[{"type":"address","name":"user_"}],"outputs":[{"type":"address"}],"signature":"0x9da8be21"},{"type":"function","name":"initWalletWithPayment","constant":false,"stateMutability":"payable","payable":true,"inputs":[{"type":"address","name":"user_"}],"outputs":[{"type":"address"}],"signature":"0x5660356c"},{"type":"function","name":"isTrustedForwarder","constant":true,"stateMutability":"view","payable":false,"inputs":[{"type":"address","name":"forwarder"}],"outputs":[{"type":"bool"}],"signature":"0x572b6c05"},{"type":"function","name":"name","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"string"}],"signature":"0x06fdde03"},{"type":"function","name":"owner","constant":true,"stateMutability":"view","payable":false,"inputs":[],"outputs":[{"type":"address"}],"signature":"0x8da5cb5b"},{"type":"function","name":"renounceOwnership","constant":false,"payable":false,"inputs":[],"outputs":[],"signature":"0x715018a6"},{"type":"function","name":"setSmartWalletImplementation","constant":false,"payable":false,"inputs":[{"type":"address","name":"smartWalletImpl_"}],"outputs":[],"signature":"0x3b08da7c"},{"type":"function","name":"transferOwnership","constant":false,"payable":false,"inputs":[{"type":"address","name":"newOwner"}],"outputs":[],"signature":"0xf2fde38b"}]
 const ivyAbiMap = {
-    '0xfaf2b3ad1b211a2fe5434c75b50d256069d1b51f': JSON.stringify(ivyAbi)
+    '0x395b1b4cbd34c1ec7aaf47e6bf2a2356af558fe2': JSON.stringify(ivyAbi)
 }
 
 class AbiPolisher {
@@ -39,9 +39,7 @@ class AbiPolisher {
     }
 
     async run() {
-        // await saveAbis(ivyAbiMap, abiRedisKeys.POLYGON_CONTRACTS)
-
-        await CoreDB.query(`CREATE TABLE "sessions" ("id" SERIAL NOT NULL, "uid" character varying NOT NULL, "user_id" integer NOT NULL, "token" character varying NOT NULL, "salt" character varying NOT NULL, "expiration_date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_3238ef96f18b355b671619111bc" PRIMARY KEY ("id"))`)
+        await saveAbis(ivyAbiMap, abiRedisKeys.POLYGON_CONTRACTS)
 
         logger.info('DONE')
         exit()
