@@ -15,7 +15,7 @@ app.post(paths.NEW_DEPLOYMENT, async (req, res) => {
     if (!user) return
 
     // Parse & validate payload.
-    const { payload, isValid, error } = parseNewDeploymentPayload(req.query)
+    const { payload, isValid, error } = parseNewDeploymentPayload(req.body)
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }

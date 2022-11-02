@@ -3,6 +3,7 @@ const prefix = {
     PROJECT: '/project',
     DEPLOYMENT: '/deployment',
     ADMIN: '/admin',
+    LIVE_OBJECT: '/live-object',
 }
 
 const paths = {
@@ -21,6 +22,9 @@ const paths = {
 
     // ABI paths.
     UPSERT_ABIS: prefix.ADMIN + '/abis',
+
+    // Live Object paths.
+    LIVE_OBJECTS: prefix.LIVE_OBJECT + 's',
 }
 
 export default paths

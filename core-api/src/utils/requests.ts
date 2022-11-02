@@ -9,6 +9,7 @@ export const errors = {
     NO_FILE_PROVIDED: 'No file provided',
     INVALID_FILE_TYPE: 'Invalid file type',
     NO_SPEC_INSTANCE: 'No Spec instance exists for project',
+    UNKNOWN_ERROR: 'Unknown error',
 }
 
 export const codes = {
