@@ -22,7 +22,7 @@ export class IndexedBlock {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column('int2', { name: 'chain_id' })
+    @Column({ name: 'chain_id' })
     @Index()
     chainId: number
 

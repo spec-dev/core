@@ -19,6 +19,8 @@ import createProject from './createProject'
 import createProjectRole from './createProjectRole'
 import createContract from './createContract'
 import createContractInstance from './createContractInstance'
+import getProjects from './getProjects'
+import getEventVersions from './getEventVersions'
 import reset from './reset'
 import { argv } from 'process'
 import logger from '../lib/logger'
@@ -46,6 +48,8 @@ const jobs = {
     createContract,
     createContractInstance,
     reset,
+    getProjects,
+    getEventVersions,
 }
 
 async function run() {

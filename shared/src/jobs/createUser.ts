@@ -20,7 +20,7 @@ async function perform(
         exit(0)
     }
 
-    logger.info('Success.')
+    logger.info('Success.', user.id)
     exit(0)
 }
 

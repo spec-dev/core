@@ -15,7 +15,7 @@ async function perform(orgId: number, userId: number, role: OrgUserRole) {
         exit(0)
     }
 
-    logger.info('Success.')
+    logger.info('Success.', orgUser.id)
     exit(0)
 }
 
