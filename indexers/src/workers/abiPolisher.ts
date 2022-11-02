@@ -37,10 +37,11 @@ class AbiPolisher {
     async run() {
         await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
 
-        const abi = await getAbi('0x00189352d2146f80b98d94620dd8f758a8f6e951')
-        console.log(abi)
-        abi.map(console.log)
+        const one = await getAbi('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
+        console.log('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41', one)
 
+        const two = await getAbi('0x7a200636203c5423f1d57081a37142ebf0c8347b')
+        console.log('0x7a200636203c5423f1d57081a37142ebf0c8347b', two)
         // let cursor = null
         // let batch
         // while (true) {
