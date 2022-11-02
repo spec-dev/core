@@ -37,25 +37,29 @@ class AbiPolisher {
     async run() {
         await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
 
-        let cursor = null
-        let batch
-        while (true) {
-            const results = await this._getAbisBatch(cursor || 0)
-            cursor = results[0]
-            batch = results[1]
-            logger.info(`CURSOR: ${cursor}`)
-            const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+        const abi = await getAbi('0x00189352d2146f80b98d94620dd8f758a8f6e951')
+        console.log(abi)
+        abi.map(console.log)
 
-            await Promise.all([
-                this._saveAbis(abisMapToSave), 
-                this._saveFuncSigHashes(funcSigHashesMap),
-            ])
+        // let cursor = null
+        // let batch
+        // while (true) {
+        //     const results = await this._getAbisBatch(cursor || 0)
+        //     cursor = results[0]
+        //     batch = results[1]
+        //     logger.info(`CURSOR: ${cursor}`)
+        //     const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
 
-            if (cursor === 0) {
-                break
-            }
-        }
-        logger.info('DONE')
+        //     await Promise.all([
+        //         this._saveAbis(abisMapToSave), 
+        //         this._saveFuncSigHashes(funcSigHashesMap),
+        //     ])
+
+        //     if (cursor === 0) {
+        //         break
+        //     }
+        // }
+        // logger.info('DONE')
         exit()
     }
 
