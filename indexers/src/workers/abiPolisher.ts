@@ -37,30 +37,28 @@ class AbiPolisher {
     async run() {
         await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
 
-        const one = await getAbi('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
-        console.log('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41', one)
+        let cursor = null
+        let batch
+        let count = 0
+        while (true) {
+            const results = await this._getAbisBatch(cursor || 0)
+            cursor = results[0]
+            batch = results[1]
+            count += 1000
+            logger.info('\nCOUNT', count.toLocaleString())
+            const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
 
-        const two = await getAbi('0x7a200636203c5423f1d57081a37142ebf0c8347b')
-        console.log('0x7a200636203c5423f1d57081a37142ebf0c8347b', two)
-        // let cursor = null
-        // let batch
-        // while (true) {
-        //     const results = await this._getAbisBatch(cursor || 0)
-        //     cursor = results[0]
-        //     batch = results[1]
-        //     logger.info(`CURSOR: ${cursor}`)
-        //     const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+            await Promise.all([
+                this._saveAbis(abisMapToSave), 
+                this._saveFuncSigHashes(funcSigHashesMap),
+            ])
 
-        //     await Promise.all([
-        //         this._saveAbis(abisMapToSave), 
-        //         this._saveFuncSigHashes(funcSigHashesMap),
-        //     ])
-
-        //     if (cursor === 0) {
-        //         break
-        //     }
-        // }
-        // logger.info('DONE')
+            if (cursor === 0) {
+                break
+            }
+        }
+        logger.info('DONE')
+        logger.info(`${await abiRedis.sCard('delete-nulls')} nulls to delete`)
         exit()
     }
 
@@ -112,6 +110,8 @@ class AbiPolisher {
         const abisToUpdate = {}
         const funcSigHashesMap = {}
 
+        const deleteAbisSet = new Set()
+
         for (const entry of addressAbis) {
             const { address, abi = [] } = entry
 
@@ -119,9 +119,9 @@ class AbiPolisher {
             let modified = false
             for (const item of abi) {
                 if (item.inputs?.includes(null)) {
-                    logger.info('STILL GOT NULL!', address)
-                    newAbi.push(item)
-                    continue
+                    deleteAbisSet.add(address)
+                    modified = false
+                    break
                 }
 
                 let signature = item.signature
@@ -150,6 +150,11 @@ class AbiPolisher {
             if (modified) {
                 abisToUpdate[address] = newAbi
             }
+        }
+
+        const deleteAbiAddresses = Array.from(deleteAbisSet) as string[]
+        if (deleteAbiAddresses.length) {
+            await abiRedis.sAdd('delete-nulls', deleteAbiAddresses)
         }
 
         return [abisToUpdate, funcSigHashesMap]
