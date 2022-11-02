@@ -12,19 +12,17 @@ async function perform(
 ) {
     await CoreDB.initialize()
 
-    await CoreDB.query('delete from "contract_instances"')
+    logger.info(`Creating contract instance ${name}...`)
 
-    // logger.info(`Creating contract instance ${name}...`)
+    const contractInstance = await createContractInstance(
+        Number(contractId),
+        Number(chainId),
+        address,
+        name,
+        desc || null
+    )
 
-    // const contractInstance = await createContractInstance(
-    //     Number(contractId),
-    //     Number(chainId),
-    //     address,
-    //     name,
-    //     desc || null
-    // )
-
-    // logger.info('Success', contractInstance.id)
+    logger.info('Success', contractInstance.id)
     exit(0)
 }
 
