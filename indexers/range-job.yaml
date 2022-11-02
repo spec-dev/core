@@ -29,6 +29,8 @@ spec:
           value: "{{FROM}}"
         - name: TO
           value: "{{TO}}"
+        - name: SPECIFIC_INDEX_NUMBERS
+          value: "{{SPECIFIC_INDEX_NUMBERS}}"
         - name: RANGE_GROUP_SIZE
           value: "{{RANGE_GROUP_SIZE}}"
         - name: CHAIN_ID

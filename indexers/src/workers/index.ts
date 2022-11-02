@@ -26,7 +26,6 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (config.RANGE_WORKER_TYPE === 'abi-polisher') {
         return getAbiPolisher()
     }
-
     const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
     switch (prodChainName) {
         case 'polygon':
@@ -34,9 +33,6 @@ export async function getWorker(): Promise<IndexerWorker> {
                 ? getPolygonSpecificNumbersWorker() 
                 : getPolygonRangeWorker()
         case 'eth':
-            break
+            return getEthRangeWorker()
     }
-    return prodChainName === 'polygon' 
-        ? getPolygonRangeWorker()
-        : getEthRangeWorker()
 }
