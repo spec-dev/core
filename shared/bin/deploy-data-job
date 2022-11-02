@@ -33,7 +33,7 @@ jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
-# Indexer DB
+# Indexer DBuo``2       137u`ZA1 `
 indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
 indexer_db_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_HOST" )
 indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
@@ -100,7 +100,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "DATA_JOB_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
-# image_version="f7a4881"
+# image_version="c51a219"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
