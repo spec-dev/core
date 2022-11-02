@@ -10,6 +10,7 @@ export const getReporter = (chainId: number): Reporter | null => {
             return new EthereumReporter(chainId)
         // Polygon Mainnet
         case chainIds.POLYGON_MAINNET:
+        case chainIds.POLYGON_MUMBAI:
             return new PolygonReporter(chainId)
         default:
             return null
