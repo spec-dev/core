@@ -13,7 +13,8 @@ import {
     toChunks,
     getMissingAbiAddresses,
     abiRedis,
-    In
+    In,
+    abiRedisKeys
 } from '../../../shared'
 import { exit } from 'process'
 import fetch from 'cross-fetch'
@@ -62,7 +63,15 @@ class AbiWorker {
             // Polish abis.
             abisMap = this._polishAbis(abisMap)
 
-            await this._saveAbis(abisMap)
+            if (Object.keys(abisMap).length) {
+                await this._saveAbis(abisMap)
+            }
+
+            const addressesToDelete = batch.filter(addr => !abisMap.hasOwnProperty(addr)) as string[]
+            if (addressesToDelete.length) {
+                logger.info(`Deleting ${addressesToDelete.length} addresses...`)
+                await abiRedis.hDel(abiRedisKeys.ETH_CONTRACTS, addressesToDelete)
+            }
 
             if (cursor === 0) break
         }
@@ -111,6 +120,10 @@ class AbiWorker {
             const newAbi = []
     
             for (const item of abi) {
+                if (item.inputs?.includes(null)) {
+                    break
+                }
+
                 let signature = item.signature
                 if (signature) {
                     newAbi.push(item)
@@ -123,8 +136,10 @@ class AbiWorker {
                     }
                 }
             }
-    
-            abisMap[address] = newAbi
+            
+            if (newAbi.length) {
+                abisMap[address] = newAbi
+            }
         }
     
         return abisMap
@@ -148,7 +163,7 @@ class AbiWorker {
 
         let results
         try {
-            results = await abiRedis.sScan('refetch-abis2', cursor, { COUNT: 1000, MATCH: '*' })
+            results = await abiRedis.sScan('delete-nulls', cursor, { COUNT: 1000, MATCH: '*' })
         } catch (err) {
             logger.error(`Error getting addresses: ${err}.`)
             return []
