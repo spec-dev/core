@@ -9,6 +9,7 @@ import {
 } from '../../../shared'
 import { getIndexer } from '../indexers'
 
+
 export function getHeadWorker(): Worker {
     const worker = new Worker(
         config.HEAD_REPORTER_QUEUE_KEY,
