@@ -35,43 +35,61 @@ class AbiPolisher {
     }
 
     async run() {
-        const one = await getAbi('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
-        console.log('\n\n0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
-        one.map(item => console.log(item))
+        await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
 
-        const two = await getAbi('0x7a200636203c5423f1d57081a37142ebf0c8347b')
-        console.log('\n\n0x7a200636203c5423f1d57081a37142ebf0c8347b')
-        two.map(item => console.log(item))
+        let cursor = null
+        let batch
+        let count = 0
+        while (true) {
+            const results = await this._getAbisBatch(cursor || 0)
+            cursor = results[0]
+            batch = results[1]
+            count += 1000
+            logger.info('\nCOUNT', count.toLocaleString())
 
-        const three = await getAbi('0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
-        console.log('\n\n0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
-        three.map(item => console.log(item))
+            const repullSam = []
+            for (const entry of batch) {
+                const { address, abi = [] } = entry
+    
+                let isFromSamczsun = true
+                for (const item of abi) {
+                    if (item.type !== 'function') {
+                        isFromSamczsun = false
+                        break
+                    }
+                    for (const input of item.inputs || []) {
+                        if (Object.keys(input).filter(k => k !== 'type').length) {
+                            isFromSamczsun = false
+                            break
+                        }
+                    }
+                }
 
-        const four = await getAbi('0xba12222222228d8ba445958a75a0704d566bf2c8')
-        console.log('\n\n0xba12222222228d8ba445958a75a0704d566bf2c8')
-        four.map(item => console.log(item))
+                if (isFromSamczsun) {
+                    repullSam.push(address)
+                }
+            }
 
-        // let cursor = null
-        // let batch
-        // let count = 0
-        // while (true) {
-        //     const results = await this._getAbisBatch(cursor || 0)
-        //     cursor = results[0]
-        //     batch = results[1]
-        //     count += 1000
-        //     logger.info('\nCOUNT', count.toLocaleString())
-        //     const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+            if (repullSam.length) {
+                logger.info(`    ${repullSam.length}`)
+                await abiRedis.zAdd('repull-sam', repullSam)
+            }
 
-        //     await Promise.all([
-        //         this._saveAbis(abisMapToSave), 
-        //         this._saveFuncSigHashes(funcSigHashesMap),
-        //     ])
+            // await this._findSamczsunAbis(batch)
 
-        //     if (cursor === 0) {
-        //         break
-        //     }
-        // }
+            // const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+
+            // await Promise.all([
+            //     this._saveAbis(abisMapToSave), 
+            //     this._saveFuncSigHashes(funcSigHashesMap),
+            // ])
+
+            if (cursor === 0) {
+                break
+            }
+        }
         logger.info('DONE')
+        logger.info(await abiRedis.zCard('repull-sam'))
         exit()
     }
 
