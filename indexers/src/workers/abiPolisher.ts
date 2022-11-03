@@ -36,8 +36,8 @@ class AbiPolisher {
 
     async run() {
         await abiRedis.del('delete-nulls')
-        const numAbis = abiRedis.hLen(abiRedisKeys.ETH_CONTRACTS)
-        const numFunctionSignatures = abiRedis.hLen(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+        const numAbis = await abiRedis.hLen(abiRedisKeys.ETH_CONTRACTS)
+        const numFunctionSignatures = await abiRedis.hLen(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
 
         console.log('Num ABIS', numAbis)
         console.log('Num Function Sigs', numFunctionSignatures)

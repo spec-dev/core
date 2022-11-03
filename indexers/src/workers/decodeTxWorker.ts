@@ -55,12 +55,15 @@ class DecodeTxWorker {
         if (!transactions.length) return
 
         // Get all abis for addresses needed to decode transactions.
-        const txToAddresses = transactions.map(t => t.to)
+        const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
         const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
         const [abis, functionSignatures] = await Promise.all([
             getAbis(Array.from(new Set(txToAddresses))),
             getFunctionSignatures(Array.from(new Set(sigs))),
         ])
+        if (!Object.keys(abis).length && !Object.keys(functionSignatures).length) {
+            return
+        }
 
         // Decode transactions and logs.
         transactions = this._decodeTransactions(transactions, abis, functionSignatures)
