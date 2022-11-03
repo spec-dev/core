@@ -7,6 +7,7 @@ import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
 import { getLogWorker } from './logWorker'
 import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
+import { getDecodeTxWorker } from './decodeTxWorker'
 import { getAbiPolisher } from './abiPolisher'
 import { productionChainNameForChainId } from '../../../shared'
 
@@ -25,6 +26,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'abi-polisher') {
         return getAbiPolisher()
+    }
+    if (config.RANGE_WORKER_TYPE === 'dtx') {
+        return getDecodeTxWorker()
     }
     const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
     switch (prodChainName) {
