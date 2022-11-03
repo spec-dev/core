@@ -36,6 +36,7 @@ class AbiPolisher {
 
     async run() {
         await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+        await abiRedis.del('repull-sam')
 
         let cursor = null
         let batch
@@ -50,6 +51,7 @@ class AbiPolisher {
             const repullSam = []
             for (const entry of batch) {
                 const { address, abi = [] } = entry
+                if (!address) continue
     
                 let isFromSamczsun = true
                 for (const item of abi) {
@@ -72,6 +74,7 @@ class AbiPolisher {
 
             if (repullSam.length) {
                 logger.info(`    ${repullSam.length}`)
+                // console.log(JSON.stringify(repullSam, null, 4))
                 await abiRedis.zAdd('repull-sam', repullSam)
             }
 

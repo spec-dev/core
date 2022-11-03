@@ -13,6 +13,7 @@ import {
     toChunks,
     getMissingAbiAddresses,
     abiRedis,
+    functionSignatureToAbiInputs,
     In,
     abiRedisKeys
 } from '../../../shared'
@@ -43,73 +44,73 @@ class AbiWorker {
     }
 
     async run() {
-        let cursor = null
-        let batch
-        let count = 0
-        while (true) {
-            const results = await this._getAddressesBatch(cursor || 0)
-            cursor = results[0]
-            batch = results[1]
-            count += 1000
-            logger.info('\nCOUNT', count.toLocaleString())
+        // let cursor = null
+        // let batch
+        // let count = 0
+        // while (true) {
+        //     const results = await this._getAddressesBatch(cursor || 0)
+        //     cursor = results[0]
+        //     batch = results[1]
+        //     count += 1000
+        //     logger.info('\nCOUNT', count.toLocaleString())
 
-            // Get this batch of contracts (offset + limit).
-            const contracts = await this._getContracts(batch)
-            if (!contracts.length) continue
+        //     // Get this batch of contracts (offset + limit).
+        //     const contracts = await this._getContracts(batch)
+        //     if (!contracts.length) continue
 
-            // Fetch & save new ABIs.
-            let abisMap = await this._fetchAbis(contracts)
+        //     // Fetch & save new ABIs.
+        //     let abisMap = await this._fetchAbis(contracts)
 
-            // Polish abis.
-            abisMap = this._polishAbis(abisMap)
+        //     // Polish abis.
+        //     abisMap = this._polishAbis(abisMap)
 
-            if (Object.keys(abisMap).length) {
-                await this._saveAbis(abisMap)
-            }
+        //     if (Object.keys(abisMap).length) {
+        //         await this._saveAbis(abisMap)
+        //     }
 
-            const addressesToDelete = batch.filter(addr => !abisMap.hasOwnProperty(addr)) as string[]
-            if (addressesToDelete.length) {
-                logger.info(`Deleting ${addressesToDelete.length} addresses...`)
-                await abiRedis.hDel(abiRedisKeys.ETH_CONTRACTS, addressesToDelete)
-            }
+        //     const addressesToDelete = batch.filter(addr => !abisMap.hasOwnProperty(addr)) as string[]
+        //     if (addressesToDelete.length) {
+        //         logger.info(`Deleting ${addressesToDelete.length} addresses...`)
+        //         await abiRedis.hDel(abiRedisKeys.ETH_CONTRACTS, addressesToDelete)
+        //     }
 
-            if (cursor === 0) break
-        }
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const group = range(start, end)
-        //     await this._indexGroup(group)
-        //     this.cursor = this.cursor + this.groupSize
+        //     if (cursor === 0) break
         // }
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const group = range(start, end)
+            await this._indexGroup(group)
+            this.cursor = this.cursor + this.groupSize
+        }
         logger.info('DONE')
         exit()
     }
 
     async _indexGroup(numbers: number[]) {
-        // logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
+        logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
 
-        // const addresses = await this._getAddressesBatch(numbers)
+        const addresses = await this._getAddressesBatch(numbers)
 
-        // // Get this batch of contracts (offset + limit).
-        // const contracts = await this._getContracts(addresses)
-        // if (!contracts.length) return
+        // Get this batch of contracts (offset + limit).
+        const contracts = await this._getContracts(addresses)
+        if (!contracts.length) return
 
         // logger.info(`    Got ${contracts.length} contracts.`)
 
-        // // Filter out contracts we've already fetched ABIs for.
-        // const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
-        // if (!contractsThatNeedAbis.length) return
+        // Filter out contracts we've already fetched ABIs for.
+        const contractsThatNeedAbis = await this._getContractsThatNeedAbis(contracts)
+        if (!contractsThatNeedAbis.length) return
 
         // logger.info(`    ${contractsThatNeedAbis.length} contracts need ABIs....`)
 
-        // // Fetch & save new ABIs.
-        // let abisMap = await this._fetchAbis(contractsThatNeedAbis)
+        // Fetch & save new ABIs.
+        let abisMap = await this._fetchAbis(contractsThatNeedAbis)
 
-        // // Polish abis.
+        // Polish abis.
         // abisMap = this._polishAbis(abisMap)
 
-        // await this._saveAbis(abisMap)
+        await this._saveAbis(abisMap)
     }
 
     _polishAbis(abis: StringKeyMap): StringKeyMap {
@@ -157,18 +158,18 @@ class AbiWorker {
         }
     }
 
-    async _getAddressesBatch(cursor: number): Promise<string[]> {
-        // const offset = numbers[0]
-        // const limit = numbers.length
+    async _getAddressesBatch(numbers: number[]): Promise<string[]> {
+        const start = numbers[0]
+        const end = numbers[numbers.length - 1]
 
-        let results
+        let addresses
         try {
-            results = await abiRedis.sScan('delete-nulls', cursor, { COUNT: 1000, MATCH: '*' })
+            addresses = await abiRedis.zRange('repull-sam', start, end)
         } catch (err) {
             logger.error(`Error getting addresses: ${err}.`)
             return []
         }
-        return [results.cursor, results.members || []]
+        return addresses || []
     }
 
     async _getContracts(addresses: string[]): Promise<EthContract[]> {
@@ -301,7 +302,7 @@ class AbiWorker {
 
     async _fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1): Promise<Abi | null> {
         const { address, bytecode } = contract
-        logger.info(`    Getting Samczsun selectors from bytecode for ${address}...`)
+        // logger.info(`    Getting Samczsun selectors from bytecode for ${address}...`)
 
         let funcSigHexes
         try {
@@ -313,7 +314,7 @@ class AbiWorker {
             return null
         }
 
-        logger.info(`    Fetching Samczsun ABI for ${address}...`)
+        // logger.info(`    Fetching Samczsun ABI for ${address}...`)
 
         const abortController = new AbortController()
         const abortTimer = setTimeout(() => {
@@ -361,25 +362,30 @@ class AbiWorker {
             return null
         }
 
-        logger.info(`    Got Samczsun ABI function results for ${address}...`)
+        // logger.info(`    Got Samczsun ABI function results for ${address}...`)
 
         const functionResults = data.result?.function || {}
         const abi: Abi = []
         for (const signature in functionResults) {
             const abiItem = (functionResults[signature] || [])[0]
             if (!abiItem) continue
-            const { functionName, argTypes } = this._splitSamczsunFunctionSig(abiItem.name)
+            let functionName, inputs
+            try {
+                ;({ functionName, inputs } = functionSignatureToAbiInputs(abiItem.name))
+            } catch (err) {
+                logger.error(err)
+                continue
+            }
+            if (!functionName) continue
             abi.push({
                 name: functionName,
                 type: AbiItemType.Function,
-                inputs: argTypes.map(type => ({
-                    type
-                })),
+                inputs: inputs,
                 signature,
             })
         }
         if (!abi.length) {
-            logger.info(`    No matching Samczsun ABI for ${address}...`)
+            // logger.info(`    No matching Samczsun ABI for ${address}...`)
             return null
         }
 
@@ -420,17 +426,36 @@ class AbiWorker {
         return abiStr
     }
 
-    _splitSamczsunFunctionSig(sig: string): StringKeyMap {
-        const [functionName, argsGroup] = sig.split('(')
-        const argTypes = argsGroup
-            .slice(0, argsGroup.length - 1)
-            .split(',')
-            .map((a) => a.trim())
-            .filter((a) => !!a)
-        return {
-            functionName,
-            argTypes,
+    // _splitSamczsunFunctionSig(sig: string): StringKeyMap {
+    //     const [functionName, argsGroup] = sig.split('(')
+    //     const argTypes = argsGroup
+    //         .slice(0, argsGroup.length - 1)
+    //         .split(',')
+    //         .map((a) => a.trim())
+    //         .filter((a) => !!a)
+    //     return {
+    //         functionName,
+    //         argTypes,
+    //     }
+    // }
+
+    _recurse(val: string, stack: number = 0) {
+    
+        for (let i = 0; i < val.length; i++) {
+            const char = val[i]
+            if (char ==='(' || char === '[') {
+                stack++
+                return this._recurse(val.slice(i + 1, stack))
+            }
+            if (char === ')' || char === ']') {
+                return val.slice(0, i)
+            }
         }
+
+    }
+
+    _splitSamczsunFunctionSig(sig: string): StringKeyMap {
+
     }
 }
 
