@@ -6,8 +6,9 @@ import { getAbi } from '../lib/abi/redis'
 async function perform(address: string, fetchIfNotThere: boolean = true) {
     await abiRedis.connect()
 
+    address = address.toLowerCase()
     const abi = await getAbi(address)
-    if (!abi) {
+    if (abi) {
         abi.forEach((item) => console.log(item))
     } else {
         logger.info('No ABI found.')
