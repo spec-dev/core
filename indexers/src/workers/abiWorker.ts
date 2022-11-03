@@ -453,10 +453,6 @@ class AbiWorker {
         }
 
     }
-
-    _splitSamczsunFunctionSig(sig: string): StringKeyMap {
-
-    }
 }
 
 export function getAbiWorker(): AbiWorker {
