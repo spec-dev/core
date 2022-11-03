@@ -84,13 +84,17 @@ class DecodeTxWorker {
 
         // Decode transactions and logs.
         transactions = this._decodeTransactions(transactions, abis, functionSignatures)
+            .filter(tx => !!tx.functionName)
+        
+        if (!transactions.length) return
+
+        logger.info(`Saving ${transactions.length} decoded transactions (${transactions[0].hash})...`)
 
         // TODO: Bulk update transactions
-        this._updateTransactions(transactions.filter(tx => !!tx.functionName))
+        await this._updateTransactions(transactions)
     }
 
     async _updateTransactions(transactions: EthTransaction[]) {
-        logger.info(`Saving ${transactions.length} decoded transactions...`)
         const tempTableName = `tx_${short.generate()}`
 
         const insertPlaceholders = []
@@ -202,10 +206,10 @@ class DecodeTxWorker {
                 (await transactionsRepo().find({
                     select: { hash: true, to: true, input: true },
                     where: {
-                        blockNumber: In(numbers)
+                        blockNumber: In(numbers),
                     }
                 })) || []
-            )
+            ).filter(tx => !tx.functionName)
         } catch (err) {
             logger.error(`Error getting transactions: ${err}`)
             return []
