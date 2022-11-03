@@ -35,7 +35,12 @@ class AbiPolisher {
     }
 
     async run() {
-        await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+        await abiRedis.del('delete-nulls')
+        const numAbis = abiRedis.hLen(abiRedisKeys.ETH_CONTRACTS)
+        const numFunctionSignatures = abiRedis.hLen(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+
+        console.log('Num ABIS', numAbis)
+        console.log('Num Function Sigs', numFunctionSignatures)
 
         let cursor = null
         let batch
@@ -45,20 +50,30 @@ class AbiPolisher {
             cursor = results[0]
             batch = results[1]
             count += 1000
-            logger.info('\nCOUNT', count.toLocaleString())
-            const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+            if (count % 1000000 === 0) {
+                logger.info('\nCOUNT', count.toLocaleString())
+            }
 
-            await Promise.all([
-                this._saveAbis(abisMapToSave), 
-                this._saveFuncSigHashes(funcSigHashesMap),
-            ])
+            for (const entry of batch) {
+                const { address, abi = [] } = entry
+    
+                for (const item of abi) {
+                    if (item.inputs?.includes(null)) {
+                        logger.info('STILL GOT NULL', address, item)
+                        break
+                    }
 
+                    if (['function', 'constructor', 'event'].includes(item.type) && !item.signature) {
+                        logger.info('STILL NO SIGNATURE', address, item)
+                    }
+                }
+            }
+                        
             if (cursor === 0) {
                 break
             }
         }
         logger.info('DONE')
-        logger.info(`${await abiRedis.sCard('delete-nulls')} nulls to delete`)
         exit()
     }
 
