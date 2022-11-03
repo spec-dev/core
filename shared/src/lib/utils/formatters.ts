@@ -139,6 +139,9 @@ export const formatAbiValueWithType = (value: any, dataType: string): any => {
     if (dataType === 'address') {
         return attemptToLowerCase(value)
     }
+    if (dataType === 'bool') {
+        return parseAbiBool(value)
+    }
     return value
 }
 
@@ -156,5 +159,17 @@ export const attemptToLowerCase = (originalValue: string): string => {
         return originalValue.toLowerCase()
     } catch (err) {
         return originalValue
+    }
+}
+
+export const parseAbiBool = (value: any): boolean => {
+    if (!value) return false
+    switch (typeof value) {
+        case 'string':
+            return value.includes('true') || parseInt(value) === 1
+        case 'number':
+            return value === 1
+        default:
+            return value
     }
 }
