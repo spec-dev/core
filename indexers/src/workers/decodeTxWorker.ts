@@ -13,6 +13,7 @@ import {
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
+import { Pool } from 'pg'
 import short from 'short-uuid'
 
 const web3 = new Web3()
@@ -33,6 +34,22 @@ class DecodeTxWorker {
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
+
+        // Create connection pool.
+        this.pool = new Pool({
+            host : config.SHARED_TABLES_DB_HOST,
+            port : config.SHARED_TABLES_DB_PORT,
+            user : config.SHARED_TABLES_DB_USERNAME,
+            password : config.SHARED_TABLES_DB_PASSWORD,
+            database : config.SHARED_TABLES_DB_NAME,
+            min: 2,
+            max: config.SHARED_TABLES_MAX_POOL_SIZE,
+            idleTimeoutMillis: 0,
+            query_timeout: 0,
+            connectionTimeoutMillis: 0,
+            statement_timeout: 0,
+        })
+        this.pool.on('error', err => logger.error('PG client error', err))
     }
 
     async run() {
@@ -69,59 +86,44 @@ class DecodeTxWorker {
         transactions = this._decodeTransactions(transactions, abis, functionSignatures)
 
         // TODO: Bulk update transactions
-        this._updateTransactions(transactions)
+        this._updateTransactions(transactions.filter(tx => !!tx.functionName))
     }
 
     async _updateTransactions(transactions: EthTransaction[]) {
         const tempTableName = `tx_${short.generate()}`
 
-        // // Merge primary keys and updates into individual records.
-        // const tempRecords = transactions.map(tx => ({ hash: tx.hash,  }))
-        // for (let i = 0; i < this.op.where.length; i++) {
-        //     tempRecords.push({ ...this.op.where[i], ...this.op.data[i] })
-        // }
+        const insertPlaceholders = []
+        const insertBindings = []
+        let i = 1
+        for (const tx of transactions) {
+            insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2})`)
+            insertBindings.push(...[tx.hash, tx.functionName, tx.functionArgs])
+            i += 3
+        }
+        const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(', ')}`
 
-        // // Build the bulk insert query for a temp table.
-        // const valueColNames = Object.keys(tempRecords[0])
-        // const valuePlaceholders = tempRecords
-        //     .map((r) => `(${valueColNames.map((_) => '?').join(', ')})`)
-        //     .join(', ')
-        // const valueBindings = tempRecords
-        //     .map((r) => valueColNames.map((colName) => r[colName]))
-        //     .flat()
-        // const insertQuery = db
-        //     .raw(
-        //         `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${valuePlaceholders}
-        //             ', '
-        //         )}) VALUES ${valuePlaceholders}`,
-        //         valueBindings
-        //     )
-        //     .toSQL()
-        //     .toNative()
+        const client = await this.pool.connect()
+        try {
+            // Create temp table and insert updates + primary key data.
+            await client.query('BEGIN')
+            await client.query(
+                `CREATE TEMP TABLE ${tempTableName} (hash character varying(70) primary key, function_name character varying, function_args json) ON COMMIT DROP`
+            )
 
-        // const client = await pool.connect()
+            // Bulk insert the updated records to the temp table.
+            await client.query(insertQuery, insertBindings)
 
-        // try {
-        //     // Create temp table and insert updates + primary key data.
-        //     await client.query('BEGIN')
-        //     await client.query(
-        //         `CREATE TEMP TABLE ${tempTableName} (hash character varying(70) primary key, function_name character varying, function_args json) ON COMMIT DROP`
-        //     )
-
-        //     // Bulk insert the updated records to the temp table.
-        //     await client.query(, insertQuery.bindings)
-
-        //     // Merge the temp table updates into the target table ("bulk update").
-        //     await client.query(
-        //         `UPDATE ethereum.transactions SET function_name = ${tempTableName}.function_name, function_args = ${tempTableName}.function_args FROM ${tempTableName} WHERE ethereum.transactions.hash = ${tempTableName}.hash`
-        //     )
-        //     await client.query('COMMIT')
-        // } catch (e) {
-        //     await client.query('ROLLBACK')
-        //     throw e
-        // } finally {
-        //     client.release()
-        // }
+            // Merge the temp table updates into the target table ("bulk update").
+            await client.query(
+                `UPDATE ethereum.transactions SET function_name = ${tempTableName}.function_name, function_args = ${tempTableName}.function_args FROM ${tempTableName} WHERE ethereum.transactions.hash = ${tempTableName}.hash`
+            )
+            await client.query('COMMIT')
+        } catch (e) {
+            await client.query('ROLLBACK')
+            throw e
+        } finally {
+            client.release()
+        }
     }
 
     _decodeTransactions(

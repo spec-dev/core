@@ -35,44 +35,42 @@ class AbiPolisher {
     }
 
     async run() {
-        await abiRedis.del('delete-nulls')
-        const numAbis = await abiRedis.hLen(abiRedisKeys.ETH_CONTRACTS)
-        const numFunctionSignatures = await abiRedis.hLen(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+        const one = await getAbi('0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
+        console.log('\n\n0xa2f756d393afd7c2bd7108843f99cd3787bf2f41')
+        one.map(item => console.log(item))
 
-        console.log('Num ABIS', numAbis)
-        console.log('Num Function Sigs', numFunctionSignatures)
+        const two = await getAbi('0x7a200636203c5423f1d57081a37142ebf0c8347b')
+        console.log('\n\n0x7a200636203c5423f1d57081a37142ebf0c8347b')
+        two.map(item => console.log(item))
 
-        let cursor = null
-        let batch
-        let count = 0
-        while (true) {
-            const results = await this._getAbisBatch(cursor || 0)
-            cursor = results[0]
-            batch = results[1]
-            count += 1000
-            if (count % 1000000 === 0) {
-                logger.info('\nCOUNT', count.toLocaleString())
-            }
+        const three = await getAbi('0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
+        console.log('\n\n0x4ddc2d193948926d02f9b1fe9e1daa0718270ed5')
+        three.map(item => console.log(item))
 
-            for (const entry of batch) {
-                const { address, abi = [] } = entry
-    
-                for (const item of abi) {
-                    if (item.inputs?.includes(null)) {
-                        logger.info('STILL GOT NULL', address, item)
-                        break
-                    }
+        const four = await getAbi('0xba12222222228d8ba445958a75a0704d566bf2c8')
+        console.log('\n\n0xba12222222228d8ba445958a75a0704d566bf2c8')
+        four.map(item => console.log(item))
 
-                    if (['function', 'constructor', 'event'].includes(item.type) && !item.signature) {
-                        logger.info('STILL NO SIGNATURE', address, item)
-                    }
-                }
-            }
-                        
-            if (cursor === 0) {
-                break
-            }
-        }
+        // let cursor = null
+        // let batch
+        // let count = 0
+        // while (true) {
+        //     const results = await this._getAbisBatch(cursor || 0)
+        //     cursor = results[0]
+        //     batch = results[1]
+        //     count += 1000
+        //     logger.info('\nCOUNT', count.toLocaleString())
+        //     const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
+
+        //     await Promise.all([
+        //         this._saveAbis(abisMapToSave), 
+        //         this._saveFuncSigHashes(funcSigHashesMap),
+        //     ])
+
+        //     if (cursor === 0) {
+        //         break
+        //     }
+        // }
         logger.info('DONE')
         exit()
     }
