@@ -35,8 +35,8 @@ class AbiPolisher {
     }
 
     async run() {
-        await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
-        await abiRedis.del('repull-sam')
+        // await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
+        // await abiRedis.del('repull-sam')
 
         let cursor = null
         let batch

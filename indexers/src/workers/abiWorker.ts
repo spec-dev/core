@@ -222,7 +222,7 @@ class AbiWorker {
 
         let i = 0
         while (i < contracts.length) {
-            await sleep(50)
+            await sleep(25)
             abiPromises.push(this._fetchAbi(contracts[i]))
             i++
         }
