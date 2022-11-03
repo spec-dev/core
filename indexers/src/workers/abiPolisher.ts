@@ -41,6 +41,7 @@ class AbiPolisher {
         let cursor = null
         let batch
         let count = 0
+        let i = 0
         while (true) {
             const results = await this._getAbisBatch(cursor || 0)
             cursor = results[0]
@@ -51,7 +52,6 @@ class AbiPolisher {
             const repullSam = []
             for (const entry of batch) {
                 const { address, abi = [] } = entry
-                if (!address) continue
     
                 let isFromSamczsun = true
                 for (const item of abi) {
@@ -73,9 +73,14 @@ class AbiPolisher {
             }
 
             if (repullSam.length) {
-                logger.info(`    ${repullSam.length}`)
+                const members = []
+                for (const address of repullSam) {
+                    members.push({ score: i, value: address })
+                    i++
+                }
+                logger.info(`    ${members.length}`)
                 // console.log(JSON.stringify(repullSam, null, 4))
-                await abiRedis.zAdd('repull-sam', repullSam)
+                await abiRedis.zAdd('repull-sam', members)
             }
 
             // await this._findSamczsunAbis(batch)
