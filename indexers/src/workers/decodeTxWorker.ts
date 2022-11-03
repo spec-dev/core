@@ -10,6 +10,7 @@ import {
     EthTransaction,
     getAbis,
     getFunctionSignatures,
+    formatAbiValueWithType,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -29,6 +30,8 @@ class DecodeTxWorker {
 
     cursor: number
 
+    pool: Pool
+
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
@@ -42,7 +45,6 @@ class DecodeTxWorker {
             user : config.SHARED_TABLES_DB_USERNAME,
             password : config.SHARED_TABLES_DB_PASSWORD,
             database : config.SHARED_TABLES_DB_NAME,
-            min: 2,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
             idleTimeoutMillis: 0,
             query_timeout: 0,
@@ -78,9 +80,7 @@ class DecodeTxWorker {
             getAbis(Array.from(new Set(txToAddresses))),
             getFunctionSignatures(Array.from(new Set(sigs))),
         ])
-        if (!Object.keys(abis).length && !Object.keys(functionSignatures).length) {
-            return
-        }
+        if (!Object.keys(abis).length && !Object.keys(functionSignatures).length) return
 
         // Decode transactions and logs.
         transactions = this._decodeTransactions(transactions, abis, functionSignatures)
@@ -90,6 +90,7 @@ class DecodeTxWorker {
     }
 
     async _updateTransactions(transactions: EthTransaction[]) {
+        logger.info(`Saving ${transactions.length} decoded transactions...`)
         const tempTableName = `tx_${short.generate()}`
 
         const insertPlaceholders = []
@@ -181,7 +182,7 @@ class DecodeTxWorker {
         for (let j = 0; j < argValues.length; j++) {
             const entry: StringKeyMap = {
                 type: argTypes[j],
-                value: argValues[j],
+                value: formatAbiValueWithType(argValues[j], argTypes[j]),
             }
             if (includeArgNames) {
                 entry.name = argNames[j]
