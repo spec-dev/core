@@ -173,3 +173,63 @@ export const parseAbiBool = (value: any): boolean => {
             return value
     }
 }
+
+export const functionSignatureToAbiInputs = (value: string): StringKeyMap => {
+    const [functionName, _] = value.split('(')
+    const inputs = (groupArgs(value.replace(/,/g, ' '))[0] || {}).components || []
+    return { functionName, inputs }
+}
+
+export const minimizeAbiInputs = (inputs: StringKeyMap[]): StringKeyMap[] => {
+    return inputs
+        .map((input) => {
+            if (Array.isArray(input)) {
+                return minimizeAbiInputs(input).filter((v) => !!v)
+            } else if (typeof input === 'object' && input?.type) {
+                const minInput: any = { type: input.type }
+                if (input.hasOwnProperty('components')) {
+                    minInput.components = minimizeAbiInputs(input.components || [])
+                }
+                return minInput
+            } else {
+                return null
+            }
+        })
+        .filter((v) => !!v)
+}
+
+const groupArgs = (value: string): any => {
+    var i = 0
+    function recurse() {
+        var arr = []
+        var startIndex = i
+        function addWord() {
+            if (i - 1 > startIndex) {
+                arr.push({ type: value.slice(startIndex, i - 1) })
+            }
+        }
+        while (i < value.length) {
+            switch (value[i++]) {
+                case ' ':
+                    addWord()
+                    startIndex = i
+                    continue
+                case '(':
+                    arr.push(recurse())
+                    startIndex = i
+                    continue
+                case ')':
+                    addWord()
+                    let type = 'tuple'
+                    if (value[i] === '[' && value[i + 1] === ']') {
+                        i += 2
+                        type += '[]'
+                    }
+                    return { type, components: arr }
+            }
+        }
+        addWord()
+        return arr
+    }
+    return recurse()
+}

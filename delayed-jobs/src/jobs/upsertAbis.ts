@@ -12,6 +12,8 @@ import {
     SharedTables,
     In,
     ev,
+    functionSignatureToAbiInputs,
+    minimizeAbiInputs,
 } from '../../../shared'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
@@ -237,11 +239,18 @@ async function fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1):
     for (const signature in functionResults) {
         const abiItem = (functionResults[signature] || [])[0]
         if (!abiItem) continue
-        const { functionName, argTypes } = splitSamczsunFunctionSig(abiItem.name)
+        let functionName, inputs
+        try {
+            ;({ functionName, inputs } = functionSignatureToAbiInputs(abiItem.name))
+        } catch (err) {
+            logger.error(err)
+            continue
+        }
+        if (!functionName) continue
         abi.push({
             name: functionName,
             type: AbiItemType.Function,
-            inputs: argTypes.map(type => ({ type })),
+            inputs: inputs,
             signature,
         })
     }
@@ -277,7 +286,7 @@ function polishAbis(abis: StringKeyMap): StringKeyMap[] {
                 funcSigHashesMap[signature] = {
                     name: item.name,
                     type: item.type,
-                    inputs: (item.inputs || []).map(({ type }) => ({ type })),
+                    inputs: minimizeAbiInputs(item.inputs),
                     signature,
                 }
             }
@@ -314,8 +323,6 @@ async function saveAbisMap(abisMap: StringKeyMap) {
         return
     }
 
-    console.log(Object.values(stringified))
-
     if (!(await saveAbis(stringified))) {
         logger.error(`Failed to save ABI batch.`)
         return
@@ -351,19 +358,6 @@ function stringify(abi: any): string | null {
         return null
     }
     return abiStr
-}
-
-function splitSamczsunFunctionSig(sig: string): StringKeyMap {
-    const [functionName, argsGroup] = sig.split('(')
-    const argTypes = argsGroup
-        .slice(0, argsGroup.length - 1)
-        .split(',')
-        .map(a => a.trim())
-        .filter(a => !!a)
-    return {
-        functionName,
-        argTypes,
-    }
 }
 
 export default function job(params: StringKeyMap) {
