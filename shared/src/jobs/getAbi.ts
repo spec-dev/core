@@ -9,7 +9,9 @@ async function perform(address: string, fetchIfNotThere: boolean = true) {
     address = address.toLowerCase()
     const abi = await getAbi(address)
     if (abi) {
-        abi.forEach((item) => console.log(item))
+        abi.forEach((item) => {
+            console.log(JSON.stringify(item))
+        })
     } else {
         logger.info('No ABI found.')
 
