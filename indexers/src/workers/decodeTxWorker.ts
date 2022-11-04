@@ -32,11 +32,14 @@ class DecodeTxWorker {
 
     pool: Pool
 
+    txsToSave: EthTransaction[]
+
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
+        this.txsToSave = []
 
         // Create connection pool.
         this.pool = new Pool({
@@ -62,6 +65,10 @@ class DecodeTxWorker {
             await this._indexGroup(group)
             this.cursor = this.cursor + this.groupSize
         }
+        if (this.txsToSave.length) {
+            await this._updateTransactions(this.txsToSave)
+            this.txsToSave = []
+        }
         logger.info('DONE')
         exit()
     }
@@ -85,7 +92,7 @@ class DecodeTxWorker {
 
         // Decode transactions.
         transactions = this._decodeTransactions(
-            transactions, 
+            transactions,
             abis,
             functionSignatures,
         ).filter(tx => !!tx.functionName)
@@ -95,11 +102,16 @@ class DecodeTxWorker {
         const pct = ((numDecodedTransactions / numTxsForBlockRange) * 100).toFixed(2)
         logger.info(`    Decoded ${numDecodedTransactions} / ${numTxsForBlockRange} (${pct}%)\n`)
 
-        // TODO: Bulk update transactions
-        await this._updateTransactions(transactions)
+        this.txsToSave.push(...transactions)
+
+        if (this.txsToSave.length >= 5000) {
+            await this._updateTransactions(this.txsToSave)
+            this.txsToSave = []
+        }
     }
 
     async _updateTransactions(transactions: EthTransaction[]) {
+        logger.info(`Saving ${transactions.length} decoded transactions...`)
         const tempTableName = `tx_${short.generate()}`
         const insertPlaceholders = []
         const insertBindings = []
