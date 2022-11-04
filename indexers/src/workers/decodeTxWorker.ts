@@ -244,7 +244,8 @@ class DecodeTxWorker {
         return transactionsToReprocess.filter(tx => {
             const functionArgs = tx.functionArgs
             if (!functionArgs || !functionArgs.length) return false
-            return JSON.stringify(functionArgs).match(/"type":"(.*)\[[0-9]+\]"/) !== null
+            return true
+            // return JSON.stringify(functionArgs).match(/"type":"(.*)\[[0-9]+\]"/) !== null
         })
     }
 }
