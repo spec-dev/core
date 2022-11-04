@@ -105,7 +105,7 @@ class DecodeTxWorker {
 
         this.txsToSave.push(...transactions)
 
-        if (this.txsToSave.length >= 5000) {
+        if (this.txsToSave.length >= 10000) {
             await this._updateTransactions(this.txsToSave)
             this.txsToSave = []
         }
