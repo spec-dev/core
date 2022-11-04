@@ -2,7 +2,6 @@ import config from '../config'
 import {
     logger,
     range,
-    StringKeyMap,
     SharedTables,
     Abi,
     AbiItem,
@@ -10,7 +9,6 @@ import {
     EthTransaction,
     getAbis,
     getFunctionSignatures,
-    formatAbiValueWithType,
     ensureNamesExistOnAbiInputs,
     groupAbiInputsWithValues,
 } from '../../../shared'
@@ -85,7 +83,11 @@ class DecodeTxWorker {
         if (!Object.keys(abis).length && !Object.keys(functionSignatures).length) return
 
         // Decode transactions.
-        transactions = this._decodeTransactions(transactions, abis, functionSignatures).filter(tx => !!tx.functionName)
+        transactions = this._decodeTransactions(
+            transactions, 
+            abis,
+            functionSignatures,
+        ).filter(tx => !!tx.functionName)
         if (!transactions.length) return
 
         // TODO: Bulk update transactions
@@ -160,17 +162,25 @@ class DecodeTxWorker {
         const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
         if (!abiItem) return tx
 
+        if (!abiItem.inputs?.length) {
+            tx.functionName = abiItem.name
+            tx.functionArgs = []
+            return tx
+        }
+
+        let inputsWithNames, values, functionArgs
         try {
-            const inputsWithNames = ensureNamesExistOnAbiInputs(abiItem.inputs || [])
-            const values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
-            const functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
-            tx.functionArgs = functionArgs
+            inputsWithNames = ensureNamesExistOnAbiInputs(abiItem.inputs)
+            values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
+            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
         } catch (err) {
             logger.error(`Decoding transaction (${tx.hash}) failed:`, err)
             return tx
         }
 
         tx.functionName = abiItem.name
+        tx.functionArgs = functionArgs
+
         return tx
     }
 
