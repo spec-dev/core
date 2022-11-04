@@ -12,6 +12,7 @@ import {
     getFunctionSignatures,
     ensureNamesExistOnAbiInputs,
     groupAbiInputsWithValues,
+    Not,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -225,19 +226,26 @@ class DecodeTxWorker {
     }
 
     async _getTransactionsForBlocks(numbers: number[]): Promise<EthTransaction[]> {
+        let transactionsToReprocess = []
         try {
-            return (
+            transactionsToReprocess = (
                 (await transactionsRepo().find({
                     select: { hash: true, to: true, input: true },
                     where: {
                         blockNumber: In(numbers),
+                        functionArgs: Not(null),
                     }
                 })) || []
-            ).filter(tx => !tx.functionName)
+            )
         } catch (err) {
             logger.error(`Error getting transactions: ${err}`)
             return []
         }
+        return transactionsToReprocess.filter(tx => {
+            const functionArgs = tx.functionArgs
+            if (!functionArgs || !functionArgs.length) return false
+            return JSON.stringify(functionArgs).match(/"type":"(.*)\[[0-9]+\]"/) !== null
+        })
     }
 }
 
