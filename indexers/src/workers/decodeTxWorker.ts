@@ -7,6 +7,7 @@ import {
     AbiItem,
     In,
     EthTransaction,
+    StringKeyMap,
     getAbis,
     getFunctionSignatures,
     ensureNamesExistOnAbiInputs,
@@ -183,20 +184,34 @@ class DecodeTxWorker {
             return tx
         }
 
-        let inputsWithNames, values, functionArgs
-        try {
-            inputsWithNames = ensureNamesExistOnAbiInputs(abiItem.inputs)
-            values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
-            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
-        } catch (err) {
-            logger.error(`Decoding transaction (${tx.hash}) failed:`, err)
-            return tx
-        }
+        const functionArgs = this._decodeArgs(abiItem.inputs, argData, tx.hash)
+        if (!functionArgs) return tx
 
         tx.functionName = abiItem.name
         tx.functionArgs = functionArgs
 
         return tx
+    }
+
+    _decodeArgs(inputs: StringKeyMap[], argData: string, hash: string): StringKeyMap[] | null {
+        let functionArgs
+        try {
+            const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
+            const values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
+            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
+        } catch (err) {
+            if (err.reason?.includes('out-of-bounds') && 
+                err.code === 'BUFFER_OVERRUN' && 
+                argData.length % 64 === 0 &&
+                inputs.length > (argData.length / 64)
+            ) {
+                const numInputsToUse = argData.length / 64
+                return this._decodeArgs(inputs.slice(0, numInputsToUse), argData, hash)
+            }
+            logger.error(`Decoding error (${hash}): ${err.message || err}`)
+            return null
+        }
+        return functionArgs || []
     }
 
     async _getTransactionsForBlocks(numbers: number[]): Promise<EthTransaction[]> {
