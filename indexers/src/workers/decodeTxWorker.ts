@@ -71,7 +71,8 @@ class DecodeTxWorker {
 
         // Get transactions for this block range.
         let transactions = await this._getTransactionsForBlocks(numbers)
-        if (!transactions.length) return
+        const numTxsForBlockRange = transactions.length
+        if (!numTxsForBlockRange) return
 
         // Get all abis for addresses needed to decode transactions.
         const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
@@ -90,6 +91,10 @@ class DecodeTxWorker {
         ).filter(tx => !!tx.functionName)
         if (!transactions.length) return
 
+        const numDecodedTransactions = transactions.length
+        const pct = ((numDecodedTransactions / numTxsForBlockRange) * 100).toFixed(2)
+        logger.info(`    Decoded ${numDecodedTransactions} / ${numTxsForBlockRange} (${pct}%)\n`)
+
         // TODO: Bulk update transactions
         await this._updateTransactions(transactions)
     }
@@ -106,8 +111,6 @@ class DecodeTxWorker {
             i += 3
         }
         const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(', ')}`
-
-        logger.info(`Saving ${transactions.length} decoded transactions (${transactions[0].hash})...`)
 
         const client = await this.pool.connect()
         try {
