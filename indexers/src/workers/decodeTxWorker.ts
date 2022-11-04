@@ -184,7 +184,12 @@ class DecodeTxWorker {
             return tx
         }
 
-        const functionArgs = this._decodeArgs(abiItem.inputs, argData, tx.hash)
+        let functionArgs
+        try {
+            functionArgs = this._decodeArgs(abiItem.inputs, argData, tx.hash)
+        } catch (err) {
+            logger.error(err.message)
+        }
         if (!functionArgs) return tx
 
         tx.functionName = abiItem.name
