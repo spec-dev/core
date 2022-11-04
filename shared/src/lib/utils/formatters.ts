@@ -6,6 +6,8 @@ export const NULL_32_BYTE_HASH =
     '0x0000000000000000000000000000000000000000000000000000000000000000'
 export const NULL_BYTE_DATE = '0x'
 
+const ABI_INPUT_PLACEHOLDER_PREFIX = '___ph-'
+
 export const mapByKey = (iterable: object[], key: string): { [key: string]: any } => {
     let m = {}
     let val
@@ -196,6 +198,48 @@ export const minimizeAbiInputs = (inputs: StringKeyMap[]): StringKeyMap[] => {
             }
         })
         .filter((v) => !!v)
+}
+
+export const ensureNamesExistOnAbiInputs = (inputs: StringKeyMap[]): any => {
+    return inputs.map((input) => {
+        if (Array.isArray(input)) {
+            return ensureNamesExistOnAbiInputs(input)
+        } else if (typeof input === 'object' && input?.type) {
+            if (!input.name) {
+                input.name = `${ABI_INPUT_PLACEHOLDER_PREFIX}${parseInt(
+                    (Math.random() * 1000000000) as any
+                )}`
+            }
+            if (input.hasOwnProperty('components')) {
+                input.components = ensureNamesExistOnAbiInputs(input.components || [])
+            }
+            return input
+        } else {
+            return input
+        }
+    })
+}
+
+export const groupAbiInputsWithValues = (inputs: StringKeyMap[], values: any): StringKeyMap[] => {
+    return inputs.map((input, i) => {
+        if (Array.isArray(input)) {
+            return groupAbiInputsWithValues(input, values[i])
+        } else if (typeof input === 'object' && input?.type) {
+            let newInput = { ...input }
+            if (newInput.hasOwnProperty('components')) {
+                newInput.value = groupAbiInputsWithValues(newInput.components || [], values[i])
+                delete newInput.components
+            } else {
+                newInput.value = formatAbiValueWithType(values[i], newInput.type)
+            }
+            if (newInput.name && newInput.name.startsWith(ABI_INPUT_PLACEHOLDER_PREFIX)) {
+                delete newInput.name
+            }
+            return newInput
+        } else {
+            return input
+        }
+    })
 }
 
 const groupArgs = (value: string): any => {
