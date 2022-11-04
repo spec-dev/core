@@ -10,6 +10,7 @@ import {
     abiRedis,
     getAbi,
     abiRedisKeys,
+    minimizeAbiInputs,
     CoreDB,
 } from '../../../shared'
 import { exit } from 'process'
@@ -35,69 +36,24 @@ class AbiPolisher {
     }
 
     async run() {
-        // await abiRedis.del(abiRedisKeys.ETH_FUNCTION_SIGNATURES)
-        // await abiRedis.del('repull-sam')
-
         let cursor = null
         let batch
         let count = 0
-        let i = 0
         while (true) {
             const results = await this._getAbisBatch(cursor || 0)
             cursor = results[0]
             batch = results[1]
-            count += 1000
+            count += 2500
             logger.info('\nCOUNT', count.toLocaleString())
 
-            const repullSam = []
-            for (const entry of batch) {
-                const { address, abi = [] } = entry
-    
-                let isFromSamczsun = true
-                for (const item of abi) {
-                    if (item.type !== 'function') {
-                        isFromSamczsun = false
-                        break
-                    }
-                    for (const input of item.inputs || []) {
-                        if (Object.keys(input).filter(k => k !== 'type').length) {
-                            isFromSamczsun = false
-                            break
-                        }
-                    }
-                }
-
-                if (isFromSamczsun) {
-                    repullSam.push(address)
-                }
-            }
-
-            if (repullSam.length) {
-                const members = []
-                for (const address of repullSam) {
-                    members.push({ score: i, value: address })
-                    i++
-                }
-                logger.info(`    ${members.length}`)
-                // console.log(JSON.stringify(repullSam, null, 4))
-                await abiRedis.zAdd('repull-sam', members)
-            }
-
-            // await this._findSamczsunAbis(batch)
-
-            // const [abisMapToSave, funcSigHashesMap] = await this._polishAbis(batch)
-
-            // await Promise.all([
-            //     this._saveAbis(abisMapToSave), 
-            //     this._saveFuncSigHashes(funcSigHashesMap),
-            // ])
+            const funcSigHashesMap = await this._polishAbis(batch)
+            await this._saveFuncSigHashes(funcSigHashesMap)
 
             if (cursor === 0) {
                 break
             }
         }
         logger.info('DONE')
-        logger.info(await abiRedis.zCard('repull-sam'))
         exit()
     }
 
@@ -121,7 +77,7 @@ class AbiPolisher {
     async _getAbisBatch(inputCursor: number) {
         let results
         try {
-            results = await abiRedis.hScan('eth-contracts', inputCursor, { COUNT: 1000, MATCH: '*' })
+            results = await abiRedis.hScan('eth-contracts', inputCursor, { COUNT: 2500, MATCH: '*' })
         } catch (err) {
             logger.error(`Error getting ABIs: ${err}.`)
             return []
@@ -146,57 +102,23 @@ class AbiPolisher {
     }
 
     async _polishAbis(addressAbis: StringKeyMap[]) {
-        const abisToUpdate = {}
         const funcSigHashesMap = {}
-
-        const deleteAbisSet = new Set()
-
         for (const entry of addressAbis) {
-            const { address, abi = [] } = entry
-
-            const newAbi = []
-            let modified = false
+            const { abi = [] } = entry
             for (const item of abi) {
-                if (item.inputs?.includes(null)) {
-                    deleteAbisSet.add(address)
-                    modified = false
-                    break
-                }
-
-                let signature = item.signature
-
-                if (signature) {
-                    newAbi.push(item)
-                } else {
-                    signature = this._createAbiItemSignature(item)
-                    if (signature) {
-                        modified = true
-                        newAbi.push({ ...item, signature })
-                    } else {
-                        newAbi.push(item)
-                    }
-                }
-
-                if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
-                    funcSigHashesMap[signature] = {
+                if (['function', 'constructor'].includes(item.type) && 
+                    item.signature && 
+                    !funcSigHashesMap.hasOwnProperty(item.signature)) {
+                    funcSigHashesMap[item.signature] = {
                         name: item.name,
                         type: item.type,
-                        inputs: (item.inputs || []).map(({ type }) => ({ type })),
-                        signature,
+                        inputs: minimizeAbiInputs(item.inputs),
+                        signature: item.signature,
                     }
                 }
             }
-            if (modified) {
-                abisToUpdate[address] = newAbi
-            }
         }
-
-        const deleteAbiAddresses = Array.from(deleteAbisSet) as string[]
-        if (deleteAbiAddresses.length) {
-            await abiRedis.sAdd('delete-nulls', deleteAbiAddresses)
-        }
-
-        return [abisToUpdate, funcSigHashesMap]
+        return funcSigHashesMap
     }
 
     _createAbiItemSignature(item: StringKeyMap): string | null {

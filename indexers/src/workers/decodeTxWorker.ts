@@ -11,6 +11,8 @@ import {
     getAbis,
     getFunctionSignatures,
     formatAbiValueWithType,
+    ensureNamesExistOnAbiInputs,
+    groupAbiInputsWithValues,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -82,13 +84,9 @@ class DecodeTxWorker {
         ])
         if (!Object.keys(abis).length && !Object.keys(functionSignatures).length) return
 
-        // Decode transactions and logs.
-        transactions = this._decodeTransactions(transactions, abis, functionSignatures)
-            .filter(tx => !!tx.functionName)
-        
+        // Decode transactions.
+        transactions = this._decodeTransactions(transactions, abis, functionSignatures).filter(tx => !!tx.functionName)
         if (!transactions.length) return
-
-        logger.info(`Saving ${transactions.length} decoded transactions (${transactions[0].hash})...`)
 
         // TODO: Bulk update transactions
         await this._updateTransactions(transactions)
@@ -96,16 +94,18 @@ class DecodeTxWorker {
 
     async _updateTransactions(transactions: EthTransaction[]) {
         const tempTableName = `tx_${short.generate()}`
-
         const insertPlaceholders = []
         const insertBindings = []
         let i = 1
         for (const tx of transactions) {
             insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2})`)
-            insertBindings.push(...[tx.hash, tx.functionName, tx.functionArgs])
+            const functionArgs = tx.functionArgs === null ? null : JSON.stringify(tx.functionArgs)
+            insertBindings.push(...[tx.hash, tx.functionName, functionArgs])
             i += 3
         }
         const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(', ')}`
+
+        logger.info(`Saving ${transactions.length} decoded transactions (${transactions[0].hash})...`)
 
         const client = await this.pool.connect()
         try {
@@ -142,11 +142,7 @@ class DecodeTxWorker {
                 finalTxs.push(tx)
                 continue
             }
-            try {
-                tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
-            } catch (err) {
-                logger.error(`Error decoding transaction ${tx.hash}: ${err}`)
-            }
+            tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
             finalTxs.push(tx)
         }
         return finalTxs
@@ -163,40 +159,18 @@ class DecodeTxWorker {
 
         const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
         if (!abiItem) return tx
-        
-        const argNames = []
-        const argTypes = []
-        for (const input of abiItem.inputs || []) {
-            input.name && argNames.push(input.name)
-            argTypes.push(input.type)
-        }
 
-        const decodedArgs = web3.eth.abi.decodeParameters(argTypes, `0x${argData}`)
-        
-        const argValues = []
-        for (let i = 0; i < decodedArgs.__length__; i++) {
-            const stringIndex = i.toString()
-            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
-            argValues.push(decodedArgs[stringIndex])
-        }
-        if (argValues.length !== argTypes.length) return tx
-
-        const includeArgNames = argNames.length === argTypes.length
-        const functionArgs = []
-        for (let j = 0; j < argValues.length; j++) {
-            const entry: StringKeyMap = {
-                type: argTypes[j],
-                value: formatAbiValueWithType(argValues[j], argTypes[j]),
-            }
-            if (includeArgNames) {
-                entry.name = argNames[j]
-            }
-            functionArgs.push(entry)
+        try {
+            const inputsWithNames = ensureNamesExistOnAbiInputs(abiItem.inputs || [])
+            const values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
+            const functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
+            tx.functionArgs = functionArgs
+        } catch (err) {
+            logger.error(`Decoding transaction (${tx.hash}) failed:`, err)
+            return tx
         }
 
         tx.functionName = abiItem.name
-        tx.functionArgs = functionArgs
-        
         return tx
     }
 
