@@ -136,12 +136,33 @@ export const toChunks = (arr: any[], chunkSize: number): any[][] => {
 
 export const formatAbiValueWithType = (value: any, dataType: string): any => {
     if (dataType?.includes('int')) {
+        if (dataType.endsWith('[]')) {
+            return Array.isArray(value)
+                ? value.map((v) =>
+                      formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
+                  )
+                : value
+        }
         return attemptToParseNumber(value)
     }
-    if (dataType === 'address') {
+    if (dataType?.includes('address')) {
+        if (dataType.endsWith('[]')) {
+            return Array.isArray(value)
+                ? value.map((v) =>
+                      formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
+                  )
+                : value
+        }
         return attemptToLowerCase(value)
     }
-    if (dataType === 'bool') {
+    if (dataType?.includes('bool')) {
+        if (dataType.endsWith('[]')) {
+            return Array.isArray(value)
+                ? value.map((v) =>
+                      formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
+                  )
+                : value
+        }
         return parseAbiBool(value)
     }
     return value
@@ -227,7 +248,13 @@ export const groupAbiInputsWithValues = (inputs: StringKeyMap[], values: any): S
         } else if (typeof input === 'object' && input?.type) {
             let newInput = { ...input }
             if (newInput.hasOwnProperty('components')) {
-                newInput.value = groupAbiInputsWithValues(newInput.components || [], values[i])
+                if (newInput.type?.endsWith('[]')) {
+                    newInput.value = (values[i] || []).map((valGroup) =>
+                        groupAbiInputsWithValues(newInput.components || [], valGroup)
+                    )
+                } else {
+                    newInput.value = groupAbiInputsWithValues(newInput.components || [], values[i])
+                }
                 delete newInput.components
             } else {
                 newInput.value = formatAbiValueWithType(values[i], newInput.type)
@@ -235,6 +262,11 @@ export const groupAbiInputsWithValues = (inputs: StringKeyMap[], values: any): S
             if (newInput.name && newInput.name.startsWith(ABI_INPUT_PLACEHOLDER_PREFIX)) {
                 delete newInput.name
             }
+            Object.keys(newInput)
+                .filter((k) => !['name', 'type', 'value'].includes(k))
+                .forEach((k) => {
+                    delete newInput[k]
+                })
             return newInput
         } else {
             return input
