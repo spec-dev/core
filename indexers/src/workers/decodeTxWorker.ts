@@ -230,10 +230,10 @@ class DecodeTxWorker {
         try {
             transactionsToReprocess = (
                 (await transactionsRepo().find({
-                    select: { hash: true, to: true, input: true },
+                    select: { hash: true, to: true, input: true, functionName: true, functionArgs: true },
                     where: {
                         blockNumber: In(numbers),
-                        functionArgs: Not(null),
+                        functionName: Not(null),
                     }
                 })) || []
             )
