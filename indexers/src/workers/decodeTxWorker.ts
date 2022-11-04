@@ -118,8 +118,13 @@ class DecodeTxWorker {
         const insertBindings = []
         let i = 1
         for (const tx of transactions) {
+            let functionArgs
+            try {
+                functionArgs = tx.functionArgs === null ? null : JSON.stringify(tx.functionArgs)
+            } catch (e) {
+                continue
+            }
             insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2})`)
-            const functionArgs = tx.functionArgs === null ? null : JSON.stringify(tx.functionArgs)
             insertBindings.push(...[tx.hash, tx.functionName, functionArgs])
             i += 3
         }

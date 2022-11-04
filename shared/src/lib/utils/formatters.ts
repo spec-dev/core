@@ -136,7 +136,7 @@ export const toChunks = (arr: any[], chunkSize: number): any[][] => {
 
 export const formatAbiValueWithType = (value: any, dataType: string): any => {
     if (dataType?.includes('int')) {
-        if (dataType.endsWith('[]')) {
+        if (dataType.match(/\[.*\]$/) !== null) {
             return Array.isArray(value)
                 ? value.map((v) =>
                       formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
@@ -146,7 +146,7 @@ export const formatAbiValueWithType = (value: any, dataType: string): any => {
         return attemptToParseNumber(value)
     }
     if (dataType?.includes('address')) {
-        if (dataType.endsWith('[]')) {
+        if (dataType.match(/\[.*\]$/) !== null) {
             return Array.isArray(value)
                 ? value.map((v) =>
                       formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
@@ -156,7 +156,7 @@ export const formatAbiValueWithType = (value: any, dataType: string): any => {
         return attemptToLowerCase(value)
     }
     if (dataType?.includes('bool')) {
-        if (dataType.endsWith('[]')) {
+        if (dataType.match(/\[.*\]$/) !== null) {
             return Array.isArray(value)
                 ? value.map((v) =>
                       formatAbiValueWithType(v, dataType.slice(0, dataType.length - 2))
@@ -248,7 +248,7 @@ export const groupAbiInputsWithValues = (inputs: StringKeyMap[], values: any): S
         } else if (typeof input === 'object' && input?.type) {
             let newInput = { ...input }
             if (newInput.hasOwnProperty('components')) {
-                if (newInput.type?.endsWith('[]')) {
+                if (newInput.type?.match(/\[.*\]$/) !== null) {
                     newInput.value = (values[i] || []).map((valGroup) =>
                         groupAbiInputsWithValues(newInput.components || [], valGroup)
                     )
