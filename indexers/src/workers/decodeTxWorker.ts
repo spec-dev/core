@@ -149,7 +149,7 @@ class DecodeTxWorker {
             await client.query('COMMIT')
         } catch (e) {
             await client.query('ROLLBACK')
-            throw e
+            logger.error(e)
         } finally {
             client.release()
         }
