@@ -122,18 +122,18 @@ class EthereumIndexer extends AbstractIndexer {
             : []
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
-        // Get all abis for addresses needed to decode both transactions and logs.
-        const txToAddresses = transactions.map(t => t.to)
-        const logAddresses = logs.map(l => l.address)
-        const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
-        const [abis, functionSignatures] = await Promise.all([
-            getAbis(Array.from(new Set([ ...txToAddresses, ...logAddresses ]))),
-            getFunctionSignatures(Array.from(new Set(sigs))),
-        ])
+        // // Get all abis for addresses needed to decode both transactions and logs.
+        // const txToAddresses = transactions.map(t => t.to)
+        // const logAddresses = logs.map(l => l.address)
+        // const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
+        // const [abis, functionSignatures] = await Promise.all([
+        //     getAbis(Array.from(new Set([ ...txToAddresses, ...logAddresses ]))),
+        //     getFunctionSignatures(Array.from(new Set(sigs))),
+        // ])
 
-        // Decode transactions and logs.
-        transactions = transactions.length ? this._decodeTransactions(transactions, abis, functionSignatures) : []
-        logs = logs.length ? this._decodeLogs(logs, abis) : []
+        // // Decode transactions and logs.
+        // transactions = transactions.length ? this._decodeTransactions(transactions, abis, functionSignatures) : []
+        // logs = logs.length ? this._decodeLogs(logs, abis) : []
         
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise

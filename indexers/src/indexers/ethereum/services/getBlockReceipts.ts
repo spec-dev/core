@@ -14,7 +14,6 @@ async function getBlockReceipts(
     blockNumber: number,
     chainId: number
 ): Promise<ExternalEthReceipt[]> {
-    if (config.IS_RANGE_MODE) return []
     let receipts = null
     let numAttempts = 0
     try {
@@ -39,9 +38,9 @@ async function getBlockReceipts(
     if (receipts === null) {
         throw `Out of attempts - No receipts found for block ${blockNumber}.`
     } else if (receipts.length === 0) {
-        logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
     } else {
-        logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
+        config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
     }
 
     return receipts.map((r) => r as unknown as ExternalEthReceipt)

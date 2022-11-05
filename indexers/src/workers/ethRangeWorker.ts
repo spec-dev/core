@@ -24,7 +24,11 @@ import {
     SharedTables,
     uniqueByKeys,
     EthLatestInteraction,
+    toChunks,
 } from '../../../shared'
+import fs from 'fs'
+
+const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
 class EthRangeWorker {
     from: number
@@ -54,31 +58,39 @@ class EthRangeWorker {
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
-        this.saveBatchMultiple = saveBatchMultiple || 1
+        // this.saveBatchMultiple = saveBatchMultiple || 1
+        this.saveBatchMultiple = 1
         this.upsertConstraints = {}
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const groupBlockNumbers = range(start, end)
-            await this._indexBlockGroup(groupBlockNumbers)
-            this.cursor = this.cursor + this.groupSize
+        const missingBlockNumbers = (fs.readFileSync('./missing.txt', { encoding:'utf8', flag:'r' }))
+            .split('\n').map(n => Number(n)).sort()
+ 
+        for (const number of missingBlockNumbers) {
+            await this._indexBlockGroup([number])
         }
-        if (this.batchResults.length) {
-            await this._saveBatches(
-                this.batchBlockNumbersIndexed,
-                this.batchResults,
-                this.batchExistingBlocksMap
-            )
-        }
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const groupBlockNumbers = range(start, end)
+        //     await this._indexBlockGroup(groupBlockNumbers)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
+        // if (this.batchResults.length) {
+        //     await this._saveBatches(
+        //         this.batchBlockNumbersIndexed,
+        //         this.batchResults,
+        //         this.batchExistingBlocksMap
+        //     )
+        // }
         logger.info('DONE')
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
         // Get the indexed blocks for these numbers from our registry (Indexer DB).
-        const existingIndexedBlocks = await this._getIndexedBlocksInNumberRange(blockNumbers)
+        // const existingIndexedBlocks = await this._getIndexedBlocksInNumberRange(blockNumbers)
+        const existingIndexedBlocks = []
         if (existingIndexedBlocks === null) return // is only null on failure
 
         // Map existing blocks by number.
@@ -310,6 +322,7 @@ class EthRangeWorker {
             : latestInteractions
 
         await SharedTables.manager.transaction(async (tx) => {
+            tx.createQueryBuilder().insert().orUpdate
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
                 this._upsertTransactions(transactions, tx),
@@ -335,9 +348,10 @@ class EthRangeWorker {
 
     async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
         if (!transactions.length) return
+        logger.info(`Saving ${transactions.length} transactions...`)
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
-            this._toChunks(transactions, this.chunkSize).map((chunk) => {
+            toChunks(transactions, this.chunkSize).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
@@ -351,9 +365,10 @@ class EthRangeWorker {
 
     async _upsertLogs(logs: StringKeyMap[], tx: any) {
         if (!logs.length) return
+        logger.info(`Saving ${logs.length} logs...`)
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         await Promise.all(
-            this._toChunks(logs, this.chunkSize).map((chunk) => {
+            toChunks(logs, this.chunkSize).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
@@ -367,9 +382,10 @@ class EthRangeWorker {
 
     async _upsertTraces(traces: StringKeyMap[], tx: any) {
         if (!traces.length) return
+        logger.info(`Saving ${traces.length} traces...`)
         const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
         await Promise.all(
-            this._toChunks(traces, this.chunkSize).map((chunk) => {
+            toChunks(traces, this.chunkSize).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
@@ -383,9 +399,10 @@ class EthRangeWorker {
 
     async _upsertContracts(contracts: StringKeyMap[], tx: any) {
         if (!contracts.length) return
+        logger.info(`Saving ${contracts.length} contracts...`)
         const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
         await Promise.all(
-            this._toChunks(contracts, this.chunkSize).map((chunk) => {
+            toChunks(contracts, this.chunkSize).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
@@ -399,27 +416,46 @@ class EthRangeWorker {
 
     async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any) {
         if (!latestInteractions.length) return
+        const chunks = toChunks(latestInteractions, this.chunkSize)
         const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
-        await Promise.all(
-            this._toChunks(latestInteractions, this.chunkSize).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLatestInteraction)
-                    .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
-                    .execute()
-            })
-        )
-    }
 
-    _toChunks(arr: any[], chunkSize: number): any[][] {
-        const result = []
-        for (let i = 0; i < arr.length; i += chunkSize) {
-            const chunk = arr.slice(i, i + chunkSize)
-            result.push(chunk)
+        for (const chunk of chunks) {
+            const existingLatestInteractions = (await latestInteractionsRepo().find({
+                select: { from: true, to: true, blockNumber: true },
+                where: chunk.map(li => ({ from: li.from, to: li.to }))
+            })) || []
+            const latestBlockNumberForGroup = {}
+            for (const li of existingLatestInteractions) {
+                latestBlockNumberForGroup[[li.from, li.to].join(':')] = li.blockNumber
+            }
+            const latestInteractionsToUpsert = []
+            for (const li of chunk) {
+                const lastBlockNumber = existingLatestInteractions[[li.from, li.to].join(':')]
+                if (!lastBlockNumber || Number(li.blockNumber) > Number(lastBlockNumber)) {
+                    latestInteractionsToUpsert.push(li)
+                }
+            }
+            if (!latestInteractionsToUpsert.length) continue
+            logger.info(`Saving ${latestInteractionsToUpsert.length} latest interactions...`)
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(EthLatestInteraction)
+                .values(latestInteractionsToUpsert)
+                .orUpdate(updateCols, conflictCols)
+                .execute()
         }
-        return result
+        // const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
+        // await Promise.all(
+                // return tx
+                //     .createQueryBuilder()
+                //     .insert()
+                //     .into(EthLatestInteraction)
+                //     .values(chunk)
+                //     .orUpdate(updateCols, conflictCols)
+                //     .execute()
+            // })
+        // )
     }
 }
 
