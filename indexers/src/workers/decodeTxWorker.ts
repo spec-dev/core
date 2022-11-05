@@ -106,7 +106,7 @@ class DecodeTxWorker {
 
         this.txsToSave.push(...transactions)
 
-        if (this.txsToSave.length >= 10000) {
+        if (this.txsToSave.length >= 5000) {
             await this._updateTransactions(this.txsToSave)
             this.txsToSave = []
         }
@@ -226,11 +226,10 @@ class DecodeTxWorker {
     }
 
     async _getTransactionsForBlocks(numbers: number[]): Promise<EthTransaction[]> {
-        let transactionsToReprocess = []
         try {
-            transactionsToReprocess = (
+            return (
                 (await transactionsRepo().find({
-                    select: { hash: true, to: true, input: true, functionName: true, functionArgs: true },
+                    select: { hash: true, to: true, input: true },
                     where: {
                         blockNumber: In(numbers),
                     }
@@ -240,11 +239,25 @@ class DecodeTxWorker {
             logger.error(`Error getting transactions: ${err}`)
             return []
         }
-        return transactionsToReprocess.filter(tx => {
-            const functionArgs = tx.functionArgs
-            if (!functionArgs || !functionArgs.length) return false
-            return JSON.stringify(functionArgs).match(/"type":"(.*)\[[0-9]+\]"/) !== null
-        })
+        // let transactionsToReprocess = []
+        // try {
+        //     transactionsToReprocess = (
+        //         (await transactionsRepo().find({
+        //             select: { hash: true, to: true, input: true, functionName: true, functionArgs: true },
+        //             where: {
+        //                 blockNumber: In(numbers),
+        //             }
+        //         })) || []
+        //     )
+        // } catch (err) {
+        //     logger.error(`Error getting transactions: ${err}`)
+        //     return []
+        // }
+        // return transactionsToReprocess.filter(tx => {
+        //     const functionArgs = tx.functionArgs
+        //     if (!functionArgs || !functionArgs.length) return false
+        //     return JSON.stringify(functionArgs).match(/"type":"(.*)\[[0-9]+\]"/) !== null
+        // })
     }
 }
 

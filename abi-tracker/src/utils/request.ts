@@ -21,7 +21,6 @@ export async function post(
     }
     if (err) return { error: err }
     if (!resp) {
-        console.log('Empty response', url)
         return { error: 'Error' }
     }
 

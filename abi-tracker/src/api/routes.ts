@@ -5,5 +5,5 @@ const prefix = {
 }
 
 export const routes = {
-    UPSERT_ABIS: [config.SPEC_API_ORIGIN, prefix.ADMIN, 'abis'].join('/'),
+    UPSERT_ABIS: [config.CORE_API_ORIGIN, prefix.ADMIN, 'abis'].join('/'),
 }
