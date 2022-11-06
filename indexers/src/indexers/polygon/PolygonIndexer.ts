@@ -110,6 +110,10 @@ class PolygonIndexer extends AbstractIndexer {
             : []
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
+        // Wait for traces to resolve and ensure there's not block hash mismatch.
+        // Perform one final block hash mismatch check and error out if so.
+        this._ensureAllShareSameBlockHash(block, receipts || [])
+
         // Get all abis for addresses needed to decode both transactions and logs.
         const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
@@ -124,14 +128,14 @@ class PolygonIndexer extends AbstractIndexer {
                 abiRedisKeys.POLYGON_FUNCTION_SIGNATURES,
             ),
         ])
+        const numAbis = Object.keys(abis).length
+        const numFunctionSigs = Object.keys(functionSignatures).length
 
         // Decode transactions and logs.
-        transactions = transactions.length ? this._decodeTransactions(transactions, abis, functionSignatures) : []
-        logs = logs.length ? this._decodeLogs(logs, abis) : []
-
-        // Wait for traces to resolve and ensure there's not block hash mismatch.
-        // Perform one final block hash mismatch check and error out if so.
-        this._ensureAllShareSameBlockHash(block, receipts || [])
+        transactions = transactions.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTransactions(transactions, abis, functionSignatures) 
+            : transactions
+        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
