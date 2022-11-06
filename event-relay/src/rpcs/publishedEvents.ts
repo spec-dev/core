@@ -1,6 +1,6 @@
 import { EventCursor } from '../types'
 import config from '../config'
-import { getPublishedEventsAfterId, getPublishedEventsAfterEventCursors, logger, toChunks } from '../../../shared'
+import { getPublishedEventsAfterEventCursors, logger, toChunks } from '../../../shared'
 
 interface GetEventsAfterCursorsPayload {
     cursors: EventCursor[]
@@ -18,13 +18,7 @@ export async function getEventsAfterCursors(request: any, publish: any) {
 
     request.end([])
 
-    const useNewMethod = !!eventCursors.find(ec => ec.name.includes(':'))
-    if (useNewMethod) {
-        await getNewEventsAfterCursors(eventCursors, publish, channel)
-    } else {
-        await Promise.all(eventCursors.map(ec => getEventsAfterCursor(ec, publish, channel)))
-    }
-
+    await getNewEventsAfterCursors(eventCursors, publish, channel)
     await publish(channel, { done: true })
 }
 
@@ -46,32 +40,6 @@ async function getNewEventsAfterCursors(cursors: EventCursor[], publish, channel
         }    
     }
 }   
-
-async function getEventsAfterCursor(cursor: EventCursor, publish, channel) {
-    const eventsAfterCursor = await getPublishedEventsAfterId(cursor.nonce as number, cursor.name)
-    if (!eventsAfterCursor.length) return
-
-    const specEvents = eventsAfterCursor.map(publishedEvent => ({
-        id: publishedEvent.uid,
-        nonce: publishedEvent.id,
-        name: publishedEvent.name,
-        origin: { 
-            ...publishedEvent.origin, 
-            eventTimestamp: publishedEvent.timestamp.toISOString(),
-        },
-        data: publishedEvent.data,
-    }))    
-
-    const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)
-    
-    for (let batch of batches) {
-        try {
-            await publish(channel, batch)
-        } catch (err) {
-            logger.error(`Error sending missed events over the wire: ${err}.`)
-        }
-    }
-}
 
 function uniqueEventCursors(cursors: EventCursor[]): EventCursor[] {
     const eventCursors = []

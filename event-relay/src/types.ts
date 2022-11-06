@@ -1,6 +1,6 @@
 export interface EventCursor {
     name: string
     id: string
-    nonce: string | number
+    nonce: string
     timestamp: string
 }
