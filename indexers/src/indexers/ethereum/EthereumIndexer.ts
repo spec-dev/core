@@ -37,6 +37,8 @@ import {
     getFunctionSignatures,
     Abi,
     AbiItem,
+    ensureNamesExistOnAbiInputs,
+    groupAbiInputsWithValues,
 } from '../../../../shared'
 import Web3 from 'web3'
 const web3js = new Web3()
@@ -122,18 +124,26 @@ class EthereumIndexer extends AbstractIndexer {
             : []
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
-        // // Get all abis for addresses needed to decode both transactions and logs.
-        // const txToAddresses = transactions.map(t => t.to)
-        // const logAddresses = logs.map(l => l.address)
-        // const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
-        // const [abis, functionSignatures] = await Promise.all([
-        //     getAbis(Array.from(new Set([ ...txToAddresses, ...logAddresses ]))),
-        //     getFunctionSignatures(Array.from(new Set(sigs))),
-        // ])
+        // Get all abis for addresses needed to decode both transactions and logs.
+        const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
+        const logAddresses = logs.map(l => l.address).filter(v => !!v)
+        const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
+        const [abis, functionSignatures] = await Promise.all([
+            getAbis(
+                Array.from(new Set([ ...txToAddresses, ...logAddresses ])),
+            ),
+            getFunctionSignatures(
+                Array.from(new Set(sigs)),
+            ),
+        ])
+        const numAbis = Object.keys(abis).length
+        const numFunctionSigs = Object.keys(functionSignatures).length
 
-        // // Decode transactions and logs.
-        // transactions = transactions.length ? this._decodeTransactions(transactions, abis, functionSignatures) : []
-        // logs = logs.length ? this._decodeLogs(logs, abis) : []
+        // Decode transactions and logs.
+        transactions = transactions.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTransactions(transactions, abis, functionSignatures) 
+            : transactions
+        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
         
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
@@ -211,21 +221,27 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        // const eventOrigin = {
-        //     chainId: this.chainId,
-        //     blockNumber: this.blockNumber,
-        // }
-        // const eventSpecs = [
-        //     {
-        //         namespacedVersion: 'eth.NewTransactions@0.0.1',
-        //         diff: NewTransactions(this.transactions),
-        //     },
-        //     {
-        //         namespacedVersion: 'eth.NewInteractions@0.0.1',
-        //         diff: NewInteractions(this.latestInteractions),
-        //     },
-        // ]
-        // await publishDiffsAsEvents(eventSpecs, eventOrigin)
+        const eventOrigin = {
+            chainId: this.chainId,
+            blockNumber: this.blockNumber,
+            blockHash: this.blockHash,
+            blockTimestamp: this.block.timestamp.toISOString(),
+        }
+
+        const eventSpecs = [
+            {
+                name: 'eth:eth.NewTransactions@0.0.1',
+                data: NewTransactions(this.transactions),
+                origin: eventOrigin,
+            },
+            {
+                name: 'eth:eth.NewInteractions@0.0.1',
+                data: NewInteractions(this.latestInteractions),
+                origin: eventOrigin,
+            },
+        ]
+
+        await publishEventSpecs(eventSpecs)
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {
@@ -265,11 +281,7 @@ class EthereumIndexer extends AbstractIndexer {
                 finalTxs.push(tx)
                 continue
             }
-            try {
-                tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
-            } catch (err) {
-                this._error(`Error decoding transaction ${tx.hash}: ${err}`)
-            }
+            tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
             finalTxs.push(tx)
         }
         return finalTxs
@@ -286,41 +298,45 @@ class EthereumIndexer extends AbstractIndexer {
 
         const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
         if (!abiItem) return tx
-        
-        const argNames = []
-        const argTypes = []
-        for (const input of abiItem.inputs || []) {
-            input.name && argNames.push(input.name)
-            argTypes.push(input.type)
+
+        if (!abiItem.inputs?.length) {
+            tx.functionName = abiItem.name
+            tx.functionArgs = []
+            return tx
         }
 
-        const decodedArgs = web3js.eth.abi.decodeParameters(argTypes, `0x${argData}`)
-        
-        const argValues = []
-        for (let i = 0; i < decodedArgs.__length__; i++) {
-            const stringIndex = i.toString()
-            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
-            argValues.push(decodedArgs[stringIndex])
+        let functionArgs
+        try {
+            functionArgs = this._decodeFunctionArgs(abiItem.inputs, argData, tx.hash)
+        } catch (err) {
+            this._error(err.message)
         }
-        if (argValues.length !== argTypes.length) return tx
-
-        const includeArgNames = argNames.length === argTypes.length
-        const functionArgs = []
-        for (let j = 0; j < argValues.length; j++) {
-            const entry: StringKeyMap = {
-                type: argTypes[j],
-                value: argValues[j],
-            }
-            if (includeArgNames) {
-                entry.name = argNames[j]
-            }
-            functionArgs.push(entry)
-        }
+        if (!functionArgs) return tx
 
         tx.functionName = abiItem.name
         tx.functionArgs = functionArgs
-        
+
         return tx
+    }
+
+    _decodeFunctionArgs(inputs: StringKeyMap[], argData: string, hash: string): StringKeyMap[] | null {
+        let functionArgs
+        try {
+            const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
+            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
+            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
+        } catch (err) {
+            if (err.reason?.includes('out-of-bounds') && 
+                err.code === 'BUFFER_OVERRUN' && 
+                argData.length % 64 === 0 &&
+                inputs.length > (argData.length / 64)
+            ) {
+                const numInputsToUse = argData.length / 64
+                return this._decodeFunctionArgs(inputs.slice(0, numInputsToUse), argData, hash)
+            }
+            return null
+        }
+        return functionArgs || []
     }
 
     _decodeLogs(logs: EthLog[], abis: { [key: string]: Abi }): EthLog[] {
