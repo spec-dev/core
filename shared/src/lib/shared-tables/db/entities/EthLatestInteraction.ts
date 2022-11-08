@@ -1,6 +1,11 @@
-import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
+import { Entity, PrimaryColumn, Column } from 'typeorm'
 import schemas from '../../schemas'
 import { decamelize } from 'humps'
+
+export enum EthLatestInteractionAddressCategory {
+    Wallet = 'wallet',
+    Contract = 'contract',
+}
 
 export enum EthLatestInteractionType {
     WalletToContract = 'wallet:contract',

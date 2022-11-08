@@ -5,7 +5,7 @@ import { CoreDB } from '../core/db/dataSource'
 import { EventGenerator } from '../core/db/entities/EventGenerator'
 import { Contract } from '../core/db/entities/Contract'
 import { EventVersion } from '../core/db/entities/EventVersion'
-import { StringKeyMap } from '../types'
+import { StringKeyMap, StringMap } from '../types'
 
 // Create redis client.
 export const redis = createClient({ url: config.INDEXER_REDIS_URL })
@@ -41,6 +41,7 @@ const keys = {
     CONTRACTS: 'contracts',
     CONTRACT_INSTANCES: 'contract-instances',
     BLOCK_LOGS_INDEXED: 'block-logs-indexed',
+    POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
 }
 
 const formatUncledBlockValue = (chainId: number, blockHash: string) => `${chainId}:${blockHash}`
@@ -294,4 +295,36 @@ export async function getPublishedEventsAfterEventCursors(
         logger.error(`Error fetching published events after cursors: ${err}.`, streams)
         return {}
     }
+}
+
+export async function getPolygonContracts(addresses: string[]): Promise<StringKeyMap> {
+    if (!addresses?.length) return {}
+    try {
+        const results = (await redis?.hmGet(keys.POLYGON_CONTRACTS_CACHE, addresses)) || []
+        const contracts = {}
+        for (let i = 0; i < addresses.length; i++) {
+            const address = addresses[i]
+            const contractStr = results[i]
+            if (!contractStr) continue
+            const abi = JSON.parse(contractStr)
+            contracts[address] = abi
+        }
+        return contracts
+    } catch (err) {
+        logger.error(
+            `Error getting polygon contracts for addresses ${addresses.join(', ')}: ${err}.`
+        )
+        return {}
+    }
+}
+
+export async function savePolygonContracts(contractsMap: StringMap): Promise<boolean> {
+    if (!Object.keys(contractsMap).length) return true
+    try {
+        await redis?.hSet(keys.POLYGON_CONTRACTS_CACHE, contractsMap)
+    } catch (err) {
+        logger.error(`Error saving polygon contracts: ${err}.`)
+        return false
+    }
+    return true
 }

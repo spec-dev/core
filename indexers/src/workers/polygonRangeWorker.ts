@@ -20,8 +20,10 @@ import {
     uniqueByKeys,
     formatAbiValueWithType,
     toChunks,
+    sleep,
 } from '../../../shared'
 import { exit } from 'process'
+import { pullTokensForAddress } from '../events/ivy/NewSmartWallet'
 
 class PolygonRangeWorker {
     
@@ -57,22 +59,36 @@ class PolygonRangeWorker {
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const groupBlockNumbers = range(start, end)
-            await this._indexBlockGroup(groupBlockNumbers)
-            this.cursor = this.cursor + this.groupSize
+        const smartWalletAddresses = await this._getSmartWalletContractAddresses()
+        let i = 1
+        for (const address of smartWalletAddresses) {
+            logger.info(`${i} / ${smartWalletAddresses.length}`)
+            await pullTokensForAddress(address, config.CHAIN_ID)
+            await sleep(200)
+            i++
         }
-        if (this.batchResults.length) {
-            await this._saveBatches(
-                this.batchBlockNumbersIndexed,
-                this.batchResults,
-                this.batchExistingBlocksMap
-            )
-        }
+
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const groupBlockNumbers = range(start, end)
+        //     await this._indexBlockGroup(groupBlockNumbers)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
+        // if (this.batchResults.length) {
+        //     await this._saveBatches(
+        //         this.batchBlockNumbersIndexed,
+        //         this.batchResults,
+        //         this.batchExistingBlocksMap
+        //     )
+        // }
         logger.info('DONE')
         exit()
+    }
+
+    async _getSmartWalletContractAddresses(): Promise<string[]> {
+        const results = await SharedTables.query(`SELECT contract_address FROM ivy.smart_wallets`)
+        return results.map(sw => sw?.contract_address).filter(v => !!v)
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {

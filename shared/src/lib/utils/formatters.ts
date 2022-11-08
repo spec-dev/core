@@ -20,13 +20,17 @@ export const mapByKey = (iterable: object[], key: string): { [key: string]: any 
 
 export const normalizeEthAddress = (
     value: any,
-    replaceNullAddress: boolean = true
+    replaceNullAddress: boolean = true,
+    shrinkIfNeeded: boolean = false
 ): string | null => {
     if (typeof value !== 'string') {
         return null
     } else if (value === NULL_ADDRESS && replaceNullAddress) {
         return null
     } else {
+        if (shrinkIfNeeded && value.length >= 40) {
+            value = `0x${value.slice(value.length - 40)}`
+        }
         return value.toLowerCase()
     }
 }
@@ -125,7 +129,7 @@ export const uniqueByKeys = (iterable: StringKeyMap[], keys: string[]): StringKe
     return uniqueArr
 }
 
-export const toChunks = (arr: any[], chunkSize: number): any[][] => {
+export const toChunks = (arr: any, chunkSize: number): any[][] => {
     const result = []
     for (let i = 0; i < arr.length; i += chunkSize) {
         const chunk = arr.slice(i, i + chunkSize)
@@ -309,3 +313,6 @@ const groupArgs = (value: string): any => {
     }
     return recurse()
 }
+
+export const splitLogDataToWords = (data: string): string[] =>
+    data?.length > 2 ? toChunks(data.slice(2), 64).map((w) => `0x${w}`) : []

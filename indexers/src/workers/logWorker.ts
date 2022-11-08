@@ -15,6 +15,7 @@ import { exit } from 'process'
 import https from 'https'
 
 class LogWorker {
+    
     from: number
 
     to: number

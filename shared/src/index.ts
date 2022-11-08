@@ -20,6 +20,7 @@ export {
     EthLatestInteraction,
     EthLatestInteractionType,
     fullLatestInteractionUpsertConfig,
+    EthLatestInteractionAddressCategory,
 } from './lib/shared-tables/db/entities/EthLatestInteraction'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
@@ -35,10 +36,13 @@ export {
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
     getPublishedEventsAfterEventCursors,
+    getPolygonContracts,
+    savePolygonContracts,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export { isNumber } from './lib/utils/validators'
 export { sleep } from './lib/utils/time'
+export * from './lib/utils/standardTopics'
 export {
     getlastSeenBlock,
     getBlockAtNumber,
@@ -58,27 +62,7 @@ import logger from './lib/logger'
 export { chainIds, productionChainNameForChainId, config, logger }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
-export {
-    mapByKey,
-    normalizeEthAddress,
-    normalize32ByteHash,
-    normalizeByteData,
-    numberToHex,
-    hexToNumber,
-    hexToNumberString,
-    toString,
-    toNamespacedVersion,
-    fromNamespacedVersion,
-    uniqueByKeys,
-    toChunks,
-    toSlug,
-    formatAbiValueWithType,
-    attemptToParseNumber,
-    functionSignatureToAbiInputs,
-    minimizeAbiInputs,
-    ensureNamesExistOnAbiInputs,
-    groupAbiInputsWithValues,
-} from './lib/utils/formatters'
+export * from './lib/utils/formatters'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
 export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
@@ -162,6 +146,7 @@ export {
 } from './lib/abi/redis'
 
 export * from './lib/abi/types'
+export * from './lib/utils/general'
 
 export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'
 

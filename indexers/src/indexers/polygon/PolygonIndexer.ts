@@ -6,7 +6,7 @@ import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
-import { onIvyWalletCreatedContractEvent } from '../../events'
+import { onIvyWalletCreatedContractEvent, onNewERC20TokenBalanceEvent } from '../../events'
 import { publishEventSpecs } from '../../events/relay'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
@@ -31,7 +31,11 @@ import {
     In,
     formatAbiValueWithType,
     productionChainNameForChainId,
+    PolygonTransactionStatus,
 } from '../../../../shared'
+import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
+import resolveContracts from './services/resolveContracts'
+import { getERC20TokenBalance } from '../../services/contractServices'
 
 const web3js = new Web3()
 
@@ -48,6 +52,8 @@ class PolygonIndexer extends AbstractIndexer {
     transactions: PolygonTransaction[] = []
 
     logs: PolygonLog[] = []
+
+    successfulLogs: PolygonLog[] = []
 
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
@@ -156,6 +162,9 @@ class PolygonIndexer extends AbstractIndexer {
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs)
 
+        // Curate list of logs from transactions that succeeded.
+        this._curateSuccessfulLogs()
+
         // Create and publish Spec events to the event relay.
         try {
             await this._createAndPublishEvents()
@@ -181,20 +190,23 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        const eventSpecs = await this._getDetectedContractEventSpecs()
-        if (!eventSpecs.length) return
-        
-        await publishEventSpecs(eventSpecs)
+        const newTokenBalanceEventSpecsPromise = this._getNewERC20TokenBalanceEventSpecs()
+        const contractEventSpecs = await this._getDetectedContractEventSpecs()
+        contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
 
-        for (const eventSpec of eventSpecs) {
-            if (eventSpec.name === ivySmartWalletInitializerWalletCreated) {
-                await onIvyWalletCreatedContractEvent(eventSpec)
-            }
-        }
+        const newTokenBalanceEventSpecs = (await newTokenBalanceEventSpecsPromise) || []
+        await Promise.all(newTokenBalanceEventSpecs.map(es => onNewERC20TokenBalanceEvent(es)))
+
+        const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
+            es.name === ivySmartWalletInitializerWalletCreated
+        ))
+        await Promise.all(
+            ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es))
+        )
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
-        const decodedLogs = this.logs.filter(log => !!log.eventName)
+        const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
         if (!decodedLogs.length) return []
 
         const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
@@ -215,12 +227,9 @@ class PolygonIndexer extends AbstractIndexer {
 
         const chainName = productionChainNameForChainId(this.chainId)
         const specEventNamePrefix = chainName ? `${chainName}:` : ''
-        const sortedDecodedLogs = decodedLogs.sort((a, b) => 
-            (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
-        )
 
         const eventSpecs = []
-        for (const decodedLog of sortedDecodedLogs) {
+        for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
             if (!namespacedContractInfoByAddress.hasOwnProperty(address)) continue
             const { nsp, contractName } = namespacedContractInfoByAddress[address]
@@ -250,6 +259,114 @@ class PolygonIndexer extends AbstractIndexer {
             return []
         }
         return contractInstances || []        
+    }
+
+    async _getNewERC20TokenBalanceEventSpecs(): Promise<StringKeyMap[]> {
+        const transfers = extractTransfersFromLogs(this.successfulLogs).filter(t => !!t.from && !!t.to)
+        if (!transfers.length) return []
+
+        const accounts = []
+        for (const transfer of transfers) {
+            accounts.push(transfer.from)
+            accounts.push(transfer.to)
+        }
+        const referencedSmartWalletOwners = await this._getSmartWalletsForAddresses(
+            Array.from(new Set(accounts))
+        )
+        if (!referencedSmartWalletOwners.length) return []
+        const smartWalletOwners = new Set(referencedSmartWalletOwners)
+        
+        const referencedContractAddresses = Array.from(new Set(transfers.map(t => t.log.address)))
+        const contracts = await resolveContracts(referencedContractAddresses)
+
+        const refetchTokenBalancesMap = {}
+        const transferToLog = {}
+        for (const transfer of transfers) {
+            const contract = contracts[transfer.log.address]
+            if (!contract?.isERC20) continue
+            const token = {
+                name: contract.name || null,
+                symbol: contract.symbol || null,
+                decimals: contract.decimals || null,
+            }
+            const fromSmartWalletOwner = smartWalletOwners.has(transfer.from)
+            const toSmartWalletOwner = smartWalletOwners.has(transfer.to)
+
+            if (fromSmartWalletOwner) {
+                const key = [contract.address, transfer.from].join(':')
+                refetchTokenBalancesMap[key] = refetchTokenBalancesMap[key] || token
+                transferToLog[key] = transfer.log
+            }
+            if (toSmartWalletOwner) {
+                const key = [contract.address, transfer.to].join(':')
+                refetchTokenBalancesMap[key] = refetchTokenBalancesMap[key] || token
+                transferToLog[key] = transfer.log
+            }
+        }
+
+        const tokenBalancePromises = []
+        const tokenBalanceData = []
+        for (const key in refetchTokenBalancesMap) {
+            const token = refetchTokenBalancesMap[key]
+            const [tokenAddress, ownerAddress] = key.split(':')
+            tokenBalancePromises.push(getERC20TokenBalance(tokenAddress, ownerAddress, token.decimals))
+            tokenBalanceData.push({ 
+                tokenAddress,
+                tokenName: token.name,
+                tokenSymbol: token.symbol,
+                ownerAddress,
+                log: transferToLog[key]
+            })
+        }
+
+        let tokenBalances = []
+        try {
+            tokenBalances = await Promise.all(tokenBalancePromises)
+        } catch (err) {
+            this._error(`Error refreshing token balances: $${err}`)
+            return []
+        }
+
+        for (let i = 0; i < tokenBalances.length; i++) {
+            tokenBalanceData[i].balance = tokenBalances[i]
+        }
+
+        return tokenBalanceData.filter(entry => entry.balance !== null).map(value => {
+            const { tokenAddress, tokenName, tokenSymbol, ownerAddress, balance, log } = value
+            return {
+                name: 'polygon:polygon.NewERC20TokenBalance@0.0.1',
+                data: {
+                    tokenAddress,
+                    tokenName,
+                    tokenSymbol,
+                    ownerAddress,
+                    balance,
+                },
+                origin: {
+                    chainId: this.chainId,
+                    transactionHash: log.transactionHash,
+                    contractAddress: log.address,
+                    blockNumber: Number(log.blockNumber),
+                    blockHash: log.blockHash,
+                    blockTimestamp: log.blockTimestamp.toISOString(),        
+                }
+            }
+        })
+    }
+
+    async _getSmartWalletsForAddresses(addresses: string[]): Promise<string[]> {
+        const placeholders = []
+        let i = 1
+        for (const _ of addresses) {
+            placeholders.push(`$${i}`)
+            i++
+        }
+        const results = (await SharedTables.query(
+            `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')})`,
+            addresses,
+        )) || []
+        
+        return results.map(sw => sw?.contract_address).filter(v => !!v)
     }
 
     _decodeTransactions(
@@ -402,6 +519,17 @@ class PolygonIndexer extends AbstractIndexer {
             }
         }
         return { data, eventOrigin }
+    }
+
+    _curateSuccessfulLogs() {
+        const txSuccess = {}
+        for (const tx of this.transactions) {
+            txSuccess[tx.hash] = tx.status == PolygonTransactionStatus.Success
+        }
+        this.successfulLogs = this.logs
+            .filter(log => txSuccess[log.transactionHash])
+            .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
+        )
     }
 
     async _getBlockWithTransactions(): Promise<[ExternalPolygonBlock, PolygonBlock]> {

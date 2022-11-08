@@ -1,67 +1,74 @@
 import {
     EthTransaction,
-    EthTransactionStatus,
     EthContract,
     EthLatestInteraction,
     EthLatestInteractionType,
+    EthTrace,
     SharedTables,
     In,
     uniqueByKeys,
+    EthLatestInteractionAddressCategory,
 } from '../../../../../shared'
 
 const contracts = () => SharedTables.getRepository(EthContract)
 
 async function initLatestInteractions(
     transactions: EthTransaction[],
+    traces: EthTrace[],
     contracts: EthContract[]
 ): Promise<EthLatestInteraction[]> {
-    if (!transactions.length) return []
+    const transactionInteractions = transactions
+        .filter((tx) => !!tx.from && !!tx.to)
+        .map((tx) => newLatestInteractionFromTransaction(tx))
 
-    // Create latest interaction models for each transaction with non-empty to/from properties.
-    let latestInteractions = uniqueByKeys(
-        transactions
-            .filter((tx) => !!tx.from && !!tx.to)
-            .sort((a, b) => b.transactionIndex - a.transactionIndex)
-            .map((tx) => newLatestInteractionFromTransaction(tx)),
-        ['from', 'to']
-    )
+    const traceInteractions = traces
+        .filter((t) => !!t.from && !!t.to)
+        .map((t) => newLatestInteractionFromTrace(t))
 
-    // Format this block's contract addresses as a set.
+    const latestInteractions = uniqueByKeys(
+        ([
+            ...transactionInteractions,
+            ...traceInteractions,
+        ] as any[]).sort((a, b) => b.transactionIndex - a.transactionIndex), 
+        ['from', 'to'],
+    ) as EthLatestInteraction[]
+
+    if (!latestInteractions.length) return []
+
     const blockContractAddresses = new Set(contracts.map((c) => c.address))
 
-    // Break out / recategorize the interactions that interacted with one of this block's contracts.
-    const contractInteractions = []
-    const maybeContractInteractions = []
+    let interactionAddressesSet = new Set<string>()
     for (const interaction of latestInteractions) {
-        if (blockContractAddresses.has(interaction.to)) {
-            interaction.interactionType = EthLatestInteractionType.WalletToContract
-            contractInteractions.push(interaction)
+        interactionAddressesSet.add(interaction.from)
+        interactionAddressesSet.add(interaction.to)
+    }
+    const interactionAddresses = Array.from(interactionAddressesSet)
+    const potentialContractAddresses = []
+    const contractAddresses = new Set<string>()
+    for (const address of interactionAddresses) {
+        if (blockContractAddresses.has(address)) {
+            contractAddresses.add(address)
         } else {
-            maybeContractInteractions.push(interaction)
+            potentialContractAddresses.push(address)
         }
     }
 
-    if (!maybeContractInteractions.length) {
-        return contractInteractions
+    if (potentialContractAddresses.length) {
+        const actualContractAddresses = await getContractAddresses(potentialContractAddresses)
+        Array.from(actualContractAddresses).forEach(addr => { contractAddresses.add(addr) })
     }
 
-    // For the uncategorized interactions that are left, use the contracts shared table
-    // to see which of these interactions were sent to a contract.
-    const contractAddressesInteractedWith = await getContractAddresses(
-        maybeContractInteractions.map((i) => i.to)
-    )
+    latestInteractions.forEach(interaction => {
+        const fromType = contractAddresses.has(interaction.from)
+            ? EthLatestInteractionAddressCategory.Contract
+            : EthLatestInteractionAddressCategory.Wallet
+        const toType = contractAddresses.has(interaction.to)
+            ? EthLatestInteractionAddressCategory.Contract
+            : EthLatestInteractionAddressCategory.Wallet
+        interaction.interactionType = [fromType, toType].join(':') as EthLatestInteractionType
+    })
 
-    const walletInteractions = []
-    for (const interaction of maybeContractInteractions) {
-        if (contractAddressesInteractedWith.has(interaction.to)) {
-            interaction.interactionType = EthLatestInteractionType.WalletToContract
-            contractInteractions.push(interaction)
-        } else {
-            walletInteractions.push(interaction)
-        }
-    }
-
-    return [...contractInteractions, ...walletInteractions]
+    return latestInteractions
 }
 
 async function getContractAddresses(addresses: string[]): Promise<Set<string>> {
@@ -86,6 +93,18 @@ function newLatestInteractionFromTransaction(transaction: EthTransaction): EthLa
     latestInteraction.timestamp = transaction.blockTimestamp
     latestInteraction.blockHash = transaction.blockHash
     latestInteraction.blockNumber = transaction.blockNumber
+    return latestInteraction
+}
+
+function newLatestInteractionFromTrace(trace: EthTrace): EthLatestInteraction {
+    const latestInteraction = new EthLatestInteraction()
+    latestInteraction.from = trace.from
+    latestInteraction.to = trace.to
+    latestInteraction.interactionType = EthLatestInteractionType.WalletToWallet
+    latestInteraction.hash = trace.transactionHash
+    latestInteraction.timestamp = trace.blockTimestamp
+    latestInteraction.blockHash = trace.blockHash
+    latestInteraction.blockNumber = trace.blockNumber
     return latestInteraction
 }
 
