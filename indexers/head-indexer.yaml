@@ -26,6 +26,8 @@ spec:
           value: {{ALCHEMY_API_KEY}}
         - name: ALCHEMY_REST_URL
           value: {{ALCHEMY_REST_URL}}
+        - name: ALCHEMY_SUBSCRIPTION_URL
+          value: {{ALCHEMY_SUBSCRIPTION_URL}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME

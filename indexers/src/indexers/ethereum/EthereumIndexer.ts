@@ -39,6 +39,7 @@ import {
     AbiItem,
     ensureNamesExistOnAbiInputs,
     groupAbiInputsWithValues,
+    EthLatestInteractionType,
 } from '../../../../shared'
 import Web3 from 'web3'
 const web3js = new Web3()

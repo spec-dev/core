@@ -21,6 +21,7 @@ $shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 alchemy_rest_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_REST_URL" )
+alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
 publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
 event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
 head_reporter_queue_key=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_QUEUE_KEY" )
@@ -63,6 +64,7 @@ abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "ALCHEMY_REST_URL" "$alchemy_rest_url"
+$shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 $shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
@@ -121,6 +123,7 @@ template=$( cat "$template_path" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{ALCHEMY_REST_URL}}|$alchemy_rest_url|g" | \
+    sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \
     sed "s|{{EVENT_RELAY_HOSTNAME}}|$event_relay_hostname|g" | \
     sed "s|{{HEAD_REPORTER_QUEUE_KEY}}|$head_reporter_queue_key|g" | \

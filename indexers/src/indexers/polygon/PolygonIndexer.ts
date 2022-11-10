@@ -191,6 +191,7 @@ class PolygonIndexer extends AbstractIndexer {
 
     async _createAndPublishEvents() {
         const newTokenBalanceEventSpecsPromise = this._getNewERC20TokenBalanceEventSpecs()
+        
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
         contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
 
