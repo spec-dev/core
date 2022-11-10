@@ -26,7 +26,10 @@ async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
         }
         if (!contract.isERC20) {
             contracts[address] = contract
-            cacheUpdates[address] = JSON.stringify(contract)
+            cacheUpdates[address] = JSON.stringify({
+                address,
+                isERC20: false,
+            })
             continue
         }
         newERC20Contracts.push(contract)
@@ -52,7 +55,10 @@ async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
         }
         
         contracts[address] = newERC20Contracts[i]
-        cacheUpdates[address] = JSON.stringify(newERC20Contracts[i])
+        cacheUpdates[address] = JSON.stringify({
+            ...newERC20Contracts[i],
+            bytecode: null // don't cache this
+        })
     }
 
     savePolygonContracts(cacheUpdates)
