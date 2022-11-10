@@ -26,6 +26,11 @@ import {
     EthLatestInteraction,
     toChunks,
 } from '../../../shared'
+import { exit } from 'process'
+
+const missingBlockNumbers = [
+    15903798,
+]
 
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
@@ -63,9 +68,9 @@ class EthRangeWorker {
     }
 
     async run() {
-        // for (const number of missingBlockNumbers) {
-        //     await this._indexBlockGroup([number])
-        // }
+        for (const number of missingBlockNumbers) {
+            await this._indexBlockGroup([number])
+        }
         // while (this.cursor < this.to) {
         //     const start = this.cursor
         //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
@@ -81,6 +86,7 @@ class EthRangeWorker {
         //     )
         // }
         logger.info('DONE')
+        exit()
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {

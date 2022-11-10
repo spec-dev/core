@@ -21,7 +21,7 @@ import createContract from './createContract'
 import createContractInstance from './createContractInstance'
 import getProjects from './getProjects'
 import getEventVersions from './getEventVersions'
-import reset from './reset'
+import lrq from './lrq'
 import getAbi from './getAbi'
 import { argv } from 'process'
 import logger from '../lib/logger'
@@ -48,7 +48,7 @@ const jobs = {
     createProjectRole,
     createContract,
     createContractInstance,
-    reset,
+    lrq,
     getProjects,
     getEventVersions,
     getAbi,
