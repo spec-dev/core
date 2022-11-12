@@ -6,22 +6,15 @@ import {
     ERC20_NAME_ITEM,
     ERC20_SYMBOL_ITEM,
     ERC20_DECIMALS_ITEM,
-    ERC20_TOTAL_SUPPLY_ITEM,
     ERC20_BALANCE_OF_ITEM,
-    ERC20_APPROVE_ITEM,
-    ERC20_ALLOWANCE_ITEM,
-    ERC20_TRANSFER_ITEM,
-    ERC20_TRANSFER_FROM_ITEM,
+    ERC721_BALANCE_OF_ITEM,
+    ERC721_OWNER_OF_ITEM,
+    ERC721_TRANSFER_ITEM,
+    ERC721_TRANSFER_FROM_ITEM,
+    ERC721_APPROVE_ITEM,
+    erc20RequiredFunctionItems,
+    erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
-
-const erc20AbiFunctionItems = [
-    ERC20_TOTAL_SUPPLY_ITEM,
-    ERC20_BALANCE_OF_ITEM,
-    ERC20_APPROVE_ITEM,
-    ERC20_ALLOWANCE_ITEM,
-    ERC20_TRANSFER_ITEM,
-    ERC20_TRANSFER_FROM_ITEM,    
-]
 
 export function getContractInterface(address: string, abi: any): StringKeyMap {
     const web3 = getSocketWeb3()
@@ -34,8 +27,26 @@ export function isContractERC20(bytecode: string): boolean {
     const functionSignatures = bytecodeToFunctionSignatures(bytecode)
     if (!functionSignatures.length) return false
     const sigs = new Set(functionSignatures)
-    const implementedFunctions = erc20AbiFunctionItems.filter(item => sigs.has(item.signature))
-    return implementedFunctions.length === erc20AbiFunctionItems.length
+    const implementedFunctions = erc20RequiredFunctionItems.filter(item => sigs.has(item.signature))
+    return implementedFunctions.length === erc20RequiredFunctionItems.length
+}
+
+export function isContractERC721(bytecode: string): boolean {
+    const functionSignatures = bytecodeToFunctionSignatures(bytecode)
+    if (!functionSignatures.length) return false
+    const sigs = new Set(functionSignatures)
+    return sigs.has(ERC721_BALANCE_OF_ITEM.signature) && 
+        sigs.has(ERC721_OWNER_OF_ITEM.signature) &&
+        sigs.has(ERC721_APPROVE_ITEM.signature) &&
+        (sigs.has(ERC721_TRANSFER_ITEM.signature) || sigs.has(ERC721_TRANSFER_FROM_ITEM.signature))
+}
+
+export function isContractERC1155(bytecode: string): boolean {
+    const functionSignatures = bytecodeToFunctionSignatures(bytecode)
+    if (!functionSignatures.length) return false
+    const sigs = new Set(functionSignatures)
+    const implementedFunctions = erc1155RequiredFunctionItems.filter(item => sigs.has(item.signature))
+    return implementedFunctions.length === erc1155RequiredFunctionItems.length
 }
 
 export function bytecodeToFunctionSignatures(bytecode: string): string[] {
