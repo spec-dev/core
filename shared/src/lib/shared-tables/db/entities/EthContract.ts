@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
+import { Entity, PrimaryColumn, Column } from 'typeorm'
 import schemas from '../../schemas'
 import { decamelize } from 'humps'
 
@@ -14,6 +14,15 @@ export class EthContract {
     // The bytecode of the contract.
     @Column('varchar', { nullable: true })
     bytecode: string
+
+    @Column('boolean', { name: 'is_erc20' })
+    isERC20: boolean
+
+    @Column('boolean', { name: 'is_erc721' })
+    isERC721: boolean
+
+    @Column('boolean', { name: 'is_erc1155' })
+    isERC1155: boolean
 
     // The hash of the block this transaction was included in.
     @Column('varchar', { name: 'block_hash', length: 70 })

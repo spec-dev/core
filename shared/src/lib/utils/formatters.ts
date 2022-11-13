@@ -31,7 +31,8 @@ export const normalizeEthAddress = (
         if (shrinkIfNeeded && value.length >= 40) {
             value = `0x${value.slice(value.length - 40)}`
         }
-        return value.toLowerCase()
+        value = value.toLowerCase()
+        return value === NULL_ADDRESS && replaceNullAddress ? null : value
     }
 }
 
