@@ -23,7 +23,8 @@ import {
     sleep,
 } from '../../../shared'
 import { exit } from 'process'
-import { pullTokensForAddress } from '../events/ivy/NewSmartWallet'
+import { AlchemyWeb3, createAlchemyWeb3 } from '@alch/alchemy-web3'
+import { pullERC20sForAddress, pullNFTsForAddress } from '../events/ivy/NewSmartWallet'
 
 class PolygonRangeWorker {
     
@@ -49,6 +50,8 @@ class PolygonRangeWorker {
 
     saveBatchIndex: number = 0
 
+    web3: AlchemyWeb3
+
     constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
@@ -56,6 +59,7 @@ class PolygonRangeWorker {
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}
+        this.web3 = createAlchemyWeb3(config.ALCHEMY_REST_URL)
     }
 
     async run() {
@@ -63,7 +67,12 @@ class PolygonRangeWorker {
         let i = 1
         for (const address of smartWalletAddresses) {
             logger.info(`${i} / ${smartWalletAddresses.length}`)
-            await pullTokensForAddress(address, config.CHAIN_ID)
+
+            await Promise.all([
+                pullERC20sForAddress(address, config.CHAIN_ID),
+                pullNFTsForAddress(address, this.web3)
+            ])
+            
             await sleep(200)
             i++
         }

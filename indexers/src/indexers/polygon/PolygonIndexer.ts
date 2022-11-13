@@ -6,7 +6,7 @@ import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
-import { onIvyWalletCreatedContractEvent, onNewERC20TokenBalanceEvent } from '../../events'
+import { onIvyWalletCreatedContractEvent, onNewERC20TokenBalanceEvent, onNewNFTBalanceEvent } from '../../events'
 import { publishEventSpecs } from '../../events/relay'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
@@ -35,7 +35,7 @@ import {
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
-import { getERC20TokenBalance } from '../../services/contractServices'
+import { getERC20TokenBalance, getERC1155TokenBalance } from '../../services/contractServices'
 
 const web3js = new Web3()
 
@@ -190,20 +190,26 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        const newTokenBalanceEventSpecsPromise = this._getNewERC20TokenBalanceEventSpecs()
-        
+        // Contract events.
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
         contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
 
-        const newTokenBalanceEventSpecs = (await newTokenBalanceEventSpecsPromise) || []
-        await Promise.all(newTokenBalanceEventSpecs.map(es => onNewERC20TokenBalanceEvent(es)))
-
+        // New Ivy Smart Wallet events.
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
             es.name === ivySmartWalletInitializerWalletCreated
         ))
         await Promise.all(
-            ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es))
+            ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
         )
+
+        // Token events.
+        const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
+        const erc20EventSpecs = tokenEventSpecs?.erc20s || []
+        const nftEventSpecs = tokenEventSpecs?.nfts || []
+        await Promise.all([
+            ...erc20EventSpecs.map(es => onNewERC20TokenBalanceEvent(es)),
+            ...nftEventSpecs.map(es => onNewNFTBalanceEvent(es)),
+        ])
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
@@ -262,53 +268,105 @@ class PolygonIndexer extends AbstractIndexer {
         return contractInstances || []        
     }
 
-    async _getNewERC20TokenBalanceEventSpecs(): Promise<StringKeyMap[]> {
-        const transfers = extractTransfersFromLogs(this.successfulLogs).filter(t => !!t.from && !!t.to)
-        if (!transfers.length) return []
+    async _getNewTokenBalanceEventSpecs(): Promise<StringKeyMap> {
+        const transfers = extractTransfersFromLogs(this.successfulLogs)
+        if (!transfers.length) return {}
 
         const accounts = []
         for (const transfer of transfers) {
-            accounts.push(transfer.from)
-            accounts.push(transfer.to)
+            transfer.from && accounts.push(transfer.from)
+            transfer.to && accounts.push(transfer.to)
         }
         const referencedSmartWalletOwners = await this._getSmartWalletsForAddresses(
             Array.from(new Set(accounts))
         )
-        if (!referencedSmartWalletOwners.length) return []
+        if (!referencedSmartWalletOwners.length) return {}
         const smartWalletOwners = new Set(referencedSmartWalletOwners)
         
         const referencedContractAddresses = Array.from(new Set(transfers.map(t => t.log.address)))
         const contracts = await resolveContracts(referencedContractAddresses)
 
-        const refetchTokenBalancesMap = {}
+        const refetchERC20TokenBalancesMap = {}
+        const erc721BalanceUpdates = {}
+        const refetchERC1155TokenBalancesMap = {}
+
         const transferToLog = {}
         for (const transfer of transfers) {
             const contract = contracts[transfer.log.address]
-            if (!contract?.isERC20) continue
-            const token = {
-                name: contract.name || null,
-                symbol: contract.symbol || null,
-                decimals: contract.decimals || null,
-            }
-            const fromSmartWalletOwner = smartWalletOwners.has(transfer.from)
-            const toSmartWalletOwner = smartWalletOwners.has(transfer.to)
+            if (!contract) continue
 
-            if (fromSmartWalletOwner) {
-                const key = [contract.address, transfer.from].join(':')
-                refetchTokenBalancesMap[key] = refetchTokenBalancesMap[key] || token
-                transferToLog[key] = transfer.log
+            if (contract.isERC20) {
+                const token = {
+                    name: contract.name || null,
+                    symbol: contract.symbol || null,
+                    decimals: contract.decimals || null,
+                }
+                const fromSmartWalletOwner = transfer.from && smartWalletOwners.has(transfer.from)
+                const toSmartWalletOwner = transfer.to && smartWalletOwners.has(transfer.to)
+    
+                if (fromSmartWalletOwner) {
+                    const key = [contract.address, transfer.from].join(':')
+                    refetchERC20TokenBalancesMap[key] = token
+                    transferToLog[key] = transfer.log
+                }
+                if (toSmartWalletOwner) {
+                    const key = [contract.address, transfer.to].join(':')
+                    refetchERC20TokenBalancesMap[key] = token
+                    transferToLog[key] = transfer.log
+                }
             }
-            if (toSmartWalletOwner) {
-                const key = [contract.address, transfer.to].join(':')
-                refetchTokenBalancesMap[key] = refetchTokenBalancesMap[key] || token
-                transferToLog[key] = transfer.log
+            else if (contract.isERC721) {
+                const nftContract = {
+                    name: contract.name || null,
+                    symbol: contract.symbol || null,
+                }
+                
+                const fromSmartWalletOwner = transfer.from && smartWalletOwners.has(transfer.from)
+                const toSmartWalletOwner = transfer.to && smartWalletOwners.has(transfer.to)
+                const tokenId = transfer.value
+                
+                if (fromSmartWalletOwner) {
+                    const key = [contract.address, tokenId, transfer.from].join(':')
+                    erc721BalanceUpdates[key] = {
+                        ...nftContract,
+                        balance: '0',
+                    }
+                    transferToLog[key] = transfer.log
+                }
+                if (toSmartWalletOwner) {
+                    const key = [contract.address, tokenId, transfer.to].join(':')
+                    erc721BalanceUpdates[key] = {
+                        ...nftContract,
+                        balance: '1',
+                    }
+                    transferToLog[key] = transfer.log
+                }
+            } else if (contract.isERC1155) {
+                const nftContract = {
+                    name: contract.name || null,
+                    symbol: contract.symbol || null,
+                }
+                const fromSmartWalletOwner = transfer.from && smartWalletOwners.has(transfer.from)
+                const toSmartWalletOwner = transfer.to && smartWalletOwners.has(transfer.to)
+                const tokenId = transfer.tokenId
+    
+                if (fromSmartWalletOwner) {
+                    const key = [contract.address, tokenId, transfer.from].join(':')
+                    refetchERC1155TokenBalancesMap[key] = nftContract
+                    transferToLog[key] = transfer.log
+                }
+                if (toSmartWalletOwner) {
+                    const key = [contract.address, tokenId, transfer.to].join(':')
+                    refetchERC1155TokenBalancesMap[key] = nftContract
+                    transferToLog[key] = transfer.log
+                }
             }
         }
 
         const tokenBalancePromises = []
         const tokenBalanceData = []
-        for (const key in refetchTokenBalancesMap) {
-            const token = refetchTokenBalancesMap[key]
+        for (const key in refetchERC20TokenBalancesMap) {
+            const token = refetchERC20TokenBalancesMap[key]
             const [tokenAddress, ownerAddress] = key.split(':')
             tokenBalancePromises.push(getERC20TokenBalance(tokenAddress, ownerAddress, token.decimals))
             tokenBalanceData.push({ 
@@ -320,39 +378,114 @@ class PolygonIndexer extends AbstractIndexer {
             })
         }
 
-        let tokenBalances = []
+        let tokenBalances
         try {
             tokenBalances = await Promise.all(tokenBalancePromises)
         } catch (err) {
-            this._error(`Error refreshing token balances: $${err}`)
-            return []
+            this._error(`Error refreshing ERC-20 token balances: $${err}`)
+            tokenBalances = []
         }
 
         for (let i = 0; i < tokenBalances.length; i++) {
             tokenBalanceData[i].balance = tokenBalances[i]
         }
 
-        return tokenBalanceData.filter(entry => entry.balance !== null).map(value => {
-            const { tokenAddress, tokenName, tokenSymbol, ownerAddress, balance, log } = value
-            return {
-                name: 'polygon:polygon.NewERC20TokenBalance@0.0.1',
-                data: {
-                    tokenAddress,
-                    tokenName,
-                    tokenSymbol,
-                    ownerAddress,
-                    balance,
-                },
-                origin: {
-                    chainId: this.chainId,
-                    transactionHash: log.transactionHash,
-                    contractAddress: log.address,
-                    blockNumber: Number(log.blockNumber),
-                    blockHash: log.blockHash,
-                    blockTimestamp: log.blockTimestamp.toISOString(),        
+        const erc721TokenBalanceData = []
+        for (const key in erc721BalanceUpdates) {
+            const nftContractWithBalance = erc721BalanceUpdates[key]
+            const [contractAddress, tokenId, ownerAddress] = key.split(':')
+            erc721TokenBalanceData.push({ 
+                tokenAddress: contractAddress,
+                tokenName: nftContractWithBalance.name,
+                tokenSymbol: nftContractWithBalance.symbol,
+                tokenStandard: 'erc721',
+                tokenId,
+                ownerAddress,
+                balance: nftContractWithBalance.balance,
+                log: transferToLog[key]
+            })
+        }
+
+        const erc1155TokenBalancePromises = []
+        const erc1155TokenBalanceData = []
+        for (const key in refetchERC1155TokenBalancesMap) {
+            const nftContract = refetchERC1155TokenBalancesMap[key]
+            const [contractAddress, tokenId, ownerAddress] = key.split(':')
+            erc1155TokenBalancePromises.push(getERC1155TokenBalance(contractAddress, tokenId, ownerAddress))
+            erc1155TokenBalanceData.push({
+                tokenAddress: contractAddress,
+                tokenName: nftContract.name,
+                tokenSymbol: nftContract.symbol,
+                tokenStandard: 'erc1155',
+                tokenId,
+                ownerAddress,
+                log: transferToLog[key]
+            })
+        }
+
+        let erc1155TokenBalances
+        try {
+            erc1155TokenBalances = await Promise.all(erc1155TokenBalancePromises)
+        } catch (err) {
+            this._error(`Error refreshing ERC-1155 token balances: $${err}`)
+            erc1155TokenBalances = []
+        }
+
+        for (let i = 0; i < erc1155TokenBalances.length; i++) {
+            erc1155TokenBalanceData[i].balance = erc1155TokenBalances[i]
+        }
+
+        const erc20EventSpecs = tokenBalanceData
+            .filter(entry => entry.balance !== null)
+            .map(value => {
+                const { tokenAddress, tokenName, tokenSymbol, ownerAddress, balance, log } = value
+                return {
+                    name: 'polygon:polygon.NewERC20TokenBalance@0.0.1',
+                    data: {
+                        tokenAddress,
+                        tokenName,
+                        tokenSymbol,
+                        ownerAddress,
+                        balance,
+                    },
+                    origin: {
+                        chainId: this.chainId,
+                        transactionHash: log.transactionHash,
+                        contractAddress: log.address,
+                        blockNumber: Number(log.blockNumber),
+                        blockHash: log.blockHash,
+                        blockTimestamp: log.blockTimestamp.toISOString(),        
+                    }
                 }
-            }
-        })
+            })
+
+        const nftEventSpecs = [...erc721TokenBalanceData, ...erc1155TokenBalanceData]
+            .filter(entry => entry.balance !== null)
+            .map(value => {
+                const { tokenAddress, tokenName, tokenSymbol, tokenStandard, tokenId, ownerAddress, balance, log } = value
+                return {
+                    name: 'polygon:polygon.NewNFTBalance@0.0.1',
+                    data: {
+                        tokenAddress,
+                        tokenName,
+                        tokenSymbol,
+                        tokenStandard,
+                        tokenId,
+                        ownerAddress,
+                        balance,
+                    },
+                    origin: {
+                        chainId: this.chainId,
+                        transactionHash: log.transactionHash,
+                        contractAddress: log.address,
+                        blockNumber: Number(log.blockNumber),
+                        blockHash: log.blockHash,
+                        blockTimestamp: log.blockTimestamp.toISOString(),        
+                    }
+                }    
+            })
+
+        return { erc20s: erc20EventSpecs, nfts: nftEventSpecs }
     }
 
     async _getSmartWalletsForAddresses(addresses: string[]): Promise<string[]> {

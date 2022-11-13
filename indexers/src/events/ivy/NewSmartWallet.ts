@@ -1,9 +1,10 @@
-import { StringKeyMap, logger, SharedTables, sleep } from '../../../../shared'
+import { StringKeyMap, logger, SharedTables, sleep, hexToNumberString } from '../../../../shared'
 import { publishEventSpecs } from '../relay'
 import { BigNumber, utils } from 'ethers'
 import { getERC20TokenBalance } from '../../services/contractServices'
+import { AlchemyWeb3 } from '@alch/alchemy-web3'
 
-export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap) {
+export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap, web3: AlchemyWeb3) {
     // Get smart wallet contract and owner addresses from received event data.
     const { data, origin } = eventSpec
     const contractAddress = data.smartWallet
@@ -49,9 +50,12 @@ export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap) {
     }
 
     try {
-        await pullTokensForAddress(smartWallet.contractAddress, chainId)
+        await Promise.all([
+            pullERC20sForAddress(smartWallet.contractAddress, chainId),
+            pullNFTsForAddress(smartWallet.contractAddress, web3),
+        ])
     } catch (err) {
-        logger.info(err)
+        logger.error(err)
     }
 
     // Publish new ivy.NewSmartWallet event.
@@ -62,11 +66,11 @@ export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap) {
     }])
 }
 
-export async function pullTokensForAddress(ownerAddress: string, chainId: number) {
-    const alreadyPulledTokens = await tokenBalanceExistsForOwner(ownerAddress)
+export async function pullERC20sForAddress(ownerAddress: string, chainId: number) {
+    const alreadyPulledTokens = await erc20TokenBalanceExistsForOwner(ownerAddress)
     if (alreadyPulledTokens) return
 
-    const tokens = await fetchTokens(ownerAddress, chainId)
+    const tokens = await fetchERC20s(ownerAddress, chainId)
     if (!tokens.length) return
 
     const insertPlaceholders = []
@@ -87,7 +91,34 @@ export async function pullTokensForAddress(ownerAddress: string, chainId: number
     await SharedTables.query(insertQuery, insertBindings)
 }
 
-async function tokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean> {
+export async function pullNFTsForAddress(ownerAddress: string, web3: AlchemyWeb3) {
+    const alreadyPulledNFTs = await nftTokenBalanceExistsForOwner(ownerAddress)
+    if (alreadyPulledNFTs) return
+
+    const nfts = await fetchNFTs(ownerAddress, web3)
+    if (!nfts.length) return
+
+    const insertPlaceholders = []
+    const insertBindings = []
+    let i = 1
+    for (const nft of nfts) {
+        insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6})`)
+        insertBindings.push(...[
+            nft.token_address,
+            nft.token_name,
+            nft.token_symbol,
+            nft.token_standard,
+            nft.token_id,
+            nft.owner_address,
+            nft.balance,
+        ])
+        i += 5
+    }
+    const insertQuery = `INSERT INTO polygon.nft_balances (token_address, token_name, token_symbol, token_standard, token_id, owner_address, balance) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, token_id, owner_address) DO UPDATE SET balance = EXCLUDED.balance`
+    await SharedTables.query(insertQuery, insertBindings)
+}
+
+async function erc20TokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean> {
     const count = Number((((await SharedTables.query(
         `SELECT COUNT(*) FROM polygon.erc20_balances WHERE owner_address = $1`, 
         [ownerAddress],
@@ -95,12 +126,20 @@ async function tokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean
     return count > 0
 }
 
-async function fetchTokens(ownerAddress: string, chainId: number) {
+async function nftTokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean> {
+    const count = Number((((await SharedTables.query(
+        `SELECT COUNT(*) FROM polygon.nft_balances WHERE owner_address = $1`, 
+        [ownerAddress],
+    )) || [])[0] || {}).count || 0)
+    return count > 0
+}
+
+async function fetchERC20s(ownerAddress: string, chainId: number) {
     let externalTokens = null
     let numAttempts = 0
 
     while (externalTokens === null && numAttempts < 10) {
-        externalTokens = await _fetchTokens(ownerAddress, chainId)
+        externalTokens = await _fetchERC20s(ownerAddress, chainId)
         if (externalTokens === null) {
             await sleep(300)
         }
@@ -115,7 +154,27 @@ async function fetchTokens(ownerAddress: string, chainId: number) {
     return externalToInternalERC20s(externalTokens, ownerAddress)
 }
 
-async function _fetchTokens(ownerAddress: string, chainId: number): Promise<StringKeyMap[] | null> {
+async function fetchNFTs(ownerAddress: string, web3: AlchemyWeb3) {
+    let externalNFTs = null
+    let numAttempts = 0
+
+    while (externalNFTs === null && numAttempts < 10) {
+        externalNFTs = await _fetchNFTs(ownerAddress, web3)
+        if (externalNFTs === null) {
+            await sleep(300)
+        }
+        numAttempts += 1
+    }
+
+    if (externalNFTs === null) {
+        logger.error(`Out of attempts - No NFTs found for owner ${ownerAddress}...`)
+        return []
+    }
+
+    return externalToInternalNFTs(externalNFTs, ownerAddress)
+}
+
+async function _fetchERC20s(ownerAddress: string, chainId: number): Promise<StringKeyMap[] | null> {
     let resp, error
     try {
         resp = await fetch(
@@ -187,6 +246,36 @@ async function _fetchTokens(ownerAddress: string, chainId: number): Promise<Stri
     return erc20s
 }
 
+async function _fetchNFTs(ownerAddress: string, web3: AlchemyWeb3, prevResults?: StringKeyMap[], pageKey?: string): Promise<StringKeyMap[] | null> {
+    let resp, error
+    try {
+        let payload: any = { owner: ownerAddress, withMetadata: true }
+        if (pageKey) {
+            payload.pageKey = pageKey
+        } 
+        resp = await web3.alchemy.getNfts(payload)
+    } catch (err) {
+        error = err
+    }
+
+    if (error || !resp) {
+        logger.error(`Error fetching NFTs: ${error}. Will retry`)
+        return null
+    }
+
+    let results = resp.ownedNfts || []
+
+    if (prevResults?.length) {
+        results = [...prevResults, results]
+    }
+
+    if (resp.pageKey) {
+        return _fetchNFTs(ownerAddress, web3, results, pageKey)
+    }
+
+    return results
+}
+
 function externalToInternalERC20s(externalTokens: StringKeyMap, ownerAddress: string): StringKeyMap[] {
     return externalTokens.map(token => {
         let balance
@@ -209,4 +298,22 @@ function externalToInternalERC20s(externalTokens: StringKeyMap, ownerAddress: st
             balance: balance,
         }
     }).filter(v => !!v)
+}
+
+function externalToInternalNFTs(externalNFTs: StringKeyMap, ownerAddress: string): StringKeyMap[] {
+    return externalNFTs.map(nft => {
+        let tokenId = nft.id.tokenId
+        if (tokenId.startsWith('0x')) {
+            tokenId = hexToNumberString(tokenId)
+        }
+        return {
+            token_address: nft.contract.address,
+            token_name: nft.contractMetadata.name,
+            token_symbol: nft.contractMetadata.symbol,
+            token_standard: nft.id.tokenMetadata.tokenType.toLowerCase(),
+            token_id: tokenId,
+            owner_address: ownerAddress,
+            balance: nft.balance || '1',
+        }
+    })
 }

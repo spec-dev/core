@@ -1,4 +1,12 @@
 // ################################
+//  EVENTS
+// ################################
+
+export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+export const TRANSFER_SINGLE_TOPIC = '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
+export const TRANSFER_BATCH_TOPIC = '0xf5f16c58bf69e14e9fa06e742215b42aa896de1c15af339f09e3360557089f43'
+
+// ################################
 //  ERC-20
 // ################################
 

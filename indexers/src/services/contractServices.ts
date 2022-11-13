@@ -12,6 +12,9 @@ import {
     ERC721_TRANSFER_ITEM,
     ERC721_TRANSFER_FROM_ITEM,
     ERC721_APPROVE_ITEM,
+    ERC721_NAME_ITEM,
+    ERC721_SYMBOL_ITEM,
+    ERC1155_BALANCE_OF_ITEM,
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
@@ -41,12 +44,12 @@ export function isContractERC721(bytecode: string): boolean {
         (sigs.has(ERC721_TRANSFER_ITEM.signature) || sigs.has(ERC721_TRANSFER_FROM_ITEM.signature))
 }
 
-export function isContractERC1155(bytecode: string): boolean {
+export function isContractERC1155(bytecode: string): number[] {
     const functionSignatures = bytecodeToFunctionSignatures(bytecode)
-    if (!functionSignatures.length) return false
+    if (!functionSignatures.length) return [0, erc1155RequiredFunctionItems.length]
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc1155RequiredFunctionItems.filter(item => sigs.has(item.signature))
-    return implementedFunctions.length === erc1155RequiredFunctionItems.length
+    return [implementedFunctions.length, erc1155RequiredFunctionItems.length]
 }
 
 export function bytecodeToFunctionSignatures(bytecode: string): string[] {
@@ -87,6 +90,29 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     }
 }
 
+export async function resolveNFTContractMetadata(contract: StringKeyMap): Promise<StringKeyMap> {
+    const functionSignatures = bytecodeToFunctionSignatures(contract.bytecode)
+    if (!functionSignatures.length) return {}
+
+    const abiItems = []
+    const sigs = new Set(functionSignatures)
+    sigs.has(ERC721_NAME_ITEM.signature) && abiItems.push(ERC721_NAME_ITEM)
+    sigs.has(ERC721_SYMBOL_ITEM.signature) && abiItems.push(ERC721_SYMBOL_ITEM)
+    if (!abiItems.length) return {}
+
+    const methods = getContractInterface(contract.address, abiItems)
+    try {
+        const [name, symbol] = await Promise.all([
+            sigs.has(ERC721_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
+            sigs.has(ERC721_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
+        ])
+        return { name, symbol }
+    } catch (err) {
+        logger.error(err)
+        return {}
+    }
+}
+
 export async function getERC20TokenBalance(
     tokenAddress: string, 
     ownerAddress: string, 
@@ -94,12 +120,25 @@ export async function getERC20TokenBalance(
     formatWithDecimals: boolean = true,
 ): Promise<string> {
     const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
-
     try {
         let balance = await methods.balanceOf(ownerAddress).call()
         if (!formatWithDecimals) return balance
 
         balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals) || 18)
+        return Number(balance) === 0 ? '0' : balance
+    } catch (err) {
+        return null
+    }
+}
+
+export async function getERC1155TokenBalance(
+    tokenAddress: string,
+    tokenId: string,
+    ownerAddress: string, 
+): Promise<string> {
+    const methods = getContractInterface(tokenAddress, [ERC1155_BALANCE_OF_ITEM])
+    try {
+        let balance = await methods.balanceOf(ownerAddress, tokenId).call()
         return Number(balance) === 0 ? '0' : balance
     } catch (err) {
         return null
