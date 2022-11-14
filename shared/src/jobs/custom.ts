@@ -1,11 +1,9 @@
-import { getEdgeFunctions } from '../lib/core/db/services/edgeFunctionServices'
-import logger from '../lib/logger'
-import { CoreDB } from '../lib/core/db/dataSource'
+import { redis } from '../lib/indexer/redis'
 import { exit } from 'process'
 
 async function perform() {
-    await CoreDB.initialize()
-    await CoreDB.query(`update edge_function_versions set url = 'https://functions-dev-5zgtj36vh36g.deno.dev' where name = 'smartWallets'`)
+    await redis.connect()
+    await redis.del('polygon-contract-cache')
     exit(0)
 }
 
