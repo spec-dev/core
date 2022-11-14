@@ -112,7 +112,7 @@ export async function pullNFTsForAddress(ownerAddress: string, web3: AlchemyWeb3
             nft.owner_address,
             nft.balance,
         ])
-        i += 5
+        i += 7
     }
     const insertQuery = `INSERT INTO polygon.nft_balances (token_address, token_name, token_symbol, token_standard, token_id, owner_address, balance) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, token_id, owner_address) DO UPDATE SET balance = EXCLUDED.balance`
     await SharedTables.query(insertQuery, insertBindings)
@@ -308,8 +308,8 @@ function externalToInternalNFTs(externalNFTs: StringKeyMap, ownerAddress: string
         }
         return {
             token_address: nft.contract.address,
-            token_name: nft.contractMetadata.name,
-            token_symbol: nft.contractMetadata.symbol,
+            token_name: nft.contractMetadata.name || null,
+            token_symbol: nft.contractMetadata.symbol || null,
             token_standard: nft.id.tokenMetadata.tokenType.toLowerCase(),
             token_id: tokenId,
             owner_address: ownerAddress,
