@@ -23,6 +23,7 @@ import getProjects from './getProjects'
 import getEventVersions from './getEventVersions'
 import lrq from './lrq'
 import getAbi from './getAbi'
+import custom from './custom'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -52,6 +53,7 @@ const jobs = {
     getProjects,
     getEventVersions,
     getAbi,
+    custom,
 }
 
 async function run() {
