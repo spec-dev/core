@@ -71,3 +71,11 @@ export async function getEdgeFunctionVersions(): Promise<EdgeFunctionVersion[] |
         return null
     }
 }
+
+export async function setEdgeFunctionVersionUrl(id: number, url: string) {
+    try {
+        await edgeFunctionVersions().createQueryBuilder().update({ url }).where({ id }).execute()
+    } catch (err) {
+        logger.error(`Error setting EdgeFunctionVersion url: ${err}`)
+    }
+}

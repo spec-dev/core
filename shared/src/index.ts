@@ -95,6 +95,7 @@ export {
     createEdgeFunctionVersion,
     getEdgeFunctionVersion,
     getLatestEdgeFunctionVersion,
+    setEdgeFunctionVersionUrl,
 } from './lib/core/db/services/edgeFunctionVersionServices'
 export {
     redis as coreRedis,

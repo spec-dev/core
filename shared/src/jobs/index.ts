@@ -24,6 +24,7 @@ import getEventVersions from './getEventVersions'
 import lrq from './lrq'
 import getAbi from './getAbi'
 import custom from './custom'
+import setEdgeFunctionVersionUrl from './setEdgeFunctionVersionUrl'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -54,6 +55,7 @@ const jobs = {
     getEventVersions,
     getAbi,
     custom,
+    setEdgeFunctionVersionUrl,
 }
 
 async function run() {
