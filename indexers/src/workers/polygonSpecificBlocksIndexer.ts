@@ -61,6 +61,8 @@ class PolygonSpecificNumbersWorker {
     async run() {
         this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
 
+        console.log(this.smartWalletInitializerAddresses)
+
         const numberGroups = toChunks(this.numbers, this.groupSize)
         for (const group of numberGroups) {
             await this._indexBlockGroup(group)
@@ -273,6 +275,9 @@ class PolygonSpecificNumbersWorker {
                 this._upsertLogs(logs, tx),
             ]))
         })
+
+        console.log('Block', blocks[0].number)
+        console.log('Num logs', logs.length)
         
         const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
         ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
@@ -286,6 +291,10 @@ class PolygonSpecificNumbersWorker {
         )
         const smartWallets = []
         for (const log of logs) {
+            console.log(this.smartWalletInitializerAddresses.includes(log.address))
+            if (this.smartWalletInitializerAddresses.includes(log.address)) {
+                console.log(log)
+            }
             if (this.smartWalletInitializerAddresses.includes(log.address) && log.eventName === 'WalletCreated') {
                 const eventArgs = log.eventArgs || []
                 if (!eventArgs.length) continue
@@ -391,14 +400,12 @@ class PolygonSpecificNumbersWorker {
 
     async _getIvySmartWalletInitializerAddresses(): Promise<string[]> {
         try {
-            return (
-                (await contractInstancesRepo().find({
-                    select: { address: true },
-                    where: {
-                        name: 'SmartWalletInitializer',
-                    }
-                })) || []
-            ).map(ci => ci.address)
+            return ((await contractInstancesRepo().find({
+                select: { address: true },
+                where: {
+                    name: 'SmartWalletInitializer',
+                }
+            })) || []).map(ci => ci.address)
         } catch (err) {
             logger.error(`Error getting smart wallet initializer contract addresses: ${err}`)
             return []
