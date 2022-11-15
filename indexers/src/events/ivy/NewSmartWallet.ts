@@ -243,7 +243,7 @@ async function _fetchERC20s(ownerAddress: string, chainId: number): Promise<Stri
         }
     }
 
-    return erc20s
+    return erc20s.filter(token => token.balance && Number(token.balance) > 0)
 }
 
 async function _fetchNFTs(ownerAddress: string, web3: AlchemyWeb3, prevResults?: StringKeyMap[], pageKey?: string): Promise<StringKeyMap[] | null> {
@@ -252,7 +252,7 @@ async function _fetchNFTs(ownerAddress: string, web3: AlchemyWeb3, prevResults?:
         let payload: any = { owner: ownerAddress, withMetadata: true }
         if (pageKey) {
             payload.pageKey = pageKey
-        } 
+        }
         resp = await web3.alchemy.getNfts(payload)
     } catch (err) {
         error = err
