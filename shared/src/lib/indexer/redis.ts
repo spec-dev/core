@@ -10,6 +10,7 @@ import { specEnvs } from '../utils/env'
 
 // Create redis client.
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
+console.log('configure indexer redis', configureRedis, config.ENV, config.INDEXER_REDIS_HOST)
 export const redis = configureRedis ? createClient({ url: config.INDEXER_REDIS_URL }) : null
 
 // Log any redis client errors.

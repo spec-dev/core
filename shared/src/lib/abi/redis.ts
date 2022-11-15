@@ -7,6 +7,7 @@ import { specEnvs } from '../utils/env'
 
 // Create redis client.
 const configureRedis = config.ENV === specEnvs.LOCAL || config.ABI_REDIS_HOST !== 'localhost'
+console.log('configure abi redis', configureRedis, config.ENV, config.ABI_REDIS_HOST)
 export const redis = configureRedis ? createClient({ url: config.ABI_REDIS_URL }) : null
 
 // Log any redis client errors.

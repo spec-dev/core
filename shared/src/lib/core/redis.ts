@@ -8,6 +8,7 @@ import { specEnvs } from '../utils/env'
 // Create redis client.
 const url = config.CORE_REDIS_URL
 const configureRedis = config.ENV === specEnvs.LOCAL || config.CORE_REDIS_HOST !== 'localhost'
+console.log('configure abi redis', configureRedis, config.ENV, config.CORE_REDIS_HOST)
 const useCluster = !url?.includes('localhost') && !url?.includes('dev')
 
 export const redis = configureRedis
