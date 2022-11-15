@@ -204,6 +204,7 @@ class PolygonSpecificNumbersWorker {
     }
 
     async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
+        return []
         try {
             return await getBlocksInNumberRange(config.CHAIN_ID, blockNumbers)
         } catch (err) {
