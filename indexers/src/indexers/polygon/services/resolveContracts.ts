@@ -25,14 +25,12 @@ async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
 
         const address = bytecodeAddresses[i]
 
-        const [matching1155Sigs, numRequired1155Sigs] = isContractERC1155(bytecode)
-
         const contract = {
             address,
             bytecode,
             isERC20: isContractERC20(bytecode),
             isERC721: isContractERC721(bytecode),
-            isERC1155: matching1155Sigs / numRequired1155Sigs > 0.8,
+            isERC1155: isContractERC1155(bytecode),
         }
 
         if (contract.isERC20) {

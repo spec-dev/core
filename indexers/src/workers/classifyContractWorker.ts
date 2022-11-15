@@ -124,8 +124,7 @@ class ClassifyContractWorker {
         return contracts.map(contract => {
             contract.isERC20 = isContractERC20(contract.bytecode)
             contract.isERC721 = isContractERC721(contract.bytecode)
-            // contract.isERC1155 = isContractERC1155(contract.bytecode)
-            // contract.matching1155FunctionSigs = 
+            contract.isERC1155 = isContractERC1155(contract.bytecode)
             return contract
         })
     }

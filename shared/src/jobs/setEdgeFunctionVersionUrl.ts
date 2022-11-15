@@ -1,14 +1,12 @@
-import { getEdgeFunctionVersion, setEdgeFunctionVersionUrl } from '../lib/core/db/services/edgeFunctionVersionServices'
+import {
+    getEdgeFunctionVersion,
+    setEdgeFunctionVersionUrl,
+} from '../lib/core/db/services/edgeFunctionVersionServices'
 import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(
-    nsp: any,
-    name: string,
-    version: string,
-    url: string,
-) {
+async function perform(nsp: any, name: string, version: string, url: string) {
     await CoreDB.initialize()
 
     const edgeFunctionVersion = await getEdgeFunctionVersion(nsp, name, version)

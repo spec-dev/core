@@ -1,7 +1,7 @@
 import { StringKeyMap, logger, SharedTables, sleep, hexToNumberString } from '../../../../shared'
 import { publishEventSpecs } from '../relay'
 import { BigNumber, utils } from 'ethers'
-import { getERC20TokenBalance } from '../../services/contractServices'
+import { getERC20TokenBalance, getContractBytecode, isContractERC721, isContractERC1155 } from '../../services/contractServices'
 import { AlchemyWeb3 } from '@alch/alchemy-web3'
 
 export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap, web3: AlchemyWeb3) {
@@ -171,7 +171,15 @@ async function fetchNFTs(ownerAddress: string, web3: AlchemyWeb3) {
         return []
     }
 
-    return externalToInternalNFTs(externalNFTs, ownerAddress)
+    const nfts = externalToInternalNFTs(externalNFTs, ownerAddress)
+    
+    for (const nft of nfts) {
+        if (nft.token_standard === 'unknown') {
+            nft.token_standard = await resolveNFTTokenStandard(nft.token_address)
+        }
+    }
+
+    return nfts
 }
 
 async function _fetchERC20s(ownerAddress: string, chainId: number): Promise<StringKeyMap[] | null> {
@@ -316,4 +324,12 @@ function externalToInternalNFTs(externalNFTs: StringKeyMap, ownerAddress: string
             balance: nft.balance || '1',
         }
     })
+}
+
+async function resolveNFTTokenStandard(address: string): Promise<string> {
+    const bytecode = await getContractBytecode(address)
+    if (!bytecode) return 'unknown'
+    if (isContractERC721(bytecode)) return 'erc721'
+    if (isContractERC1155(bytecode)) return 'erc1155'
+    return 'unknown'
 }

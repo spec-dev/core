@@ -44,12 +44,12 @@ export function isContractERC721(bytecode: string): boolean {
         (sigs.has(ERC721_TRANSFER_ITEM.signature) || sigs.has(ERC721_TRANSFER_FROM_ITEM.signature))
 }
 
-export function isContractERC1155(bytecode: string): number[] {
+export function isContractERC1155(bytecode: string): boolean {
     const functionSignatures = bytecodeToFunctionSignatures(bytecode)
-    if (!functionSignatures.length) return [0, erc1155RequiredFunctionItems.length]
+    if (!functionSignatures.length) return false
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc1155RequiredFunctionItems.filter(item => sigs.has(item.signature))
-    return [implementedFunctions.length, erc1155RequiredFunctionItems.length]
+    return implementedFunctions.length / erc1155RequiredFunctionItems.length > 0.8
 }
 
 export function bytecodeToFunctionSignatures(bytecode: string): string[] {
