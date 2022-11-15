@@ -6,12 +6,14 @@ import { EventGenerator } from '../core/db/entities/EventGenerator'
 import { Contract } from '../core/db/entities/Contract'
 import { EventVersion } from '../core/db/entities/EventVersion'
 import { StringKeyMap, StringMap } from '../types'
+import { specEnvs } from '../utils/env'
 
 // Create redis client.
-export const redis = createClient({ url: config.INDEXER_REDIS_URL })
+const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
+export const redis = configureRedis ? createClient({ url: config.INDEXER_REDIS_URL }) : null
 
 // Log any redis client errors.
-redis.on('error', (err) => logger.error(`Redis error: ${err}`))
+redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
 export interface ContractInstanceEntry {
     address: string
@@ -49,7 +51,7 @@ const formatUncledBlockValue = (chainId: number, blockHash: string) => `${chainI
 export async function registerBlockHashAsUncled(chainId: number, blockHash: string) {
     const value = formatUncledBlockValue(chainId, blockHash)
     try {
-        await redis.sAdd(keys.UNCLED_BLOCKS, value)
+        await redis?.sAdd(keys.UNCLED_BLOCKS, value)
     } catch (err) {
         logger.error(`Error adding ${value} to ${keys.UNCLED_BLOCKS} set: ${err}.`)
     }
@@ -59,7 +61,7 @@ export async function quickUncleCheck(chainId: number, blockHash: string): Promi
     if (!blockHash) return false
     const value = formatUncledBlockValue(chainId, blockHash)
     try {
-        return await redis.sIsMember(keys.UNCLED_BLOCKS, value)
+        return (await redis?.sIsMember(keys.UNCLED_BLOCKS, value)) || false
     } catch (err) {
         logger.error(`Error checking if ${value} is a member of ${keys.UNCLED_BLOCKS} set: ${err}.`)
     }
@@ -73,7 +75,7 @@ export async function getContractEventGeneratorData(addresses: string[]): Promis
 }> {
     let instanceEntries
     try {
-        instanceEntries = (await redis.hmGet(keys.CONTRACT_INSTANCES, addresses)) || []
+        instanceEntries = (await redis?.hmGet(keys.CONTRACT_INSTANCES, addresses)) || []
     } catch (err) {
         console.log(err)
         logger.error(`Error getting contract instance entries from redis: ${err}.`)
@@ -99,7 +101,7 @@ export async function getContractEventGeneratorData(addresses: string[]): Promis
     // Get contract entries for uids.
     let contractEntries
     try {
-        contractEntries = (await redis.hmGet(keys.CONTRACTS, contractUids)) || []
+        contractEntries = (await redis?.hmGet(keys.CONTRACTS, contractUids)) || []
     } catch (err) {
         logger.error(`Error getting contract entries from redis: ${err}.`)
         throw err
@@ -200,6 +202,10 @@ export async function upsertContractCaches() {
         }
     }
 
+    if (!redis) {
+        return
+    }
+
     const promises = []
     // Add contracts to redis.
     for (let contractUid in contractsMap) {
@@ -226,7 +232,7 @@ export async function registerBlockLogsAsIndexed(blockNumbers: number | number[]
     )
 
     try {
-        await redis.sAdd(keys.BLOCK_LOGS_INDEXED, numbers)
+        await redis?.sAdd(keys.BLOCK_LOGS_INDEXED, numbers)
     } catch (err) {
         logger.error(`Error adding ${blockNumbers} to ${keys.BLOCK_LOGS_INDEXED} set: ${err}.`)
     }
@@ -234,7 +240,7 @@ export async function registerBlockLogsAsIndexed(blockNumbers: number | number[]
 
 export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<boolean> {
     try {
-        return await redis.sIsMember(keys.BLOCK_LOGS_INDEXED, blockNumber.toString())
+        return (await redis?.sIsMember(keys.BLOCK_LOGS_INDEXED, blockNumber.toString())) || false
     } catch (err) {
         logger.error(
             `Error checking if ${blockNumber} is a member of ${keys.BLOCK_LOGS_INDEXED} set: ${err}.`
@@ -245,7 +251,7 @@ export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<b
 
 export async function storePublishedEvent(specEvent: StringKeyMap): Promise<string | null> {
     try {
-        return await redis.xAdd(
+        return await redis?.xAdd(
             specEvent.name,
             '*',
             { event: JSON.stringify(specEvent) },
@@ -268,7 +274,7 @@ export async function getPublishedEventsAfterEventCursors(
         id: cursor.nonce,
     }))
     try {
-        const results = await redis.xRead(streams)
+        const results = await redis?.xRead(streams)
         if (!results?.length) return {}
 
         const eventsMap = {}

@@ -3,9 +3,11 @@ import config from '../config'
 import logger from '../logger'
 import { Abi, AbiItem } from './types'
 import { StringMap } from '../types'
+import { specEnvs } from '../utils/env'
 
 // Create redis client.
-export const redis = config.ABI_REDIS_URL ? createClient({ url: config.ABI_REDIS_URL }) : null
+const configureRedis = config.ENV === specEnvs.LOCAL || config.ABI_REDIS_HOST !== 'localhost'
+export const redis = configureRedis ? createClient({ url: config.ABI_REDIS_URL }) : null
 
 // Log any redis client errors.
 redis?.on('error', (err) => logger.error(`Redis error: ${err}`))

@@ -3,21 +3,25 @@ import config from '../config'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
 import { range } from '../utils/math'
+import { specEnvs } from '../utils/env'
 
 // Create redis client.
 const url = config.CORE_REDIS_URL
+const configureRedis = config.ENV === specEnvs.LOCAL || config.CORE_REDIS_HOST !== 'localhost'
 const useCluster = !url?.includes('localhost') && !url?.includes('dev')
 
-export const redis = useCluster
-    ? createCluster({
-          rootNodes: range(1, config.CORE_REDIS_NODE_COUNT).map((n) => ({
-              url: url.replace('NODE', n),
-          })),
-      })
-    : createClient({ url })
+export const redis = configureRedis
+    ? useCluster
+        ? createCluster({
+              rootNodes: range(1, config.CORE_REDIS_NODE_COUNT).map((n) => ({
+                  url: url.replace('NODE', n),
+              })),
+          })
+        : createClient({ url })
+    : null
 
 // Log any redis client errors.
-redis.on('error', (err) => logger.error(`Redis error: ${err}`))
+redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
 const keys = {
     EDGE_FUNCTION_URLS: 'edge-function-urls',
@@ -34,7 +38,7 @@ export async function setEdgeFunctionUrl(
 ) {
     const key = formatEdgeFunctionVersionStr(nsp, name, version)
     try {
-        await redis.hSet(keys.EDGE_FUNCTION_URLS, [key, url])
+        await redis?.hSet(keys.EDGE_FUNCTION_URLS, [key, url])
     } catch (err) {
         logger.error(`Error setting edge function url to redis (key=${key}, value=${url}): ${err}.`)
         return false
@@ -50,7 +54,7 @@ export async function getEdgeFunctionUrl(
     const key = formatEdgeFunctionVersionStr(nsp, name, version)
     let urls = []
     try {
-        urls = (await redis.hmGet(keys.EDGE_FUNCTION_URLS, key)) || []
+        urls = (await redis?.hmGet(keys.EDGE_FUNCTION_URLS, key)) || []
     } catch (err) {
         logger.error(`Error getting edge function url from redis (key=${key}): ${err}.`)
     }
@@ -60,7 +64,7 @@ export async function getEdgeFunctionUrl(
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
     try {
-        await redis.xAdd(projectUid, '*', data, {
+        await redis?.xAdd(projectUid, '*', data, {
             TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 1000 },
         })
     } catch (err) {
@@ -71,7 +75,7 @@ export async function addLog(projectUid: string, data: StringKeyMap) {
 export async function getLastXLogs(projectUid: string, x: number) {
     let results = []
     try {
-        results = await redis.xRevRange(projectUid, '+', '-', { COUNT: x })
+        results = (await redis?.xRevRange(projectUid, '+', '-', { COUNT: x })) || []
     } catch (err) {
         logger.error(`Error getting last ${x} logs for project.uid=${projectUid}: ${err}.`)
         return []
@@ -81,7 +85,7 @@ export async function getLastXLogs(projectUid: string, x: number) {
 
 export async function tailLogs(projectUid: string, id: string = '$') {
     try {
-        const resp = await redis.xRead(
+        const resp = await redis?.xRead(
             commandOptions({ isolated: true }),
             {
                 key: projectUid,
