@@ -3,7 +3,7 @@ import { exit } from 'process'
 
 async function perform() {
     await redis.connect()
-    const abi = await getAbi('0x395b1b4cbd34c1ec7aaf47e6bf2a2356af558fe2')
+    const abi = await getAbi('0x395b1b4cbd34c1ec7aaf47e6bf2a2356af558fe2', abiRedisKeys.POLYGON_CONTRACTS)
     if (!abi) {
         console.log('No abi found')
         return
