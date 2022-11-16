@@ -13,6 +13,8 @@ export function externalToInternalLog(externalLog: ExternalEthLog, block: any): 
     log.topic1 = topics[1] || null
     log.topic2 = topics[2] || null
     log.topic3 = topics[3] || null
+    log.eventName = null
+    log.eventArgs = null
     log.blockHash = block.hash
     log.blockNumber = block.number
     log.blockTimestamp = block.timestamp
