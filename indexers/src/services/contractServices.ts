@@ -26,16 +26,16 @@ export function getContractInterface(address: string, abi: any): StringKeyMap {
     return contract.methods
 }
 
-export function isContractERC20(bytecode: string): boolean {
-    const functionSignatures = bytecodeToFunctionSignatures(bytecode)
+export function isContractERC20(bytecode?: string, functionSignatures?: string[]): boolean {
+    functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
     if (!functionSignatures.length) return false
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc20RequiredFunctionItems.filter(item => sigs.has(item.signature))
     return implementedFunctions.length === erc20RequiredFunctionItems.length
 }
 
-export function isContractERC721(bytecode: string): boolean {
-    const functionSignatures = bytecodeToFunctionSignatures(bytecode)
+export function isContractERC721(bytecode?: string, functionSignatures?: string[]): boolean {
+    functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
     if (!functionSignatures.length) return false
     const sigs = new Set(functionSignatures)
     return sigs.has(ERC721_BALANCE_OF_ITEM.signature) && 
@@ -44,8 +44,8 @@ export function isContractERC721(bytecode: string): boolean {
         (sigs.has(ERC721_TRANSFER_ITEM.signature) || sigs.has(ERC721_TRANSFER_FROM_ITEM.signature))
 }
 
-export function isContractERC1155(bytecode: string): boolean {
-    const functionSignatures = bytecodeToFunctionSignatures(bytecode)
+export function isContractERC1155(bytecode?: string, functionSignatures?: string[]): boolean {
+    functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
     if (!functionSignatures.length) return false
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc1155RequiredFunctionItems.filter(item => sigs.has(item.signature))

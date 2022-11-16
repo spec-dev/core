@@ -5,6 +5,9 @@ import {
     SharedTables,
     In,
     EthContract,
+    getAbis,
+    Abi,
+    AbiItemType,
 } from '../../../shared'
 import { exit } from 'process'
 import { Pool } from 'pg'
@@ -71,11 +74,13 @@ class ClassifyContractWorker {
 
         // Get contracts for this block range.
         let contracts = await this._getContractsForBlocks(numbers)
-        const numContractsForBlockRange = contracts.length
-        if (!numContractsForBlockRange) return
+        if (!contracts.length) return
+
+        const addresses = contracts.map(c => c.address)
+        const abis = await getAbis(addresses)
 
         // Classify contracts
-        contracts = this._classifyContracts(contracts)
+        contracts = this._classifyContracts(contracts, abis || {})
         this.contractsToSave.push(...contracts)
 
         if (this.contractsToSave.length >= 5000) {
@@ -120,11 +125,21 @@ class ClassifyContractWorker {
         }
     }
 
-    _classifyContracts(contracts: EthContract[]): EthContract[] {
+    _classifyContracts(contracts: EthContract[], abis: { [key: string]: Abi }): EthContract[] {
         return contracts.map(contract => {
-            contract.isERC20 = isContractERC20(contract.bytecode)
-            contract.isERC721 = isContractERC721(contract.bytecode)
-            contract.isERC1155 = isContractERC1155(contract.bytecode)
+            let functionSignatures = null
+
+            const abi = abis[contract.address]
+            if (abi && abi.length) {
+                functionSignatures = abi
+                    .filter(item => item.type === AbiItemType.Function && !!item.signature)
+                    .map(item => item.signature)
+            }
+
+            contract.isERC20 = isContractERC20(contract.bytecode, functionSignatures)
+            contract.isERC721 = isContractERC721(contract.bytecode, functionSignatures)
+            contract.isERC1155 = isContractERC1155(contract.bytecode, functionSignatures)
+
             return contract
         })
     }
