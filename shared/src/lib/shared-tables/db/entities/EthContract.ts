@@ -46,7 +46,12 @@ export class EthContract {
 export const fullContractUpsertConfig = (contract: EthContract): string[][] => {
     const conflictCols = ['address']
     const updateCols = Object.keys(contract)
-        .map(decamelize)
+        .map((key) => {
+            if (key === 'isERC20') return 'is_erc20'
+            if (key === 'isERC721') return 'is_erc721'
+            if (key === 'isERC1155') return 'is_erc1155'
+            return decamelize(key)
+        })
         .filter((col) => !conflictCols.includes(col))
     return [updateCols, conflictCols]
 }
