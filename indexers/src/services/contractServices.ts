@@ -28,7 +28,7 @@ export function getContractInterface(address: string, abi: any): StringKeyMap {
 
 export function isContractERC20(bytecode?: string, functionSignatures?: string[]): boolean {
     functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
-    if (!functionSignatures.length) return false
+    if (!functionSignatures?.length) return false
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc20RequiredFunctionItems.filter(item => sigs.has(item.signature))
     return implementedFunctions.length === erc20RequiredFunctionItems.length
@@ -36,7 +36,7 @@ export function isContractERC20(bytecode?: string, functionSignatures?: string[]
 
 export function isContractERC721(bytecode?: string, functionSignatures?: string[]): boolean {
     functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
-    if (!functionSignatures.length) return false
+    if (!functionSignatures?.length) return false
     const sigs = new Set(functionSignatures)
     return sigs.has(ERC721_BALANCE_OF_ITEM.signature) && 
         sigs.has(ERC721_OWNER_OF_ITEM.signature) &&
@@ -46,13 +46,13 @@ export function isContractERC721(bytecode?: string, functionSignatures?: string[
 
 export function isContractERC1155(bytecode?: string, functionSignatures?: string[]): boolean {
     functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
-    if (!functionSignatures.length) return false
+    if (!functionSignatures?.length) return false
     const sigs = new Set(functionSignatures)
     const implementedFunctions = erc1155RequiredFunctionItems.filter(item => sigs.has(item.signature))
     return implementedFunctions.length / erc1155RequiredFunctionItems.length > 0.8
 }
 
-export function bytecodeToFunctionSignatures(bytecode: string): string[] {
+export function bytecodeToFunctionSignatures(bytecode: string): string[] | null {
     let functionSignatures
     try {
         functionSignatures = selectorsFromBytecode(bytecode)
@@ -67,7 +67,7 @@ export function bytecodeToFunctionSignatures(bytecode: string): string[] {
 
 export async function resolveERC20Metadata(contract: StringKeyMap): Promise<StringKeyMap> {
     const functionSignatures = bytecodeToFunctionSignatures(contract.bytecode)
-    if (!functionSignatures.length) return {}
+    if (!functionSignatures?.length) return {}
 
     const abiItems = []
     const sigs = new Set(functionSignatures)
@@ -92,7 +92,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
 
 export async function resolveNFTContractMetadata(contract: StringKeyMap): Promise<StringKeyMap> {
     const functionSignatures = bytecodeToFunctionSignatures(contract.bytecode)
-    if (!functionSignatures.length) return {}
+    if (!functionSignatures?.length) return {}
 
     const abiItems = []
     const sigs = new Set(functionSignatures)
