@@ -50,6 +50,7 @@ class ClassifyContractWorker {
             connectionTimeoutMillis: 0,
             statement_timeout: 0,
         })
+        
         this.pool.on('error', err => logger.error('PG client error', err))
     }
 
@@ -83,7 +84,7 @@ class ClassifyContractWorker {
         contracts = this._classifyContracts(contracts, abis || {})
         this.contractsToSave.push(...contracts)
 
-        if (this.contractsToSave.length >= 5000) {
+        if (this.contractsToSave.length >= 2000) {
             await this._updateContracts(this.contractsToSave)
             this.contractsToSave = []
         }
@@ -99,6 +100,7 @@ class ClassifyContractWorker {
             insertBindings.push(...[contract.address, contract.isERC20, contract.isERC721, contract.isERC1155])
             i += 4
         }
+        
         const insertQuery = `INSERT INTO ${tempTableName} (address, is_erc20, is_erc721, is_erc1155) VALUES ${insertPlaceholders.join(', ')}`
 
         const client = await this.pool.connect()
