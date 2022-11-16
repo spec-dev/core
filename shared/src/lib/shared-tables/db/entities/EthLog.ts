@@ -43,6 +43,14 @@ export class EthLog {
     @Column('varchar', { nullable: true })
     topic3: string
 
+    // Name of the contract event associated with this log.
+    @Column('varchar', { name: 'event_name', nullable: true })
+    eventName: string
+
+    // Arguments provided to the contract event.
+    @Column('json', { name: 'event_args', nullable: true })
+    eventArgs: object[]
+
     // The hash of the block this transaction was included in.
     @Column('varchar', { name: 'block_hash', length: 70 })
     blockHash: string

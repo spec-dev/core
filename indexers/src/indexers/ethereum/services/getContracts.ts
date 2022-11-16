@@ -27,9 +27,9 @@ function getContracts(traces: EthTrace[]): [EthContract[], EthTrace[]] {
             const contract = new EthContract()
             contract.address = address
             contract.bytecode = trace.output
-            contract.isERC20 = trace.output ? isContractERC20(trace.output) : null
-            contract.isERC721 = trace.output ? isContractERC721(trace.output) : null
-            contract.isERC1155 = trace.output ? isContractERC1155(trace.output) : null
+            contract.isERC20 = trace.output ? isContractERC20(trace.output) : false
+            contract.isERC721 = trace.output ? isContractERC721(trace.output) : false
+            contract.isERC1155 = trace.output ? isContractERC1155(trace.output) : false
             contract.blockHash = trace.blockHash
             contract.blockNumber = trace.blockNumber
             contract.blockTimestamp = trace.blockTimestamp

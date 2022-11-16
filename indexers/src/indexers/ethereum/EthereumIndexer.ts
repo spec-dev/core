@@ -10,6 +10,7 @@ import initLatestInteractions from './services/initLatestInteractions'
 import { publishEventSpecs } from '../../events/relay'
 import { NewInteractions, NewTransactions } from '../../events'
 import config from '../../config'
+import Web3 from 'web3'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
     sleep,
@@ -21,7 +22,6 @@ import {
     SharedTables,
     EthTransaction,
     EthTransactionStatus,
-    EthTraceStatus,
     fullBlockUpsertConfig,
     fullContractUpsertConfig,
     fullLogUpsertConfig,
@@ -37,18 +37,22 @@ import {
     getFunctionSignatures,
     Abi,
     AbiItem,
+    In,
     ensureNamesExistOnAbiInputs,
+    CoreDB,
+    ContractInstance,
     groupAbiInputsWithValues,
-    EthLatestInteractionType,
+    formatAbiValueWithType,
+    productionChainNameForChainId,
 } from '../../../../shared'
-import Web3 from 'web3'
+
 const web3js = new Web3()
+
+const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 class EthereumIndexer extends AbstractIndexer {
     
     web3: AlchemyWeb3
-
-    uniqueContractAddresses: Set<string>
 
     block: EthBlock = null
 
@@ -62,10 +66,11 @@ class EthereumIndexer extends AbstractIndexer {
 
     latestInteractions: EthLatestInteraction[] = []
 
+    successfulLogs: EthLog[] = []
+
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
-        this.uniqueContractAddresses = new Set()
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -188,6 +193,9 @@ class EthereumIndexer extends AbstractIndexer {
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
 
+        // Curate list of logs from transactions that succeeded.
+        this._curateSuccessfulLogs()
+
         // Create and publish Spec events to the event relay.
         try {
             await this._createAndPublishEvents()
@@ -197,6 +205,16 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Kick off delayed job to fetch abis for new contracts.
         contracts.length && (await this._fetchAbisForNewContracts(contracts))
+    }
+
+    async _fetchAbisForNewContracts(contracts: EthContract[]) {
+
+        // For new contracts that could possibly already have ABIs on etherscan/samczsun, 
+        // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
+        // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
+
+        const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
+        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
     }
 
     async _savePrimitives(
@@ -222,6 +240,10 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
+        // Contract events.
+        const contractEventSpecs = await this._getDetectedContractEventSpecs()
+        contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
+        
         const eventOrigin = {
             chainId: this.chainId,
             blockNumber: this.blockNumber,
@@ -245,30 +267,60 @@ class EthereumIndexer extends AbstractIndexer {
         await publishEventSpecs(eventSpecs)
     }
 
-    async _fetchAbisForNewContracts(contracts: EthContract[]) {
-        const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
-        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
+    async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
+        const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
+        if (!decodedLogs.length) return []
+
+        const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
+        const contractInstances = await this._getContractInstancesForAddresses(addresses)
+        if (!contractInstances.length) return []
+
+        const namespacedContractInfoByAddress = {}
+        for (const contractInstance of contractInstances) {
+            const contractName = contractInstance.contract?.name
+            const nsp = contractInstance.contract?.namespace?.slug
+            if (!contractName || !nsp) continue
+            namespacedContractInfoByAddress[contractInstance.address] = {
+                nsp,
+                contractName,
+            }
+        }
+        if (!Object.keys(namespacedContractInfoByAddress)) return []
+
+        const chainName = productionChainNameForChainId(this.chainId)
+        const specEventNamePrefix = chainName ? `${chainName}:` : ''
+
+        const eventSpecs = []
+        for (const decodedLog of decodedLogs) {
+            const { eventName, address } = decodedLog
+            if (!namespacedContractInfoByAddress.hasOwnProperty(address)) continue
+            const { nsp, contractName } = namespacedContractInfoByAddress[address]
+            const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
+            const namespacedEventName = [nsp, contractName, eventName].join('.')
+            eventSpecs.push({
+                name: `${specEventNamePrefix}${namespacedEventName}`,
+                data: data,
+                origin: eventOrigin,
+            })
+        }
+        return eventSpecs
     }
-    
-    _findUniqueContractAddresses(
-        transactions: EthTransaction[],
-        logs: EthLog[],
-        traces: EthTrace[]
-    ) {
-        transactions.forEach((tx) => {
-            if (tx.status === EthTransactionStatus.Success) {
-                tx.to && this.uniqueContractAddresses.add(tx.to)
-                tx.contractAddress && this.uniqueContractAddresses.add(tx.contractAddress)
-            }
-        })
-        logs.forEach((log) => {
-            log.address && this.uniqueContractAddresses.add(log.address)
-        })
-        traces.forEach((trace) => {
-            if (trace.status === EthTraceStatus.Success) {
-                trace.to && this.uniqueContractAddresses.add(trace.to)
-            }
-        })
+
+    async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
+        let contractInstances = []
+        try {
+            contractInstances = await contractInstancesRepo().find({
+                relations: { contract: { namespace: true } },
+                where: {
+                    address: In(addresses),
+                    chainId: this.chainId,
+                }
+            })
+        } catch (err) {
+            this._error(`Error getting contract_instances: ${err}`)
+            return []
+        }
+        return contractInstances || []        
     }
 
     _decodeTransactions(
@@ -341,7 +393,96 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     _decodeLogs(logs: EthLog[], abis: { [key: string]: Abi }): EthLog[] {
-        return logs
+        const finalLogs = []
+        for (let log of logs) {
+            if (!log.address || !abis.hasOwnProperty(log.address) || !log.topic0) {
+                finalLogs.push(log)
+                continue
+            }
+            try {
+                log = this._decodeLog(log, abis[log.address])
+            } catch (err) {
+                this._error(`Error decoding log for address ${log.address}: ${err}`)
+            }
+            finalLogs.push(log)
+        }
+        return finalLogs
+    }
+
+    _decodeLog(log: EthLog, abi: Abi): EthLog {
+        const abiItem = abi.find(item => item.signature === log.topic0)
+        if (!abiItem) return log
+
+        const argNames = []
+        const argTypes = []
+        for (const input of abiItem.inputs || []) {
+            input.name && argNames.push(input.name)
+            argTypes.push(input.type)
+        }
+        if (argNames.length !== argTypes.length) {
+            return log
+        }
+
+        const topics = []
+        abiItem.anonymous && topics.push(log.topic0)
+        log.topic1 && topics.push(log.topic1)
+        log.topic2 && topics.push(log.topic2)
+        log.topic3 && topics.push(log.topic3)
+
+        const decodedArgs = web3js.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
+        const numArgs = parseInt(decodedArgs.__length__)
+
+        const argValues = []
+        for (let i = 0; i < numArgs; i++) {
+            const stringIndex = i.toString()
+            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
+            argValues.push(decodedArgs[stringIndex])
+        }
+        if (argValues.length !== argTypes.length) return log
+
+        const eventArgs = []
+        for (let j = 0; j < argValues.length; j++) {
+            eventArgs.push({
+                name: argNames[j],
+                type: argTypes[j],
+                value: formatAbiValueWithType(argValues[j], argTypes[j]),
+            })
+        }
+
+        log.eventName = abiItem.name
+        log.eventArgs = eventArgs
+
+        return log
+    }
+
+    _formatLogEventArgsForSpecEvent(log: EthLog): StringKeyMap {
+        const eventOrigin = {
+            chainId: this.chainId,
+            transactionHash: log.transactionHash,
+            contractAddress: log.address,
+            blockNumber: Number(log.blockNumber),
+            blockHash: log.blockHash,
+            blockTimestamp: log.blockTimestamp.toISOString(),
+        }
+        const data = {}
+        const eventArgs = (log.eventArgs || []) as StringKeyMap[]
+        for (const arg of eventArgs) {
+            if (arg.name) {
+                data[arg.name] = arg.value
+            }
+        }
+        return { data, eventOrigin }
+    }
+
+    _curateSuccessfulLogs() {
+        const txSuccess = {}
+        for (const tx of this.transactions) {
+            txSuccess[tx.hash] = tx.status == EthTransactionStatus.Success
+        }
+        this.successfulLogs = this.logs
+            .filter(log => txSuccess[log.transactionHash])
+            .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
+        )
     }
 
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
