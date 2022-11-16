@@ -59,18 +59,21 @@ class EthRangeWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
-        this.saveBatchMultiple = 1
         this.upsertConstraints = {}
     }
 
     async run() {
-        while (this.cursor < this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            const groupBlockNumbers = range(start, end)
-            await this._indexBlockGroup(groupBlockNumbers)
-            this.cursor = this.cursor + this.groupSize
+        const numbers = [15938043, 15940291, 15941006, 15941756, 15941981, 15971827, 15980030, 15980032]
+        for (const number of numbers) {
+            await this._indexBlockGroup([number])
         }
+        // while (this.cursor < this.to) {
+        //     const start = this.cursor
+        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        //     const groupBlockNumbers = range(start, end)
+        //     await this._indexBlockGroup(groupBlockNumbers)
+        //     this.cursor = this.cursor + this.groupSize
+        // }
         if (this.batchResults.length) {
             await this._saveBatches(
                 this.batchBlockNumbersIndexed,
