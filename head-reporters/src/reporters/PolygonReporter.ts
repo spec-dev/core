@@ -5,7 +5,7 @@ import config from '../config'
 import { logger } from '../../../shared'
 import { BlockHeader } from 'web3-eth'
 
-class EthereumReporter extends AbstractReporter {
+class PolygonReporter extends AbstractReporter {
     web3: AlchemyWeb3
 
     buffer: BlockHeader[] = []
@@ -48,4 +48,4 @@ class EthereumReporter extends AbstractReporter {
     }
 }
 
-export default EthereumReporter
+export default PolygonReporter
