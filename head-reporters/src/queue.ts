@@ -8,13 +8,13 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
         host: config.INDEXER_REDIS_HOST,
         port: config.INDEXER_REDIS_PORT,
     },
-    defaultJobOptions: {
-        attempts: 5,
-        backoff: {
-            type: 'exponential',
-            delay: 300,
-        },
-    },
+    // defaultJobOptions: {
+    //     attempts: 5,
+    //     backoff: {
+    //         type: 'exponential',
+    //         delay: 300,
+    //     },
+    // },
 })
 
 // const queueScheduler = new QueueScheduler(config.HEAD_REPORTER_QUEUE_KEY, {
