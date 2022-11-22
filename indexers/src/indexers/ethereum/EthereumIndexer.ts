@@ -76,6 +76,8 @@ class EthereumIndexer extends AbstractIndexer {
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
 
+        if (!this.head.blockNumber) return
+
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
