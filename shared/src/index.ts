@@ -126,6 +126,9 @@ export { createLiveObject } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
     getLiveObjectVersionsByNamespacedVersions,
+    updateLiveObjectVersionProperties,
+    updateLiveObjectVersionExample,
+    updateLiveObjectVersionConfig,
 } from './lib/core/db/services/liveObjectVersionServices'
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
 export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'

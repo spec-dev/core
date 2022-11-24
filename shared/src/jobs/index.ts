@@ -25,6 +25,8 @@ import lrq from './lrq'
 import getAbi from './getAbi'
 import custom from './custom'
 import setEdgeFunctionVersionUrl from './setEdgeFunctionVersionUrl'
+import updateLiveObjectVersionProperties from './updateLiveObjectVersionProperties'
+import updateLiveObjectVersionExample from './updateLiveObjectVersionExample'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -56,6 +58,8 @@ const jobs = {
     getAbi,
     custom,
     setEdgeFunctionVersionUrl,
+    updateLiveObjectVersionProperties,
+    updateLiveObjectVersionExample,
 }
 
 async function run() {
