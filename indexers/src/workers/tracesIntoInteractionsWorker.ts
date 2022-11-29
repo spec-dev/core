@@ -10,6 +10,7 @@ import {
     uniqueByKeys,
     EthLatestInteraction,
     In,
+    sleep,
 } from '../../../shared'
 import LRU from 'lru-cache'
 import { exit } from 'process'
@@ -107,12 +108,27 @@ class TracesToInteractionsWorker {
             i += 7
         }
 
-        await SharedTables.manager.transaction(async tx => {
-            await tx.query(
-                `INSERT INTO ethereum.latest_interactions ("from", "to", interaction_type, hash, timestamp, block_hash, block_number) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT ("from", "to") DO UPDATE SET timestamp = EXCLUDED.timestamp, interaction_type = EXCLUDED.interaction_type, hash = EXCLUDED.hash, block_hash = EXCLUDED.block_hash, block_number = EXCLUDED.block_number WHERE ethereum.latest_interactions.block_number < EXCLUDED.block_number`,
-                insertBindings,    
-            )
-        })
+        await this._upsertLatestInteractions(insertPlaceholders, insertBindings)
+    }
+
+    async _upsertLatestInteractions(placeholders: string[], bindings: any[], attempt: number = 1) {
+        try {
+            await SharedTables.manager.transaction(async tx => {
+                await tx.query(
+                    `INSERT INTO ethereum.latest_interactions ("from", "to", interaction_type, hash, timestamp, block_hash, block_number) VALUES ${placeholders.join(', ')} ON CONFLICT ("from", "to") DO UPDATE SET timestamp = EXCLUDED.timestamp, interaction_type = EXCLUDED.interaction_type, hash = EXCLUDED.hash, block_hash = EXCLUDED.block_hash, block_number = EXCLUDED.block_number WHERE ethereum.latest_interactions.block_number < EXCLUDED.block_number`,
+                    bindings,    
+                )
+            })    
+        } catch (err) {
+            const message = err.message || err.toString()
+            if (attempt <= 3 && message?.toLowerCase().includes('deadlock')) {
+                logger.error(`[Attempt ${attempt}] Got deadlock, trying again...`)
+                await sleep(Math.floor(Math.random() * (150 - 50) + 50))
+                await this._upsertLatestInteractions(placeholders, bindings, attempt + 1)
+            } else {
+                logger.error(err)
+            }
+        }
     }
 
     async _getTracesInBlockRange(blockNumbers: number[]) {
