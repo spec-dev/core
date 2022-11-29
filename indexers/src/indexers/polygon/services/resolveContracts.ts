@@ -62,10 +62,10 @@ async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
         newERC20Contracts.map(contract => resolveERC20Metadata(contract))
     )
     const erc721Metadata = await Promise.all(
-        newERC20Contracts.map(contract => resolveNFTContractMetadata(contract))
+        newERC721Contracts.map(contract => resolveNFTContractMetadata(contract))
     )
     const erc1155Metadata = await Promise.all(
-        newERC20Contracts.map(contract => resolveNFTContractMetadata(contract))
+        newERC1155Contracts.map(contract => resolveNFTContractMetadata(contract))
     )
 
     for (let i = 0; i < newERC20Contracts.length; i++) {
