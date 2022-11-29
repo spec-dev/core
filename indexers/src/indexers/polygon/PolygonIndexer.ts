@@ -198,9 +198,13 @@ class PolygonIndexer extends AbstractIndexer {
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
             es.name === ivySmartWalletInitializerWalletCreated
         ))
-        await Promise.all(
-            ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
-        )
+        if (ivySmartWalletInitializerWalletCreatedEventSpecs.length) {
+            await sleep(100)
+            await Promise.all(
+                ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
+            )
+            await sleep(100)
+        }
 
         // Token events.
         const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
