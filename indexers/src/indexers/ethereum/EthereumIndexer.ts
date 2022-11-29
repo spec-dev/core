@@ -477,7 +477,7 @@ class EthereumIndexer extends AbstractIndexer {
     _curateSuccessfulLogs() {
         const txSuccess = {}
         for (const tx of this.transactions) {
-            txSuccess[tx.hash] = tx.status == EthTransactionStatus.Success
+            txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
         }
         this.successfulLogs = this.logs
             .filter(log => txSuccess[log.transactionHash])
