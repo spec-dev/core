@@ -48,7 +48,7 @@ class TracesToInteractionsWorker {
         logger.info(`${blockNumbers[0].toLocaleString()} --> ${blockNumbers[blockNumbers.length - 1].toLocaleString()}...`)
 
         const traces = await this._getTracesInBlockRange(blockNumbers)
-        logger.info(`Got ${traces.length} traces.`)
+
         const traceInteractions = traces
             .filter((t) => !!t.from && !!t.to)
             .map((t) => this._newLatestInteractionFromTrace(t))
@@ -97,8 +97,6 @@ class TracesToInteractionsWorker {
             interaction.interactionType = [fromType, toType].join(':') as EthLatestInteractionType
         })
 
-        logger.info(`Upserting ${latestInteractions.length} latest_interactions.`)
-
         const insertPlaceholders = []
         const insertBindings = []
         let i = 1
@@ -123,7 +121,7 @@ class TracesToInteractionsWorker {
             const message = err.message || err.toString()
             if (attempt <= 3 && message?.toLowerCase().includes('deadlock')) {
                 logger.error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(Math.floor(Math.random() * (150 - 50) + 50))
+                await sleep(Math.floor(Math.random() * (400 - 200) + 200))
                 await this._upsertLatestInteractions(placeholders, bindings, attempt + 1)
             } else {
                 logger.error(err)
@@ -164,7 +162,6 @@ class TracesToInteractionsWorker {
         } catch (err) {
             throw `Error querying contracts: ${err}`
         }
-        logger.info(`Got ${contractRecords.length} contracts.`)
         return new Set<string>((contractRecords || []).map((c) => c.address))
     }
     
