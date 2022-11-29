@@ -5,8 +5,7 @@ import { Queue } from 'bullmq'
 async function perform() {
     await redis.connect()
 
-    const queue = new Queue('head-reporter-queue')
-    await queue.obliterate()
+    await redis.del('polygon-contract-cache')
 
     exit(0)
 }
