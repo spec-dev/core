@@ -47,6 +47,7 @@ class TracesToInteractionsWorker {
         logger.info(`${blockNumbers[0].toLocaleString()} --> ${blockNumbers[blockNumbers.length - 1].toLocaleString()}...`)
 
         const traces = await this._getTracesInBlockRange(blockNumbers)
+        logger.info(`Got ${traces.length} traces.`)
         const traceInteractions = traces
             .filter((t) => !!t.from && !!t.to)
             .map((t) => this._newLatestInteractionFromTrace(t))
@@ -94,6 +95,8 @@ class TracesToInteractionsWorker {
                 : EthLatestInteractionAddressCategory.Wallet
             interaction.interactionType = [fromType, toType].join(':') as EthLatestInteractionType
         })
+
+        logger.info(`Upserting ${latestInteractions.length} latest_interactions.`)
 
         const insertPlaceholders = []
         const insertBindings = []
@@ -145,6 +148,7 @@ class TracesToInteractionsWorker {
         } catch (err) {
             throw `Error querying contracts: ${err}`
         }
+        logger.info(`Got ${contractRecords.length} contracts.`)
         return new Set<string>((contractRecords || []).map((c) => c.address))
     }
     
