@@ -94,7 +94,7 @@ class PolygonIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
+        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -149,15 +149,15 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // // Return early with the indexed primitives if in range mode.
-        // if (config.IS_RANGE_MODE) {
-        //     return {
-        //         block,
-        //         transactions,
-        //         logs,
-        //         pgBlockTimestamp: this.pgBlockTimestamp,
-        //     }
-        // }
+        // Return early with the indexed primitives if in range mode.
+        if (config.IS_RANGE_MODE) {
+            return {
+                block,
+                transactions,
+                logs,
+                pgBlockTimestamp: this.pgBlockTimestamp,
+            }
+        }
 
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs)
@@ -192,26 +192,24 @@ class PolygonIndexer extends AbstractIndexer {
     async _createAndPublishEvents() {
         // Contract events.
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
-        // contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
+        contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
 
         // New Ivy Smart Wallet events.
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
             es.name === ivySmartWalletInitializerWalletCreated
         ))
-        // await Promise.all(
-        //     ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
-        // )
-        console.log('SMART WALLETS', ivySmartWalletInitializerWalletCreatedEventSpecs)
+        await Promise.all(
+            ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
+        )
 
         // Token events.
         const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
         const erc20EventSpecs = tokenEventSpecs?.erc20s || []
         const nftEventSpecs = tokenEventSpecs?.nfts || []
-        console.log('NFT EVENT SPECS', nftEventSpecs)
-        // await Promise.all([
-        //     ...erc20EventSpecs.map(es => onNewERC20TokenBalanceEvent(es)),
-        //     ...nftEventSpecs.map(es => onNewNFTBalanceEvent(es)),
-        // ])
+        await Promise.all([
+            ...erc20EventSpecs.map(es => onNewERC20TokenBalanceEvent(es)),
+            ...nftEventSpecs.map(es => onNewNFTBalanceEvent(es)),
+        ])
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
