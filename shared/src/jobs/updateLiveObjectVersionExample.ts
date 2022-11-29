@@ -16,7 +16,7 @@ async function perform(namespacedVersion: string, example: string) {
     }
     const liveObjectVersion = liveObjectVersions[0]
 
-    logger.info(`Setting live_object_version ${namespacedVersion} properties...`)
+    logger.info(`Setting live_object_version ${namespacedVersion} example...`)
     await updateLiveObjectVersionExample(liveObjectVersion.id, JSON.parse(example))
 
     logger.info('Success.')

@@ -320,7 +320,6 @@ class EthRangeWorker {
             : latestInteractions
 
         await SharedTables.manager.transaction(async (tx) => {
-            tx.createQueryBuilder().insert().orUpdate
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
                 this._upsertTransactions(transactions, tx),

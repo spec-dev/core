@@ -11,6 +11,7 @@ import { getDecodeTxWorker } from './decodeTxWorker'
 import { getAbiPolisher } from './abiPolisher'
 import { productionChainNameForChainId } from '../../../shared'
 import { getClassifyContractWorker } from './classifyContractWorker'
+import { getTracesToInteractionsWorker } from './tracesIntoInteractionsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -33,6 +34,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'cc') {
         return getClassifyContractWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'ti') {
+        return getTracesToInteractionsWorker()
     }
     const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
     switch (prodChainName) {

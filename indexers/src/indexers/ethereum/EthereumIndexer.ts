@@ -168,7 +168,7 @@ class EthereumIndexer extends AbstractIndexer {
         const [contracts, _] = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // Format transactions as the latest interactions between addresses.
+        // Format transactions & traces as latest interactions between addresses.
         const latestInteractions = await initLatestInteractions(transactions, traces, contracts)
 
         // One more uncle check before taking action.
