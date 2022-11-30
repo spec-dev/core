@@ -25,6 +25,7 @@ import {
     uniqueByKeys,
     EthLatestInteraction,
     toChunks,
+    sleep,
 } from '../../../shared'
 import { exit } from 'process'
 import fs from 'fs'
@@ -3593,8 +3594,11 @@ class EthRangeWorker {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
-                this._upsertLatestInteractions(latestInteractions, tx),
             ])
+        })
+
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertLatestInteractions(latestInteractions, tx)
         })
     }
 
@@ -3678,7 +3682,7 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any) {
+    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any, attempt: number = 1) {
         if (!latestInteractions.length) return
         const chunks = toChunks(latestInteractions, this.chunkSize)
         const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
@@ -3701,13 +3705,26 @@ class EthRangeWorker {
             }
             if (!latestInteractionsToUpsert.length) continue
             logger.info(`Saving ${latestInteractionsToUpsert.length} latest interactions...`)
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(EthLatestInteraction)
-                .values(latestInteractionsToUpsert)
-                .orUpdate(updateCols, conflictCols)
-                .execute()
+
+            try {
+                await tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthLatestInteraction)
+                    .values(latestInteractionsToUpsert)
+                    .orUpdate(updateCols, conflictCols)
+                    .execute()
+            } catch (err) {
+                const message = err?.message || err?.toString() || ''
+    
+                // Wait and try again if deadlocked.
+                if (attempt < 3 && message.toLowerCase().includes('deadlock')) {
+                    logger.error(`[Attempt ${attempt}] Got deadlock, trying again...`)
+                    await sleep(Math.floor(Math.random() * (600 - 400) + 400))
+                    await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
+                }
+            }
+    
         }
         // const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
         // await Promise.all(
