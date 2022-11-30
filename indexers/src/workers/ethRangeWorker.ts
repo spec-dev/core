@@ -27,6 +27,7 @@ import {
     toChunks,
 } from '../../../shared'
 import { exit } from 'process'
+import fs from 'fs'
 
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
@@ -63,9 +64,10 @@ class EthRangeWorker {
     }
 
     async run() {
-        const numbers = [15938043, 15940291, 15941006, 15941756, 15941981, 15971827, 15980030, 15980032]
-        for (const number of numbers) {
-            await this._indexBlockGroup([number])
+        const numbers = fs.readFileSync('./missing.txt', 'utf-8').trim().split('\n').map(n => parseInt(n)).sort()
+        const chunks = toChunks(numbers, this.groupSize)
+        for (const chunk of chunks) {
+            await this._indexBlockGroup(chunk)
         }
         // while (this.cursor < this.to) {
         //     const start = this.cursor

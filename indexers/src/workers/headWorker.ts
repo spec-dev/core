@@ -13,7 +13,6 @@ export function getHeadWorker(): Worker {
     const worker = new Worker(
         config.HEAD_REPORTER_QUEUE_KEY,
         async (job: Job) => {
-            return
             const head = job.data as NewReportedHead
             const jobStatusUpdatePromise = setIndexedBlockStatus(
                 head.id,
