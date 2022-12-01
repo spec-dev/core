@@ -1,4 +1,4 @@
 export interface Reporter {
-    chainId: number
+    chainId: string
     listen(): Promise<void>
 }

@@ -1,7 +1,6 @@
 import { logger } from '../../../shared'
 
 class AbstractReporter {
-    
     chainId: string
 
     constructor(chainId: string) {

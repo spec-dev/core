@@ -35,8 +35,9 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     }
 
     logger.info(`Enqueueing block ${number} for indexing...`)
-    
+
     await queue.add(config.INDEX_BLOCK_JOB_NAME, data, {
-        removeOnComplete: true, removeOnFail: 10
+        removeOnComplete: true,
+        removeOnFail: 10,
     })
 }

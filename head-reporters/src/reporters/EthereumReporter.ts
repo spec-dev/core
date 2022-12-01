@@ -19,13 +19,13 @@ class EthereumReporter extends AbstractReporter {
         super.listen()
         this.web3.eth
             .subscribe('newBlockHeaders')
-            .on('data', data => this._onData(data))
+            .on('data', (data) => this._onData(data))
             .on('error', (e) => logger.error('Alchemy subscription error', e))
     }
 
     _onData(data: BlockHeader) {
         const bufferLength = this.buffer.length
-        
+
         let replaced = false
         for (let i = 0; i < bufferLength; i++) {
             if (this.buffer[i].number === data.number) {
