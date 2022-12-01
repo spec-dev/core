@@ -50,7 +50,7 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
 
 export async function saveFunctionSignatures(
     sigsMap: StringMap,
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<boolean> {
     if (!Object.keys(sigsMap).length) return true
     const nsp = functionSigsKeyForChainId(chainId)
@@ -66,7 +66,7 @@ export async function saveFunctionSignatures(
 
 export async function saveAbis(
     abisMap: StringMap,
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<boolean> {
     if (!Object.keys(abisMap).length) return true
     const nsp = contractsKeyForChainId(chainId)
@@ -82,7 +82,7 @@ export async function saveAbis(
 
 export async function getAbi(
     address: string,
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<Abi | null> {
     if (!address) return null
     const nsp = contractsKeyForChainId(chainId)
@@ -98,7 +98,7 @@ export async function getAbi(
 
 export async function getAbis(
     addresses: string[],
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<{ [key: string]: Abi }> {
     if (!addresses?.length) return {}
     const nsp = contractsKeyForChainId(chainId)
@@ -122,7 +122,7 @@ export async function getAbis(
 
 export async function getMissingAbiAddresses(
     addresses: string[],
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<string[]> {
     if (!addresses?.length) return []
     const nsp = contractsKeyForChainId(chainId)
@@ -145,7 +145,7 @@ export async function getMissingAbiAddresses(
 
 export async function getFunctionSignatures(
     signatures: string[],
-    chainId: string = chainIds.ETHEREUM,
+    chainId: string = chainIds.ETHEREUM
 ): Promise<{ [key: string]: AbiItem }> {
     if (!signatures?.length) return {}
     const nsp = functionSigsKeyForChainId(chainId)

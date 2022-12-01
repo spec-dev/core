@@ -108,7 +108,8 @@ export async function uncleBlock(indexedBlock: IndexedBlock) {
     }
 
     // Add block hash to uncled redis set.
-    indexedBlock.hash && (await registerBlockHashAsUncled(indexedBlock.chainId.toString(), indexedBlock.hash))
+    indexedBlock.hash &&
+        (await registerBlockHashAsUncled(indexedBlock.chainId.toString(), indexedBlock.hash))
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {

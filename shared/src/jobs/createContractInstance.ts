@@ -16,7 +16,7 @@ async function perform(
 
     const contractInstance = await createContractInstance(
         Number(contractId),
-        Number(chainId),
+        chainId,
         address,
         name,
         desc || null

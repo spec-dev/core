@@ -10,7 +10,7 @@ export async function createEventVersion(
     eventId: number,
     name: string,
     version: string,
-    chainId?: number | null
+    chainId?: string | null
 ): Promise<EventVersion> {
     const eventVersion = new EventVersion()
     eventVersion.uid = uuid4()
@@ -38,7 +38,7 @@ export async function getEventVersion(
     nsp: string,
     name: string,
     version: string,
-    chainId: number
+    chainId: string
 ): Promise<EventVersion | null> {
     try {
         return await eventVersions().findOneBy({ nsp, name, version, chainId })

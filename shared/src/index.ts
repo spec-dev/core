@@ -53,7 +53,6 @@ export {
     insertIndexedBlocks,
     setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
-export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
 import config from './lib/config'
