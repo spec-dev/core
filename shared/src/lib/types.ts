@@ -1,6 +1,6 @@
 export interface NewReportedHead {
     id: number
-    chainId: number
+    chainId: string
     blockNumber: number
     blockHash: string | null
     replace: boolean

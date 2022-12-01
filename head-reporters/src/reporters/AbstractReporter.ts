@@ -1,9 +1,10 @@
 import { logger } from '../../../shared'
 
 class AbstractReporter {
-    chainId: number
+    
+    chainId: string
 
-    constructor(chainId: number) {
+    constructor(chainId: string) {
         this.chainId = chainId
     }
 

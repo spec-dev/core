@@ -8,17 +8,18 @@ set -e # exit if any child script exits with non-zero status
 
 this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 env="$1"
+cluster_name="$2"
 
 # ======== VALIDATE ARGS ======== #
 
-$this_dir/validate_arg "env" "$env" "dev|staging|prod"
+$this_dir/validate_arg "env" "$env" "ivy|dev|staging|prod"
+$this_dir/validate_arg "cluster_name" "$cluster_name"
 
 # ======== SET KEY VARS ======== #
 
 aws_region=$( $this_dir/env_reader "$env" "AWS_REGION" )
 min_nodes=$( $this_dir/env_reader "$env" "MIN_NODES" )
 max_nodes=$( $this_dir/env_reader "$env" "MAX_NODES" )
-cluster_name="spec-core-$env"
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -28,13 +29,6 @@ $this_dir/assert_env "MAX_NODES" "$max_nodes"
 
 # ======== CREATE CLUSTER ======== #
 
-# Ensure cluster doesn't already exist.
-cluster_already_exists=$( kubectl config get-clusters | grep "$cluster_name" | cat )
-if [[ "$cluster_already_exists" ]]; then
-    echo "Cluster $cluster_name already exists."
-    exit 0
-fi
-
 echo "Creating cluster $cluster_name..."
 
 # Create new cluster.
@@ -43,7 +37,7 @@ eksctl create cluster \
     --region="$aws_region" \
     --nodes-min="$min_nodes" \
     --nodes-max="$max_nodes" \
-    --asg-access
+    --asg-access \
 
 echo "Successfully created cluster $cluster_name."
 echo "Go ahead and set up autoscaling on this cluster by reading this (and the files inside the \"cluster\" folder):"

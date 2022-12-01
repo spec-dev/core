@@ -43,7 +43,6 @@ import {
     ContractInstance,
     groupAbiInputsWithValues,
     formatAbiValueWithType,
-    productionChainNameForChainId,
 } from '../../../../shared'
 
 const web3js = new Web3()
@@ -253,12 +252,12 @@ class EthereumIndexer extends AbstractIndexer {
 
         const eventSpecs = [
             {
-                name: 'eth:eth.NewTransactions@0.0.1',
+                name: 'eth.NewTransactions@0.0.1',
                 data: NewTransactions(this.transactions),
                 origin: eventOrigin,
             },
             {
-                name: 'eth:eth.NewInteractions@0.0.1',
+                name: 'eth.NewInteractions@0.0.1',
                 data: NewInteractions(this.latestInteractions),
                 origin: eventOrigin,
             },
@@ -287,9 +286,6 @@ class EthereumIndexer extends AbstractIndexer {
         }
         if (!Object.keys(namespacedContractInfoByAddress)) return []
 
-        const chainName = productionChainNameForChainId(this.chainId)
-        const specEventNamePrefix = chainName ? `${chainName}:` : ''
-
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
@@ -298,7 +294,7 @@ class EthereumIndexer extends AbstractIndexer {
             const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
             const namespacedEventName = [nsp, contractName, eventName].join('.')
             eventSpecs.push({
-                name: `${specEventNamePrefix}${namespacedEventName}`,
+                name: namespacedEventName,
                 data: data,
                 origin: eventOrigin,
             })

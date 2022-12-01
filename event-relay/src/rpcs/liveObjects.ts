@@ -5,7 +5,6 @@ import {
     EdgeFunctionVersion, 
     toNamespacedVersion, 
     logger,
-    productionChainNameForChainId,
 } from '../../../shared'
 
 interface ResolveLiveObjectVersionsPayload {
@@ -60,10 +59,7 @@ export async function resolveLiveObjectVersions(request: any) {
             if (!lovMap.hasOwnProperty(liveObjectVersionId)) {
                 lovMap[liveObjectVersionId] = { events: [], edgeFunctions: [] }
             }
-            let eventName = toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
-            if (eventVersion.chainId !== null) {
-                eventName = [productionChainNameForChainId(eventVersion.chainId), eventName].join(':')
-            }
+            const eventName = toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
             lovMap[liveObjectVersionId].events.push({ name: eventName })
         }
     }

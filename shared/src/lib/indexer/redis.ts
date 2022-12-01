@@ -46,9 +46,9 @@ const keys = {
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
 }
 
-const formatUncledBlockValue = (chainId: number, blockHash: string) => `${chainId}:${blockHash}`
+const formatUncledBlockValue = (chainId: string, blockHash: string) => `${chainId}:${blockHash}`
 
-export async function registerBlockHashAsUncled(chainId: number, blockHash: string) {
+export async function registerBlockHashAsUncled(chainId: string, blockHash: string) {
     const value = formatUncledBlockValue(chainId, blockHash)
     try {
         await redis?.sAdd(keys.UNCLED_BLOCKS, value)
@@ -57,7 +57,7 @@ export async function registerBlockHashAsUncled(chainId: number, blockHash: stri
     }
 }
 
-export async function quickUncleCheck(chainId: number, blockHash: string): Promise<boolean> {
+export async function quickUncleCheck(chainId: string, blockHash: string): Promise<boolean> {
     if (!blockHash) return false
     const value = formatUncledBlockValue(chainId, blockHash)
     try {

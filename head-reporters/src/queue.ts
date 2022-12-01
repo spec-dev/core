@@ -28,7 +28,7 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     const { id, chainId, number, hash } = block
     const data: NewReportedHead = {
         id,
-        chainId,
+        chainId: chainId.toString(),
         blockNumber: number,
         blockHash: hash,
         replace,

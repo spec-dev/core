@@ -22,7 +22,7 @@ const registerNumberAsSeen = (blockNumber: number) => {
     }
 }
 
-async function processNewHead(chainId: number, givenBlock: BlockHeader) {
+async function processNewHead(chainId: string, givenBlock: BlockHeader) {
     registerNumberAsSeen(givenBlock.number)
 
     // Get the last seen block + the non-uncled block for the given block number (if it exists).
@@ -76,7 +76,7 @@ async function processNewHead(chainId: number, givenBlock: BlockHeader) {
 }
 
 async function handleNewBlocks(
-    chainId: number,
+    chainId: string,
     blockSpecs: NewBlockSpec[],
     i: number,
     replace = false
@@ -84,7 +84,7 @@ async function handleNewBlocks(
     const { number, hash } = blockSpecs[i]
 
     // Create new IndexedBlock record.
-    const block = await createIndexedBlock({ chainId, number, hash })
+    const block = await createIndexedBlock({ chainId: Number(chainId), number, hash })
 
     // Enqueue block to be processed.
     await reportBlock(block, replace)

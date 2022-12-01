@@ -9,7 +9,7 @@ import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
 import { getDecodeTxWorker } from './decodeTxWorker'
 import { getAbiPolisher } from './abiPolisher'
-import { productionChainNameForChainId } from '../../../shared'
+import { chainIds } from '../../../shared'
 import { getClassifyContractWorker } from './classifyContractWorker'
 import { getTracesToInteractionsWorker } from './tracesIntoInteractionsWorker'
 
@@ -38,13 +38,15 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (config.RANGE_WORKER_TYPE === 'ti') {
         return getTracesToInteractionsWorker()
     }
-    const prodChainName = productionChainNameForChainId(config.CHAIN_ID)
-    switch (prodChainName) {
-        case 'polygon':
+    
+    switch (config.CHAIN_ID) {
+        case chainIds.POLYGON:
+        case chainIds.MUMBAI:
             return config.SPECIFIC_INDEX_NUMBERS.length
                 ? getPolygonSpecificNumbersWorker() 
                 : getPolygonRangeWorker()
-        case 'eth':
+
+        case chainIds.ETHEREUM:
             return getEthRangeWorker()
     }
 }

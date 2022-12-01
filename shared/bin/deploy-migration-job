@@ -15,7 +15,7 @@ db_folder_name="$2"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 $shared_bin_dir/validate_arg "db_folder_name" "$db_folder_name" "core|indexer|shared-tables"
 
 # ======== SET KEY VARS ======== #

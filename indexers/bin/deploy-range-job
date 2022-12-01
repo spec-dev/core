@@ -17,7 +17,7 @@ range_worker_type="${4:-range}"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 $shared_bin_dir/validate_arg "FROM" "$FROM"
 $shared_bin_dir/validate_arg "TO" "$TO"
 

@@ -23,14 +23,12 @@ import {
     toChunks,
     getAbis,
     getFunctionSignatures,
-    abiRedisKeys,
     Abi,
     AbiItem,
     CoreDB,
     ContractInstance,
     In,
     formatAbiValueWithType,
-    productionChainNameForChainId,
     PolygonTransactionStatus,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
@@ -41,7 +39,7 @@ const web3js = new Web3()
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
-const ivySmartWalletInitializerWalletCreated = 'polygon:ivy.SmartWalletInitializer.WalletCreated'
+const ivySmartWalletInitializerWalletCreated = 'ivy.SmartWalletInitializer.WalletCreated'
 
 class PolygonIndexer extends AbstractIndexer {
     
@@ -94,7 +92,7 @@ class PolygonIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
+        if (externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -127,11 +125,11 @@ class PolygonIndexer extends AbstractIndexer {
         const [abis, functionSignatures] = await Promise.all([
             getAbis(
                 Array.from(new Set([ ...txToAddresses, ...logAddresses ])),
-                abiRedisKeys.POLYGON_CONTRACTS,
+                this.chainId,
             ),
             getFunctionSignatures(
                 Array.from(new Set(sigs)),
-                abiRedisKeys.POLYGON_FUNCTION_SIGNATURES,
+                this.chainId,
             ),
         ])
         const numAbis = Object.keys(abis).length
@@ -198,22 +196,26 @@ class PolygonIndexer extends AbstractIndexer {
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
             es.name === ivySmartWalletInitializerWalletCreated
         ))
+        let newSmartWalletEventSpecs = []
         if (ivySmartWalletInitializerWalletCreatedEventSpecs.length) {
-            await sleep(100)
-            await Promise.all(
-                ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es, this.web3))
-            )
-            await sleep(100)
+            newSmartWalletEventSpecs = (await Promise.all(
+                ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es))
+            )).filter(v => !!v)
         }
 
         // Token events.
         const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
-        const erc20EventSpecs = tokenEventSpecs?.erc20s || []
-        const nftEventSpecs = tokenEventSpecs?.nfts || []
-        await Promise.all([
-            ...erc20EventSpecs.map(es => onNewERC20TokenBalanceEvent(es)),
-            ...nftEventSpecs.map(es => onNewNFTBalanceEvent(es)),
-        ])
+        const erc20EventSpecs = (await Promise.all(
+            (tokenEventSpecs?.erc20s || []).map(es => onNewERC20TokenBalanceEvent(es))
+        )).filter(v => !!v)
+        const nftEventSpecs = (await Promise.all(
+            (tokenEventSpecs?.nfts || []).map(es => onNewNFTBalanceEvent(es))
+        )).filter(v => !!v)
+
+        newSmartWalletEventSpecs.length && await publishEventSpecs(newSmartWalletEventSpecs)
+        await sleep(200)
+        erc20EventSpecs.length && await publishEventSpecs(erc20EventSpecs)
+        nftEventSpecs.length && await publishEventSpecs(nftEventSpecs)
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
@@ -236,9 +238,6 @@ class PolygonIndexer extends AbstractIndexer {
         }
         if (!Object.keys(namespacedContractInfoByAddress)) return []
 
-        const chainName = productionChainNameForChainId(this.chainId)
-        const specEventNamePrefix = chainName ? `${chainName}:` : ''
-
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
@@ -247,7 +246,7 @@ class PolygonIndexer extends AbstractIndexer {
             const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
             const namespacedEventName = [nsp, contractName, eventName].join('.')
             eventSpecs.push({
-                name: `${specEventNamePrefix}${namespacedEventName}`,
+                name: namespacedEventName,
                 data: data,
                 origin: eventOrigin,
             })
@@ -444,7 +443,7 @@ class PolygonIndexer extends AbstractIndexer {
             .map(value => {
                 const { tokenAddress, tokenName, tokenSymbol, ownerAddress, balance, log } = value
                 return {
-                    name: 'polygon:polygon.NewERC20TokenBalance@0.0.1',
+                    name: 'tokens.NewERC20TokenBalance@0.0.1',
                     data: {
                         tokenAddress,
                         tokenName,
@@ -468,7 +467,7 @@ class PolygonIndexer extends AbstractIndexer {
             .map(value => {
                 const { tokenAddress, tokenName, tokenSymbol, tokenStandard, tokenId, ownerAddress, balance, log } = value
                 return {
-                    name: 'polygon:polygon.NewNFTBalance@0.0.1',
+                    name: 'tokens.NewNFTBalance@0.0.1',
                     data: {
                         tokenAddress,
                         tokenName,
@@ -500,8 +499,8 @@ class PolygonIndexer extends AbstractIndexer {
             i++
         }
         const results = (await SharedTables.query(
-            `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')})`,
-            addresses,
+            `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')}) AND chain_id = $${i}`,
+            [...addresses, this.chainId],
         )) || []
         
         return results.map(sw => sw?.contract_address).filter(v => !!v)

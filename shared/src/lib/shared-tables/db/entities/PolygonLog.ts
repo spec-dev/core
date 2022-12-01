@@ -5,7 +5,7 @@ import { decamelize } from 'humps'
 /**
  * A Polygon Log
  */
-@Entity('logs', { schema: schemas.POLYGON })
+@Entity('logs', { schema: schemas.polygon() })
 export class PolygonLog {
     // The index of this log in the transaction receipt.
     @PrimaryColumn('int8', { name: 'log_index' })

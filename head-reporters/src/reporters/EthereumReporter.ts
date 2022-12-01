@@ -10,7 +10,7 @@ class EthereumReporter extends AbstractReporter {
 
     buffer: BlockHeader[] = []
 
-    constructor(chainId: number) {
+    constructor(chainId: string) {
         super(chainId)
         this.web3 = createAlchemyWeb3(config.ALCHEMY_SUBSCRIPTION_URL)
     }

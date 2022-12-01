@@ -14,7 +14,7 @@ class AbstractIndexer {
 
     blockUnixTimestamp: number | null
 
-    get chainId(): number {
+    get chainId(): string {
         return this.head.chainId
     }
 

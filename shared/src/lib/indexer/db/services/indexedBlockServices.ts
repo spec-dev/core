@@ -6,7 +6,7 @@ import { In } from 'typeorm'
 
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
-export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | null> {
+export async function getlastSeenBlock(chainId: string): Promise<IndexedBlock | null> {
     let block
     try {
         block = await indexedBlocks().findOne({
@@ -14,7 +14,7 @@ export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | 
                 number: 'DESC',
                 createdAt: 'DESC',
             },
-            where: { chainId },
+            where: { chainId: Number(chainId) },
         })
     } catch (err) {
         logger.error(`Error fetching last seen block for chainId ${chainId}: ${err}`)
@@ -25,14 +25,14 @@ export async function getlastSeenBlock(chainId: number): Promise<IndexedBlock | 
 }
 
 export async function getBlockAtNumber(
-    chainId: number,
+    chainId: string,
     number: number
 ): Promise<IndexedBlock | null> {
     let block
     try {
         block = await indexedBlocks().findOne({
             where: {
-                chainId,
+                chainId: Number(chainId),
                 number,
                 uncled: false,
             },
@@ -48,13 +48,13 @@ export async function getBlockAtNumber(
 }
 
 export async function getBlocksInNumberRange(
-    chainId: number,
+    chainId: string,
     numbers: number[]
 ): Promise<IndexedBlock[]> {
     let blocks = []
     try {
         blocks = await indexedBlocks().findBy({
-            chainId,
+            chainId: Number(chainId),
             number: In(numbers),
         })
     } catch (err) {
@@ -108,7 +108,7 @@ export async function uncleBlock(indexedBlock: IndexedBlock) {
     }
 
     // Add block hash to uncled redis set.
-    indexedBlock.hash && (await registerBlockHashAsUncled(indexedBlock.chainId, indexedBlock.hash))
+    indexedBlock.hash && (await registerBlockHashAsUncled(indexedBlock.chainId.toString(), indexedBlock.hash))
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {

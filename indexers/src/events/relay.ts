@@ -16,6 +16,8 @@ const eventClient = config.IS_RANGE_MODE ? null : createEventClient({
 })
 
 export async function publishEventSpecs(eventSpecs: StringKeyMap[]) {
+    if (!eventSpecs.length) return
+    
     // Format event specs as spec events.
     const eventTimestamp = await getDBTimestamp()
     const events = eventSpecs.map(es => formatEvent(es, eventTimestamp))

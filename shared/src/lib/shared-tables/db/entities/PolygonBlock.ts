@@ -5,7 +5,7 @@ import { decamelize } from 'humps'
 /**
  * A Polygon Block
  */
-@Entity('blocks', { schema: schemas.POLYGON })
+@Entity('blocks', { schema: schemas.polygon() })
 export class PolygonBlock {
     // Block hash.
     @PrimaryColumn('varchar', { length: 70 })

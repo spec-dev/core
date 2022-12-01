@@ -55,10 +55,10 @@ export {
 } from './lib/indexer/db/services/indexedBlockServices'
 export { networkForChainId } from './lib/utils/alchemy'
 export { range } from './lib/utils/math'
-import chainIds, { productionChainNameForChainId } from './lib/utils/chainIds'
+import chainIds from './lib/utils/chainIds'
 import config from './lib/config'
 import logger from './lib/logger'
-export { chainIds, productionChainNameForChainId, config, logger }
+export { chainIds, config, logger }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'

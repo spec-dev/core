@@ -35,7 +35,7 @@ export class EventVersion {
     version: string
 
     @Column({ name: 'chain_id', nullable: true })
-    chainId: number
+    chainId: string
 
     @CreateDateColumn({
         type: 'timestamptz',

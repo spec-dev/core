@@ -1,10 +1,9 @@
 import { StringKeyMap, logger, SharedTables, sleep, hexToNumberString } from '../../../../shared'
-import { publishEventSpecs } from '../relay'
 import { BigNumber, utils } from 'ethers'
 import { getERC20TokenBalance, getContractBytecode, isContractERC721, isContractERC1155 } from '../../services/contractServices'
 import { AlchemyWeb3 } from '@alch/alchemy-web3'
 
-export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap, web3: AlchemyWeb3) {
+export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap): Promise<StringKeyMap | null> {
     // Get smart wallet contract and owner addresses from received event data.
     const { data, origin } = eventSpec
     const contractAddress = data.smartWallet
@@ -22,48 +21,38 @@ export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap, w
 
     // Create the smart wallet live object.
     const smartWallet = {
-        chainId,
         contractAddress,
         ownerAddress,
         transactionHash,
         blockNumber,
         blockHash,
         blockTimestamp,
+        chainId,
     }
 
     // Upsert the smart wallet record.
     try {
-        await SharedTables.query(`INSERT INTO ivy.smart_wallets (chain_id, contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (chain_id, contract_address) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
+        await SharedTables.query(`INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
             [
-                smartWallet.chainId,
                 smartWallet.contractAddress,
                 smartWallet.ownerAddress,
                 smartWallet.transactionHash,
                 smartWallet.blockNumber,
                 smartWallet.blockHash,
                 smartWallet.blockTimestamp,
+                smartWallet.chainId,
             ]
         )
     } catch (err) {
         logger.error(err)
-        return
+        return null
     }
 
-    try {
-        await Promise.all([
-            pullERC20sForAddress(smartWallet.contractAddress, chainId),
-            pullNFTsForAddress(smartWallet.contractAddress, web3),
-        ])
-    } catch (err) {
-        logger.error(err)
-    }
-
-    // Publish new ivy.NewSmartWallet event.
-    await publishEventSpecs([{
-        name: 'polygon:ivy.NewSmartWallet@0.0.1',
+    return {
+        name: 'ivy.NewSmartWallet@0.0.1',
         data: smartWallet,
         origin: origin,
-    }])
+    }
 }
 
 export async function pullERC20sForAddress(ownerAddress: string, chainId: number) {

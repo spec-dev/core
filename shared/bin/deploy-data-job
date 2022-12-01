@@ -22,7 +22,7 @@ job_cmd+="]"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "dev|staging|prod"
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 $shared_bin_dir/validate_arg "data_job_name" "$data_job_name"
 
 # ======== SET KEY VARS ======== #

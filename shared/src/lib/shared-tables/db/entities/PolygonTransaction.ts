@@ -10,7 +10,7 @@ export enum PolygonTransactionStatus {
 /**
  * A Polygon Transaction
  */
-@Entity('transactions', { schema: schemas.POLYGON })
+@Entity('transactions', { schema: schemas.polygon() })
 export class PolygonTransaction {
     // Transaction hash.
     @PrimaryColumn('varchar', { length: 70 })

@@ -30,7 +30,7 @@ export class ContractInstance {
     desc: string
 
     @Column({ name: 'chain_id' })
-    chainId: number
+    chainId: string
 
     @CreateDateColumn({
         type: 'timestamptz',

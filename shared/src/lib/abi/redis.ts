@@ -4,6 +4,7 @@ import logger from '../logger'
 import { Abi, AbiItem } from './types'
 import { StringMap } from '../types'
 import { specEnvs } from '../utils/env'
+import chainIds from '../utils/chainIds'
 
 // Create redis client.
 const configureRedis = config.ENV === specEnvs.LOCAL || config.ABI_REDIS_HOST !== 'localhost'
@@ -17,13 +18,43 @@ export const abiRedisKeys = {
     ETH_FUNCTION_SIGNATURES: 'eth-function-signatures',
     POLYGON_CONTRACTS: 'polygon-contracts',
     POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
+    MUMBAI_CONTRACTS: 'mumbai-contracts',
+    MUMBAI_FUNCTION_SIGNATURES: 'mumbai-function-signatures',
+}
+
+const contractsKeyForChainId = (chainId: string): string | null => {
+    switch (chainId) {
+        case chainIds.ETHEREUM:
+            return abiRedisKeys.ETH_CONTRACTS
+        case chainIds.POLYGON:
+            return abiRedisKeys.POLYGON_CONTRACTS
+        case chainIds.MUMBAI:
+            return abiRedisKeys.MUMBAI_CONTRACTS
+        default:
+            return null
+    }
+}
+
+const functionSigsKeyForChainId = (chainId: string): string | null => {
+    switch (chainId) {
+        case chainIds.ETHEREUM:
+            return abiRedisKeys.ETH_FUNCTION_SIGNATURES
+        case chainIds.POLYGON:
+            return abiRedisKeys.POLYGON_FUNCTION_SIGNATURES
+        case chainIds.MUMBAI:
+            return abiRedisKeys.MUMBAI_FUNCTION_SIGNATURES
+        default:
+            return null
+    }
 }
 
 export async function saveFunctionSignatures(
     sigsMap: StringMap,
-    nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<boolean> {
     if (!Object.keys(sigsMap).length) return true
+    const nsp = functionSigsKeyForChainId(chainId)
+    if (!nsp) return false
     try {
         await redis?.hSet(nsp, sigsMap)
     } catch (err) {
@@ -35,9 +66,11 @@ export async function saveFunctionSignatures(
 
 export async function saveAbis(
     abisMap: StringMap,
-    nsp: string = abiRedisKeys.ETH_CONTRACTS
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<boolean> {
     if (!Object.keys(abisMap).length) return true
+    const nsp = contractsKeyForChainId(chainId)
+    if (!nsp) return false
     try {
         await redis?.hSet(nsp, abisMap)
     } catch (err) {
@@ -49,9 +82,11 @@ export async function saveAbis(
 
 export async function getAbi(
     address: string,
-    nsp: string = abiRedisKeys.ETH_CONTRACTS
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<Abi | null> {
     if (!address) return null
+    const nsp = contractsKeyForChainId(chainId)
+    if (!nsp) return null
     try {
         const abiStr = (await redis?.hGet(nsp, address)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : null
@@ -63,9 +98,11 @@ export async function getAbi(
 
 export async function getAbis(
     addresses: string[],
-    nsp: string = abiRedisKeys.ETH_CONTRACTS
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<{ [key: string]: Abi }> {
     if (!addresses?.length) return {}
+    const nsp = contractsKeyForChainId(chainId)
+    if (!nsp) return {}
     try {
         const results = (await redis?.hmGet(nsp, addresses)) || []
         const abis = {}
@@ -85,9 +122,11 @@ export async function getAbis(
 
 export async function getMissingAbiAddresses(
     addresses: string[],
-    nsp: string = abiRedisKeys.ETH_CONTRACTS
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<string[]> {
     if (!addresses?.length) return []
+    const nsp = contractsKeyForChainId(chainId)
+    if (!nsp) return []
     let results = []
     try {
         results = (await redis?.hmGet(nsp, addresses)) || []
@@ -106,9 +145,11 @@ export async function getMissingAbiAddresses(
 
 export async function getFunctionSignatures(
     signatures: string[],
-    nsp: string = abiRedisKeys.ETH_FUNCTION_SIGNATURES
+    chainId: string = chainIds.ETHEREUM,
 ): Promise<{ [key: string]: AbiItem }> {
     if (!signatures?.length) return {}
+    const nsp = functionSigsKeyForChainId(chainId)
+    if (!nsp) return {}
     try {
         const results = (await redis?.hmGet(nsp, signatures)) || []
         const sigs = {}
