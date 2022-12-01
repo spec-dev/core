@@ -8,7 +8,7 @@ import { shouldRetryOnWeb3ProviderError } from '../../../errors'
 async function resolveBlockTraces(
     hexBlockNumber: string,
     blockNumber: number,
-    chainId: number
+    chainId: string
 ): Promise<EthTrace[]> {
     let externalTraces = null
     let numAttempts = 0

@@ -9,7 +9,7 @@ export async function resolveBlock(
     web3: AlchemyWeb3,
     blockNumberOrHash: number | string,
     blockNumber: number,
-    chainId: number
+    chainId: string
 ): Promise<[ExternalEthBlock, EthBlock]> {
     let externalBlock = null
     let numAttempts = 0

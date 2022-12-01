@@ -17,7 +17,7 @@ const DAOFORK_BLOCK_NUMBER = 1920000
 
 export function externalToInternalTraces(
     externalTraces: ExternalEthTrace[],
-    chainId: number
+    chainId: string
 ): EthTrace[] {
     if (!externalTraces.length) return []
     let specialTraces = []

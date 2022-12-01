@@ -12,7 +12,7 @@ async function getBlockReceipts(
     web3: AlchemyWeb3,
     params: TransactionReceiptsParams,
     blockNumber: number,
-    chainId: number
+    chainId: string
 ): Promise<ExternalEthReceipt[]> {
     let receipts = null
     let numAttempts = 0
