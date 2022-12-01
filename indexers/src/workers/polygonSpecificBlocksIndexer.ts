@@ -65,6 +65,7 @@ class PolygonSpecificNumbersWorker {
         for (const group of numberGroups) {
             await this._indexBlockGroup(group)
         }
+
         if (this.batchResults.length) {
             await this._saveBatches(
                 this.batchBlockNumbersIndexed,
@@ -72,6 +73,7 @@ class PolygonSpecificNumbersWorker {
                 this.batchExistingBlocksMap
             )
         }
+
         logger.info('DONE')
         exit()
     }
@@ -295,13 +297,13 @@ class PolygonSpecificNumbersWorker {
                 if (!contractAddress || !ownerAddress) continue           
                 
                 smartWallets.push({
-                    chainId: config.CHAIN_ID,
                     contractAddress,
                     ownerAddress,
                     transactionHash: log.transactionHash,
                     blockNumber: Number(log.blockNumber),
                     blockHash: log.blockHash,
                     blockTimestamp: log.blockTimestamp.toISOString(),
+                    chainId: config.CHAIN_ID,
                 })
             }
         }
@@ -370,15 +372,15 @@ class PolygonSpecificNumbersWorker {
     async _upsertIvySmartWallets(smartWallets: StringKeyMap[]) {
         for (const smartWallet of smartWallets) {
             try {
-                await SharedTables.query(`INSERT INTO ivy.smart_wallets (chain_id, contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (chain_id, contract_address) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
+                await SharedTables.query(`INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
                     [
-                        smartWallet.chainId,
                         smartWallet.contractAddress,
                         smartWallet.ownerAddress,
                         smartWallet.transactionHash,
                         smartWallet.blockNumber,
                         smartWallet.blockHash,
                         smartWallet.blockTimestamp,
+                        smartWallet.chainId,
                     ]
                 )
             } catch (err) {
@@ -395,6 +397,7 @@ class PolygonSpecificNumbersWorker {
                 select: { address: true },
                 where: {
                     name: 'SmartWalletInitializer',
+                    chainId: config.CHAIN_ID,
                 }
             })) || []).map(ci => ci.address)
         } catch (err) {
