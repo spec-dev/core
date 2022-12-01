@@ -113,7 +113,6 @@ image="$registry_image:$image_version"
 # ======== CREATE & APPLY TEMPLATE ======== #
 
 template_path="$shared_dir/data-job.yaml"
-
 lowercase_data_job_name=$( echo $data_job_name | tr '[:upper:]' '[:lower:]' )
 job_name="data-job-$lowercase_data_job_name-$RANDOM-end"
 

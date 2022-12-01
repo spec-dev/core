@@ -23,6 +23,7 @@ import getProjects from './getProjects'
 import getEventVersions from './getEventVersions'
 import lrq from './lrq'
 import getAbi from './getAbi'
+import saveAbi from './saveAbi'
 import custom from './custom'
 import setEdgeFunctionVersionUrl from './setEdgeFunctionVersionUrl'
 import updateLiveObjectVersionProperties from './updateLiveObjectVersionProperties'
@@ -56,6 +57,7 @@ const jobs = {
     getProjects,
     getEventVersions,
     getAbi,
+    saveAbi,
     custom,
     setEdgeFunctionVersionUrl,
     updateLiveObjectVersionProperties,
