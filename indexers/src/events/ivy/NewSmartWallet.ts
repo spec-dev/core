@@ -55,9 +55,9 @@ export async function onIvyWalletCreatedContractEvent(eventSpec: StringKeyMap): 
     }
 }
 
-export async function pullERC20sForAddress(ownerAddress: string, chainId: number) {
-    const alreadyPulledTokens = await erc20TokenBalanceExistsForOwner(ownerAddress)
-    if (alreadyPulledTokens) return
+export async function pullERC20sForAddress(ownerAddress: string, chainId: string) {
+    const latestBlock = (await SharedTables.query(`select * from polygon.blocks order by number desc limit 1`))[0]
+    const { number, hash, timestamp } = latestBlock
 
     const tokens = await fetchERC20s(ownerAddress, chainId)
     if (!tokens.length) return
@@ -66,23 +66,27 @@ export async function pullERC20sForAddress(ownerAddress: string, chainId: number
     const insertBindings = []
     let i = 1
     for (const token of tokens) {
-        insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3}, $${i + 4})`)
+        insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6}, $${i + 7}, $${i + 8})`)
         insertBindings.push(...[
             token.token_address,
             token.token_name,
             token.token_symbol,
             token.owner_address,
             token.balance,
+            number,
+            hash,
+            timestamp,
+            chainId,
         ])
-        i += 5
+        i += 9
     }
-    const insertQuery = `INSERT INTO polygon.erc20_balances (token_address, token_name, token_symbol, owner_address, balance) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, owner_address) DO UPDATE SET balance = EXCLUDED.balance`
+    const insertQuery = `INSERT INTO tokens.erc20_balances (token_address, token_name, token_symbol, owner_address, balance, block_number, block_hash, block_timestamp, chain_id) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, owner_address, chain_id) DO UPDATE SET balance = EXCLUDED.balance`
     await SharedTables.query(insertQuery, insertBindings)
 }
 
-export async function pullNFTsForAddress(ownerAddress: string, web3: AlchemyWeb3) {
-    const alreadyPulledNFTs = await nftTokenBalanceExistsForOwner(ownerAddress)
-    if (alreadyPulledNFTs) return
+export async function pullNFTsForAddress(ownerAddress: string, chainId: string, web3: AlchemyWeb3) {
+    const latestBlock = (await SharedTables.query(`select * from polygon.blocks order by number desc limit 1`))[0]
+    const { number, hash, timestamp } = latestBlock
 
     const nfts = await fetchNFTs(ownerAddress, web3)
     if (!nfts.length) return
@@ -91,7 +95,7 @@ export async function pullNFTsForAddress(ownerAddress: string, web3: AlchemyWeb3
     const insertBindings = []
     let i = 1
     for (const nft of nfts) {
-        insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6})`)
+        insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6}, $${i + 7}, $${i + 8}, $${i + 9}, $${i + 10})`)
         insertBindings.push(...[
             nft.token_address,
             nft.token_name,
@@ -100,30 +104,34 @@ export async function pullNFTsForAddress(ownerAddress: string, web3: AlchemyWeb3
             nft.token_id,
             nft.owner_address,
             nft.balance,
+            number,
+            hash,
+            timestamp,
+            chainId,
         ])
-        i += 7
+        i += 11
     }
-    const insertQuery = `INSERT INTO polygon.nft_balances (token_address, token_name, token_symbol, token_standard, token_id, owner_address, balance) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, token_id, owner_address) DO UPDATE SET balance = EXCLUDED.balance`
+    const insertQuery = `INSERT INTO tokens.nft_balances (token_address, token_name, token_symbol, token_standard, token_id, owner_address, balance, block_number, block_hash, block_timestamp, chain_id) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (token_address, token_id, owner_address, chain_id) DO UPDATE SET balance = EXCLUDED.balance`
     await SharedTables.query(insertQuery, insertBindings)
 }
 
-async function erc20TokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean> {
+async function erc20TokenBalanceExistsForOwner(ownerAddress: string, chainId: string): Promise<boolean> {
     const count = Number((((await SharedTables.query(
-        `SELECT COUNT(*) FROM polygon.erc20_balances WHERE owner_address = $1`, 
-        [ownerAddress],
+        `SELECT COUNT(*) FROM tokens.erc20_balances WHERE owner_address = $1 and chain_id = $2`, 
+        [ownerAddress, chainId],
     )) || [])[0] || {}).count || 0)
     return count > 0
 }
 
-async function nftTokenBalanceExistsForOwner(ownerAddress: string): Promise<boolean> {
+async function nftTokenBalanceExistsForOwner(ownerAddress: string, chainId: string): Promise<boolean> {
     const count = Number((((await SharedTables.query(
-        `SELECT COUNT(*) FROM polygon.nft_balances WHERE owner_address = $1`, 
-        [ownerAddress],
+        `SELECT COUNT(*) FROM tokens.nft_balances WHERE owner_address = $1 and chain_id = $2`, 
+        [ownerAddress, chainId],
     )) || [])[0] || {}).count || 0)
     return count > 0
 }
 
-async function fetchERC20s(ownerAddress: string, chainId: number) {
+async function fetchERC20s(ownerAddress: string, chainId: string) {
     let externalTokens = null
     let numAttempts = 0
 
@@ -171,7 +179,7 @@ async function fetchNFTs(ownerAddress: string, web3: AlchemyWeb3) {
     return nfts
 }
 
-async function _fetchERC20s(ownerAddress: string, chainId: number): Promise<StringKeyMap[] | null> {
+async function _fetchERC20s(ownerAddress: string, chainId: string): Promise<StringKeyMap[] | null> {
     let resp, error
     try {
         resp = await fetch(

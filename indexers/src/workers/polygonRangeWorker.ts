@@ -76,7 +76,7 @@ class PolygonRangeWorker {
 
             await Promise.all([
                 pullERC20sForAddress(address, config.CHAIN_ID),
-                pullNFTsForAddress(address, this.web3)
+                pullNFTsForAddress(address, config.CHAIN_ID, this.web3)
             ])
             
             await sleep(200)
@@ -104,7 +104,10 @@ class PolygonRangeWorker {
     }
 
     async _getSmartWalletContractAddresses(): Promise<string[]> {
-        const results = await SharedTables.query(`SELECT contract_address FROM ivy.smart_wallets`)
+        const results = await SharedTables.query(
+            `SELECT contract_address FROM ivy.smart_wallets where chain_id = $1`,
+            [config.CHAIN_ID]
+        )
         return results.map(sw => sw?.contract_address).filter(v => !!v)
     }
 
