@@ -1,8 +1,8 @@
 import { StringKeyMap, getPolygonContracts, savePolygonContracts } from '../../../../../shared'
 import { isContractERC20, resolveERC20Metadata, getContractBytecode, isContractERC721, isContractERC1155, resolveNFTContractMetadata } from '../../../services/contractServices'
 
-async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
-    const contracts = await getPolygonContracts(addresses)
+async function resolveContracts(addresses: string[], chainId: string): Promise<StringKeyMap> {
+    const contracts = await getPolygonContracts(addresses, chainId)
 
     let bytecodePromises = []
     let bytecodeAddresses = []
@@ -128,7 +128,7 @@ async function resolveContracts(addresses: string[]): Promise<StringKeyMap> {
         })
     }
 
-    savePolygonContracts(cacheUpdates)
+    savePolygonContracts(cacheUpdates, chainId)
 
     return contracts
 }

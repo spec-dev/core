@@ -7,6 +7,7 @@ import { Contract } from '../core/db/entities/Contract'
 import { EventVersion } from '../core/db/entities/EventVersion'
 import { StringKeyMap, StringMap } from '../types'
 import { specEnvs } from '../utils/env'
+import chainIds from '../utils/chainIds'
 
 // Create redis client.
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
@@ -44,6 +45,18 @@ const keys = {
     CONTRACT_INSTANCES: 'contract-instances',
     BLOCK_LOGS_INDEXED: 'block-logs-indexed',
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
+    MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
+}
+
+const polygonContractsKeyForChainId = (chainId: string): string | null => {
+    switch (chainId) {
+        case chainIds.POLYGON:
+            return keys.POLYGON_CONTRACTS_CACHE
+        case chainIds.MUMBAI:
+            return keys.MUMBAI_CONTRACTS_CACHE
+        default:
+            return null
+    }
 }
 
 const formatUncledBlockValue = (chainId: string, blockHash: string) => `${chainId}:${blockHash}`
@@ -303,10 +316,15 @@ export async function getPublishedEventsAfterEventCursors(
     }
 }
 
-export async function getPolygonContracts(addresses: string[]): Promise<StringKeyMap> {
+export async function getPolygonContracts(
+    addresses: string[],
+    chainId: string = chainIds.POLYGON
+): Promise<StringKeyMap> {
     if (!addresses?.length) return {}
+    const nsp = polygonContractsKeyForChainId(chainId)
+    if (!nsp) return {}
     try {
-        const results = (await redis?.hmGet(keys.POLYGON_CONTRACTS_CACHE, addresses)) || []
+        const results = (await redis?.hmGet(nsp, addresses)) || []
         const contracts = {}
         for (let i = 0; i < addresses.length; i++) {
             const address = addresses[i]
@@ -324,10 +342,15 @@ export async function getPolygonContracts(addresses: string[]): Promise<StringKe
     }
 }
 
-export async function savePolygonContracts(contractsMap: StringMap): Promise<boolean> {
+export async function savePolygonContracts(
+    contractsMap: StringMap,
+    chainId: string = chainIds.POLYGON
+): Promise<boolean> {
     if (!Object.keys(contractsMap).length) return true
+    const nsp = polygonContractsKeyForChainId(chainId)
+    if (!nsp) return false
     try {
-        await redis?.hSet(keys.POLYGON_CONTRACTS_CACHE, contractsMap)
+        await redis?.hSet(nsp, contractsMap)
     } catch (err) {
         logger.error(`Error saving polygon contracts: ${err}.`)
         return false

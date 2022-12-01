@@ -287,7 +287,7 @@ class PolygonIndexer extends AbstractIndexer {
         const smartWalletOwners = new Set(referencedSmartWalletOwners)
         
         const referencedContractAddresses = Array.from(new Set(transfers.map(t => t.log.address)))
-        const contracts = await resolveContracts(referencedContractAddresses)
+        const contracts = await resolveContracts(referencedContractAddresses, this.chainId)
 
         const refetchERC20TokenBalancesMap = {}
         const erc721BalanceUpdates = {}
