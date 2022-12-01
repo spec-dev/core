@@ -14,12 +14,12 @@ const getWeb3 = () => {
 export const getIndexer = (head: NewReportedHead): Indexer | null => {
     switch (head.chainId) {
         // Ethereum
-        case chainIds.ETH_MAINNET:
+        case chainIds.ETHEREUM:
             return new EthereumIndexer(head, getWeb3())
 
         // Polygon
-        case chainIds.POLYGON_MAINNET:
-        case chainIds.POLYGON_MUMBAI:
+        case chainIds.POLYGON:
+        case chainIds.MUMBAI:
             return new PolygonIndexer(head, getWeb3())
 
         default:
