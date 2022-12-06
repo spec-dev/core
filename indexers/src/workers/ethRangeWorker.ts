@@ -334,6 +334,9 @@ class EthRangeWorker {
         })
 
         logger.info('> Logs')
+        for (const log of logs) {
+            console.log(JSON.stringify(log, null, 4))
+        }
         await SharedTables.manager.transaction(async (tx) => {
             await this._upsertLogs(logs, tx)
         })
