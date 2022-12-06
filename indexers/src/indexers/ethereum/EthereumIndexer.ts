@@ -43,6 +43,7 @@ import {
     ContractInstance,
     groupAbiInputsWithValues,
     formatAbiValueWithType,
+    schemas,
 } from '../../../../shared'
 
 const web3js = new Web3()
@@ -74,6 +75,9 @@ class EthereumIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
+        if (!config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ETHEREUM))) {
+            return
+        }
 
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()

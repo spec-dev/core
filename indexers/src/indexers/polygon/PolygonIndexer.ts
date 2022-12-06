@@ -30,6 +30,7 @@ import {
     In,
     formatAbiValueWithType,
     PolygonTransactionStatus,
+    schemas,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -60,6 +61,9 @@ class PolygonIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
+        if (!config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.polygon()))) {
+            return
+        }
 
         // Get blocks (+transactions), receipts (+logs).
         const blockPromise = this._getBlockWithTransactions()

@@ -3,6 +3,7 @@ import {
     logger,
     quickUncleCheck,
     numberToHex,
+    SharedTables,
     StringKeyMap,
 } from '../../../shared'
 import config from '../config'
@@ -53,6 +54,22 @@ class AbstractIndexer {
         if (this.head.replace) {
             this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
             await this._deleteRecordsWithBlockNumber()
+        }
+    }
+
+    async _blockAlreadyExists(schema: string): Promise<boolean> {
+        try {
+            const colName = this.blockHash ? 'hash' : 'number'
+            const value = this.blockHash || this.blockNumber
+            return (
+                await SharedTables.query(
+                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where ${colName} = $1)`,
+                    [value]
+                )
+            )[0]?.exists
+        } catch (err) {
+            this._error(err)
+            return false
         }
     }
 
