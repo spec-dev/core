@@ -107,7 +107,7 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (!config.IS_RANGE_MODE && externalTransactions.length && !receipts.length) {
+        if (externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
@@ -207,7 +207,6 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {
-
         // For new contracts that could possibly already have ABIs on etherscan/samczsun, 
         // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
         // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
