@@ -364,6 +364,14 @@ class EthereumIndexer extends AbstractIndexer {
         tx.functionName = abiItem.name
         tx.functionArgs = functionArgs
 
+        // Ensure args are stringifyable.
+        try {
+            JSON.stringify(functionArgs)
+        } catch (err) {
+            tx.functionArgs = null
+            this._warn(`Transaction function args not stringifyable (hash=${tx.hash})`)
+        }
+
         return tx
     }
 
@@ -399,6 +407,7 @@ class EthereumIndexer extends AbstractIndexer {
             } catch (err) {
                 this._error(`Error decoding log for address ${log.address}: ${err}`)
             }
+
             finalLogs.push(log)
         }
         return finalLogs
@@ -446,6 +455,16 @@ class EthereumIndexer extends AbstractIndexer {
 
         log.eventName = abiItem.name
         log.eventArgs = eventArgs
+
+        // Ensure args are stringifyable.
+        try {
+            JSON.stringify(eventArgs)
+        } catch (err) {
+            log.eventArgs = null
+            this._warn(
+                `Log event args not stringifyable (transaction_hash=${log.transactionHash}, log_index=${log.logIndex})`
+            )
+        }
 
         return log
     }
