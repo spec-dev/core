@@ -324,37 +324,34 @@ class EthRangeWorker {
             : latestInteractions
 
         logger.info('> Blocks')
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertBlocks(blocks, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertBlocks(blocks, tx)
+        // })
 
         logger.info('> Transactions')
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertTransactions(transactions, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertTransactions(transactions, tx)
+        // })
 
         logger.info('> Logs')
-        for (const log of logs) {
-            console.log(JSON.stringify(log, null, 4))
-        }
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertLogs(logs, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertLogs(logs, tx)
+        // })
 
         logger.info('> Traces')
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertTraces(traces, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertTraces(traces, tx)
+        // })
 
         logger.info('> Contracts')
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertContracts(contracts, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertContracts(contracts, tx)
+        // })
         
         logger.info('> LatestInteractions')
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertLatestInteractions(latestInteractions, tx)
-        })
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await this._upsertLatestInteractions(latestInteractions, tx)
+        // })
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
