@@ -87,6 +87,7 @@ export async function resolveLiveObjectVersions(request: any) {
             id: toNamespacedVersion(lov.nsp, lov.name, lov.version),
             events: (lovMap[lov.id] || {}).events || [],
             edgeFunctions: (lovMap[lov.id] || {}).edgeFunctions || [],
+            config: lov.config || {},
         })
     }
     request.end(resp)
