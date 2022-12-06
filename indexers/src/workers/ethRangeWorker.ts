@@ -32,8 +32,31 @@ import fs from 'fs'
 
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
-const numbers = [
-    15993648,
+const numbers =	[
+    16087006,
+    16102006,
+    16105005,
+    16062853,
+    16104005,
+    16086005,
+    16067759,
+    16101006,
+    16099004,
+    16122147,
+    16088006,
+    16088007,
+    16111005,
+    16011276,
+    16031395,
+    16118006,
+    16097005,
+    16101005,
+    16106005,
+    16051126,
+    16123005,
+    16088005,
+    16086006,
+    16087005,
 ]
 
 class EthRangeWorker {
@@ -150,12 +173,12 @@ class EthRangeWorker {
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
     ) {
-        // try {
-        await this._saveBatchResults(batchResults)
-        // } catch (err) {
-        //     logger.error(`Error saving batch: ${err}`)
-        //     return [null, false]
-        // }
+        try {
+            await this._saveBatchResults(batchResults)
+        } catch (err) {
+            logger.error(`Error saving batch: ${err}`)
+            return
+        }
 
         // Group index results by block number.
         const retriedBlockNumbersThatSucceeded = []
@@ -323,35 +346,19 @@ class EthRangeWorker {
             ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
             : latestInteractions
 
-        logger.info('> Blocks')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertBlocks(blocks, tx)
-        // })
+        await SharedTables.manager.transaction(async (tx) => {
+            await Promise.all([
+                this._upsertBlocks(blocks, tx),
+                this._upsertTransactions(transactions, tx),
+                this._upsertLogs(logs, tx),
+                this._upsertTraces(traces, tx),
+                this._upsertContracts(contracts, tx),
+            ])
+        })
 
-        logger.info('> Transactions')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertTransactions(transactions, tx)
-        // })
-
-        logger.info('> Logs')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertLogs(logs, tx)
-        // })
-
-        logger.info('> Traces')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertTraces(traces, tx)
-        // })
-
-        logger.info('> Contracts')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertContracts(contracts, tx)
-        // })
-        
-        logger.info('> LatestInteractions')
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await this._upsertLatestInteractions(latestInteractions, tx)
-        // })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertLatestInteractions(latestInteractions, tx)
+        })
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
