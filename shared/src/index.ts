@@ -165,3 +165,6 @@ export {
     PolygonLog,
     fullLogUpsertConfig as fullPolygonLogUpsertConfig,
 } from './lib/shared-tables/db/entities/PolygonLog'
+
+import schemas from './lib/shared-tables/schemas'
+export { schemas }
