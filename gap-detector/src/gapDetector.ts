@@ -27,7 +27,7 @@ class GapDetector {
         this.pgListener = createSubscriber({
             host: config.SHARED_TABLES_DB_HOST,
             port: config.SHARED_TABLES_DB_PORT,
-            user: config.SHARED_TABLES_DB_USER,
+            user: config.SHARED_TABLES_DB_USERNAME,
             password: config.SHARED_TABLES_DB_PASSWORD,
             database: config.SHARED_TABLES_DB_NAME,
         })
