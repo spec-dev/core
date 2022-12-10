@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# --- Push the latest version of the gap-detector docker image to the configured remote registry --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+
+# ======== SET KEY VARS ======== #
+
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "GAP_DETECTOR_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "AWS_ACCOUNT_ID" "$aws_account_id"
+$shared_bin_dir/assert_env "AWS_REGION" "$aws_region"
+$shared_bin_dir/assert_env "DOCKER_IMAGE_ORG" "$image_org"
+$shared_bin_dir/assert_env "GAP_DETECTOR_IMAGE_NAME" "$image_name"
+
+# ======== PUSH IMAGE ======== #
+
+docker push "$registry_image:$image_version"
+
+echo "Successfully pushed image $registry_image:$image_version"

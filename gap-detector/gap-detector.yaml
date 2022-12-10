@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gap-detector
+  labels:
+    app: gap-detector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gap-detector
+  template:
+    metadata:
+      labels:
+        app: gap-detector 
+    spec:
+      containers:
+      - name: gap-detector
+        image: {{IMAGE}}
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: SHARED_TABLES_DB_NAME
+          value: {{SHARED_TABLES_DB_NAME}}
+        - name: SHARED_TABLES_DB_HOST
+          value: {{SHARED_TABLES_DB_HOST}}
+        - name: SHARED_TABLES_DB_PORT
+          value: "{{SHARED_TABLES_DB_PORT}}"
+        - name: SHARED_TABLES_DB_USERNAME
+          value: {{SHARED_TABLES_DB_USERNAME}}
+        - name: SHARED_TABLES_DB_PASSWORD
+          value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_MAX_POOL_SIZE
+          value: "20"
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
+        - name: INDEXER_DB_NAME
+          value: {{INDEXER_DB_NAME}}
+        - name: INDEXER_DB_HOST
+          value: {{INDEXER_DB_HOST}}
+        - name: INDEXER_DB_PORT
+          value: "{{INDEXER_DB_PORT}}"
+        - name: INDEXER_DB_USERNAME
+          value: {{INDEXER_DB_USERNAME}}
+        - name: INDEXER_DB_PASSWORD
+          value: {{INDEXER_DB_PASSWORD}}
+        - name: ETHEREUM_HEAD_REPORTER_QUEUE_KEY
+          value: {{ETHEREUM_HEAD_REPORTER_QUEUE_KEY}}
+        - name: POLYGON_HEAD_REPORTER_QUEUE_KEY
+          value: {{POLYGON_HEAD_REPORTER_QUEUE_KEY}}
+        - name: MUMBAI_HEAD_REPORTER_QUEUE_KEY
+          value: {{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}
