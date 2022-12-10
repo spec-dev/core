@@ -97,7 +97,7 @@ class GapDetector {
     }
     
     _resetCheckInTimer(chainId: string) {
-        const requiredCheckInTime = 2 * (blockTimes[chainId] || 30000) // 2 blocks
+        const requiredCheckInTime = 3 * (blockTimes[chainId] || 30000) // 3 blocks
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
             logger.error(
@@ -162,10 +162,10 @@ class GapDetector {
             return
         }
 
-        // await queue.add(config.INDEX_BLOCK_JOB_NAME, data, {
-        //     removeOnComplete: true,
-        //     removeOnFail: 10,
-        // })
+        await queue.add(config.INDEX_BLOCK_JOB_NAME, data, {
+            removeOnComplete: true,
+            removeOnFail: 10,
+        })
     }
 
     _upsertQueue(chainId: string) {
