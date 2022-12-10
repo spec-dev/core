@@ -52,3 +52,5 @@ spec:
           value: {{POLYGON_HEAD_REPORTER_QUEUE_KEY}}
         - name: MUMBAI_HEAD_REPORTER_QUEUE_KEY
           value: {{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}
+        - name: GAP_TOLERANCE
+          value: "5"
