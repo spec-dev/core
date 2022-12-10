@@ -97,7 +97,7 @@ class GapDetector {
     }
     
     _resetCheckInTimer(chainId: string) {
-        const requiredCheckInTime = 3 * (blockTimes[chainId] || 30000) // 3 blocks
+        const requiredCheckInTime = 5 * (blockTimes[chainId] || 30000) // 5 blocks
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
             logger.error(
