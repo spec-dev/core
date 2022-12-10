@@ -55,9 +55,10 @@ export {
 } from './lib/indexer/db/services/indexedBlockServices'
 export { range } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
+import blockTimes from './lib/utils/blockTimes'
 import config from './lib/config'
 import logger from './lib/logger'
-export { chainIds, config, logger }
+export { chainIds, config, logger, blockTimes }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'

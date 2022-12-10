@@ -3,6 +3,7 @@ import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
 import { registerBlockHashAsUncled } from '../../redis'
 import { In } from 'typeorm'
+import { StringKeyMap } from '../../../types'
 
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
@@ -64,7 +65,7 @@ export async function getBlocksInNumberRange(
     return blocks
 }
 
-export async function createIndexedBlock(attrs: { [key: string]: any }): Promise<IndexedBlock> {
+export async function createIndexedBlock(attrs: StringKeyMap): Promise<IndexedBlock> {
     const block = new IndexedBlock()
     for (let key in attrs) {
         block[key] = attrs[key]
@@ -80,17 +81,19 @@ export async function createIndexedBlock(attrs: { [key: string]: any }): Promise
     return block
 }
 
-export async function insertIndexedBlocks(attrsList: { [key: string]: any }[]) {
+export async function insertIndexedBlocks(records: StringKeyMap[]): Promise<StringKeyMap[]> {
     try {
-        await indexedBlocks()
-            .createQueryBuilder()
-            .insert()
-            .into(IndexedBlock)
-            .values(attrsList)
-            .orIgnore()
-            .execute()
+        return (
+            await indexedBlocks()
+                .createQueryBuilder()
+                .insert()
+                .into(IndexedBlock)
+                .values(records)
+                .returning('*')
+                .execute()
+        ).generatedMaps
     } catch (err) {
-        logger.error(`Error inserting indexed blocks with attrs ${attrsList}: ${err}`)
+        logger.error(`Error inserting indexed blocks with attrs ${records}: ${err}`)
         throw err
     }
 }
