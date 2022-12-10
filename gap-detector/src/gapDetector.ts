@@ -47,6 +47,7 @@ class GapDetector {
     }
 
     async _onNewBlock(event: NewBlockEvent, chainId: string) {
+        console.log('New block', chainId, event)
         if (!event || !event.number || !this.chains.includes(chainId)) return
 
         this._resetCheckInTimer(chainId)
