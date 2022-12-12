@@ -75,7 +75,8 @@ class EthereumIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
-        if (!config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ETHEREUM))) {
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
             return
         }
 
@@ -193,6 +194,12 @@ class EthereumIndexer extends AbstractIndexer {
             }
         }
 
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
+            return
+        }
+
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
 
@@ -208,6 +215,12 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Kick off delayed job to fetch abis for new contracts.
         contracts.length && (await this._fetchAbisForNewContracts(contracts))
+    }
+
+    async _alreadyIndexedBlock(): Promise<boolean> {
+        return !config.IS_RANGE_MODE 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.ETHEREUM))
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {

@@ -61,7 +61,8 @@ class PolygonIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
-        if (!config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.polygon()))) {
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
             return
         }
 
@@ -161,6 +162,12 @@ class PolygonIndexer extends AbstractIndexer {
             }
         }
 
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
+            return
+        }
+
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs)
 
@@ -173,6 +180,12 @@ class PolygonIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
+    }
+
+    async _alreadyIndexedBlock(): Promise<boolean> {
+        return !config.IS_RANGE_MODE 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.polygon()))
     }
 
     async _savePrimitives(
