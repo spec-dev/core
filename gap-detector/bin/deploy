@@ -18,6 +18,8 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "GAP_DETECTOR_BUGSNAG_API_KEY" )
+
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
 shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
@@ -42,6 +44,8 @@ polygon_head_reporter_queue_key=$( $shared_bin_dir/env_reader "polygon" "HEAD_RE
 mumbai_head_reporter_queue_key=$( $shared_bin_dir/env_reader "mumbai" "HEAD_REPORTER_QUEUE_KEY" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "GAP_DETECTOR_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -98,7 +102,8 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
     sed "s|{{ETHEREUM_HEAD_REPORTER_QUEUE_KEY}}|$ethereum_head_reporter_queue_key|g" | \
     sed "s|{{POLYGON_HEAD_REPORTER_QUEUE_KEY}}|$polygon_head_reporter_queue_key|g" | \
-    sed "s|{{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}|$mumbai_head_reporter_queue_key|g" )
+    sed "s|{{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}|$mumbai_head_reporter_queue_key|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating gap-detector job resources..."
 
