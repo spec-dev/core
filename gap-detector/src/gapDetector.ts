@@ -3,13 +3,12 @@ import createSubscriber, { Subscriber } from 'pg-listen'
 import { NewBlockEvent } from './types'
 import { sleep, logger, blockTimes, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks } from '../../shared'
 import { Queue } from 'bullmq'
-import { queueNameForChainId } from './queues'
+import { queueNameForChainId } from './utils/queues'
+import { gapTolerances } from './utils/tolerances'
 
 class GapDetector {
 
     chains: string[]
-
-    tolerance: number
 
     pgListener: Subscriber
 
@@ -21,9 +20,8 @@ class GapDetector {
 
     queues: { [key: string]: Queue } = {}
 
-    constructor(chains: string[], tolerance: number) {
+    constructor(chains: string[]) {
         this.chains = chains
-        this.tolerance = tolerance
         this.pgListener = createSubscriber({
             host: config.SHARED_TABLES_DB_HOST,
             port: config.SHARED_TABLES_DB_PORT,
@@ -65,9 +63,10 @@ class GapDetector {
         }
         this.lastSeenBlock[chainId] = Math.max(lastSeenBlock, newBlockNumber)
 
+        const gapTolerance = gapTolerances[chainId] || 5
         const numbersToReenqueue = []
         for (const number of this._sortInts(Array.from(this.missingBlocks[chainId]))) {
-            if (this.lastSeenBlock[chainId] - number >= this.tolerance) {
+            if (this.lastSeenBlock[chainId] - number >= gapTolerance) {
                 numbersToReenqueue.push(number)
                 this.missingBlocks[chainId].delete(number)
             }

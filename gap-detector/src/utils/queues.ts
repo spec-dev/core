@@ -1,5 +1,5 @@
-import config from './config'
-import { chainIds } from '../../shared'
+import config from '../config'
+import { chainIds } from '../../../shared'
 
 export const queueNameForChainId = {
     [chainIds.ETHEREUM]: config.ETHEREUM_HEAD_REPORTER_QUEUE_KEY,
