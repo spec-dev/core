@@ -56,15 +56,15 @@ class GapDetector {
         }
 
         const lastSeenBlock = this.lastSeenBlock[chainId] || newBlockNumber
-        if (lastSeenBlock !== newBlockNumber) {
-            this._findGapInBlocks(this._sortInts([lastSeenBlock, newBlockNumber])).forEach(
+        if (newBlockNumber > lastSeenBlock + 1) {
+            this._findGapInBlocks([lastSeenBlock, newBlockNumber]).forEach(
                 number => this.missingBlocks[chainId].add(number)
             )
         }
         this.lastSeenBlock[chainId] = Math.max(lastSeenBlock, newBlockNumber)
 
         if (chainId === '137') {
-            console.log('---', newBlockNumber)
+            console.log('newBlockNumber', newBlockNumber)
             console.log('lastSeenBlock', lastSeenBlock)
             console.log('this.lastSeenBlock[chainId]', this.lastSeenBlock[chainId])
             console.log('missing', this._sortInts(Array.from(this.missingBlocks[chainId])))
