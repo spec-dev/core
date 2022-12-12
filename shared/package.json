@@ -26,6 +26,7 @@
     },
     "dependencies": {
         "@alch/alchemy-sdk": "^1.0.6",
+        "@bugsnag/js": "^7.18.0",
         "@spec.types/spec": "^0.0.11",
         "bcrypt": "^5.0.1",
         "bullmq": "^1.86.4",

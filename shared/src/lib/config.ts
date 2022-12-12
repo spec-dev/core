@@ -4,6 +4,9 @@ import { StringKeyMap } from './types'
 const config: StringKeyMap = {
     ENV: ev('ENV', specEnvs.PROD),
 
+    // Logging.
+    BUGSNAG_API_KEY: ev('BUGSNAG_API_KEY'),
+
     // Indexer Redis Instance
     INDEXER_REDIS_HOST: ev('INDEXER_REDIS_HOST', 'localhost'),
     INDEXER_REDIS_PORT: Number(ev('INDEXER_REDIS_PORT', 6379)),
