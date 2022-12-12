@@ -64,7 +64,10 @@ class GapDetector {
         this.lastSeenBlock[chainId] = Math.max(lastSeenBlock, newBlockNumber)
 
         if (chainId === '137') {
-            console.log('Last seen: ', this.lastSeenBlock[chainId])
+            console.log('---', newBlockNumber)
+            console.log('lastSeenBlock', lastSeenBlock)
+            console.log('this.lastSeenBlock[chainId]', this.lastSeenBlock[chainId])
+            console.log('missing', this._sortInts(Array.from(this.missingBlocks[chainId])))
         }
 
         const gapTolerance = gapTolerances[chainId] || 5
