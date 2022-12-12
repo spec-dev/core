@@ -49,6 +49,8 @@ spec:
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
           value: "{{INDEXER_REDIS_PORT}}"
+        - name: FLIP
+          value: heads
         readinessProbe:
           httpGet:
             path: /health-check

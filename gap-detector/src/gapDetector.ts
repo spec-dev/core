@@ -63,10 +63,15 @@ class GapDetector {
         }
         this.lastSeenBlock[chainId] = Math.max(lastSeenBlock, newBlockNumber)
 
+        if (chainId === '137') {
+            console.log('Last seen: ', this.lastSeenBlock[chainId])
+        }
+
         const gapTolerance = gapTolerances[chainId] || 5
         const numbersToReenqueue = []
         for (const number of this._sortInts(Array.from(this.missingBlocks[chainId]))) {
             if (this.lastSeenBlock[chainId] - number >= gapTolerance) {
+                console.log('above threshold', number, this.lastSeenBlock[chainId])
                 numbersToReenqueue.push(number)
                 this.missingBlocks[chainId].delete(number)
             }
