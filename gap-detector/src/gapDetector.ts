@@ -1,10 +1,10 @@
 import config from './config'
 import createSubscriber, { Subscriber } from 'pg-listen'
 import { NewBlockEvent } from './types'
-import { sleep, logger, blockTimes, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks } from '../../shared'
+import { sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks } from '../../shared'
 import { Queue } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
-import { gapTolerances } from './utils/tolerances'
+import { gapTolerances, checkInTolerances } from './utils/tolerances'
 
 class GapDetector {
 
@@ -96,11 +96,11 @@ class GapDetector {
     }
     
     _resetCheckInTimer(chainId: string) {
-        const requiredCheckInTime = 5 * (blockTimes[chainId] || 30000) // 5 blocks
+        const requiredCheckInTime = checkInTolerances[chainId] || 60000
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
             logger.error(
-                `No new block on chain ${chainId} in the last ${requiredCheckInTime / 1000} seconds.`
+                `No new block on chain ${chainId} in the last ${requiredCheckInTime / 1000}s. Last seen block - ${this.lastSeenBlock[chainId]}`
             )
         }, requiredCheckInTime)
     }
