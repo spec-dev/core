@@ -21,18 +21,18 @@ const upsertQueue = () => {
             },
         },
     })
-    
+
     const queueScheduler = new QueueScheduler(config.DELAYED_JOB_QUEUE_KEY, {
         connection: {
             host: config.INDEXER_REDIS_HOST,
             port: config.INDEXER_REDIS_PORT,
         },
-    })    
+    })
 }
 
 export async function enqueueDelayedJob(name: string, params: StringKeyMap) {
     upsertQueue()
-    
+
     logger.info(`Enqueueing delayed job ${name}...`)
     const delayedJobSpec = { name, params } as DelayedJobSpec
 
