@@ -44,6 +44,7 @@ import {
     groupAbiInputsWithValues,
     formatAbiValueWithType,
     schemas,
+    randomIntegerInRange,
 } from '../../../../shared'
 
 const web3js = new Web3()
@@ -710,7 +711,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _upsertLatestInteractions(
         latestInteractions: EthLatestInteraction[],
-        attempt: number = 0
+        attempt: number = 1
     ) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
@@ -736,13 +737,13 @@ class EthereumIndexer extends AbstractIndexer {
             })
         } catch (err) {
             this._error(err)
-            const message = err?.message || ''
+            const message = err.message || err.toString() || ''
             this.latestInteractions = []
 
             // Wait and try again if deadlocked.
-            if (attempt < 3 && message.toLowerCase().includes('deadlock')) {
+            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
                 this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(this.blockNumber / 150000)
+                await sleep(randomIntegerInRange(50, 150))
                 await this._upsertLatestInteractions(latestInteractions, attempt + 1)
             }
         }
@@ -756,46 +757,58 @@ class EthereumIndexer extends AbstractIndexer {
         })
     }
 
-    async _deleteRecordsWithBlockNumber() {
-        await SharedTables.manager.transaction(async (tx) => {
-            const deleteBlock = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthBlock)
-                .where('number = :number', { number: this.blockNumber })
-                .execute()
-            const deleteTransactions = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthTransaction)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteLogs = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthLog)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteTraces = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthTrace)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteContracts = tx
-                .createQueryBuilder()
-                .delete()
-                .from(EthContract)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            await Promise.all([
-                deleteBlock,
-                deleteTransactions,
-                deleteLogs,
-                deleteTraces,
-                deleteContracts,
-            ])
-        })
+    async _deleteRecordsWithBlockNumber(attempt: number = 1) {
+        try {
+            await SharedTables.manager.transaction(async (tx) => {
+                const deleteBlock = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(EthBlock)
+                    .where('number = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteTransactions = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(EthTransaction)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteLogs = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(EthLog)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteTraces = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(EthTrace)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteContracts = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(EthContract)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                await Promise.all([
+                    deleteBlock,
+                    deleteTransactions,
+                    deleteLogs,
+                    deleteTraces,
+                    deleteContracts,
+                ])
+            })    
+        } catch (err) {
+            this._error(err)
+            const message = err.message || err.toString() || ''
+            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
+                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
+                await sleep(randomIntegerInRange(50, 150))
+                await this._deleteRecordsWithBlockNumber(attempt + 1)
+            } else {
+                throw err
+            }
+        }
     }
 }
 

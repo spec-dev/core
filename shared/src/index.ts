@@ -53,7 +53,7 @@ export {
     insertIndexedBlocks,
     setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
-export { range } from './lib/utils/math'
+export { range, randomIntegerInRange } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
 import blockTimes from './lib/utils/blockTimes'
 import config from './lib/config'

@@ -31,6 +31,7 @@ import {
     formatAbiValueWithType,
     PolygonTransactionStatus,
     schemas,
+    randomIntegerInRange,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -820,32 +821,44 @@ class PolygonIndexer extends AbstractIndexer {
             .flat()
     }
 
-    async _deleteRecordsWithBlockNumber() {
-        await SharedTables.manager.transaction(async (tx) => {
-            const deleteBlock = tx
-                .createQueryBuilder()
-                .delete()
-                .from(PolygonBlock)
-                .where('number = :number', { number: this.blockNumber })
-                .execute()
-            const deleteTransactions = tx
-                .createQueryBuilder()
-                .delete()
-                .from(PolygonTransaction)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            const deleteLogs = tx
-                .createQueryBuilder()
-                .delete()
-                .from(PolygonLog)
-                .where('blockNumber = :number', { number: this.blockNumber })
-                .execute()
-            await Promise.all([
-                deleteBlock,
-                deleteTransactions,
-                deleteLogs,
-            ])
-        })
+    async _deleteRecordsWithBlockNumber(attempt: number = 1) {
+        try {
+            await SharedTables.manager.transaction(async (tx) => {
+                const deleteBlock = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(PolygonBlock)
+                    .where('number = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteTransactions = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(PolygonTransaction)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                const deleteLogs = tx
+                    .createQueryBuilder()
+                    .delete()
+                    .from(PolygonLog)
+                    .where('blockNumber = :number', { number: this.blockNumber })
+                    .execute()
+                await Promise.all([
+                    deleteBlock,
+                    deleteTransactions,
+                    deleteLogs,
+                ])
+            })
+        } catch (err) {
+            this._error(err)
+            const message = err.message || err.toString() || ''
+            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
+                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
+                await sleep(randomIntegerInRange(50, 150))
+                await this._deleteRecordsWithBlockNumber(attempt + 1)
+            } else {
+                throw err
+            }
+        }
     }
 }
 
