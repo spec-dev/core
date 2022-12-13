@@ -115,12 +115,10 @@ class EthereumIndexer extends AbstractIndexer {
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
         if (externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
-            await sleep(500)
+            await sleep(1000)
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
-                this._error(
-                    `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
-                )
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
             }
         } else if (!externalTransactions.length) {
             this._info('No transactions this block.')
@@ -514,6 +512,8 @@ class EthereumIndexer extends AbstractIndexer {
         for (const tx of this.transactions) {
             txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
         }
+
+        // TODO: transactionIndex is unnecessary here.
         this.successfulLogs = this.logs
             .filter(log => txSuccess[log.transactionHash])
             .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)

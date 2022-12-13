@@ -9,10 +9,10 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
         port: config.INDEXER_REDIS_PORT,
     },
     defaultJobOptions: {
-        attempts: 3,
+        attempts: 5,
         backoff: {
             type: 'exponential',
-            delay: 200,
+            delay: 500,
         },
     },
 })
