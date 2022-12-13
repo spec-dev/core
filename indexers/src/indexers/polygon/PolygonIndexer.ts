@@ -100,9 +100,12 @@ class PolygonIndexer extends AbstractIndexer {
         // If transactions exist, but receipts don't, try one more time to get them before erroring out.
         if (externalTransactions.length && !receipts.length) {
             this._warn('Transactions exist but no receipts were found -- trying again.')
+            await sleep(500)
             receipts = await this._getBlockReceiptsWithLogs()
             if (!receipts.length) {
-                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+                this._error(
+                    `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+                )
             }
         } else if (!externalTransactions.length) {
             this._info('No transactions this block.')

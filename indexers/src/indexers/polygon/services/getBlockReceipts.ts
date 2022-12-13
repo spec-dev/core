@@ -18,7 +18,7 @@ async function getBlockReceipts(
     let numAttempts = 0
     try {
         while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
-            receipts = await fetchReceipts(web3, params)
+            receipts = await fetchReceipts(web3, params, blockNumber, chainId)
             if (receipts === null) {
                 await sleep(config.NOT_READY_DELAY)
             } else if (receipts.length === 0) {
@@ -34,10 +34,9 @@ async function getBlockReceipts(
     } catch (err) {
         throw `Error fetching receipts ${blockNumber}: ${err}`
     }
+    receipts = receipts || []
 
-    if (receipts === null) {
-        throw `Out of attempts - No receipts found for block ${blockNumber}.`
-    } else if (receipts.length === 0) {
+    if (!receipts.length) {
         config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
     } else {
         config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
@@ -48,7 +47,9 @@ async function getBlockReceipts(
 
 async function fetchReceipts(
     web3: AlchemyWeb3,
-    params: TransactionReceiptsParams
+    params: TransactionReceiptsParams,
+    blockNumber: number,
+    chainId: string,
 ): Promise<TransactionReceipt[] | null> {
     let resp: TransactionReceiptsResponse
     let error
@@ -57,13 +58,15 @@ async function fetchReceipts(
     } catch (err) {
         error = err
     }
-    if (!resp || error) {
+    if (!resp) {
         return null
     } else if (error) {
-        // not used per change in above if statement (hack right now)
-        throw `Error fetching receipts for ${
-            (params as any).blockHash || (params as any).blockNumber
-        }: ${error.message}`
+        config.IS_RANGE_MODE || logger.error(
+            `[${chainId}:${blockNumber}] Error fetching receipts for ${
+                (params as any).blockHash || (params as any).blockNumber
+            }: ${error.message}`
+        )
+        return null
     } else {
         return resp.receipts || []
     }
