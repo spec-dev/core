@@ -33,7 +33,7 @@ export function streamQuery(stream, conn, res) {
     })
     
     stream.on('end', () => {
-        logger.error(`Query stream ended.`)
+        logger.info(`Query stream ended.`)
         cleanupStream(stream, conn)
         streamEnded = true
     })
