@@ -39,7 +39,7 @@ export async function publishEventSpecs(eventSpecs: StringKeyMap[]) {
 
 export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
     logger.info(`[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`)
-    // await eventClient.socket.transmitPublish(event.name, event)
+    await eventClient.socket.transmitPublish(event.name, event)
 }
 
 function formatEvent(eventSpec: StringKeyMap, eventTimestamp: string): StringKeyMap {
