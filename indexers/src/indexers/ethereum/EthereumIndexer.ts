@@ -45,6 +45,7 @@ import {
     formatAbiValueWithType,
     schemas,
     randomIntegerInRange,
+    uniqueByKeys,
 } from '../../../../shared'
 
 const web3js = new Web3()
@@ -640,6 +641,7 @@ class EthereumIndexer extends AbstractIndexer {
         if (!transactions.length) return
         const [updateCols, conflictCols] = fullTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
+        transactions = uniqueByKeys(transactions, conflictCols) as EthTransaction[]
         this.transactions = (
             await tx
                 .createQueryBuilder()
@@ -656,6 +658,7 @@ class EthereumIndexer extends AbstractIndexer {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
+        logs = uniqueByKeys(logs, ['logIndex', 'transactionHash']) as EthLog[]
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
@@ -678,6 +681,7 @@ class EthereumIndexer extends AbstractIndexer {
         if (!traces.length) return
         const [updateCols, conflictCols] = fullTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
+        traces = uniqueByKeys(traces, conflictCols) as EthTrace[]
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
@@ -700,6 +704,7 @@ class EthereumIndexer extends AbstractIndexer {
         if (!contracts.length) return
         const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
+        contracts = uniqueByKeys(contracts, conflictCols) as EthContract[]
         this.contracts = (
             await tx
                 .createQueryBuilder()
@@ -719,7 +724,7 @@ class EthereumIndexer extends AbstractIndexer {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
         const blockTimestamp = this.pgBlockTimestamp
-
+        latestInteractions = uniqueByKeys(latestInteractions, conflictCols) as EthLatestInteraction[]
         try {
             await SharedTables.manager.transaction(async (tx) => {
                 this.latestInteractions = (

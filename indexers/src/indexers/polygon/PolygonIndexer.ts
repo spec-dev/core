@@ -30,6 +30,7 @@ import {
     In,
     formatAbiValueWithType,
     PolygonTransactionStatus,
+    uniqueByKeys,
     schemas,
     randomIntegerInRange,
 } from '../../../../shared'
@@ -788,6 +789,7 @@ class PolygonIndexer extends AbstractIndexer {
         if (!transactions.length) return
         const [updateCols, conflictCols] = fullPolygonTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
+        transactions = uniqueByKeys(transactions, conflictCols) as PolygonTransaction[]
         this.transactions = (
             await tx
                 .createQueryBuilder()
@@ -804,6 +806,7 @@ class PolygonIndexer extends AbstractIndexer {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullPolygonLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
+        logs = uniqueByKeys(logs, ['logIndex', 'transactionHash']) as PolygonLog[]
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
