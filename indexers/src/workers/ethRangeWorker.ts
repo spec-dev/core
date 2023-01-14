@@ -33,7 +33,7 @@ import fs from 'fs'
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
 const numbers =	[
-    16124006,
+    16369454,
 ]
 
 class EthRangeWorker {
