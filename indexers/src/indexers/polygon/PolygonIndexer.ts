@@ -154,21 +154,21 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // // Return early with the indexed primitives if in range mode.
-        // if (config.IS_RANGE_MODE) {
-        //     return {
-        //         block,
-        //         transactions,
-        //         logs,
-        //         pgBlockTimestamp: this.pgBlockTimestamp,
-        //     }
-        // }
+        // Return early with the indexed primitives if in range mode.
+        if (config.IS_RANGE_MODE) {
+            return {
+                block,
+                transactions,
+                logs,
+                pgBlockTimestamp: this.pgBlockTimestamp,
+            }
+        }
 
-        // // One last check before saving primitives / publishing events.
-        // if (await this._alreadyIndexedBlock()) {
-        //     this._warn('Current block was already indexed. Stopping.')
-        //     return
-        // }
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
+            return
+        }
 
         // Save primitives to shared tables.
         await this._savePrimitives(block, transactions, logs)
@@ -177,11 +177,11 @@ class PolygonIndexer extends AbstractIndexer {
         this._curateSuccessfulLogs()
 
         // Create and publish Spec events to the event relay.
-        // try {
-        await this._createAndPublishEvents()
-        // } catch (err) {
-        //     this._error('Publishing events failed:', err)
-        // }
+        try {
+            await this._createAndPublishEvents()
+        } catch (err) {
+            this._error('Publishing events failed:', err)
+        }
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
@@ -511,6 +511,7 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _getSmartWalletsForAddresses(addresses: string[]): Promise<string[]> {
+        if (!addresses.length) return []
         const placeholders = []
         let i = 1
         for (const _ of addresses) {
@@ -521,7 +522,6 @@ class PolygonIndexer extends AbstractIndexer {
             `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')}) AND chain_id = $${i}`,
             [...addresses, this.chainId],
         )) || []
-        
         return results.map(sw => sw?.contract_address).filter(v => !!v)
     }
 
