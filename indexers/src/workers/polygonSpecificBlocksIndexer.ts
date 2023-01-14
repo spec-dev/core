@@ -136,6 +136,7 @@ class PolygonSpecificNumbersWorker {
         batchResults: any[],
         batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
     ) {
+        return
         logger.info(`Saving blocks ${batchBlockNumbersIndexed.join(', ')}...`)
 
         try {
