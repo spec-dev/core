@@ -15,13 +15,16 @@ export class EthContract {
     @Column('varchar', { nullable: true })
     bytecode: string
 
-    @Column('boolean', { name: 'is_erc20' })
+    // Whether this contract subscribes to the ERC-20 standard.
+    @Column('boolean', { name: 'is_erc20', nullable: true })
     isERC20: boolean
 
-    @Column('boolean', { name: 'is_erc721' })
+    // Whether this contract subscribes to the ERC-721 standard.
+    @Column('boolean', { name: 'is_erc721', nullable: true })
     isERC721: boolean
 
-    @Column('boolean', { name: 'is_erc1155' })
+    // Whether this contract subscribes to the ERC-1155 standard.
+    @Column('boolean', { name: 'is_erc1155', nullable: true })
     isERC1155: boolean
 
     // The hash of the block this transaction was included in.
