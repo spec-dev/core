@@ -1,7 +1,9 @@
-import { StringKeyMap, logger, SharedTables } from '../../../../shared'
+import { StringKeyMap, logger, SharedTables } from '../../../../../shared'
 
-export async function onNewERC20TokenBalanceEvent(eventSpec: StringKeyMap): Promise<StringKeyMap | null> {
-    const { data, origin, name } = eventSpec
+const eventName = 'tokens.NewERC20TokenBalance@0.0.1'
+
+async function NewERC20TokenBalance(eventSpec: StringKeyMap): Promise<StringKeyMap | null> {
+    const { data, origin } = eventSpec
     const {
         chainId,
         blockNumber,
@@ -52,8 +54,10 @@ export async function onNewERC20TokenBalanceEvent(eventSpec: StringKeyMap): Prom
     }
     
     return {
-        name: eventSpec.name,
+        name: eventName,
         data: erc20Balance,
         origin: origin,
     }
 }
+
+export default NewERC20TokenBalance

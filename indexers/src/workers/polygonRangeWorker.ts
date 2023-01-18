@@ -26,7 +26,6 @@ import {
 } from '../../../shared'
 import { exit } from 'process'
 import { AlchemyWeb3, createAlchemyWeb3 } from '@alch/alchemy-web3'
-import { pullERC20sForAddress, pullNFTsForAddress } from '../events/ivy/NewSmartWallet'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
@@ -69,36 +68,22 @@ class PolygonRangeWorker {
     }
 
     async run() {
-        const smartWalletAddresses = await this._getSmartWalletContractAddresses()
-        let i = 1
-        for (const address of smartWalletAddresses) {
-            logger.info(`${i} / ${smartWalletAddresses.length}`)
+        this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
 
-            await Promise.all([
-                pullERC20sForAddress(address, config.CHAIN_ID),
-                pullNFTsForAddress(address, config.CHAIN_ID, this.web3)
-            ])
-            
-            await sleep(200)
-            i++
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const groupBlockNumbers = range(start, end)
+            await this._indexBlockGroup(groupBlockNumbers)
+            this.cursor = this.cursor + this.groupSize
         }
-
-        // this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
-
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const groupBlockNumbers = range(start, end)
-        //     await this._indexBlockGroup(groupBlockNumbers)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
-        // if (this.batchResults.length) {
-        //     await this._saveBatches(
-        //         this.batchBlockNumbersIndexed,
-        //         this.batchResults,
-        //         this.batchExistingBlocksMap
-        //     )
-        // }
+        if (this.batchResults.length) {
+            await this._saveBatches(
+                this.batchBlockNumbersIndexed,
+                this.batchResults,
+                this.batchExistingBlocksMap
+            )
+        }
         logger.info('DONE')
         exit()
     }
@@ -306,8 +291,8 @@ class PolygonRangeWorker {
             ]))
         })
         
-        const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
-        ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
+        // const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
+        // ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
     }
 
     _getIvySmartWallets(logs: StringKeyMap[]): StringKeyMap[] {

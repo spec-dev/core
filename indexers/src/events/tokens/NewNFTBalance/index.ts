@@ -1,6 +1,8 @@
-import { StringKeyMap, logger, SharedTables } from '../../../../shared'
+import { StringKeyMap, logger, SharedTables } from '../../../../../shared'
 
-export async function onNewNFTBalanceEvent(eventSpec: StringKeyMap): Promise<StringKeyMap | null> {
+const eventName = 'tokens.NewNFTBalance@0.0.1'
+
+async function NewNFTBalance(eventSpec: StringKeyMap): Promise<StringKeyMap | null> {
     const { data, origin } = eventSpec
     const {
         chainId,
@@ -57,8 +59,10 @@ export async function onNewNFTBalanceEvent(eventSpec: StringKeyMap): Promise<Str
     }
 
     return {
-        name: eventSpec.name,
+        name: eventName,
         data: nftBalance,
         origin: origin,
     }
 }
+
+export default NewNFTBalance

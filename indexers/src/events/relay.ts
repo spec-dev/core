@@ -37,7 +37,7 @@ export async function publishEventSpecs(eventSpecs: StringKeyMap[]) {
     finalEvents.forEach(emit)
 }
 
-export async function emit(event: SpecEvent<StringKeyMap | StringKeyMap[]>) {
+export async function emit(event: SpecEvent) {
     logger.info(`[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`)
     await eventClient.socket.transmitPublish(event.name, event)
 }

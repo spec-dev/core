@@ -1,12 +1,19 @@
-import { EthTransaction } from '../../../../../shared'
-import { EthTransaction as Diff } from '@spec.types/spec'
+import { EthTransaction, StringKeyMap } from '../../../../../shared'
 
-function NewTransactions(txs: EthTransaction[]): Diff[] {
-    return txs.map((tx) => ({
+const eventName = 'eth.NewTransactions@0.0.1'
+
+function NewTransactions(txs: EthTransaction[], eventOrigin: StringKeyMap): StringKeyMap {
+    const eventData = txs.map((tx) => ({
         ...tx,
         blockNumber: Number(tx.blockNumber),
         blockTimestamp: tx.blockTimestamp.toISOString(),
     }))
+
+    return {
+        name: eventName,
+        data: eventData,
+        origin: eventOrigin,
+    }
 }
 
 export default NewTransactions

@@ -8,7 +8,7 @@ import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
 import initLatestInteractions from './services/initLatestInteractions'
 import { publishEventSpecs } from '../../events/relay'
-import { NewInteractions, NewTransactions } from '../../events'
+import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
@@ -258,10 +258,7 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        // Contract events.
-        const contractEventSpecs = await this._getDetectedContractEventSpecs()
-        contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
-        
+        // The `eventTimestamp` field will be added later before emission.
         const eventOrigin = {
             chainId: this.chainId,
             blockNumber: this.blockNumber,
@@ -269,20 +266,34 @@ class EthereumIndexer extends AbstractIndexer {
             blockTimestamp: this.block.timestamp.toISOString(),
         }
 
-        const eventSpecs = [
-            {
-                name: 'eth.NewTransactions@0.0.1',
-                data: NewTransactions(this.transactions),
-                origin: eventOrigin,
-            },
-            {
-                name: 'eth.NewInteractions@0.0.1',
-                data: NewInteractions(this.latestInteractions),
-                origin: eventOrigin,
-            },
+        // eth.NewBlock
+        const originEventSpecs = [
+            originEvents.eth.NewBlock(this.block, eventOrigin),
         ]
 
-        await publishEventSpecs(eventSpecs)
+        // eth.NewTransactions
+        this.transactions?.length && originEventSpecs.push(
+            originEvents.eth.NewTransactions(this.transactions, eventOrigin)
+        )
+
+        // eth.NewContracts
+        this.contracts?.length && originEventSpecs.push(
+            originEvents.eth.NewContracts(this.contracts, eventOrigin)
+        )
+
+        // eth.NewInteractions
+        this.latestInteractions?.length && originEventSpecs.push(
+            originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
+        )
+
+        // Decoded contract events.
+        const contractEventSpecs = await this._getDetectedContractEventSpecs()
+
+        // Publish to Spec's event network.
+        await publishEventSpecs([
+            ...originEventSpecs,
+            ...contractEventSpecs,
+        ])
     }
 
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {

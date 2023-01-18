@@ -1,4 +1,9 @@
-export * from './eth'
-export * from './ivy/NewSmartWallet'
-export * from './polygon/NewERC20TokenBalance'
-export * from './polygon/NewNFTBalance'
+import eth from './eth'
+import ivy from './ivy'
+import tokens from './tokens'
+
+export const originEvents = {
+    eth,
+    ivy,
+    tokens,
+}

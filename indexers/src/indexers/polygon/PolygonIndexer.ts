@@ -6,7 +6,7 @@ import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
-import { onIvyWalletCreatedContractEvent, onNewERC20TokenBalanceEvent, onNewNFTBalanceEvent } from '../../events'
+import { originEvents } from '../../events'
 import { publishEventSpecs } from '../../events/relay'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
@@ -219,17 +219,17 @@ class PolygonIndexer extends AbstractIndexer {
         let newSmartWalletEventSpecs = []
         if (ivySmartWalletInitializerWalletCreatedEventSpecs.length) {
             newSmartWalletEventSpecs = (await Promise.all(
-                ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => onIvyWalletCreatedContractEvent(es))
+                ivySmartWalletInitializerWalletCreatedEventSpecs.map(es => originEvents.ivy.NewSmartWallet(es))
             )).filter(v => !!v)
         }
 
         // Token events.
         const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
         const erc20EventSpecs = (await Promise.all(
-            (tokenEventSpecs?.erc20s || []).map(es => onNewERC20TokenBalanceEvent(es))
+            (tokenEventSpecs?.erc20s || []).map(es => originEvents.tokens.NewERC20TokenBalance(es))
         )).filter(v => !!v)
         const nftEventSpecs = (await Promise.all(
-            (tokenEventSpecs?.nfts || []).map(es => onNewNFTBalanceEvent(es))
+            (tokenEventSpecs?.nfts || []).map(es => originEvents.tokens.NewNFTBalance(es))
         )).filter(v => !!v)
 
         newSmartWalletEventSpecs.length && await publishEventSpecs(newSmartWalletEventSpecs)
@@ -463,7 +463,6 @@ class PolygonIndexer extends AbstractIndexer {
             .map(value => {
                 const { tokenAddress, tokenName, tokenSymbol, ownerAddress, balance, log } = value
                 return {
-                    name: 'tokens.NewERC20TokenBalance@0.0.1',
                     data: {
                         tokenAddress,
                         tokenName,
@@ -487,7 +486,6 @@ class PolygonIndexer extends AbstractIndexer {
             .map(value => {
                 const { tokenAddress, tokenName, tokenSymbol, tokenStandard, tokenId, ownerAddress, balance, log } = value
                 return {
-                    name: 'tokens.NewNFTBalance@0.0.1',
                     data: {
                         tokenAddress,
                         tokenName,
