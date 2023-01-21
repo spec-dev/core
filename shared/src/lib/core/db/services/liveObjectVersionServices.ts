@@ -107,3 +107,20 @@ export async function getLatestLiveObjectVersion(
         return null
     }
 }
+
+export async function createLiveObjectVersionWithTx(
+    data: StringKeyMap,
+    tx: any
+): Promise<LiveObjectVersion | null> {
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(LiveObjectVersion)
+                .values(data)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
+}

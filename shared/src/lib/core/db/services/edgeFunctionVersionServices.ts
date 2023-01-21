@@ -1,6 +1,7 @@
 import { EdgeFunctionVersion } from '../entities/EdgeFunctionVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
+import { StringKeyMap } from '../../../types'
 
 const edgeFunctionVersions = () => CoreDB.getRepository(EdgeFunctionVersion)
 
@@ -78,4 +79,21 @@ export async function setEdgeFunctionVersionUrl(id: number, url: string) {
     } catch (err) {
         logger.error(`Error setting EdgeFunctionVersion url: ${err}`)
     }
+}
+
+export async function createEdgeFunctionVersionWithTx(
+    data: StringKeyMap,
+    tx: any
+): Promise<EdgeFunctionVersion | null> {
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(EdgeFunctionVersion)
+                .values(data)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
 }

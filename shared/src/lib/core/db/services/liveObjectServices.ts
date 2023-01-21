@@ -2,6 +2,7 @@ import { LiveObject } from '../entities/LiveObject'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
+import { StringKeyMap } from '../../../types'
 
 const liveObjects = () => CoreDB.getRepository(LiveObject)
 
@@ -26,6 +27,23 @@ export async function createLiveObject(
     }
 
     return liveObject
+}
+
+export async function upsertLiveObject(data: StringKeyMap, tx: any): Promise<LiveObject | null> {
+    const conflictCols = ['namespace_id', 'name']
+    const updateCols = ['display_name', 'desc']
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(LiveObject)
+                .values(data)
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
 }
 
 export async function getLiveObject(namespaceId: number, name: string): Promise<LiveObject | null> {

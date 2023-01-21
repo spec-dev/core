@@ -4,6 +4,7 @@ import {
 } from '../entities/LiveEdgeFunctionVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
+import { StringKeyMap } from '../../../types'
 
 const liveEdgeFunctionVersions = () => CoreDB.getRepository(LiveEdgeFunctionVersion)
 
@@ -32,4 +33,21 @@ export async function createLiveEdgeFunctionVersion(
     }
 
     return liveEdgeFunctionVersion
+}
+
+export async function createLiveEdgeFunctionVersionWithTx(
+    data: StringKeyMap,
+    tx: any
+): Promise<LiveEdgeFunctionVersion | null> {
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(LiveEdgeFunctionVersion)
+                .values(data)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
 }

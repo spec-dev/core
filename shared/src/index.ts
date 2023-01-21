@@ -62,6 +62,7 @@ export { chainIds, supportedChainIds, config, logger, blockTimes }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'
+export * from './lib/utils/url'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
 export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
@@ -95,12 +96,13 @@ export { createNamespace, getNamespace } from './lib/core/db/services/namespaceS
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
-export { createEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
+export { createEdgeFunction, upsertEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
 export {
     createEdgeFunctionVersion,
     getEdgeFunctionVersion,
     getLatestEdgeFunctionVersion,
     setEdgeFunctionVersionUrl,
+    createEdgeFunctionVersionWithTx,
 } from './lib/core/db/services/edgeFunctionVersionServices'
 export {
     redis as coreRedis,
@@ -135,7 +137,11 @@ export {
     getPublishedEventsAfterId,
 } from './lib/core/db/services/publishedEventServices'
 export * from './lib/utils/auth'
-export { createLiveObject, getLiveObject } from './lib/core/db/services/liveObjectServices'
+export {
+    createLiveObject,
+    getLiveObject,
+    upsertLiveObject,
+} from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
     getLiveObjectVersionsByNamespacedVersions,
@@ -143,9 +149,13 @@ export {
     updateLiveObjectVersionExample,
     updateLiveObjectVersionConfig,
     getLatestLiveObjectVersion,
+    createLiveObjectVersionWithTx,
 } from './lib/core/db/services/liveObjectVersionServices'
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
-export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'
+export {
+    createLiveEdgeFunctionVersion,
+    createLiveEdgeFunctionVersionWithTx,
+} from './lib/core/db/services/liveEdgeFunctionVersionServices'
 export { In, Not } from 'typeorm'
 
 // Will be removed

@@ -41,7 +41,7 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
             slug: namespace.slug,
             codeUrl: namespace.codeUrl,
         },
-        liveObjectId: liveObject?.id,
+        liveObjectId: liveObject?.id || null,
         payload,
     })
     if (!scheduled) {

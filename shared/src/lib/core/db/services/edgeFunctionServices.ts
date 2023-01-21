@@ -1,6 +1,7 @@
 import { EdgeFunction } from '../entities/EdgeFunction'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
+import { StringKeyMap } from '../../../types'
 
 const edgeFunctions = () => CoreDB.getRepository(EdgeFunction)
 
@@ -54,4 +55,24 @@ export async function getEdgeFunctions(): Promise<EdgeFunction[] | null> {
         logger.error(`Error getting EdgeFunctions: ${err}`)
         return null
     }
+}
+
+export async function upsertEdgeFunction(
+    data: StringKeyMap,
+    tx: any
+): Promise<EdgeFunction | null> {
+    const conflictCols = ['namespace_id', 'name']
+    const updateCols = ['desc']
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(EdgeFunction)
+                .values(data)
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
 }
