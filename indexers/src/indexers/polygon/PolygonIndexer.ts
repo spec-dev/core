@@ -84,7 +84,7 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // Ensure there's not a block hash mismatch between block and receipts.
+        // Ensure there's not a block hash mismatch between block  and receipts.
         // This can happen when fetching by block number around chain re-orgs.
         if (receipts.length && receipts[0].blockHash !== block.hash) {
             this._warn(
@@ -239,36 +239,40 @@ class PolygonIndexer extends AbstractIndexer {
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
+        // Get all logs with an event name.
         const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
         if (!decodedLogs.length) return []
 
+        // Get all contract instances (that are registered with Spec) for the decoded logs.
         const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
         const contractInstances = await this._getContractInstancesForAddresses(addresses)
         if (!contractInstances.length) return []
 
-        const namespacedContractInfoByAddress = {}
+        // Index contract instances by -> { address: { nsp, contractName } }
+        const contractNameComps = {}
         for (const contractInstance of contractInstances) {
             const contractName = contractInstance.contract?.name
             const nsp = contractInstance.contract?.namespace?.slug
             if (!contractName || !nsp) continue
-            namespacedContractInfoByAddress[contractInstance.address] = {
-                nsp,
-                contractName,
-            }
+            contractNameComps[contractInstance.address] = { nsp, contractName }
         }
-        if (!Object.keys(namespacedContractInfoByAddress)) return []
+        if (!Object.keys(contractNameComps)) return []
 
+        // Turn logs into event specs.
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
-            if (!namespacedContractInfoByAddress.hasOwnProperty(address)) continue
-            const { nsp, contractName } = namespacedContractInfoByAddress[address]
-            const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
-            const namespacedEventName = [nsp, contractName, eventName].join('.')
+            // Make sure the log's contract is registered with Spec.
+            if (!contractNameComps.hasOwnProperty(address)) continue
+
+            // Format the log data into a Spec event.
+            const { nsp, contractName } = contractNameComps[address]
+            const { data, eventOrigin } = this._formatLogAsSpecEvent(decodedLog)
+            const fullEventName = [nsp, contractName, eventName].join('.')
             eventSpecs.push({
-                name: namespacedEventName,
-                data: data,
+                name: fullEventName,
                 origin: eventOrigin,
+                data: data,
             })
         }
         return eventSpecs
@@ -675,7 +679,7 @@ class PolygonIndexer extends AbstractIndexer {
         return log
     }
 
-    _formatLogEventArgsForSpecEvent(log: PolygonLog): StringKeyMap {
+    _formatLogAsSpecEvent(log: PolygonLog): StringKeyMap {
         const eventOrigin = {
             chainId: this.chainId,
             transactionHash: log.transactionHash,
