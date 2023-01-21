@@ -40,7 +40,7 @@ export {
     savePolygonContracts,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
-export { isNumber } from './lib/utils/validators'
+export * from './lib/utils/validators'
 export { sleep } from './lib/utils/time'
 export {
     getlastSeenBlock,
@@ -54,11 +54,11 @@ export {
     setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { range, randomIntegerInRange } from './lib/utils/math'
-import chainIds from './lib/utils/chainIds'
+import chainIds, { supportedChainIds } from './lib/utils/chainIds'
 import blockTimes from './lib/utils/blockTimes'
 import config from './lib/config'
 import logger from './lib/logger'
-export { chainIds, config, logger, blockTimes }
+export { chainIds, supportedChainIds, config, logger, blockTimes }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'
@@ -72,7 +72,12 @@ export { Event } from './lib/core/db/entities/Event'
 export { EventVersion } from './lib/core/db/entities/EventVersion'
 export { PublishedEvent } from './lib/core/db/entities/PublishedEvent'
 export { LiveObject } from './lib/core/db/entities/LiveObject'
-export { LiveObjectVersion } from './lib/core/db/entities/LiveObjectVersion'
+export {
+    LiveObjectVersion,
+    LiveObjectVersionProperty,
+    LiveObjectVersionPropertyOptions,
+    LiveObjectVersionConfig,
+} from './lib/core/db/entities/LiveObjectVersion'
 export { LiveEventVersion } from './lib/core/db/entities/LiveEventVersion'
 export {
     LiveEdgeFunctionVersion,
@@ -106,11 +111,19 @@ export {
     tailLogs,
     getLastXLogs,
 } from './lib/core/redis'
-export { createContract } from './lib/core/db/services/contractServices'
-export { createContractInstance } from './lib/core/db/services/contractInstanceServices'
+export { createContract, upsertContracts } from './lib/core/db/services/contractServices'
+export {
+    createContractInstance,
+    getContractInstancesByContractId,
+    upsertContractInstances,
+} from './lib/core/db/services/contractInstanceServices'
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
-export { createEvent, getEvent } from './lib/core/db/services/eventServices'
-export { createEventVersion, getEventVersion } from './lib/core/db/services/eventVersionServices'
+export { createEvent, getEvent, upsertEvents } from './lib/core/db/services/eventServices'
+export {
+    createEventVersion,
+    getEventVersion,
+    upsertEventVersions,
+} from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
     updateDeploymentStatus,
@@ -122,13 +135,14 @@ export {
     getPublishedEventsAfterId,
 } from './lib/core/db/services/publishedEventServices'
 export * from './lib/utils/auth'
-export { createLiveObject } from './lib/core/db/services/liveObjectServices'
+export { createLiveObject, getLiveObject } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
     updateLiveObjectVersionConfig,
+    getLatestLiveObjectVersion,
 } from './lib/core/db/services/liveObjectVersionServices'
 export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
 export { createLiveEdgeFunctionVersion } from './lib/core/db/services/liveEdgeFunctionVersionServices'

@@ -11,6 +11,27 @@ import {
 import { LiveEventVersion } from './LiveEventVersion'
 import { LiveEdgeFunctionVersion } from './LiveEdgeFunctionVersion'
 import { LiveObject } from './LiveObject'
+import { StringKeyMap } from '../../../types'
+
+export interface LiveObjectVersionProperty {
+    name: string
+    type: string
+    desc: string
+    options?: LiveObjectVersionPropertyOptions[]
+}
+
+export interface LiveObjectVersionPropertyOptions {
+    name: string
+    type: string
+    value: any
+}
+
+export interface LiveObjectVersionConfig {
+    primaryTimestampProperty: string
+    chains: StringKeyMap
+    uniqueBy: string[][]
+    tableName?: string
+}
 
 /**
  * A particular version of a live object.
@@ -36,13 +57,13 @@ export class LiveObjectVersion {
     version: string
 
     @Column('json', { nullable: true })
-    properties: object[]
+    properties: LiveObjectVersionProperty[]
 
     @Column('json', { nullable: true })
-    example: object
+    example: StringKeyMap
 
     @Column('json', { nullable: true })
-    config: object
+    config: LiveObjectVersionConfig
 
     @CreateDateColumn({
         type: 'timestamptz',

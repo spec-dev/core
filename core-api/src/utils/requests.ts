@@ -10,6 +10,10 @@ export const errors = {
     INVALID_FILE_TYPE: 'Invalid file type',
     NO_SPEC_INSTANCE: 'No Spec instance exists for project',
     UNKNOWN_ERROR: 'Unknown error',
+    JOB_SCHEDULING_FAILED: 'Failed to schedule job',
+    NAMESPACE_NOT_FOUND: 'Namespace not found',
+    NAMESPACE_MISSING_CODE_URL: 'Namespace does not have a remote git repository assigned to it yet.',
+    VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
 }
 
 export const codes = {

@@ -27,6 +27,9 @@ export class LiveObject {
     @Column()
     name: string
 
+    @Column({ name: 'display_name', nullable: true })
+    displayName: string
+
     @Column()
     desc: string
 

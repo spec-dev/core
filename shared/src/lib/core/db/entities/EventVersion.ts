@@ -15,8 +15,7 @@ import { LiveEventVersion } from './LiveEventVersion'
  * A particular version of a Spec event.
  */
 @Entity('event_versions')
-@Index(['nsp', 'name', 'version', 'chainId'], { unique: true })
-@Index(['nsp', 'name', 'chainId'])
+@Index(['nsp', 'name', 'version'], { unique: true })
 export class EventVersion {
     @PrimaryGeneratedColumn()
     id: number
@@ -33,9 +32,6 @@ export class EventVersion {
 
     @Column()
     version: string
-
-    @Column({ name: 'chain_id', nullable: true })
-    chainId: string
 
     @CreateDateColumn({
         type: 'timestamptz',

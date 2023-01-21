@@ -89,3 +89,21 @@ export async function updateLiveObjectVersionConfig(id: number, config: StringKe
     }
     return true
 }
+
+export async function getLatestLiveObjectVersion(
+    liveObjectId: number
+): Promise<LiveObjectVersion | null> {
+    try {
+        const latest = await liveObjectVersions().find({
+            where: { liveObjectId },
+            order: { createdAt: 'DESC' },
+            take: 1,
+        })
+        return latest?.length ? latest[0] : null
+    } catch (err) {
+        logger.error(
+            `Error finding latest LiveObjectVersion by liveObjectId: ${liveObjectId}: ${err}`
+        )
+        return null
+    }
+}

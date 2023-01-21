@@ -5,7 +5,7 @@ import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(lov: string, eventVersion: string, chainId: string) {
+async function perform(lov: string, eventVersion: string) {
     await CoreDB.initialize()
 
     const liveObjectVersion = (await getLiveObjectVersionsByNamespacedVersions([lov]))[0]
@@ -16,11 +16,9 @@ async function perform(lov: string, eventVersion: string, chainId: string) {
 
     const [nspName, version] = eventVersion.split('@')
     const [nsp, name] = nspName.split('.')
-    const eventVersionRecord = await getEventVersion(nsp, name, version, chainId)
+    const eventVersionRecord = await getEventVersion(nsp, name, version)
     if (!eventVersionRecord) {
-        logger.error(
-            `No event_version for nsp (${nsp}), name (${name}), version (${version}), chainId (${chainId}).`
-        )
+        logger.error(`No event_version for nsp (${nsp}), name (${name}), version (${version}).`)
         exit(1)
     }
 

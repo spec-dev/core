@@ -1,5 +1,6 @@
 import { StringKeyMap } from '../../shared'
 export { StringKeyMap }
+export { StringMap, NewContractPayload, PublishLiveObjectVersionPayload } from '../../shared'
 
 export interface ValidatedPayload<T> {
     isValid: boolean
@@ -20,6 +21,7 @@ export interface LatestLiveObjectVersion {
 export interface LatestLiveObject {
     id: string
     name: string
+    displayName: string
     desc: string
     latestVersion: LatestLiveObjectVersion
 }

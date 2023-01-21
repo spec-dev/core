@@ -22,7 +22,7 @@ import Web3 from 'web3'
 
 const web3 = new Web3()
 
-const providers = {
+export const providers = {
     ETHERSCAN: 'etherscan',
     SAMCZSUN: 'samczsun',
 }
@@ -32,7 +32,7 @@ const ETHERSCAN_API_KEY = ev('ETHERSCAN_API_KEY')
 const contractsRepo = () => SharedTables.getRepository(EthContract)
 
 async function upsertAbis(addresses: string[]) {
-    logger.info(`Processing ${addresses.length} to upsert....`)
+    logger.info(`Processing ${addresses.length} addresses to pull ABIs for....`)
 
     // Try Etherscan first.
     const etherscanAbisMap = await fetchAbis(addresses, providers.ETHERSCAN)
@@ -73,7 +73,7 @@ async function getContracts(addresses: string[]): Promise<EthContract[]> {
     }
 }
 
-async function fetchAbis(data: string[] | EthContract[], provider: string): Promise<StringKeyMap> {
+export async function fetchAbis(data: string[] | EthContract[], provider: string): Promise<StringKeyMap> {
     const chunks = toChunks(data, 5) as string[][]
 
     const results = []
@@ -261,7 +261,7 @@ async function fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1):
     return abi
 }
 
-function polishAbis(abis: StringKeyMap): StringKeyMap[] {
+export function polishAbis(abis: StringKeyMap): StringKeyMap[] {
     const abisMap = {}
     const funcSigHashesMap = {}
 
@@ -310,7 +310,7 @@ function createAbiItemSignature(item: StringKeyMap): string | null {
     }
 }
 
-async function saveAbisMap(abisMap: StringKeyMap) {
+export async function saveAbisMap(abisMap: StringKeyMap) {
     const stringified: StringMap = {}
 
     for (const address in abisMap) {
@@ -329,7 +329,7 @@ async function saveAbisMap(abisMap: StringKeyMap) {
     }
 }
 
-async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {
+export async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {
     const stringified: StringMap = {}
 
     for (const signature in funcSigHashes) {

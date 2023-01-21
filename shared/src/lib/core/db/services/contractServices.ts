@@ -3,7 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
 
-const contracts = () => CoreDB.getRepository(Contract)
+const contractsRepo = () => CoreDB.getRepository(Contract)
 
 export async function createContract(
     namespaceId: number,
@@ -17,7 +17,7 @@ export async function createContract(
     contract.namespaceId = namespaceId
 
     try {
-        await contracts().save(contract)
+        await contractsRepo().save(contract)
     } catch (err) {
         logger.error(
             `Error creating Contract(name=${name}, desc=${desc}) for Namespace(id=${namespaceId}): ${err}`
@@ -26,4 +26,30 @@ export async function createContract(
     }
 
     return contract
+}
+
+export async function upsertContracts(
+    data: {
+        namespaceId: number
+        name: string
+        desc: string
+    }[]
+): Promise<Contract[] | null> {
+    let contracts = data.map((entry) => {
+        const contract = new Contract()
+        contract.uid = uuid4()
+        contract.name = entry.name
+        contract.desc = entry.desc
+        contract.namespaceId = entry.namespaceId
+        return contract
+    })
+
+    try {
+        contracts = await contractsRepo().save(contracts)
+    } catch (err) {
+        logger.error(`Error upserting contracts: ${err}`)
+        return null
+    }
+
+    return contracts
 }

@@ -28,6 +28,7 @@ function formatAsLatestLiveObject(liveObjectVersion: LiveObjectVersion): LatestL
     return {
         id: liveObject.uid,
         name: liveObject.name,
+        displayName: liveObject.displayName,
         desc: liveObject.desc,
         latestVersion: {
             nsp: liveObjectVersion.nsp,

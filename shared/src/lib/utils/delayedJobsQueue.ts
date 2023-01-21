@@ -30,7 +30,7 @@ const upsertQueue = () => {
     })
 }
 
-export async function enqueueDelayedJob(name: string, params: StringKeyMap) {
+export async function enqueueDelayedJob(name: string, params: StringKeyMap): Promise<boolean> {
     upsertQueue()
 
     logger.info(`Enqueueing delayed job ${name}...`)
@@ -40,5 +40,8 @@ export async function enqueueDelayedJob(name: string, params: StringKeyMap) {
         await queue.add(name, delayedJobSpec)
     } catch (err) {
         logger.error(`Failed to enqueue delayed job ${name}: ${err}`)
+        return false
     }
+
+    return true
 }

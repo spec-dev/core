@@ -19,6 +19,12 @@ export class Namespace {
     @Index({ unique: true })
     slug: string
 
+    @Column({ name: 'code_url', nullable: true })
+    codeUrl: string
+
+    @Column({ name: 'has_icon', nullable: true })
+    hasIcon: boolean
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',

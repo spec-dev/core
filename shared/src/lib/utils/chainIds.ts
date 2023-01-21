@@ -4,4 +4,6 @@ const chainIds: { [key: string]: string } = {
     MUMBAI: '80001',
 }
 
+export const supportedChainIds = new Set(Object.values(chainIds))
+
 export default chainIds

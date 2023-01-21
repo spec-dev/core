@@ -1,7 +1,9 @@
 import { DelayedJobSpec } from '../../../shared'
 import upsertAbis from './upsertAbis'
+import registerContractInstances from './registerContractInstances'
 
 const jobs = {
+    registerContractInstances,
     upsertAbis,
 }
 

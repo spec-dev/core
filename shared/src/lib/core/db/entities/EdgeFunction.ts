@@ -25,7 +25,7 @@ export class EdgeFunction {
     @Index()
     name: string
 
-    @Column()
+    @Column({ nullable: true })
     desc: string
 
     @CreateDateColumn({

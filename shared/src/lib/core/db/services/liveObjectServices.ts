@@ -40,8 +40,8 @@ export async function getLiveObject(namespaceId: number, name: string): Promise<
         logger.error(
             `Error getting LiveObject for namespaceId=${namespaceId}, name=${name}: ${err}`
         )
-        throw err
+        return null
     }
 
-    return liveObject || null
+    return liveObject
 }

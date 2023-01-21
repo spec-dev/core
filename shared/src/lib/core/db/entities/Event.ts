@@ -30,6 +30,9 @@ export class Event {
     @Column({ nullable: true })
     desc: string
 
+    @Column({ name: 'is_contract_event', nullable: true })
+    isContractEvent: boolean
+
     @Column('int8', { name: 'namespace_id' })
     namespaceId: number
 

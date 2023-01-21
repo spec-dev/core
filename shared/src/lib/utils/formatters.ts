@@ -1,5 +1,6 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
 import { StringKeyMap } from '../types'
+import humps from 'humps'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -129,6 +130,8 @@ export const uniqueByKeys = (iterable: StringKeyMap[], keys: string[]): StringKe
     }
     return uniqueArr
 }
+
+export const unique = (arr: any[]): any[] => Array.from(new Set(arr))
 
 export const toChunks = (arr: any, chunkSize: number): any[][] => {
     const result = []
@@ -317,3 +320,47 @@ const groupArgs = (value: string): any => {
 
 export const splitLogDataToWords = (data: string): string[] =>
     data?.length > 2 ? toChunks(data.slice(2), 64).map((w) => `0x${w}`) : []
+
+export const removeAcronymFromCamel = (val: string): string => {
+    val = val || ''
+
+    let formattedVal = ''
+    for (let i = 0; i < val.length; i++) {
+        const [prevChar, char, nextChar] = [val[i - 1], val[i], val[i + 1]]
+        const [prevCharIsUpperCase, charIsUpperCase, nextCharIsUpperCase] = [
+            prevChar && prevChar === prevChar.toUpperCase(),
+            char && char === char.toUpperCase(),
+            nextChar && nextChar === nextChar.toUpperCase(),
+        ]
+
+        if (
+            prevCharIsUpperCase &&
+            charIsUpperCase &&
+            (nextCharIsUpperCase || i === val.length - 1)
+        ) {
+            formattedVal += char.toLowerCase()
+        } else {
+            formattedVal += char
+        }
+    }
+
+    return formattedVal
+}
+
+export const camelToSnake = (val: string): string => {
+    return humps.decamelize(removeAcronymFromCamel(val))
+}
+
+export const snakeToCamel = (val: string): string => {
+    return humps.camelize(val)
+}
+
+export const lowerCaseCamel = (val: string): string => {
+    val = removeAcronymFromCamel(val)
+
+    if (val[0] === val[0].toUpperCase()) {
+        val = val[0].toLowerCase() + val.slice(1)
+    }
+
+    return val
+}

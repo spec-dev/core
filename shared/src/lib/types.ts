@@ -1,3 +1,5 @@
+import { LiveObjectVersionProperty, LiveObjectVersionConfig } from '..'
+
 export interface NewReportedHead {
     id: number
     chainId: string
@@ -18,4 +20,30 @@ export type StringMap = { [key: string]: string }
 export interface DelayedJobSpec {
     name: string
     params: StringKeyMap
+}
+
+export interface NewContractPayload {
+    nsp: string
+    name: string
+    desc: string
+    instances: NewContractInstancePayload[]
+}
+
+export interface NewContractInstancePayload {
+    chainId: string
+    address: string
+    name: string
+    desc?: string
+}
+
+export interface PublishLiveObjectVersionPayload {
+    folder: string
+    namespace: string
+    name: string
+    displayName: string
+    version: string
+    description: string
+    properties: LiveObjectVersionProperty[]
+    config: LiveObjectVersionConfig
+    events: StringMap
 }
