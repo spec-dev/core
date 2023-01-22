@@ -42,3 +42,5 @@ spec:
           value: "{{ABI_REDIS_PORT}}"
         - name: ETHERSCAN_API_KEY
           value: FBMK654QI5CTIYA7G8M7T7XEBGNHJSV1VG
+        - name: DENO_DEPLOY_TOKEN
+          value: {{DENO_DEPLOY_TOKEN}}

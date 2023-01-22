@@ -31,14 +31,12 @@ export async function createLiveEventVersionsWithTx(
     tx: any
 ): Promise<LiveEventVersion[]> {
     return (
-        (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(LiveEventVersion)
-                .values(data)
-                .returning('*')
-                .execute()
-        ).generatedMaps
-    )
+        await tx
+            .createQueryBuilder()
+            .insert()
+            .into(LiveEventVersion)
+            .values(data)
+            .returning('*')
+            .execute()
+    ).generatedMaps
 }

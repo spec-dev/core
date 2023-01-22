@@ -18,6 +18,8 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
+deno_deploy_token=$( $shared_bin_dir/env_reader "$env" "DENO_DEPLOY_TOKEN" )
+
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
 shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
@@ -34,6 +36,8 @@ abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
 abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "DENO_DEPLOY_TOKEN" "$deno_deploy_token"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -69,6 +73,7 @@ template_path="$delayed_jobs_dir/delayed-jobs.yaml"
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{DENO_DEPLOY_TOKEN}}|$deno_deploy_token|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" | \
     sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \

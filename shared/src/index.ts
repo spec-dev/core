@@ -152,7 +152,10 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
 } from './lib/core/db/services/liveObjectVersionServices'
-export { createLiveEventVersion, createLiveEventVersionsWithTx } from './lib/core/db/services/liveEventVersionServices'
+export {
+    createLiveEventVersion,
+    createLiveEventVersionsWithTx,
+} from './lib/core/db/services/liveEventVersionServices'
 export {
     createLiveEdgeFunctionVersion,
     createLiveEdgeFunctionVersionWithTx,
