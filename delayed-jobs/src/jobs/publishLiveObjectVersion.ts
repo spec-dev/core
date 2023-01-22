@@ -133,10 +133,10 @@ async function cloneRepo(url: string, uid: string): Promise<string | null> {
 
 function deployLiveObjectMainFunction(liveObjectFolderPath: string, uid: string): string | null {
     // Save uid file so that deno recognizes a diff.
-    if (saveLiveObjectUidFile(liveObjectFolderPath, uid)) return null
+    if (!saveLiveObjectUidFile(liveObjectFolderPath, uid)) return null
 
     // Save index.ts entrypoint file.
-    if (saveIndexFile(liveObjectFolderPath, MAIN_FUNCTION)) return null
+    if (!saveIndexFile(liveObjectFolderPath, MAIN_FUNCTION)) return null
     
     // Deploy main function.
     return deployToDeno(
