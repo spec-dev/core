@@ -51,7 +51,7 @@ async function publishLiveObjectVersion(
     logger.info(`Publishing live object version: ${namespacedLiveObjectVersion}`)
 
     // Namespace needs a codeUrl to git-clone.
-    if (namespace.codeUrl) {
+    if (!namespace.codeUrl) {
         logger.error(`Namespace "${namespace.slug}" has no remote git repository.`)
         return
     }
