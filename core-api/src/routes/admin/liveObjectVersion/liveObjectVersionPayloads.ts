@@ -13,6 +13,7 @@ export function parsePublishLiveObjectVersionPayload(
     const events = data?.events || {}
     const config = data?.config
     const properties = data?.properties || []
+    const additionalEventAssociations = data?.additionalEventAssociations || []
     
     if (!folder) {
         return { isValid: false, error: '"folder" required' }
@@ -101,6 +102,7 @@ export function parsePublishLiveObjectVersionPayload(
             events,
             config,
             properties,
+            additionalEventAssociations,
         } as PublishLiveObjectVersionPayload
     }
 }

@@ -13,6 +13,9 @@ import {
     lowerCaseCamel,
     LiveEdgeFunctionVersionRole,
     createLiveEdgeFunctionVersionWithTx,
+    createLiveEventVersionsWithTx,
+    getEventVersionsByNamespacedVersions,
+    EventVersion,
 } from '../../../shared'
 import os from 'os'
 import path from 'path'
@@ -52,6 +55,10 @@ async function publishLiveObjectVersion(
         logger.error(`Namespace "${namespace.slug}" has no remote git repository.`)
         return
     }
+
+    // Get any event versions explicitly requested.
+    const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
+    if (additionalEventVersions === null) return
 
     // Clone this namespace's remote git repo.
     const uid = short.generate()
@@ -93,6 +100,7 @@ async function publishLiveObjectVersion(
         liveObjectId,
         edgeFunctionVersionUrl,
         namespacedLiveObjectVersion,
+        additionalEventVersions,
     )
     if (!saved) return
 
@@ -163,6 +171,7 @@ async function saveDataModels(
     liveObjectId: number,
     edgeFunctionVersionUrl: string,
     namespacedLiveObjectVersion: string,
+    additionalEventVersions: EventVersion[],
 ): Promise<boolean> {
     try {
         await CoreDB.manager.transaction(async (tx) => {
@@ -186,6 +195,13 @@ async function saveDataModels(
 
             // Create live edge function version to associated function with live object.
             await createLiveEdgeFunctionVersion(liveObjectVersionId, edgeFunctionVersionId, tx)
+
+            // Create any additional live event versions that were explicitly specified.
+            additionalEventVersions.length && await createLiveEventVersions(
+                liveObjectVersionId,
+                additionalEventVersions.map(ev => ev.id),
+                tx,
+            )
         })
     } catch (err) {
         logger.error(
@@ -202,6 +218,18 @@ function deleteDir(dir: string) {
     } catch (err) {
         logger.error(`Failed to delete cloned git repo at ${dir}: ${err}`)
     }
+}
+
+async function resolveEventVersions(namespacedVersions: string[]): Promise<EventVersion[] | null> {
+    if (!namespacedVersions?.length) return []
+
+    const eventVersions = await getEventVersionsByNamespacedVersions(namespacedVersions)
+    if (eventVersions.length !== namespacedVersions.length) {
+        logger.error(`Failed to resolve all event versions: ${namespacedVersions.join(', ')}`)
+        return null
+    }
+
+    return eventVersions
 }
 
 async function createLiveObject(
@@ -278,6 +306,18 @@ async function createLiveEdgeFunctionVersion(
         edgeFunctionVersionId,
     }, tx)
     return liveEdgeFunctionVersion.id
+}
+
+async function createLiveEventVersions(
+    liveObjectVersionId: number,
+    eventVersionIds: number[],
+    tx: any,
+) {
+    const insertData = eventVersionIds.map(eventVersionId => ({
+        liveObjectVersionId,
+        eventVersionId,
+    }))
+    await createLiveEventVersionsWithTx(insertData, tx)
 }
 
 export default function job(params: StringKeyMap) {

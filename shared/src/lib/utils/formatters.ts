@@ -364,3 +364,7 @@ export const lowerCaseCamel = (val: string): string => {
 
     return val
 }
+
+export const buildIconUrl = (id: string) => (
+    `https://dbjzhg7yxqn0y.cloudfront.net/v1/${id}.jpg`
+)

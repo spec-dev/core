@@ -23,5 +23,6 @@ export interface LatestLiveObject {
     name: string
     displayName: string
     desc: string
+    icon: string
     latestVersion: LatestLiveObjectVersion
 }

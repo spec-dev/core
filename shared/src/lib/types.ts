@@ -46,4 +46,5 @@ export interface PublishLiveObjectVersionPayload {
     properties: LiveObjectVersionProperty[]
     config: LiveObjectVersionConfig
     events: StringMap
+    additionalEventAssociations?: string[]
 }

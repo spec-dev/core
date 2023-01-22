@@ -29,10 +29,10 @@ const paths = {
     LIVE_OBJECTS: prefix.LIVE_OBJECT + 's',
 
     // Live Object Version paths.
-    PUBLISH_LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION + '/publish',
+    PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
 
     // Contract Instance paths.
-    NEW_CONTRACT_INSTANCES: prefix.CONTRACT_INSTANCE + 's'
+    NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's'
 }
 
 export default paths

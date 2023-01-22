@@ -33,6 +33,9 @@ export class LiveObject {
     @Column()
     desc: string
 
+    @Column({ name: 'has_icon', nullable: true })
+    hasIcon: boolean
+
     @Column('int8', { name: 'namespace_id' })
     namespaceId: number
 

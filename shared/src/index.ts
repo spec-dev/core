@@ -125,6 +125,7 @@ export {
     createEventVersion,
     getEventVersion,
     upsertEventVersions,
+    getEventVersionsByNamespacedVersions,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -151,7 +152,7 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
 } from './lib/core/db/services/liveObjectVersionServices'
-export { createLiveEventVersion } from './lib/core/db/services/liveEventVersionServices'
+export { createLiveEventVersion, createLiveEventVersionsWithTx } from './lib/core/db/services/liveEventVersionServices'
 export {
     createLiveEdgeFunctionVersion,
     createLiveEdgeFunctionVersionWithTx,
