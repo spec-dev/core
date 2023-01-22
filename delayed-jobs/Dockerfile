@@ -46,4 +46,6 @@ ENV PATH="${PATH}:/root/.deno/bin"
 # Install deployctl
 RUN deno install --allow-read --allow-write --allow-env --allow-net --allow-run --no-check -r -f "https://deno.land/x/deploy/deployctl.ts"
 
+WORKDIR /usr/app
+
 ENTRYPOINT ["npm", "start"]
