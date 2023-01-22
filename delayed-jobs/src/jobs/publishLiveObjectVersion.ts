@@ -66,9 +66,10 @@ async function publishLiveObjectVersion(
     if (!repoDir) return
 
     // Construct full path to live object folder within repo.
-    const liveObjectFolderPath = path.join(repoDir, payload.folder)
+    const liveObjectFolder = payload.config.folder
+    const liveObjectFolderPath = path.join(repoDir, liveObjectFolder)
     if (!fs.existsSync(liveObjectFolderPath)) {
-        logger.error(`Specified live object folder is missing: ${payload.folder}`)
+        logger.error(`Specified live object folder is missing: ${liveObjectFolder}`)
         return
     }
 
@@ -82,10 +83,7 @@ async function publishLiveObjectVersion(
     }
 
     // Deploy edge function version to Deno.
-    const edgeFunctionVersionUrl = deployLiveObjectMainFunction(
-        liveObjectFolderPath,
-        uid,
-    )
+    const edgeFunctionVersionUrl = deployLiveObjectMainFunction(liveObjectFolderPath, uid)
     if (!edgeFunctionVersionUrl) {
         logger.error(`Failed to deploy edge function for ${namespacedLiveObjectVersion}`)
         return
@@ -141,7 +139,8 @@ function deployLiveObjectMainFunction(liveObjectFolderPath: string, uid: string)
     // Deploy main function.
     return deployToDeno(
         denoProjects.FUNCTIONS, 
-        path.join(liveObjectFolderPath, denoFiles.INDEX),
+        liveObjectFolderPath,
+        denoFiles.INDEX,
     )
 }
 

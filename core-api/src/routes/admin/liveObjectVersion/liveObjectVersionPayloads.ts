@@ -4,7 +4,6 @@ import { isValidVersionFormat, keys } from '../../../../../shared'
 export function parsePublishLiveObjectVersionPayload(
     data: StringKeyMap
 ): ValidatedPayload<PublishLiveObjectVersionPayload> {
-    const folder = data?.folder
     const namespace = data?.namespace
     const name = data?.name
     const displayName = data?.displayName
@@ -14,10 +13,6 @@ export function parsePublishLiveObjectVersionPayload(
     const config = data?.config
     const properties = data?.properties || []
     const additionalEventAssociations = data?.additionalEventAssociations || []
-    
-    if (!folder) {
-        return { isValid: false, error: '"folder" required' }
-    }
 
     if (!namespace) {
         return { isValid: false, error: '"namespace" required' }
@@ -53,6 +48,10 @@ export function parsePublishLiveObjectVersionPayload(
 
     if (!config.uniqueBy || !config.uniqueBy.length) {
         return { isValid: false, error: '"config.uniqueBy" was empty' }
+    }
+
+    if (!config.folder) {
+        return { isValid: false, error: '"config.folder" required' }
     }
 
     if (!properties || !properties.length) {
@@ -93,7 +92,6 @@ export function parsePublishLiveObjectVersionPayload(
     return {
         isValid: true,
         payload: {
-            folder,
             namespace,
             name,
             displayName,

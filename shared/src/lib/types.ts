@@ -37,7 +37,6 @@ export interface NewContractInstancePayload {
 }
 
 export interface PublishLiveObjectVersionPayload {
-    folder: string
     namespace: string
     name: string
     displayName: string

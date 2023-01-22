@@ -27,6 +27,7 @@ export interface LiveObjectVersionPropertyOptions {
 }
 
 export interface LiveObjectVersionConfig {
+    folder: string
     primaryTimestampProperty: string
     chains: StringKeyMap
     uniqueBy: string[][]
