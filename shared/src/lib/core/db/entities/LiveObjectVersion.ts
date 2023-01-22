@@ -31,6 +31,7 @@ export interface LiveObjectVersionConfig {
     chains: StringKeyMap
     uniqueBy: string[][]
     tableName?: string
+    table?: string
 }
 
 /**
