@@ -44,3 +44,13 @@ spec:
           value: FBMK654QI5CTIYA7G8M7T7XEBGNHJSV1VG
         - name: DENO_DEPLOY_TOKEN
           value: {{DENO_DEPLOY_TOKEN}}
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
