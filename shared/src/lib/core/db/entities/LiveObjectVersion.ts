@@ -29,10 +29,10 @@ export interface LiveObjectVersionPropertyOptions {
 export interface LiveObjectVersionConfig {
     folder: string
     primaryTimestampProperty: string
-    chains: StringKeyMap
     uniqueBy: string[][]
+    table: string
+    chains?: StringKeyMap
     tableName?: string
-    table?: string
 }
 
 /**

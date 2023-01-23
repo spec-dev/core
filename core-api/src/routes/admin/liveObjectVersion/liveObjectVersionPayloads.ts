@@ -42,16 +42,16 @@ export function parsePublishLiveObjectVersionPayload(
         return { isValid: false, error: '"config.primaryTimestampProperty" required' }
     }
 
-    if (!config.chains || !(keys(config.chains).length)) {
-        return { isValid: false, error: '"config.chains" was empty' }
-    }
-
     if (!config.uniqueBy || !config.uniqueBy.length) {
         return { isValid: false, error: '"config.uniqueBy" was empty' }
     }
 
     if (!config.folder) {
         return { isValid: false, error: '"config.folder" required' }
+    }
+
+    if (!config.table) {
+        return { isValid: false, error: '"config.table" required' }
     }
 
     if (!properties || !properties.length) {

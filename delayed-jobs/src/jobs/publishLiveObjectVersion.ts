@@ -16,6 +16,16 @@ import {
     createLiveEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
     EventVersion,
+    doesSharedTableExist,
+    doesSharedViewExist,
+    LiveObjectVersionProperty,
+    chainIdForSchema,
+    camelToSnake,
+    SharedTables,
+    supportedChainIds,
+    INT8,
+    guessColTypeFromPropertyType,
+    attemptToParseNumber,
 } from '../../../shared'
 import os from 'os'
 import path from 'path'
@@ -26,6 +36,7 @@ import short from 'short-uuid'
 import { MAIN_FUNCTION, EVENT_FUNCTION } from '../templates/deno'
 import { deployToDeno } from '../cmds/deno'
 import uuid4 from 'uuid4'
+import { ident } from 'pg-format'
 
 const denoProjects = {
     FUNCTIONS: 'functions',
@@ -60,19 +71,6 @@ async function publishLiveObjectVersion(
     const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
     if (additionalEventVersions === null) return
 
-    // Clone this namespace's remote git repo.
-    const uid = short.generate()
-    const repoDir = await cloneRepo(namespace.codeUrl, uid)
-    if (!repoDir) return
-
-    // Construct full path to live object folder within repo.
-    const liveObjectFolder = payload.config.folder
-    const liveObjectFolderPath = path.join(repoDir, liveObjectFolder)
-    if (!fs.existsSync(liveObjectFolderPath)) {
-        logger.error(`Specified live object folder is missing: ${liveObjectFolder}`)
-        return
-    }
-
     // Ensure the version to publish is greater than the existing version.
     const latestLiveObjectVersion = liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
     if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
@@ -82,30 +80,136 @@ async function publishLiveObjectVersion(
         return
     }
 
-    // Deploy edge function version to Deno.
-    const edgeFunctionVersionUrl = deployLiveObjectMainFunction(liveObjectFolderPath, uid)
-    if (!edgeFunctionVersionUrl) {
-        logger.error(`Failed to deploy edge function for ${namespacedLiveObjectVersion}`)
-        return
+    // Derive live object version chain support.
+    const config = payload.config
+    const tablePath = config.table
+    const properties = payload.properties || []
+    const chainsGiven = Object.keys(config.chains || {}).length > 0
+    if (chainsGiven) {
+        // Upsert table with path payload.config.table
+
+    } else {
+        // Table or view must already exist at this point.
+        const exists = await ensureTableOrViewExists(tablePath)
+        if (!exists) return
+
+        // Use table schema or chain_id column values to derive chain support.
+        const chains = await deriveChainSupportFromTable(tablePath, properties)
+        if (!chains) return
+        payload.config.chains = chains
     }
 
-    // --- TODO: Event deployments to deno. ---
+    // Use the most recent record in the table/view (if one exists).
+    const { example, error } = await pullExampleFromTable(
+        tablePath, 
+        properties, 
+        config.primaryTimestampProperty,
+    )
+    if (error) return
 
     // Create/save all CoreDB data models.
     const saved = await saveDataModels(
         namespace,
         payload,
         liveObjectId,
-        edgeFunctionVersionUrl,
+        example,
         namespacedLiveObjectVersion,
         additionalEventVersions,
     )
     if (!saved) return
 
-    // Clean up.
-    deleteDir(repoDir)
-
     logger.info(`Successfully published live object version: ${namespacedLiveObjectVersion}`)
+}
+
+async function ensureTableOrViewExists(tablePath: string): Promise<boolean> {
+    const [schema, table] = tablePath.split('.')
+    const exists = (await doesSharedTableExist(schema, table)) || (await doesSharedViewExist(schema, table))
+    if (!exists) logger.error(`Neither table or view exists for path: ${tablePath}`)
+    return exists
+}
+
+async function deriveChainSupportFromTable(
+    tablePath: string, 
+    properties: LiveObjectVersionProperty[],
+): Promise<StringKeyMap | null> {
+    const chainIdsToMap = (chainIds: string[]): StringKeyMap => {
+        let m = {}
+        for (const chainId of chainIds) {
+            m[chainId] = {}
+        }
+        return m
+    }
+
+    // For schemas like "ethereum", "polygon", "etc", derive the chainId from there.
+    const [schema, table] = tablePath.split('.')
+    const schemaChainId = chainIdForSchema[schema]
+    if (schemaChainId) return chainIdsToMap([schemaChainId])
+
+    // Otherwise, find the 1 property in the live object spec that holds chain ids.
+    const chainIdProperty = properties.find(p => [
+        p.name.toLowerCase(),
+        p.type.toLowerCase(),
+    ].includes('chainid'))
+    if (!chainIdProperty) {
+        logger.error(`No property representing chainId exists.`)
+        return null
+    }
+
+    // Convert found chainIdProperty property name to column name.
+    const chainIdColumnName = camelToSnake(chainIdProperty.name)
+
+    let derivedChainIds = []
+    try {
+        const result = (await SharedTables.query(
+            `select distinct(${ident(chainIdColumnName)}) from ${ident(schema)}.${ident(table)}`
+        )) || []
+        derivedChainIds = result.map(r => r[chainIdColumnName]).filter(v => supportedChainIds.has(v))            
+    } catch (err) {
+        logger.error(`Error querying ${tablePath}.${chainIdColumnName} for distinct chain id values`, err)
+        return null
+    }
+    if (!derivedChainIds.length) {
+        logger.error(`No supported chain ids were derived from table/view ${tablePath}`)
+        return null
+    }
+
+    return chainIdsToMap(derivedChainIds)
+}
+
+async function pullExampleFromTable(
+    tablePath: string,
+    properties: LiveObjectVersionProperty[],
+    primaryTimestampProperty: string,
+): Promise<StringKeyMap> {
+    const [schema, table] = tablePath.split('.')
+    const primaryTimestampColumn = camelToSnake(primaryTimestampProperty)
+
+    let record
+    try {
+        record = ((await SharedTables.query(
+            `select * from ${ident(schema)}.${ident(table)} order by ${ident(primaryTimestampColumn)} desc limit 1;`
+        )) || [])[0]
+    } catch (err) {
+        logger.error(`Error querying ${tablePath} for example record:`, err)
+        return { error: err }
+    }
+    if (!record) {
+        return { example: null }
+    }
+
+    const example = {}
+    for (const property of properties) {
+        const colName = camelToSnake(property.name)
+        if (!record.hasOwnProperty(colName)) continue
+        
+        let colValue = record[colName]
+        const derivedColType = guessColTypeFromPropertyType(property.type)
+        const isNumeric = derivedColType === INT8
+        colValue = isNumeric ? attemptToParseNumber(colValue) : colValue
+        example[property.name] = colValue
+    }
+
+    return { example }
 }
 
 async function cloneRepo(url: string, uid: string): Promise<string | null> {
@@ -168,7 +272,7 @@ async function saveDataModels(
     namespace: StringKeyMap,
     payload: PublishLiveObjectVersionPayload,
     liveObjectId: number,
-    edgeFunctionVersionUrl: string,
+    example: StringKeyMap | null,
     namespacedLiveObjectVersion: string,
     additionalEventVersions: EventVersion[],
 ): Promise<boolean> {
@@ -178,22 +282,13 @@ async function saveDataModels(
             liveObjectId = liveObjectId || await createLiveObject(namespace.id, payload, tx)
 
             // Create new live object version.
-            const liveObjectVersionId = await createLiveObjectVersion(namespace.slug, liveObjectId, payload, tx)
-
-            // Upsert edge function.
-            const edgeFunctionId = await createEdgeFunction(namespace.id, payload, tx)
-
-            // Create edge function version with newly deployed deno url.
-            const edgeFunctionVersionId = await createEdgeFunctionVersion(
+            const liveObjectVersionId = await createLiveObjectVersion(
                 namespace.slug, 
-                edgeFunctionId,
-                edgeFunctionVersionUrl,
+                liveObjectId, 
                 payload,
+                example,
                 tx,
             )
-
-            // Create live edge function version to associated function with live object.
-            await createLiveEdgeFunctionVersion(liveObjectVersionId, edgeFunctionVersionId, tx)
 
             // Create any additional live event versions that were explicitly specified.
             additionalEventVersions.length && await createLiveEventVersions(
@@ -250,6 +345,7 @@ async function createLiveObjectVersion(
     nsp: string, 
     liveObjectId: number, 
     payload: PublishLiveObjectVersionPayload, 
+    example: StringKeyMap | null,
     tx: any,
 ): Promise<number | null> {
     const liveObjectVersion = await createLiveObjectVersionWithTx({
@@ -258,6 +354,7 @@ async function createLiveObjectVersion(
         name: payload.name,
         version: payload.version,
         properties: payload.properties,
+        example,
         config: payload.config,
         liveObjectId,
     }, tx)

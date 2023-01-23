@@ -54,11 +54,11 @@ export {
     setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { range, randomIntegerInRange } from './lib/utils/math'
-import chainIds, { supportedChainIds } from './lib/utils/chainIds'
+import chainIds, { supportedChainIds, chainIdForSchema } from './lib/utils/chainIds'
 import blockTimes from './lib/utils/blockTimes'
 import config from './lib/config'
 import logger from './lib/logger'
-export { chainIds, supportedChainIds, config, logger, blockTimes }
+export { chainIds, supportedChainIds, chainIdForSchema, config, logger, blockTimes }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'
@@ -197,3 +197,8 @@ export {
 
 import schemas from './lib/shared-tables/schemas'
 export { schemas }
+
+export { doesSharedTableExist, doesSharedViewExist } from './lib/utils/pgMeta'
+
+export * from './lib/utils/colTypes'
+export { guessColTypeFromPropertyType } from './lib/utils/propertyTypes'
