@@ -45,12 +45,12 @@ export function streamQuery(stream, conn, res) {
         res.end()
     })
 
-    // keepAliveTimer = setInterval(() => {
-    //     try {
-    //         res.writable && res.write(new TextEncoder().encode(' '))
-    //         streamEnded && res.end()
-    //     } catch (err) {}
-    // }, 1000)
+    keepAliveTimer = setInterval(() => {
+        try {
+            res.writable && res.write(new TextEncoder().encode(' '))
+            streamEnded && res.end()
+        } catch (err) {}
+    }, 1000)
 
     stream.pipe(jsonPipe).pipe(res)
 }
