@@ -67,9 +67,13 @@ async function publishLiveObjectVersion(
         return
     }
 
+    logger.info(`A`)
+
     // Get any event versions explicitly requested.
     const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
     if (additionalEventVersions === null) return
+
+    logger.info(`B`)
 
     // Ensure the version to publish is greater than the existing version.
     const latestLiveObjectVersion = liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
@@ -80,6 +84,8 @@ async function publishLiveObjectVersion(
         return
     }
 
+    logger.info(`C`)
+
     // Derive live object version chain support.
     const config = payload.config
     const tablePath = config.table
@@ -87,17 +93,25 @@ async function publishLiveObjectVersion(
     const chainsGiven = Object.keys(config.chains || {}).length > 0
     if (chainsGiven) {
         // Upsert table with path payload.config.table
-
+        logger.info(`chains given`)
     } else {
+        logger.info(`no chains given`)
+
         // Table or view must already exist at this point.
         const exists = await ensureTableOrViewExists(tablePath)
         if (!exists) return
+
+        logger.info(`table or view exists`)
 
         // Use table schema or chain_id column values to derive chain support.
         const chains = await deriveChainSupportFromTable(tablePath, properties)
         if (!chains) return
         payload.config.chains = chains
+
+        logger.info(`setting chains`, chains)
     }
+
+    logger.info(`pulling example`)
 
     // Use the most recent record in the table/view (if one exists).
     const { example, error } = await pullExampleFromTable(
@@ -106,6 +120,8 @@ async function publishLiveObjectVersion(
         config.primaryTimestampProperty,
     )
     if (error) return
+
+    logger.info(`got example`, example)
 
     // Create/save all CoreDB data models.
     const saved = await saveDataModels(
@@ -277,9 +293,15 @@ async function saveDataModels(
     additionalEventVersions: EventVersion[],
 ): Promise<boolean> {
     try {
+        logger.info(`creating transaction`)
+
         await CoreDB.manager.transaction(async (tx) => {
+            logger.info(`createLiveObject`)
+
             // Upsert live object.
             liveObjectId = liveObjectId || await createLiveObject(namespace.id, payload, tx)
+
+            logger.info(`createLiveObjectVersion`, liveObjectId)
 
             // Create new live object version.
             const liveObjectVersionId = await createLiveObjectVersion(
@@ -290,12 +312,16 @@ async function saveDataModels(
                 tx,
             )
 
+            logger.info(`createLiveEventVersions`, liveObjectVersionId)
+
             // Create any additional live event versions that were explicitly specified.
             additionalEventVersions.length && await createLiveEventVersions(
                 liveObjectVersionId,
                 additionalEventVersions.map(ev => ev.id),
                 tx,
             )
+
+            logger.info(`end`)
         })
     } catch (err) {
         logger.error(
@@ -303,6 +329,7 @@ async function saveDataModels(
         )
         return false
     }
+    logger.info(`returning true`)
     return true
 }
 
