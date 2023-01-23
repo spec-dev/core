@@ -57,7 +57,7 @@ image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
-template_path="$tables_api_dir/tables-api.yaml"
+template_path="$tables_api_dir/tables-api-new.yaml"
 
 # Create the config template.
 template=$( cat "$template_path" | \
