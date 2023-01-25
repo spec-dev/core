@@ -46,8 +46,6 @@ const web3js = new Web3()
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
-const ivySmartWalletInitializerWalletCreated = 'ivy.SmartWalletInitializer.WalletCreated'
-
 class PolygonIndexer extends AbstractIndexer {
     
     web3: AlchemyWeb3
@@ -60,10 +58,12 @@ class PolygonIndexer extends AbstractIndexer {
 
     successfulLogs: PolygonLog[] = []
 
+    ivySmartWalletInitializerWalletCreated: string // hack
+
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
-        
+        this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0.0.1`
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -213,7 +213,7 @@ class PolygonIndexer extends AbstractIndexer {
 
         // New Ivy Smart Wallet events.
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
-            es.name === ivySmartWalletInitializerWalletCreated
+            es.name === this.ivySmartWalletInitializerWalletCreated
         ))
         let newSmartWalletEventSpecs = []
         if (ivySmartWalletInitializerWalletCreatedEventSpecs.length) {
