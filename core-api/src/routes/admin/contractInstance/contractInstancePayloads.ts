@@ -43,7 +43,6 @@ export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedP
         }
     }
     
-
     return { 
         isValid: true,
         payload: {

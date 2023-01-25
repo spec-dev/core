@@ -153,6 +153,7 @@ function mergeAbis(
         
         const seenEventNames = new Set()
         const contractEventAbiItems = []
+        const sigsForEventName = {}
         for (const instance of instances) {
             const abi = abisMap[instance.address] as Abi
 
@@ -163,13 +164,29 @@ function mergeAbis(
             ))
 
             for (const item of eventAbiItems) {
-                if (seenEventNames.has(item.name)) continue
+                if (!sigsForEventName.hasOwnProperty(item.name)) {
+                    sigsForEventName[item.name] = new Set()
+                }
+                sigsForEventName[item.name].add(item.signature)
+
+                if (seenEventNames.has(item.name)) {
+                    continue
+                }
+
                 contractEventAbiItems.push(item)
-                seenEventNames.add(item.name)
+                seenEventNames.add(item.name)          
             }
         }
 
-        eventAbiItemsByContract.push(contractEventAbiItems)
+        const filteredContractEventAbiItems = []
+        for (const item of contractEventAbiItems) {
+            if (sigsForEventName[item.name].size === 1) {
+                filteredContractEventAbiItems.push(item)
+            } else {
+                logger.warn(`Skipping "${item.name}" event for ${contract.name} -- got multiple signatures for same name.`)
+            }
+        }
+        eventAbiItemsByContract.push(filteredContractEventAbiItems)
     }
     
     return eventAbiItemsByContract
