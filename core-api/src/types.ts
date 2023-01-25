@@ -24,5 +24,7 @@ export interface LatestLiveObject {
     displayName: string
     desc: string
     icon: string
+    codeUrl: string | null
+    isContractEvent: boolean
     latestVersion: LatestLiveObjectVersion
 }

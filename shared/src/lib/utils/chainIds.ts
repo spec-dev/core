@@ -62,4 +62,13 @@ export const contractNamespaceForChainId = (chainId: string): string | null => {
     return [nsp, 'contracts'].join('.')
 }
 
+export const isContractNamespace = (nsp: string): boolean => {
+    for (const chainSpecificNsp of Object.values(chainSpecificNamespaces)) {
+        if (nsp.startsWith(`${chainSpecificNsp}.contracts.`)) {
+            return true
+        }
+    }
+    return false
+}
+
 export default chainIds

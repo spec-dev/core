@@ -61,6 +61,8 @@ export {
     chainIdForSchema,
     contractNamespaceForChainId,
     schemaForChainId,
+    chainSpecificNamespaces,
+    isContractNamespace,
     namespaceForChainId,
 } from './lib/utils/chainIds'
 import blockTimes from './lib/utils/blockTimes'
