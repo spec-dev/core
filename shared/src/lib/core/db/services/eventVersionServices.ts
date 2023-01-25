@@ -3,6 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
+import { StringKeyMap } from '../../../types'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -29,34 +30,6 @@ export async function createEventVersion(
     }
 
     return eventVersion
-}
-
-export async function upsertEventVersions(
-    data: {
-        eventId: number
-        nsp: string
-        name: string
-        version: string
-    }[]
-): Promise<EventVersion[] | null> {
-    let eventVersions = data.map((entry) => {
-        const eventVersion = new EventVersion()
-        eventVersion.uid = uuid4()
-        eventVersion.nsp = entry.nsp
-        eventVersion.name = entry.name
-        eventVersion.version = entry.version
-        eventVersion.eventId = entry.eventId
-        return eventVersion
-    })
-
-    try {
-        eventVersions = await eventVersionsRepo().save(eventVersions)
-    } catch (err) {
-        logger.error(`Error upserting event versions: ${err}`)
-        return null
-    }
-
-    return eventVersions
 }
 
 export async function getEventVersion(
@@ -92,4 +65,16 @@ export async function getEventVersionsByNamespacedVersions(
         return []
     }
     return eventVersions
+}
+
+export async function upsertEventVersionsWithTx(data: StringKeyMap[], tx: any) {
+    const entries = data.map((d) => ({ ...d, uid: uuid4() }))
+    await tx
+        .createQueryBuilder()
+        .insert()
+        .into(EventVersion)
+        .values(entries)
+        .orIgnore()
+        .returning('*')
+        .execute()
 }

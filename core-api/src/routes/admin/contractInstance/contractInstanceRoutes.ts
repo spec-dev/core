@@ -17,19 +17,13 @@ app.post(paths.NEW_CONTRACT_INSTANCES, async (req, res) => {
     }
 
     // Find namespace by slug.
-    const namespace = await getNamespace(toSlug(payload[0].nsp))
+    const namespace = await getNamespace(payload.nsp)
     if (!namespace) {
         return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
 
     // Kick off delayed job to register contract instances.
-    const scheduled = await enqueueDelayedJob('registerContractInstances', { 
-        namespace: {
-            id: namespace.id,
-            slug: namespace.slug,
-        },
-        contracts: payload,
-    })
+    const scheduled = await enqueueDelayedJob('registerContractInstances', payload)
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }

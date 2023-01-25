@@ -33,6 +33,7 @@ import {
     uniqueByKeys,
     schemas,
     randomIntegerInRange,
+    unique,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -131,14 +132,8 @@ class PolygonIndexer extends AbstractIndexer {
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
         const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
         const [abis, functionSignatures] = await Promise.all([
-            getAbis(
-                Array.from(new Set([ ...txToAddresses, ...logAddresses ])),
-                this.chainId,
-            ),
-            getFunctionSignatures(
-                Array.from(new Set(sigs)),
-                this.chainId,
-            ),
+            getAbis(unique([ ...txToAddresses, ...logAddresses ]), this.chainId),
+            getFunctionSignatures(unique(sigs), this.chainId),
         ])
         const numAbis = Object.keys(abis).length
         const numFunctionSigs = Object.keys(functionSignatures).length
@@ -239,41 +234,39 @@ class PolygonIndexer extends AbstractIndexer {
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
-        // Get all logs with an event name.
         const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
         if (!decodedLogs.length) return []
 
-        // Get all contract instances (that are registered with Spec) for the decoded logs.
-        const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
+        const addresses = unique(decodedLogs.map(log => log.address))
         const contractInstances = await this._getContractInstancesForAddresses(addresses)
         if (!contractInstances.length) return []
 
-        // Index contract instances by -> { address: { nsp, contractName } }
-        const contractNameComps = {}
+        const namespacesForAddress = {}
         for (const contractInstance of contractInstances) {
-            const contractName = contractInstance.contract?.name
-            const nsp = contractInstance.contract?.namespace?.slug
-            if (!contractName || !nsp) continue
-            contractNameComps[contractInstance.address] = { nsp, contractName }
-        }
-        if (!Object.keys(contractNameComps)) return []
+            const nsp = contractInstance.contract?.namespace?.name
+            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
 
-        // Turn logs into event specs.
+            if (!namespacesForAddress.hasOwnProperty(contractInstance.address)) {
+                namespacesForAddress[contractInstance.address] = []
+            }
+            namespacesForAddress[contractInstance.address].push(nsp)
+        }
+        if (!Object.keys(namespacesForAddress)) return []
+
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
-            // Make sure the log's contract is registered with Spec.
-            if (!contractNameComps.hasOwnProperty(address)) continue
+            if (!namespacesForAddress.hasOwnProperty(address)) continue
 
-            // Format the log data into a Spec event.
-            const { nsp, contractName } = contractNameComps[address]
-            const { data, eventOrigin } = this._formatLogAsSpecEvent(decodedLog)
-            const fullEventName = [nsp, contractName, eventName].join('.')
-            eventSpecs.push({
-                name: fullEventName,
-                origin: eventOrigin,
-                data: data,
-            })
+            const nsps = namespacesForAddress[address] || []
+            for (const nsp of nsps) {
+                const { data, eventOrigin } = this._formatLogAsSpecEvent(decodedLog)
+                eventSpecs.push({
+                    name: [nsp, eventName].join('.'),
+                    data: data,
+                    origin: eventOrigin,
+                })    
+            }
         }
         return eventSpecs
     }
@@ -304,13 +297,12 @@ class PolygonIndexer extends AbstractIndexer {
             transfer.from && accounts.push(transfer.from)
             transfer.to && accounts.push(transfer.to)
         }
-        const referencedSmartWalletOwners = await this._getSmartWalletsForAddresses(
-            Array.from(new Set(accounts))
-        )
+
+        const referencedSmartWalletOwners = await this._getSmartWalletsForAddresses(unique(accounts))
         if (!referencedSmartWalletOwners.length) return {}
         const smartWalletOwners = new Set(referencedSmartWalletOwners)
         
-        const referencedContractAddresses = Array.from(new Set(transfers.map(t => t.log.address)))
+        const referencedContractAddresses = unique(transfers.map(t => t.log.address))
         const contracts = await resolveContracts(referencedContractAddresses, this.chainId)
 
         const refetchERC20TokenBalancesMap = {}

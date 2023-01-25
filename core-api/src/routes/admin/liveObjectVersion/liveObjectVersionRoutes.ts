@@ -38,7 +38,7 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     const scheduled = await enqueueDelayedJob('publishLiveObjectVersion', { 
         namespace: {
             id: namespace.id,
-            slug: namespace.slug,
+            name: namespace.name,
             codeUrl: namespace.codeUrl,
         },
         liveObjectId: liveObject?.id || null,

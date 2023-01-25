@@ -99,22 +99,37 @@ export const toSlug = (value: string): string => {
         .toLowerCase()
 }
 
+export const toNamespaceSlug = (value: string): string => {
+    return value
+        .replace(/[']/g, '')
+        .replace(/[^A-Za-z0-9-_.]/g, '-')
+        .toLowerCase()
+}
+
 export const toNamespacedVersion = (nsp: string, name: string, version: string) =>
     `${nsp}.${name}@${version}`
 
 export const fromNamespacedVersion = (
     namespacedVersion: string
-): { nsp: string; name: string; version: string } => {
+): {
+    nsp: string
+    name: string
+    version: string
+} => {
     const atSplit = (namespacedVersion || '').split('@')
     if (atSplit.length !== 2) {
         return { nsp: '', name: '', version: '' }
     }
+
     const [nspName, version] = atSplit
     const dotSplit = (nspName || '').split('.')
-    if (dotSplit.length !== 2) {
+    if (dotSplit.length < 2) {
         return { nsp: '', name: '', version: '' }
     }
-    const [nsp, name] = dotSplit
+
+    const name = dotSplit.pop()
+    const nsp = dotSplit.join('.')
+
     return { nsp, name, version }
 }
 
@@ -366,3 +381,14 @@ export const lowerCaseCamel = (val: string): string => {
 }
 
 export const buildIconUrl = (id: string) => `https://dbjzhg7yxqn0y.cloudfront.net/v1/${id}.jpg`
+
+export const invert = (obj1: object): object => {
+    const obj2 = {}
+    for (const key in obj1) {
+        obj2[obj1[key]] = key
+    }
+    return obj2
+}
+
+export const stripLeadingAndTrailingUnderscores = (val: string): string =>
+    (val || '').replace(/^[_]+/g, '').replace(/[_]+$/g, '')

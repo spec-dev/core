@@ -22,15 +22,19 @@ export interface DelayedJobSpec {
     params: StringKeyMap
 }
 
-export interface NewContractPayload {
+export interface NewContractsPayload {
     nsp: string
+    chainId: string
+    contracts: NewContractPayload[]
+}
+
+export interface NewContractPayload {
     name: string
     desc: string
     instances: NewContractInstancePayload[]
 }
 
 export interface NewContractInstancePayload {
-    chainId: string
     address: string
     name: string
     desc?: string

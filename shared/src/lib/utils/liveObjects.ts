@@ -1,0 +1,135 @@
+import { AbiItemInput } from '../abi/types'
+import { LiveObjectVersionProperty } from '../core/db/entities/LiveObjectVersion'
+import { PublishLiveObjectVersionPayload, StringKeyMap } from '../types'
+import {
+    TRANSACTION_HASH,
+    BLOCK_HASH,
+    BLOCK_NUMBER,
+    TIMESTAMP,
+    CHAIN_ID,
+    STRING,
+    NUMBER,
+    guessPropertyTypeFromSolidityType,
+} from './propertyTypes'
+import { chainIdLiveObjectVersionPropertyOptions, fullNameForChainId } from './chainIds'
+import {
+    stripLeadingAndTrailingUnderscores,
+    snakeToCamel,
+    fromNamespacedVersion,
+    camelToSnake,
+} from './formatters'
+
+const fixedEventViewProperties: { [key: string]: LiveObjectVersionProperty } = {
+    CONTRACT_NAME: {
+        name: 'contractName',
+        type: STRING,
+        desc: 'The name of the contract that emitted this event.',
+    },
+    CONTRACT_ADDRESS: {
+        name: 'contractAddress',
+        type: STRING,
+        desc: 'The address of the contract that emitted this event.',
+    },
+    TRANSACTION_HASH: {
+        name: 'transactionHash',
+        type: TRANSACTION_HASH,
+        desc: "The hash of the transaction this event's log was included in.",
+    },
+    LOG_INDEX: {
+        name: 'logIndex',
+        type: NUMBER,
+        desc: "The index of this event's log within the transaction.",
+    },
+    BLOCK_HASH: {
+        name: 'blockHash',
+        type: BLOCK_HASH,
+        desc: "The hash of the block this event's log was included in.",
+    },
+    BLOCK_NUMBER: {
+        name: 'blockNumber',
+        type: BLOCK_NUMBER,
+        desc: "The number of the block this event's log was included in.",
+    },
+    BLOCK_TIMESTAMP: {
+        name: 'blockTimestamp',
+        type: TIMESTAMP,
+        desc: "The timestamp of the block this event's log was included in.",
+    },
+    CHAIN_ID: {
+        name: 'chainId',
+        type: CHAIN_ID,
+        desc: 'The blockchain id.',
+        options: chainIdLiveObjectVersionPropertyOptions,
+    },
+}
+
+const orderedFixedEventViewProperties = [
+    fixedEventViewProperties.CONTRACT_NAME,
+    fixedEventViewProperties.CONTRACT_ADDRESS,
+    fixedEventViewProperties.TRANSACTION_HASH,
+    fixedEventViewProperties.LOG_INDEX,
+    fixedEventViewProperties.BLOCK_HASH,
+    fixedEventViewProperties.BLOCK_NUMBER,
+    fixedEventViewProperties.BLOCK_TIMESTAMP,
+    fixedEventViewProperties.CHAIN_ID,
+]
+
+export const fixedEventViewPropertyNames = new Set(
+    orderedFixedEventViewProperties.map((p) => p.name)
+)
+
+const formatEventParamAsProperty = (eventParam: StringKeyMap): LiveObjectVersionProperty => ({
+    name: snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name)),
+    type: guessPropertyTypeFromSolidityType(eventParam.type),
+    desc: `The ${eventParam.name} event property.`,
+})
+
+export const CONTRACT_NAME_COL = camelToSnake(fixedEventViewProperties.CONTRACT_NAME.name)
+export const CONTRACT_ADDRESS_COL = camelToSnake(fixedEventViewProperties.CONTRACT_ADDRESS.name)
+export const CHAIN_ID_COL = camelToSnake(fixedEventViewProperties.CHAIN_ID.name)
+
+export function buildContractEventAsLiveObjectVersionPayload(
+    nsp: string,
+    contractName: string,
+    eventName: string,
+    namespacedEventVersion: string,
+    chainId: string,
+    eventParams: AbiItemInput[],
+    viewPath: string
+): PublishLiveObjectVersionPayload {
+    // Format event abi inputs as live object version properties.
+    const eventParamProperties = eventParams.map(formatEventParamAsProperty)
+
+    // Ensure event arg property names are unique.
+    const seenPropertyNames = new Set(Array.from(fixedEventViewPropertyNames))
+    for (const property of eventParamProperties) {
+        let propertyName = property.name
+        while (seenPropertyNames.has(propertyName)) {
+            propertyName = '_' + propertyName
+        }
+        seenPropertyNames.add(propertyName)
+        property.name = propertyName
+    }
+
+    return {
+        namespace: fromNamespacedVersion(namespacedEventVersion).nsp,
+        name: eventName,
+        version: '0.0.1',
+        displayName: eventName,
+        description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
+        properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
+        config: {
+            folder: '',
+            primaryTimestampProperty: fixedEventViewProperties.BLOCK_TIMESTAMP.name,
+            uniqueBy: [
+                [
+                    fixedEventViewProperties.TRANSACTION_HASH.name,
+                    fixedEventViewProperties.LOG_INDEX.name,
+                ],
+            ],
+            table: viewPath,
+        },
+        events: {},
+        additionalEventAssociations: [namespacedEventVersion],
+    }
+}

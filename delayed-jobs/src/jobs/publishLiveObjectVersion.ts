@@ -26,14 +26,14 @@ import {
     INT8,
     guessColTypeFromPropertyType,
     attemptToParseNumber,
+    unique,
 } from '../../../shared'
 import os from 'os'
 import path from 'path'
 import fs from 'fs'
 import rimraf from 'rimraf'
 import git from 'nodegit'
-import short from 'short-uuid'
-import { MAIN_FUNCTION, EVENT_FUNCTION } from '../templates/deno'
+import { MAIN_FUNCTION } from '../templates/deno'
 import { deployToDeno } from '../cmds/deno'
 import uuid4 from 'uuid4'
 import { ident } from 'pg-format'
@@ -48,14 +48,14 @@ const denoFiles = {
     UID: '_uid.ts',
 }
 
-async function publishLiveObjectVersion(
+export async function publishLiveObjectVersion(
     namespace: StringKeyMap,
     liveObjectId: number | null,
     payload: PublishLiveObjectVersionPayload,
 ) {
     // Create nsp.name@version formatted string for live object version.
     const namespacedLiveObjectVersion = toNamespacedVersion(
-        namespace.slug,
+        namespace.name,
         payload.name,
         payload.version,
     )
@@ -63,7 +63,7 @@ async function publishLiveObjectVersion(
 
     // Namespace needs a codeUrl to git-clone.
     if (!namespace.codeUrl) {
-        logger.error(`Namespace "${namespace.slug}" has no remote git repository.`)
+        logger.error(`Namespace "${namespace.name}" has no remote git repository.`)
         return
     }
 
@@ -141,10 +141,12 @@ async function deriveChainSupportFromTable(
     if (schemaChainId) return chainIdsToMap([schemaChainId])
 
     // Otherwise, find the 1 property in the live object spec that holds chain ids.
-    const chainIdProperty = properties.find(p => [
-        p.name.toLowerCase(),
-        p.type.toLowerCase(),
-    ].includes('chainid'))
+    const chainIdProperty = properties.find(p => 
+        [
+            p.name.toLowerCase(),
+            p.type.toLowerCase(),
+        ].includes('chainid')
+    )
     if (!chainIdProperty) {
         logger.error(`No property representing chainId exists.`)
         return null
@@ -276,7 +278,7 @@ async function saveDataModels(
 
             // Create new live object version.
             const liveObjectVersionId = await createLiveObjectVersion(
-                namespace.slug, 
+                namespace.name, 
                 liveObjectId, 
                 payload,
                 example,
@@ -286,7 +288,7 @@ async function saveDataModels(
             // Create any additional live event versions that were explicitly specified.
             additionalEventVersions.length && await createLiveEventVersions(
                 liveObjectVersionId,
-                additionalEventVersions.map(ev => ev.id),
+                unique(additionalEventVersions.map(ev => ev.id)),
                 tx,
             )
         })

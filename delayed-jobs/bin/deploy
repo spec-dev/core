@@ -19,6 +19,9 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 # ======== SET KEY VARS ======== #
 
 deno_deploy_token=$( $shared_bin_dir/env_reader "$env" "DENO_DEPLOY_TOKEN" )
+etherscan_api_key=$( $shared_bin_dir/env_reader "$env" "ETHERSCAN_API_KEY" )
+polygonscan_api_key=$( $shared_bin_dir/env_reader "$env" "POLYGONSCAN_API_KEY" )
+mumbaiscan_api_key=$( $shared_bin_dir/env_reader "$env" "MUMBAISCAN_API_KEY" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -45,6 +48,9 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "DENO_DEPLOY_TOKEN" "$deno_deploy_token"
+$shared_bin_dir/assert_env "ETHERSCAN_API_KEY" "$etherscan_api_key"
+$shared_bin_dir/assert_env "POLYGONSCAN_API_KEY" "$polygonscan_api_key"
+$shared_bin_dir/assert_env "MUMBAISCAN_API_KEY" "$mumbaiscan_api_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -97,6 +103,9 @@ template=$( cat "$template_path" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
     sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{ETHERSCAN_API_KEY}}|$etherscan_api_key|g" | \
+    sed "s|{{POLYGONSCAN_API_KEY}}|$polygonscan_api_key|g" | \
+    sed "s|{{MUMBAISCAN_API_KEY}}|$mumbaiscan_api_key|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \

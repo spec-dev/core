@@ -54,11 +54,21 @@ export {
     setIndexedBlocksToSucceeded,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { range, randomIntegerInRange } from './lib/utils/math'
-import chainIds, { supportedChainIds, chainIdForSchema } from './lib/utils/chainIds'
+import chainIds from './lib/utils/chainIds'
+export { chainIds }
+export {
+    supportedChainIds,
+    chainIdForSchema,
+    contractNamespaceForChainId,
+    schemaForChainId,
+    namespaceForChainId,
+} from './lib/utils/chainIds'
 import blockTimes from './lib/utils/blockTimes'
+export { blockTimes }
 import config from './lib/config'
+export { config }
 import logger from './lib/logger'
-export { chainIds, supportedChainIds, chainIdForSchema, config, logger, blockTimes }
+export { logger }
 export * from './lib/types'
 export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
 export * from './lib/utils/formatters'
@@ -92,7 +102,11 @@ export { Project } from './lib/core/db/entities/Project'
 export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { CoreDB } from './lib/core/db/dataSource'
-export { createNamespace, getNamespace } from './lib/core/db/services/namespaceServices'
+export {
+    createNamespace,
+    getNamespace,
+    upsertNamespaceWithTx,
+} from './lib/core/db/services/namespaceServices'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
@@ -113,18 +127,21 @@ export {
     tailLogs,
     getLastXLogs,
 } from './lib/core/redis'
-export { createContract, upsertContracts } from './lib/core/db/services/contractServices'
+export {
+    createContract,
+    upsertContracts,
+    upsertContractWithTx,
+} from './lib/core/db/services/contractServices'
 export {
     createContractInstance,
-    getContractInstancesByContractId,
-    upsertContractInstances,
+    upsertContractInstancesWithTx,
 } from './lib/core/db/services/contractInstanceServices'
 export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
-export { createEvent, getEvent, upsertEvents } from './lib/core/db/services/eventServices'
+export { createEvent, getEvent, upsertEventsWithTx } from './lib/core/db/services/eventServices'
 export {
     createEventVersion,
     getEventVersion,
-    upsertEventVersions,
+    upsertEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
 } from './lib/core/db/services/eventVersionServices'
 export {
@@ -194,11 +211,28 @@ export {
     PolygonLog,
     fullLogUpsertConfig as fullPolygonLogUpsertConfig,
 } from './lib/shared-tables/db/entities/PolygonLog'
+export {
+    PolygonContract,
+    fullContractUpsertConfig as fullPolygonContractUpsertConfig,
+} from './lib/shared-tables/db/entities/PolygonContract'
 
 import schemas from './lib/shared-tables/schemas'
 export { schemas }
 
-export { doesSharedTableExist, doesSharedViewExist } from './lib/utils/pgMeta'
+export {
+    doesSharedTableExist,
+    doesSharedViewExist,
+    MAX_TABLE_NAME_LENGTH,
+} from './lib/utils/pgMeta'
+export * from './lib/utils/views'
 
 export * from './lib/utils/colTypes'
 export { guessColTypeFromPropertyType } from './lib/utils/propertyTypes'
+
+export {
+    buildContractEventAsLiveObjectVersionPayload,
+    CONTRACT_NAME_COL,
+    CONTRACT_ADDRESS_COL,
+    CHAIN_ID_COL,
+    fixedEventViewPropertyNames,
+} from './lib/utils/liveObjects'

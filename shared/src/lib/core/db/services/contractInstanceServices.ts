@@ -1,7 +1,7 @@
 import { ContractInstance } from '../entities/ContractInstance'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
-import { In } from 'typeorm'
+import { StringKeyMap } from '../../../types'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
@@ -31,50 +31,18 @@ export async function createContractInstance(
     return contractInstance
 }
 
-export async function upsertContractInstances(
-    data: {
-        contractId: number
-        chainId: string
-        address: string
-        name: string
-        desc?: string | null
-    }[]
-): Promise<ContractInstance[] | null> {
-    let contractInstances = data.map((entry) => {
-        const contractInstance = new ContractInstance()
-        contractInstance.contractId = entry.contractId
-        contractInstance.chainId = entry.chainId
-        contractInstance.address = entry.address
-        contractInstance.name = entry.name
-        contractInstance.desc = entry.desc
-        return contractInstance
-    })
-
-    try {
-        contractInstances = await contractInstancesRepo().save(contractInstances)
-    } catch (err) {
-        logger.error(`Error upserting contract instances: ${err}`)
-        return null
-    }
-
-    return contractInstances
-}
-
-export async function getContractInstancesByContractId(
-    contractIds: number[]
-): Promise<ContractInstance[] | null> {
-    let contractInstances = []
-
-    try {
-        contractInstances = await contractInstancesRepo().find({
-            where: { contractId: In(contractIds) },
-        })
-    } catch (err) {
-        logger.error(
-            `Error finding ContractInstances for contractIds: ${contractIds.join(', ')}: ${err}`
-        )
-        return null
-    }
-
-    return contractInstances
+export async function upsertContractInstancesWithTx(
+    data: StringKeyMap[],
+    tx: any
+): Promise<ContractInstance[]> {
+    return (
+        await tx
+            .createQueryBuilder()
+            .insert()
+            .into(ContractInstance)
+            .values(data)
+            .orUpdate(['name', 'desc'], ['address', 'chain_id', 'contract_id'])
+            .returning('*')
+            .execute()
+    ).generatedMaps
 }

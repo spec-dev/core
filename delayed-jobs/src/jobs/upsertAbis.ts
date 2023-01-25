@@ -10,75 +10,99 @@ import {
     toChunks,
     EthContract,
     SharedTables,
-    In,
-    ev,
     functionSignatureToAbiInputs,
     minimizeAbiInputs,
+    chainIds,
+    schemaForChainId,
+    range,
 } from '../../../shared'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import qs from 'querystring'
 import Web3 from 'web3'
+import { ident } from 'pg-format'
+import config from '../config'
 
 const web3 = new Web3()
 
 export const providers = {
-    ETHERSCAN: 'etherscan',
+    STARSCAN: '*scan',
     SAMCZSUN: 'samczsun',
 }
 
-const ETHERSCAN_API_KEY = ev('ETHERSCAN_API_KEY')
+const starscanHostnames = {
+    [chainIds.ETHEREUM]: 'api.etherscan.io',
+    [chainIds.POLYGON]: 'api.polygonscan.com',
+    [chainIds.MUMBAI]: 'api-testnet.polygonscan.com',
+}
 
-const contractsRepo = () => SharedTables.getRepository(EthContract)
+const starscanApiKey = {
+    [chainIds.ETHEREUM]: config.ETHERSCAN_API_KEY,
+    [chainIds.POLYGON]: config.POLYGONSCAN_API_KEY,
+    [chainIds.MUMBAI]: config.MUMBAISCAN_API_KEY,
+}
 
-async function upsertAbis(addresses: string[]) {
+async function upsertAbis(addresses: string[], chainId: string) {
     logger.info(`Processing ${addresses.length} addresses to pull ABIs for....`)
 
-    // Try Etherscan first.
-    const etherscanAbisMap = await fetchAbis(addresses, providers.ETHERSCAN)
-    const addressesNotVerifiedOnEtherscan = addresses.filter(a => !etherscanAbisMap.hasOwnProperty(a))
+    // Try one of the *scan providers first.
+    const starScanAbisMap = await fetchAbis(addresses, providers.STARSCAN, chainId)
+    const addressesNotVerifiedOnStarscan = addresses.filter(a => !starScanAbisMap.hasOwnProperty(a))
 
     // Fall back to Samczsun.
     let samczsunAbisMap = {}
-    if (addressesNotVerifiedOnEtherscan.length) {
-        const contracts = await getContracts(addressesNotVerifiedOnEtherscan)
+    if (addressesNotVerifiedOnStarscan.length) {
+        const contracts = await getContracts(addressesNotVerifiedOnStarscan, chainId)
         if (contracts.length) {
-            samczsunAbisMap = await fetchAbis(contracts, providers.SAMCZSUN)
+            samczsunAbisMap = await fetchAbis(contracts, providers.SAMCZSUN, chainId)
         }
     }
 
-    const numAbisFromEtherscan = Object.keys(etherscanAbisMap).length
+    const numAbisFromStarscan = Object.keys(starScanAbisMap).length
     const numAbisFromSamczsun = Object.keys(samczsunAbisMap).length
     logger.info(
-        `Upserting ABIs:\n  Etherscan: ${numAbisFromEtherscan}\n  Samczsun: ${numAbisFromSamczsun}`
+        `Upserting ABIs:\n  Starscan: ${numAbisFromStarscan}\n  Samczsun: ${numAbisFromSamczsun}`
     )
 
-    const [abisMap, funcSigHashesMap] = polishAbis({ ...etherscanAbisMap, ...samczsunAbisMap })
+    const [abisMap, funcSigHashesMap] = polishAbis({ ...starScanAbisMap, ...samczsunAbisMap })
+
+    console.log(JSON.stringify(abisMap))
 
     await Promise.all([
-        saveAbisMap(abisMap),
+        saveAbisMap(abisMap, chainId),
         saveFuncSigHashes(funcSigHashesMap),
     ])
 }
 
-async function getContracts(addresses: string[]): Promise<EthContract[]> {
+async function getContracts(addresses: string[], chainId: string): Promise<EthContract[]> {
+    const schema = schemaForChainId[chainId]
+    if (!schema) {
+        logger.error(`No schema found for chain id ${chainId}.`)
+        return []
+    }
+
+    const phs = range(1, addresses.length).map(i => `$${i}`)
     try {
-        return (await contractsRepo().find({
-            select: { address: true, bytecode: true },
-            where: { address: In(addresses) }
-        })) || []
+        return await SharedTables.query(
+            `select "address", "bytecode" from ${ident(schema)}."contracts" where "address" in (${phs.join(', ')})`,
+            addresses,
+        )
     } catch (err) {
-        logger.error(`Error getting contracts: ${err}`)
+        logger.error(`Error querying ${ident(schema)}."contracts": ${err}`)
         return []
     }
 }
 
-export async function fetchAbis(data: string[] | EthContract[], provider: string): Promise<StringKeyMap> {
+export async function fetchAbis(
+    data: any[],
+    provider: string,
+    chainId: string,
+): Promise<StringKeyMap> {
     const chunks = toChunks(data, 5) as string[][]
 
     const results = []
     for (let i = 0; i < chunks.length; i++) {
-        results.push(...(await groupFetchAbis(chunks[i], provider)))
+        results.push(...(await groupFetchAbis(chunks[i], provider, chainId)))
     }
 
     const abisMap = {}
@@ -87,10 +111,10 @@ export async function fetchAbis(data: string[] | EthContract[], provider: string
         if (!abi) continue
 
         let address
-        if (provider === providers.ETHERSCAN) {
+        if (provider === providers.STARSCAN) {
             address = data[i] as string
         } else {
-            const contract = data[i] as EthContract
+            const contract = data[i]
             address = contract?.address
         }
         if (!address) continue
@@ -101,31 +125,32 @@ export async function fetchAbis(data: string[] | EthContract[], provider: string
     return abisMap
 }
 
-async function groupFetchAbis(data: string[] | EthContract[], provider: string): Promise<string[]> {        
+async function groupFetchAbis(data: any[], provider: string, chainId: string): Promise<string[]> {        
     const abiPromises = []
 
     let i = 0
     while (i < data.length) {
         await sleep(200)
-        abiPromises.push(fetchAbi(data[i], provider))
+        abiPromises.push(fetchAbi(data[i], provider, chainId))
         i++
     }
 
     return await Promise.all(abiPromises)
 }
 
-async function fetchAbi(data: string | EthContract, provider: string) {
-    switch (provider) {
-        case providers.ETHERSCAN:
-            return await fetchAbiFromEtherscan(data as string)
-        case providers.SAMCZSUN:
-            return await fetchAbiFromSamczsun(data as EthContract)
-        default:
-            return null
-    }
+async function fetchAbi(data: any, provider: string, chainId: string) {
+    return provider === providers.STARSCAN
+        ? fetchAbiFromStarscan(data, chainId)
+        : fetchAbiFromSamczsun(data)
 }
 
-async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Promise<Abi | null> {    
+async function fetchAbiFromStarscan(address: string, chainId: string, attempt: number = 1): Promise<Abi | null> {
+    const hostname = starscanHostnames[chainId]
+    if (!hostname) {
+        logger.error(`No star-scan hostname for chain id: ${chainId}`)
+        return null
+    }
+
     const abortController = new AbortController()
     const abortTimer = setTimeout(() => {
         logger.warn('Aborting due to timeout.')
@@ -135,7 +160,7 @@ async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Prom
     let resp, error
     try {
         resp = await fetch(
-            `https://api.etherscan.io/api?module=contract&action=getabi&address=${address}&apikey=${ETHERSCAN_API_KEY}`, 
+            `https://${hostname}/api?module=contract&action=getabi&address=${address}&apikey=${starscanApiKey[chainId]}`, 
             { signal: abortController.signal }
         )
     } catch (err) {
@@ -144,10 +169,10 @@ async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Prom
     clearTimeout(abortTimer)
 
     if (error || resp?.status !== 200) {
-        logger.error(`[Attempt ${attempt}] Error fetching ABI from etherscan for address ${address}: ${error || resp?.status}`)
+        logger.error(`[Attempt ${attempt}] Error fetching ABI from starscan for address ${address}: ${error || resp?.status}`)
         if (attempt <= 3) {
             await sleep(300)
-            return fetchAbiFromEtherscan(address, attempt + 1)
+            return fetchAbiFromStarscan(address, chainId, attempt + 1)
         }
         return null
     }
@@ -157,7 +182,7 @@ async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Prom
         data = await resp.json()
     } catch (err) {
         logger.error(
-            `Error parsing json response while fetching ABI from etherscan for address ${address}: ${err}`
+            `Error parsing json response while fetching ABI from starscan for address ${address}: ${err}`
         )
         return null
     }
@@ -165,7 +190,7 @@ async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Prom
     if (data.status != 1 || !data.result) {
         if (data.result?.toLowerCase()?.includes('rate limit')) {
             await sleep(300)
-            return fetchAbiFromEtherscan(address, attempt)
+            return fetchAbiFromStarscan(address, chainId, attempt)
         }
         return null
     }
@@ -174,14 +199,14 @@ async function fetchAbiFromEtherscan(address: string, attempt: number = 1): Prom
     try {
         abi = JSON.parse(data.result) as Abi
     } catch (err) {
-        logger.error(`Error parsing JSON ABI from etherscan for address ${address}: ${err}`)
+        logger.error(`Error parsing JSON ABI from starscan for address ${address}: ${err}`)
         return null
     }
 
     return abi
 }
 
-async function fetchAbiFromSamczsun(contract: EthContract, attempt: number = 1): Promise<Abi | null> {
+async function fetchAbiFromSamczsun(contract: any, attempt: number = 1): Promise<Abi | null> {
     const { address, bytecode } = contract
 
     let funcSigHexes
@@ -310,7 +335,7 @@ function createAbiItemSignature(item: StringKeyMap): string | null {
     }
 }
 
-export async function saveAbisMap(abisMap: StringKeyMap) {
+export async function saveAbisMap(abisMap: StringKeyMap, chainId: string) {
     const stringified: StringMap = {}
 
     for (const address in abisMap) {
@@ -323,7 +348,7 @@ export async function saveAbisMap(abisMap: StringKeyMap) {
         return
     }
 
-    if (!(await saveAbis(stringified))) {
+    if (!(await saveAbis(stringified, chainId))) {
         logger.error(`Failed to save ABI batch.`)
         return
     }
@@ -342,6 +367,9 @@ export async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {
         return
     }
 
+
+    // Only dealing with EVM chains for now, so all of them will just share the same
+    // function signatures within under "eth-function-signatures".
     if (!(await saveFunctionSignatures(stringified))) {
         logger.error(`Failed to save function sig hashes.`)
         return
@@ -361,8 +389,9 @@ function stringify(abi: any): string | null {
 }
 
 export default function job(params: StringKeyMap) {
-    const addresses = params.addresses || []
+    const addresses = (params.addresses || []).map(a => a.toLowerCase())
+    const chainId = params.chainId || chainIds.ETHEREUM
     return {
-        perform: async () => upsertAbis(addresses)
+        perform: async () => upsertAbis(addresses, chainId)
     }
 }

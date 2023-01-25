@@ -46,6 +46,10 @@ import {
     schemas,
     randomIntegerInRange,
     uniqueByKeys,
+    unique,
+    snakeToCamel,
+    stripLeadingAndTrailingUnderscores,
+    toNamespacedVersion,
 } from '../../../../shared'
 
 const web3js = new Web3()
@@ -142,12 +146,8 @@ class EthereumIndexer extends AbstractIndexer {
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
         const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
         const [abis, functionSignatures] = await Promise.all([
-            getAbis(
-                Array.from(new Set([ ...txToAddresses, ...logAddresses ])),
-            ),
-            getFunctionSignatures(
-                Array.from(new Set(sigs)),
-            ),
+            getAbis(unique([ ...txToAddresses, ...logAddresses ])),
+            getFunctionSignatures(unique(sigs)),
         ])
         const numAbis = Object.keys(abis).length
         const numFunctionSigs = Object.keys(functionSignatures).length
@@ -222,7 +222,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _alreadyIndexedBlock(): Promise<boolean> {
         return !config.IS_RANGE_MODE 
-            && !this.head.replace 
+            && !this.head.replace
             && (await this._blockAlreadyExists(schemas.ETHEREUM))
     }
 
@@ -230,7 +230,6 @@ class EthereumIndexer extends AbstractIndexer {
         // For new contracts that could possibly already have ABIs on etherscan/samczsun, 
         // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
         // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
-
         const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
         missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
     }
@@ -300,34 +299,42 @@ class EthereumIndexer extends AbstractIndexer {
         const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
         if (!decodedLogs.length) return []
 
-        const addresses = Array.from(new Set(decodedLogs.map(log => log.address)))
+        const addresses = unique(decodedLogs.map(log => log.address))
         const contractInstances = await this._getContractInstancesForAddresses(addresses)
         if (!contractInstances.length) return []
 
-        const namespacedContractInfoByAddress = {}
+        const contractDataByAddress = {}
         for (const contractInstance of contractInstances) {
-            const contractName = contractInstance.contract?.name
-            const nsp = contractInstance.contract?.namespace?.slug
-            if (!contractName || !nsp) continue
-            namespacedContractInfoByAddress[contractInstance.address] = {
-                nsp,
-                contractName,
+            const nsp = contractInstance.contract?.namespace?.name
+            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
+
+            if (!contractDataByAddress.hasOwnProperty(contractInstance.address)) {
+                contractDataByAddress[contractInstance.address] = []
             }
+            contractDataByAddress[contractInstance.address].push({
+                nsp,
+                contractInstanceName: contractInstance.name,
+            })
         }
-        if (!Object.keys(namespacedContractInfoByAddress)) return []
+        if (!Object.keys(contractDataByAddress)) return []
 
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
-            if (!namespacedContractInfoByAddress.hasOwnProperty(address)) continue
-            const { nsp, contractName } = namespacedContractInfoByAddress[address]
-            const { data, eventOrigin } = this._formatLogEventArgsForSpecEvent(decodedLog)
-            const namespacedEventName = [nsp, contractName, eventName].join('.')
-            eventSpecs.push({
-                name: namespacedEventName,
-                data: data,
-                origin: eventOrigin,
-            })
+            const contractData = contractDataByAddress[address] || []
+            if (!contractData.length) continue
+
+            for (const { nsp, contractInstanceName } of contractData) {
+                const { data, eventOrigin } = this._formatLogAsSpecEvent(
+                    decodedLog, 
+                    contractInstanceName,
+                )
+                eventSpecs.push({
+                    origin: eventOrigin,
+                    name: toNamespacedVersion(nsp, eventName, '0.0.1'),
+                    data: data,
+                })    
+            }
         }
         return eventSpecs
     }
@@ -500,22 +507,50 @@ class EthereumIndexer extends AbstractIndexer {
         return log
     }
 
-    _formatLogEventArgsForSpecEvent(log: EthLog): StringKeyMap {
+    _formatLogAsSpecEvent(log: EthLog, contractInstanceName: string): StringKeyMap {
         const eventOrigin = {
-            chainId: this.chainId,
-            transactionHash: log.transactionHash,
             contractAddress: log.address,
-            blockNumber: Number(log.blockNumber),
+            transactionHash: log.transactionHash,
             blockHash: log.blockHash,
+            blockNumber: Number(log.blockNumber),
             blockTimestamp: log.blockTimestamp.toISOString(),
+            chainId: this.chainId,
         }
-        const data = {}
-        const eventArgs = (log.eventArgs || []) as StringKeyMap[]
-        for (const arg of eventArgs) {
-            if (arg.name) {
-                data[arg.name] = arg.value
+        
+        const fixedContractEventProperties = {
+            ...eventOrigin,
+            contractName: contractInstanceName,
+            logIndex: log.logIndex,
+        }
+
+        const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
+        const eventProperties = []
+        for (const arg of logEventArgs) {
+            if (!arg.name) continue
+            eventProperties.push({
+                name: snakeToCamel(stripLeadingAndTrailingUnderscores(arg.name)),
+                value: arg.value,
+            })
+        }
+        
+        // Ensure event arg property names are unique.
+        const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
+        for (const property of eventProperties) {
+            let propertyName = property.name
+            while (seenPropertyNames.has(propertyName)) {
+                propertyName = '_' + propertyName
             }
+            seenPropertyNames.add(propertyName)
+            property.name = propertyName
         }
+
+        const data = {
+            ...fixedContractEventProperties
+        }
+        for (const property of eventProperties) {
+            data[property.name] = property.value
+        }
+
         return { data, eventOrigin }
     }
 

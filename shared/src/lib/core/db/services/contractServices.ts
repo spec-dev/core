@@ -53,3 +53,24 @@ export async function upsertContracts(
 
     return contracts
 }
+
+export async function upsertContractWithTx(
+    namespaceId: number,
+    name: string,
+    desc: string,
+    tx: any
+): Promise<Contract | null> {
+    const data = { namespaceId, name, desc, uid: uuid4() }
+    return (
+        (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(Contract)
+                .values(data)
+                .orUpdate(['desc'], ['namespace_id', 'name'])
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] || null
+    )
+}

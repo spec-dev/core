@@ -1,19 +1,12 @@
-export enum AbiDataType {
-    Address = 'address',
-    UInt256 = 'uint256',
-    Bool = 'bool',
-    String = 'string',
-}
-
 export interface AbiItemInput {
-    type: AbiDataType
+    type: string
     name?: string
     indexed?: boolean
 }
 
 export interface AbiItemOutput {
     name: string
-    type: AbiDataType
+    type: string
 }
 
 export enum AbiItemType {

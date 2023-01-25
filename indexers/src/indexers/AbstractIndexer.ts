@@ -5,6 +5,7 @@ import {
     numberToHex,
     SharedTables,
     StringKeyMap,
+    contractNamespaceForChainId,
 } from '../../../shared'
 import config from '../config'
 
@@ -14,6 +15,8 @@ class AbstractIndexer {
     resolvedBlockHash: string | null
 
     blockUnixTimestamp: number | null
+
+    contractEventNsp: string
 
     get chainId(): string {
         return this.head.chainId
@@ -43,6 +46,7 @@ class AbstractIndexer {
         this.head = head
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
+        this.contractEventNsp = contractNamespaceForChainId(this.head?.chainId)
     }
 
     async perform(): Promise<StringKeyMap | void> {

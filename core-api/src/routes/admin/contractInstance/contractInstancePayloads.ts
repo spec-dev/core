@@ -1,20 +1,24 @@
-import { ValidatedPayload, StringKeyMap, NewContractPayload } from '../../../types'
+import { ValidatedPayload, StringKeyMap, NewContractsPayload } from '../../../types'
 import { supportedChainIds } from '../../../../../shared'
 
-export function parseNewContractInstancesPayload(data: StringKeyMap[]): ValidatedPayload<NewContractPayload[]> {
-    data = data || []
-    if (!data.length) {
-        return { isValid: false, error: 'empty list of contracts given' }
+export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedPayload<NewContractsPayload> {
+    const nsp = data?.nsp
+    const chainId = data?.chainId
+    const contracts = data?.contracts || []
+
+    if (!data.nsp) {
+        return { isValid: false, error: '"nsp" required' }
     }
 
-    const uniqueNsps = new Set()
+    if (!supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
 
-    for (const contract of data) {
-        if (!contract.nsp) {
-            return { isValid: false, error: '"nsp" required for contract' }
-        }
-        uniqueNsps.add(contract.nsp)
+    if (!contracts.length) {
+        return { isValid: false, error: '"contracts" was missing or empty' }
+    }
 
+    for (const contract of contracts) {
         if (!contract.name) {
             return { isValid: false, error: '"name" required for contract' }
         }
@@ -28,10 +32,6 @@ export function parseNewContractInstancesPayload(data: StringKeyMap[]): Validate
         }
 
         for (const instance of contract.instances) {
-            if (!instance.chainId || !supportedChainIds.has(instance.chainId)) {
-                return { isValid: false, error: `invalid "chainId" for instance: ${instance.chainId}` }
-            }
-
             if (!instance.address) {
                 return { isValid: false, error: '"address" required for instance' }
             }
@@ -42,12 +42,13 @@ export function parseNewContractInstancesPayload(data: StringKeyMap[]): Validate
         }
     }
     
-    if (uniqueNsps.size > 1) {
-        return { isValid: false, error: 'Can only register multiple new contracts if they all share the same "nsp".' }
-    }
 
     return { 
         isValid: true,
-        payload: data as NewContractPayload[],
+        payload: {
+            nsp,
+            chainId,
+            contracts,
+        }
     }
 }

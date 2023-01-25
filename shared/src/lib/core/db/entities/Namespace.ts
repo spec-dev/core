@@ -13,6 +13,7 @@ export class Namespace {
     id: number
 
     @Column()
+    @Index({ unique: true })
     name: string
 
     @Column()

@@ -1,5 +1,7 @@
 import { SharedTables } from '../shared-tables/db/dataSource'
 
+export const MAX_TABLE_NAME_LENGTH = 63
+
 export async function doesSharedTableExist(schema: string, table: string): Promise<boolean> {
     const result = await SharedTables.query(
         `select count(*) from pg_tables where schemaname = $1 and tablename = $2`,

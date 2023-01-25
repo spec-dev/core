@@ -17,7 +17,7 @@ app.post(paths.UPSERT_ABIS, async (req, res) => {
     }
 
     // Kick off delayed job to upsert abis.
-    if (!(await enqueueDelayedJob('upsertAbis', { addresses: payload.addresses }))) {
+    if (!(await enqueueDelayedJob('upsertAbis', payload))) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }
 

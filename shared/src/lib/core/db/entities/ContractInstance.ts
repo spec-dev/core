@@ -15,7 +15,8 @@ import { Contract } from './Contract'
  * Instances of deployed contracts.
  */
 @Entity('contract_instances')
-@Index(['address', 'chainId'], { unique: true })
+@Index(['address', 'chainId'])
+@Index(['address', 'chainId', 'contractId'], { unique: true })
 export class ContractInstance {
     @PrimaryGeneratedColumn()
     id: number
