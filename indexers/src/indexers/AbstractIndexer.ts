@@ -46,7 +46,7 @@ class AbstractIndexer {
         this.head = head
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
-        this.contractEventNsp = contractNamespaceForChainId(this.head?.chainId)
+        this.contractEventNsp = contractNamespaceForChainId(this.chainId)
     }
 
     async perform(): Promise<StringKeyMap | void> {
