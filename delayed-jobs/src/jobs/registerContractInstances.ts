@@ -117,7 +117,7 @@ async function upsertVerifiedAbis(
 
     // Refetch abis from *scan.
     const addressesToFetchWithStarScan = refetchAbis ? addresses : addressesWithoutAbis
-    logger.info(`Fetching ABIs for ${addressesToFetchWithStarScan} addresses...`)
+    logger.info(`Fetching ABIs for ${addressesToFetchWithStarScan.join(', ')}...`)
     const starScanAbisMap = await fetchAbis(addressesToFetchWithStarScan, providers.STARSCAN, chainId)
     const verifiedAbisMap = { ...prevAbisMap, ...starScanAbisMap }
 
