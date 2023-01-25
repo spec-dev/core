@@ -34,6 +34,9 @@ import {
     schemas,
     randomIntegerInRange,
     unique,
+    snakeToCamel,
+    stripLeadingAndTrailingUnderscores,
+    toNamespacedVersion,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -60,6 +63,7 @@ class PolygonIndexer extends AbstractIndexer {
     constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
         super(head)
         this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
+        
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -241,30 +245,36 @@ class PolygonIndexer extends AbstractIndexer {
         const contractInstances = await this._getContractInstancesForAddresses(addresses)
         if (!contractInstances.length) return []
 
-        const namespacesForAddress = {}
+        const contractDataByAddress = {}
         for (const contractInstance of contractInstances) {
             const nsp = contractInstance.contract?.namespace?.name
             if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
 
-            if (!namespacesForAddress.hasOwnProperty(contractInstance.address)) {
-                namespacesForAddress[contractInstance.address] = []
+            if (!contractDataByAddress.hasOwnProperty(contractInstance.address)) {
+                contractDataByAddress[contractInstance.address] = []
             }
-            namespacesForAddress[contractInstance.address].push(nsp)
+            contractDataByAddress[contractInstance.address].push({
+                nsp,
+                contractInstanceName: contractInstance.name,
+            })
         }
-        if (!Object.keys(namespacesForAddress)) return []
+        if (!Object.keys(contractDataByAddress)) return []
 
         const eventSpecs = []
         for (const decodedLog of decodedLogs) {
             const { eventName, address } = decodedLog
-            if (!namespacesForAddress.hasOwnProperty(address)) continue
+            const contractData = contractDataByAddress[address] || []
+            if (!contractData.length) continue
 
-            const nsps = namespacesForAddress[address] || []
-            for (const nsp of nsps) {
-                const { data, eventOrigin } = this._formatLogAsSpecEvent(decodedLog)
+            for (const { nsp, contractInstanceName } of contractData) {
+                const { data, eventOrigin } = this._formatLogAsSpecEvent(
+                    decodedLog, 
+                    contractInstanceName,
+                )
                 eventSpecs.push({
-                    name: [nsp, eventName].join('.'),
-                    data: data,
                     origin: eventOrigin,
+                    name: toNamespacedVersion(nsp, eventName, '0.0.1'),
+                    data: data,
                 })    
             }
         }
@@ -671,22 +681,50 @@ class PolygonIndexer extends AbstractIndexer {
         return log
     }
 
-    _formatLogAsSpecEvent(log: PolygonLog): StringKeyMap {
+    _formatLogAsSpecEvent(log: PolygonLog, contractInstanceName: string): StringKeyMap {
         const eventOrigin = {
-            chainId: this.chainId,
-            transactionHash: log.transactionHash,
             contractAddress: log.address,
-            blockNumber: Number(log.blockNumber),
+            transactionHash: log.transactionHash,
             blockHash: log.blockHash,
+            blockNumber: Number(log.blockNumber),
             blockTimestamp: log.blockTimestamp.toISOString(),
+            chainId: this.chainId,
         }
-        const data = {}
-        const eventArgs = (log.eventArgs || []) as StringKeyMap[]
-        for (const arg of eventArgs) {
-            if (arg.name) {
-                data[arg.name] = arg.value
+        
+        const fixedContractEventProperties = {
+            ...eventOrigin,
+            contractName: contractInstanceName,
+            logIndex: log.logIndex,
+        }
+
+        const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
+        const eventProperties = []
+        for (const arg of logEventArgs) {
+            if (!arg.name) continue
+            eventProperties.push({
+                name: snakeToCamel(stripLeadingAndTrailingUnderscores(arg.name)),
+                value: arg.value,
+            })
+        }
+        
+        // Ensure event arg property names are unique.
+        const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
+        for (const property of eventProperties) {
+            let propertyName = property.name
+            while (seenPropertyNames.has(propertyName)) {
+                propertyName = '_' + propertyName
             }
+            seenPropertyNames.add(propertyName)
+            property.name = propertyName
         }
+
+        const data = {
+            ...fixedContractEventProperties
+        }
+        for (const property of eventProperties) {
+            data[property.name] = property.value
+        }
+
         return { data, eventOrigin }
     }
 

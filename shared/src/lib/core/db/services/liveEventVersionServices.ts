@@ -36,6 +36,7 @@ export async function createLiveEventVersionsWithTx(
             .insert()
             .into(LiveEventVersion)
             .values(data)
+            .orIgnore()
             .returning('*')
             .execute()
     ).generatedMaps

@@ -111,15 +111,17 @@ export function buildContractEventAsLiveObjectVersionPayload(
         property.name = propertyName
     }
 
+    const fullNspComps = fromNamespacedVersion(namespacedEventVersion)
+
     return {
-        namespace: fromNamespacedVersion(namespacedEventVersion).nsp,
+        namespace: fullNspComps.nsp,
         name: eventName,
         version: '0.0.1',
         displayName: eventName,
         description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
         properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
         config: {
-            folder: '',
+            folder: [fullNspComps.nsp, fullNspComps.name].join('.').replace('.', '/'),
             primaryTimestampProperty: fixedEventViewProperties.BLOCK_TIMESTAMP.name,
             uniqueBy: [
                 [

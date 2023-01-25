@@ -26,6 +26,7 @@ export interface NewContractsPayload {
     nsp: string
     chainId: string
     contracts: NewContractPayload[]
+    refetchAbis?: boolean
 }
 
 export interface NewContractPayload {

@@ -15,6 +15,7 @@ import {
     chainIds,
     schemaForChainId,
     range,
+    getAbis,
 } from '../../../shared'
 import fetch from 'cross-fetch'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
@@ -42,17 +43,35 @@ const starscanApiKey = {
     [chainIds.MUMBAI]: config.MUMBAISCAN_API_KEY,
 }
 
-async function upsertAbis(addresses: string[], chainId: string) {
+async function upsertAbis(
+    addresses: string[], 
+    chainId: string,
+    overwriteWithStarscan?: boolean,
+    overwriteWithSamczsun?: boolean,
+) {
     logger.info(`Processing ${addresses.length} addresses to pull ABIs for....`)
 
+    const addressesAlreadyWithAbis = new Set(Object.keys(await getAbis(addresses, chainId)))
+    const newAddresses = addresses.filter(a => !addressesAlreadyWithAbis.has(a))
+
+    if (!newAddresses.length && !overwriteWithStarscan) {
+        logger.info(`All ABIs already pulled.`)
+        return
+    }
+
     // Try one of the *scan providers first.
-    const starScanAbisMap = await fetchAbis(addresses, providers.STARSCAN, chainId)
-    const addressesNotVerifiedOnStarscan = addresses.filter(a => !starScanAbisMap.hasOwnProperty(a))
+    const addressesToFetchWithStarScan = overwriteWithStarscan ? addresses : newAddresses
+    const starScanAbisMap = await fetchAbis(addressesToFetchWithStarScan, providers.STARSCAN, chainId)
+    const addressesMissingFromStarscan = addressesToFetchWithStarScan.filter(a => !starScanAbisMap.hasOwnProperty(a))
 
     // Fall back to Samczsun.
     let samczsunAbisMap = {}
-    if (addressesNotVerifiedOnStarscan.length) {
-        const contracts = await getContracts(addressesNotVerifiedOnStarscan, chainId)
+    if (addressesMissingFromStarscan.length) {
+        const addressesToFetchWithSamczsun = overwriteWithSamczsun 
+            ? addressesMissingFromStarscan 
+            : addressesMissingFromStarscan.filter(a => !addressesAlreadyWithAbis.has(a))
+
+        const contracts = await getContracts(addressesToFetchWithSamczsun, chainId)
         if (contracts.length) {
             samczsunAbisMap = await fetchAbis(contracts, providers.SAMCZSUN, chainId)
         }
@@ -65,8 +84,6 @@ async function upsertAbis(addresses: string[], chainId: string) {
     )
 
     const [abisMap, funcSigHashesMap] = polishAbis({ ...starScanAbisMap, ...samczsunAbisMap })
-
-    console.log(JSON.stringify(abisMap))
 
     await Promise.all([
         saveAbisMap(abisMap, chainId),
@@ -98,6 +115,8 @@ export async function fetchAbis(
     provider: string,
     chainId: string,
 ): Promise<StringKeyMap> {
+    if (!data.length) return {}
+
     const chunks = toChunks(data, 5) as string[][]
 
     const results = []
@@ -391,7 +410,14 @@ function stringify(abi: any): string | null {
 export default function job(params: StringKeyMap) {
     const addresses = (params.addresses || []).map(a => a.toLowerCase())
     const chainId = params.chainId || chainIds.ETHEREUM
+    const overwriteWithStarscan = params.overwriteWithStarscan || false
+    const overwriteWithSamczsun = params.overwriteWithSamczsun || false
     return {
-        perform: async () => upsertAbis(addresses, chainId)
+        perform: async () => upsertAbis(
+            addresses, 
+            chainId,
+            overwriteWithStarscan,
+            overwriteWithSamczsun,
+        )
     }
 }

@@ -119,6 +119,7 @@ export async function createLiveObjectVersionWithTx(
                 .insert()
                 .into(LiveObjectVersion)
                 .values(data)
+                .orUpdate(['config'], ['nsp', 'name', 'version'])
                 .returning('*')
                 .execute()
         ).generatedMaps[0] || null

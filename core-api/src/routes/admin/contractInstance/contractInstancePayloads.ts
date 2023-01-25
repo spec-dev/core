@@ -5,6 +5,7 @@ export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedP
     const nsp = data?.nsp
     const chainId = data?.chainId
     const contracts = data?.contracts || []
+    const refetchAbis = data?.refetchAbis || false
 
     if (!data.nsp) {
         return { isValid: false, error: '"nsp" required' }
@@ -49,6 +50,7 @@ export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedP
             nsp,
             chainId,
             contracts,
+            refetchAbis,
         }
     }
 }

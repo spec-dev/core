@@ -29,11 +29,11 @@ import {
     CONTRACT_NAME_COL,
     CONTRACT_ADDRESS_COL,
     namespaceForChainId,
+    getAbis,
 } from '../../../shared'
 import { EventViewSpec, EventSpec } from '../types'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
 import { ident, literal } from 'pg-format'
-import config from '../config'
 import { 
     fetchAbis, 
     providers, 
@@ -42,7 +42,12 @@ import {
     saveFuncSigHashes,
 } from './upsertAbis'
 
-async function registerContractInstances(nsp: string, chainId: string, contractPayloads: NewContractPayload[]) {
+async function registerContractInstances(
+    nsp: string, 
+    chainId: string, 
+    contractPayloads: NewContractPayload[],
+    refetchAbis?: boolean,
+) {
     // Get all unique contract addresses given.
     const allContractAddresses = unique(contractPayloads.map(c => (c.instances || []).map(i => i.address)).flat())
     logger.info(`[${chainId}:${nsp}]: Registering ${allContractAddresses.length} contract instances...`)
@@ -59,12 +64,12 @@ async function registerContractInstances(nsp: string, chainId: string, contractP
     const chainSpecificSpecRepo = specGithubRepoUrl(namespaceForChainId[chainId])
 
     // Upsert ABIs for the given contract addresses.
-    const abisMap = await upsertVerifiedAbis(allContractAddresses, chainId)
+    const abisMap = await upsertVerifiedAbis(allContractAddresses, chainId, refetchAbis)
     if (!abisMap) return
 
     // Verify all instances of the same contract share the "same" ABI.
-    const contractAbis = ensureAllInstancesShareSimilarAbis(contractPayloads, abisMap)
-    if (!contractAbis) return
+    const eventAbiItemsByContract = mergeAbis(contractPayloads, abisMap)
+    if (!eventAbiItemsByContract?.length) return
 
     // Upsert namespaces, contracts, contract instances, events, and event versions.
     const eventSpecs = await saveDataModels(
@@ -72,7 +77,7 @@ async function registerContractInstances(nsp: string, chainId: string, contractP
         chainSpecificSpecRepo,
         chainId,
         contractPayloads,
-        contractAbis,
+        eventAbiItemsByContract,
     )
     if (eventSpecs === null) return
     if (!eventSpecs.length) {
@@ -95,9 +100,26 @@ async function registerContractInstances(nsp: string, chainId: string, contractP
     // Kick off jobs to back-decode all events for their associated contract instance addresses.
 }
 
-async function upsertVerifiedAbis(addresses: string[], chainId: string): Promise<{ [key: string]: Abi } | null> {    
-    // Pull verified abis for each address.
-    const verifiedAbisMap = await fetchAbis(addresses, providers.STARSCAN, chainId)
+async function upsertVerifiedAbis(
+    addresses: string[], 
+    chainId: string, 
+    refetchAbis: boolean,
+): Promise<{ [key: string]: Abi } | null> {   
+    const prevAbisMap = await getAbis(addresses, chainId)
+    const addressesWithoutAbis = addresses.filter(a => !prevAbisMap.hasOwnProperty(a))
+    
+    // If ABIs already exist for all given addresses, and not configured 
+    // to refetch ABIs, then everything is already fetched.
+    if (!addressesWithoutAbis.length && !refetchAbis) {
+        logger.info(`All ABIs already pulled.`)
+        return prevAbisMap
+    }
+
+    // Refetch abis from *scan.
+    const addressesToFetchWithStarScan = refetchAbis ? addresses : addressesWithoutAbis
+    logger.info(`Fetching ABIs for ${addressesToFetchWithStarScan} addresses...`)
+    const starScanAbisMap = await fetchAbis(addressesToFetchWithStarScan, providers.STARSCAN, chainId)
+    const verifiedAbisMap = { ...prevAbisMap, ...starScanAbisMap }
 
     // Ensure all addresses had corresponding verified ABIs. 
     const unverifiedAbiAddresses = addresses.filter(a => !verifiedAbisMap.hasOwnProperty(a))
@@ -115,11 +137,11 @@ async function upsertVerifiedAbis(addresses: string[], chainId: string): Promise
     return abisMap as { [key: string]: Abi }
 }
 
-function ensureAllInstancesShareSimilarAbis(
+function mergeAbis(
     contracts: NewContractPayload[],
     abisMap: { [key: string]: Abi },
 ): Abi[] | null {
-    const contractAbis: Abi[] = []
+    const eventAbiItemsByContract: Abi[] = []
 
     for (const contract of contracts) {
         // Get contract instances.
@@ -128,60 +150,29 @@ function ensureAllInstancesShareSimilarAbis(
             logger.error(`No instances given for contract: ${contract.name}`)
             return null
         }
+        
+        const seenEventNames = new Set()
+        const contractEventAbiItems = []
+        for (const instance of instances) {
+            const abi = abisMap[instance.address] as Abi
 
-        // Get abis for each contract instance.
-        const abis = instances.map(instance => abisMap[instance.address])
+            const eventAbiItems = abi.filter(item => (
+                item.type === AbiItemType.Event &&
+                !!item.name &&
+                !!(item.inputs?.every(input => !!input.name))
+            ))
 
-        // Get abi with the least number of items.
-        let matchAbi: Abi = null
-        let matchAbiIndex = 0
-        for (let i = 0; i < abis.length; i++) {
-            const abi = abis[i]
-            if (!matchAbi || abi.length < matchAbi.length) {
-                matchAbi = abi
-                matchAbiIndex = i
+            for (const item of eventAbiItems) {
+                if (seenEventNames.has(item.name)) continue
+                contractEventAbiItems.push(item)
+                seenEventNames.add(item.name)
             }
         }
 
-        contractAbis.push(matchAbi)
-        const requiredSigs = matchAbi.map(item => item.signature)
-        const requiredEventSigs = matchAbi.filter(item => (
-            !!item.name &&
-            item.type === AbiItemType.Event
-        )).map(item => item.signature)
-
-        // Ensure other abis have all required signatures.
-        for (let i = 0; i < abis.length; i++) {
-            if (i === matchAbiIndex) continue
-            const contractInstance = instances[i]
-            const abi = abis[i]
-            const abiSigs = new Set(abi.map(item => item.signature))
-
-            for (const sig of requiredEventSigs) {
-                if (!abiSigs.has(sig)) {
-                    logger.error(
-                        `contract ${contractInstance.name} missing abi event: ${JSON.stringify(
-                            matchAbi.find(item => item.signature === sig),
-                        )}`
-                    )
-                    return null
-                }
-            }
-
-            const numMatchingSigs = requiredSigs.filter(sig => abiSigs.has(sig)).length
-            const matchingFraction = numMatchingSigs / requiredSigs.length
-            logger.info(contractInstance.name, matchingFraction)
-            
-            if (matchingFraction < config.MIN_CONTRACT_ABI_SIMILARITY) {
-                logger.error(
-                    `contract ${contractInstance.name} failed ABI similarity with ${matchingFraction} score.`
-                )
-                return null
-            }
-        }
+        eventAbiItemsByContract.push(contractEventAbiItems)
     }
     
-    return contractAbis
+    return eventAbiItemsByContract
 }
 
 async function saveDataModels(
@@ -189,7 +180,7 @@ async function saveDataModels(
     chainSpecificSpecRepo: string,
     chainId: string,
     contractPayloads: NewContractPayload[],
-    contractAbis: Abi[],
+    eventAbiItemsByContract: Abi[],
 ): Promise<EventSpec[] | null> {
     let eventSpecs = []
     try {
@@ -206,7 +197,7 @@ async function saveDataModels(
 
             // Upsert events with versions for each event abi item.
             eventSpecs = await Promise.all(contracts.map((contract, i) => (
-                upsertEvents(contract, contractInstances[i], contractAbis[i], tx)
+                upsertEvents(contract, contractInstances[i], eventAbiItemsByContract[i], tx)
             )))
         })
     } catch (err) {
@@ -274,7 +265,7 @@ async function upsertView(viewSpec: EventViewSpec, chainId: string): Promise<boo
         eventName,
     } = viewSpec
 
-    logger.info(`Upserting view ${schema}.${name}...`)
+    logger.info(`\nUpserting view ${schema}.${name}`)
 
     const contractNameOptions = [
         ...contractInstances.map(ci => (
@@ -369,22 +360,11 @@ async function upsertContractInstances(
 async function upsertEvents(
     contract: Contract,
     contractInstances: ContractInstance[],
-    abi: Abi,
+    eventAbiItems: Abi,
     tx: any,
 ): Promise<EventSpec[]> {
     if (!contractInstances.length) return []
     const namespace = contract.namespace
-
-    // Extract all event abi items.
-    const eventAbiItems = uniqueByKeys(
-        abi.filter(item => (
-            item.type === AbiItemType.Event &&
-            !!item.name &&
-            !!(item.inputs?.every(input => !!input.name))
-        )),
-        ['name']
-    )
-    if (!eventAbiItems.length) return []
 
     // Upsert events for each event abi item.
     const eventsData = eventAbiItems.map(abiItem => ({
@@ -426,12 +406,15 @@ export default function job(params: StringKeyMap) {
     const nsp = params.nsp
     const chainId = params.chainId
     const contracts = params.contracts || []
+    const refetchAbis = params.refetchAbis || false
+
     contracts.forEach(c => {
         c.instances.forEach(ci => {
             ci.address = ci.address.toLowerCase()
         })
     })
+
     return {
-        perform: async () => registerContractInstances(nsp, chainId, contracts)
+        perform: async () => registerContractInstances(nsp, chainId, contracts, refetchAbis)
     }
 }

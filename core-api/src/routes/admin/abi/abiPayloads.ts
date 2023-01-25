@@ -4,11 +4,15 @@ import { chainIds, supportedChainIds } from '../../../../../shared'
 export interface UpsertAbisPayload {
     addresses: string[]
     chainId?: string
+    overwriteWithStarscan?: boolean
+    overwriteWithSamczsun?: boolean
 }
 
 export function parseUpsertAbisPayload(data: StringKeyMap): ValidatedPayload<UpsertAbisPayload> {
     const addresses = data?.addresses
     const chainId = data?.chainId
+    const overwriteWithStarscan = data?.overwriteWithStarscan || false
+    const overwriteWithSamczsun = data?.overwriteWithSamczsun || false
 
     if (!addresses || !addresses.length) {
         return { isValid: false, error: '"addresses" missing or empty' }
@@ -23,6 +27,8 @@ export function parseUpsertAbisPayload(data: StringKeyMap): ValidatedPayload<Ups
         payload: { 
             addresses,
             chainId: data?.chainId || chainIds.ETHEREUM,
+            overwriteWithStarscan,
+            overwriteWithSamczsun,
         },
     }
 }
