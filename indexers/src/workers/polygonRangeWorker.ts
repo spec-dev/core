@@ -69,7 +69,7 @@ class PolygonRangeWorker {
         logger.info(`Indexing ${start} --> ${end}...`)
 
         const missingBlockNumbers = (await SharedTables.query(
-            `SELECT s.id AS missing FROM generate_series(${literal(start)}, ${literal(end)}) s(id) WHERE NOT EXISTS (SELECT 1 FROM polygon.blocks WHERE number = s.id)`
+            `SELECT s.id AS missing FROM generate_series(${start}, ${end}) s(id) WHERE NOT EXISTS (SELECT 1 FROM polygon.blocks WHERE number = s.id)`
         )).map(r => r.missing)
         if (!missingBlockNumbers.length) return
 
