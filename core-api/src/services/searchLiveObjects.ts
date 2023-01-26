@@ -42,9 +42,10 @@ function formatAsLatestLiveObject(liveObjectVersion: LiveObjectVersion): LatestL
         icon = '' // TODO: Need fallback
     }
 
+    // TODO: Clean this up.
     let codeUrl = null
     if (!isContractEvent && namespace.codeUrl && !!(config?.folder)) {
-        codeUrl = path.join(namespace.codeUrl, 'tree', 'master', config.folder)
+        codeUrl = path.join(namespace.codeUrl, 'blob', 'master', config.folder, 'spec.ts')
     }
 
     return {
