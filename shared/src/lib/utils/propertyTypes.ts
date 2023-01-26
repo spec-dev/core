@@ -81,10 +81,13 @@ export function guessPropertyTypeFromSolidityType(solidityType: string): string 
         return BOOLEAN
     }
 
+    if (solidityType.includes('address')) {
+        return ADDRESS
+    }
+
     if (
         solidityType.includes('int') ||
         solidityType.includes('string') ||
-        solidityType.includes('address') ||
         solidityType.includes('bytes')
     ) {
         return STRING

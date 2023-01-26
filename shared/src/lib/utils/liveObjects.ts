@@ -81,7 +81,7 @@ export const fixedEventViewPropertyNames = new Set(
 const formatEventParamAsProperty = (eventParam: StringKeyMap): LiveObjectVersionProperty => ({
     name: snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name)),
     type: guessPropertyTypeFromSolidityType(eventParam.type),
-    desc: `The ${eventParam.name} event property.`,
+    desc: `The "${eventParam.name}" contract event argument.`,
 })
 
 export const CONTRACT_NAME_COL = camelToSnake(fixedEventViewProperties.CONTRACT_NAME.name)
@@ -121,7 +121,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
         description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
         properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
         config: {
-            folder: [fullNspComps.nsp, fullNspComps.name].join('.').replace('.', '/'),
+            folder: [fullNspComps.nsp, fullNspComps.name].join('.').replace(/\./gi, '/'),
             primaryTimestampProperty: fixedEventViewProperties.BLOCK_TIMESTAMP.name,
             uniqueBy: [
                 [
