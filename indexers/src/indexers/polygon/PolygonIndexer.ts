@@ -41,6 +41,19 @@ import {
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
 import { getERC20TokenBalance, getERC1155TokenBalance } from '../../services/contractServices'
+import { 
+    decodeTransferEvent, 
+    decodeTransferSingleEvent, 
+    decodeTransferBatchEvent,
+} from '../../services/extractTransfersFromLogs'
+import { 
+    TRANSFER_TOPIC,
+    TRANSFER_SINGLE_TOPIC,
+    TRANSFER_BATCH_TOPIC,
+    TRANSFER_EVENT_NAME,
+    TRANSFER_SINGLE_EVENT_NAME,
+    TRANSFER_BATCH_EVENT_NAME,
+} from '../../utils/standardAbis'
 
 const web3js = new Web3()
 
@@ -616,6 +629,9 @@ class PolygonIndexer extends AbstractIndexer {
             }
             try {
                 log = this._decodeLog(log, abis[log.address])
+                if (!log.eventName) {
+                    log = this._tryDecodingLogAsTransfer(log)
+                }
             } catch (err) {
                 this._error(`Error decoding log for address ${log.address}: ${err}`)
             }
@@ -676,6 +692,38 @@ class PolygonIndexer extends AbstractIndexer {
                 `Log event args not stringifyable (transaction_hash=${log.transactionHash}, log_index=${log.logIndex})`
             )
         }
+
+        return log
+    }
+
+    _tryDecodingLogAsTransfer(log: PolygonLog): PolygonLog {
+        let eventName, eventArgs
+
+        // Transfer
+        if (log.topic0 === TRANSFER_TOPIC) {
+            eventArgs = decodeTransferEvent(log, true)
+            if (!eventArgs) return log
+            eventName = TRANSFER_EVENT_NAME
+        }
+
+        // TransferSingle
+        if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
+            eventArgs = decodeTransferSingleEvent(log, true)
+            if (!eventArgs) return log
+            eventName = TRANSFER_SINGLE_EVENT_NAME
+        }
+
+        // TransferBatch
+        if (log.topic0 === TRANSFER_BATCH_TOPIC) {
+            eventArgs = decodeTransferBatchEvent(log, true)
+            if (!eventArgs) return log
+            eventName = TRANSFER_BATCH_EVENT_NAME
+        }
+
+        if (!eventName) return log
+
+        log.eventName = eventName
+        log.eventArgs = eventArgs as StringKeyMap[]
 
         return log
     }
