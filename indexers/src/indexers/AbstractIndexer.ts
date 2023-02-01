@@ -82,6 +82,7 @@ class AbstractIndexer {
     }
 
     async _wasUncled(): Promise<boolean> {
+        return false // HACK - experiment
         if (config.IS_RANGE_MODE) return false
         return await quickUncleCheck(this.chainId, this.blockHash)
     }
