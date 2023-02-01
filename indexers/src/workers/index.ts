@@ -6,6 +6,7 @@ import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
 import { getLogWorker } from './logWorker'
 import { getDecodeLogWorker } from './decodeLogWorker'
+import { getPolygonDecodeLogWorker } from './polygonDecodeLogWorker'
 import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
 import { getDecodeTxWorker } from './decodeTxWorker'
@@ -22,7 +23,13 @@ export async function getWorker(): Promise<IndexerWorker> {
         return getLogWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'dlog') {
-        return getDecodeLogWorker()
+        switch (config.CHAIN_ID) {
+            case chainIds.POLYGON:
+            case chainIds.MUMBAI:
+                return getPolygonDecodeLogWorker()
+            default:
+                return getDecodeLogWorker()
+        }
     }
     if (config.RANGE_WORKER_TYPE === 'gap') {
         return getGapWorker()
