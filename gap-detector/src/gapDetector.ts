@@ -162,6 +162,7 @@ class GapDetector {
             blockNumber: Number(number),
             blockHash: hash,
             replace: false,
+            force: false,
         }
 
         logger.info(`[${chainId}] Enqueueing missing block ${number}...`)

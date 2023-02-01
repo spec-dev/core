@@ -221,9 +221,8 @@ class EthereumIndexer extends AbstractIndexer {
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        return !config.IS_RANGE_MODE 
-            && !this.head.replace
-            && (await this._blockAlreadyExists(schemas.ETHEREUM))
+        if (this.head.force) return false
+        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ETHEREUM))
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {

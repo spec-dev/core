@@ -32,6 +32,7 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
         blockNumber: number,
         blockHash: hash,
         replace,
+        force: config.FORCE_REINDEX,
     }
 
     logger.info(`Enqueueing block ${number} for indexing...`)

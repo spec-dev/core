@@ -2,6 +2,9 @@ import { ev, config, StringKeyMap } from '../../shared'
 
 const alchemySubUrl = ev('ALCHEMY_SUBSCRIPTION_URL')
 
+const manuallyReportNumbers = (ev('MANUALLY_REPORT_NUMBERS') || '')
+    .split(',').map(v => v.trim()).filter(v => v!!).map(v => parseInt(v))
+
 const hrConfig: StringKeyMap = {
     ...config,
     CHAIN_ID: ev('CHAIN_ID'),
@@ -9,6 +12,8 @@ const hrConfig: StringKeyMap = {
         ? alchemySubUrl
         : `wss://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     HEAD_BUFFER: Number(ev('HEAD_BUFFER', 2)),
+    MANUALLY_REPORT_NUMBERS: manuallyReportNumbers,
+    FORCE_REINDEX: [true, 'true'].includes(ev('FORCE_REINDEX', '').toLowerCase()),
 }
 
 export default hrConfig

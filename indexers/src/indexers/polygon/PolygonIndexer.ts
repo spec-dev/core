@@ -185,9 +185,8 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        return !config.IS_RANGE_MODE 
-            && !this.head.replace 
-            && (await this._blockAlreadyExists(schemas.polygon()))
+        if (this.head.force) return false
+        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.polygon()))
     }
 
     async _savePrimitives(

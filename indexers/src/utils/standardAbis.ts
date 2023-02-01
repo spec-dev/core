@@ -5,6 +5,31 @@
 export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 export const TRANSFER_SINGLE_TOPIC = '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
 export const TRANSFER_BATCH_TOPIC = '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
+export const TRANSFER_EVENT_NAME = 'Transfer'
+export const TRANSFER_SINGLE_EVENT_NAME = 'TransferSingle'
+export const TRANSFER_BATCH_EVENT_NAME = 'TransferBatch'
+export const BATCH_TRANSFER_INPUTS = [
+    {
+        name: 'operator',
+        type: 'address'
+    },
+    {
+        name: 'from',
+        type: 'address'
+    },
+    {
+        name: 'to',
+        type: 'address'
+    },
+    {
+        name: 'ids',
+        type: 'uint256[]'
+    },
+    {
+        name: 'values',
+        type: 'uint256[]'
+    }
+]
 
 // ################################
 //  ERC-20

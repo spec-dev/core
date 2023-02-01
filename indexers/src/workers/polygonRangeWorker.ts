@@ -16,7 +16,6 @@ import {
     toChunks,
 } from '../../../shared'
 import { exit } from 'process'
-import { literal } from 'pg-format'
 
 class PolygonRangeWorker {
 

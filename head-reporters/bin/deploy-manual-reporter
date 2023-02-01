@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Create and deploy a new K8S head reporter --- #
+# --- Create and deploy a new K8S manual number reporter --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -18,6 +18,8 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
+manually_report_numbers=$( $shared_bin_dir/env_reader "$env" "MANUALLY_REPORT_NUMBERS" )
+force_reindex=$( $shared_bin_dir/env_reader "$env" "FORCE_REINDEX" )
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
@@ -36,6 +38,7 @@ indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
+$shared_bin_dir/assert_env "MANUALLY_REPORT_NUMBERS" "$manually_report_numbers"
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
@@ -65,11 +68,15 @@ image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
-template_path="$hr_dir/head-reporter.yaml"
+template_path="$hr_dir/manual-reporter.yaml"
+job_name="manual-reporter-$image_version-$FROM-$TO-x"
 
 # Create the config template.
 template=$( cat "$template_path" | \
+    sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{MANUALLY_REPORT_NUMBERS}}|$manually_report_numbers|g" | \
+    sed "s|{{FORCE_REINDEX}}|$force_reindex|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
@@ -82,7 +89,7 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
     sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" )
 
-echo "Creating head reporter job resources..."
+echo "Creating manual reporter job resources..."
 
 # Apply the template.
 echo "$template" | kubectl apply -f -

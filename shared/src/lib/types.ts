@@ -6,6 +6,7 @@ export interface NewReportedHead {
     blockNumber: number
     blockHash: string | null
     replace: boolean
+    force: boolean
 }
 
 export interface SpecFunctionResponse {
