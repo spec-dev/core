@@ -227,6 +227,7 @@ class GapWorker {
             blockNumber,
             blockHash: null,
             replace: false,
+            force: true,
         }
     }
 
