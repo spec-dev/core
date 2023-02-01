@@ -5,6 +5,7 @@ import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
 import { getLogWorker } from './logWorker'
+import { getDecodeLogWorker } from './decodeLogWorker'
 import { getGapWorker } from './gapWorker'
 import { getAbiWorker } from './abiWorker'
 import { getDecodeTxWorker } from './decodeTxWorker'
@@ -19,6 +20,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'log') {
         return getLogWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'dlog') {
+        return getDecodeLogWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'gap') {
         return getGapWorker()
