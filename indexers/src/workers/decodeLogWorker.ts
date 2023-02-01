@@ -96,7 +96,7 @@ class DecodeLogWorker {
 
         // Get all abis for addresses needed to decode logs.
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
-        const abis = await getAbis(unique([ ...logAddresses ]))
+        const abis = await getAbis(unique([ ...logAddresses ]), config.CHAIN_ID)
 
         // Use abis to decode logs and report progress.
         logs = this._decodeLogs(logs, abis)
