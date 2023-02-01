@@ -52,6 +52,8 @@ export {
     setIndexedBlockToFailed,
     insertIndexedBlocks,
     setIndexedBlocksToSucceeded,
+    getFailedIds,
+    resetIndexedBlocks,
 } from './lib/indexer/db/services/indexedBlockServices'
 export { range, randomIntegerInRange } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'

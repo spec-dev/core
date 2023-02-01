@@ -13,10 +13,12 @@ async function resolveBlockTraces(
     let numAttempts = 0
 
     try {
-        while (externalTraces === null && numAttempts < config.MAX_ATTEMPTS) {
+        while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
             externalTraces = await fetchTraces(hexBlockNumber)
             if (externalTraces === null) {
-                await sleep(config.NOT_READY_DELAY)
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
             }
             numAttempts += 1
         }

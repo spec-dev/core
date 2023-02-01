@@ -14,10 +14,12 @@ export async function resolveBlock(
     let externalBlock = null
     let numAttempts = 0
     try {
-        while (externalBlock === null && numAttempts < config.MAX_ATTEMPTS) {
+        while (externalBlock === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
             externalBlock = await fetchBlock(web3, blockNumberOrHash)
             if (externalBlock === null) {
-                await sleep(config.NOT_READY_DELAY)
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
             }
             numAttempts += 1
         }

@@ -610,10 +610,12 @@ class EthereumIndexer extends AbstractIndexer {
 
         let receipts = null
         let numAttempts = 0
-        while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
+        while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
             receipts = await getReceipts()
             if (receipts === null) {
-                await sleep(config.NOT_READY_DELAY)
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
             }
             numAttempts += 1
         }
@@ -632,10 +634,12 @@ class EthereumIndexer extends AbstractIndexer {
 
         let traces = null
         let numAttempts = 0
-        while (traces === null && numAttempts < config.MAX_ATTEMPTS) {
+        while (traces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
             traces = await getTraces()
             if (traces === null) {
-                await sleep(config.NOT_READY_DELAY)
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
             }
             numAttempts += 1
         }

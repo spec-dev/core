@@ -143,3 +143,32 @@ export async function setIndexedBlocksToSucceeded(ids: number[]) {
         throw err
     }
 }
+
+export async function resetIndexedBlocks(ids: number[]): Promise<IndexedBlock[]> {
+    try {
+        await indexedBlocks()
+            .createQueryBuilder()
+            .update({ failed: false, status: IndexedBlockStatus.Pending })
+            .where({ id: In(ids) })
+            .execute()
+        return await indexedBlocks().find({ where: { id: In(ids) } })
+    } catch (err) {
+        logger.error(`Error resetting indexed blocks for ids (${ids.join(', ')}): ${err}`)
+    }
+}
+
+export async function getFailedIds(ids: number[]): Promise<number[]> {
+    if (!ids.length) return []
+    try {
+        return (
+            (await indexedBlocks()
+                .createQueryBuilder()
+                .select(['id'])
+                .where({ id: In(ids), failed: true })
+                .execute()) || []
+        ).map((r) => r.id)
+    } catch (err) {
+        logger.error(`Error finding failed indexed blocks for ids=${ids.join(', ')}): ${err}`)
+        return []
+    }
+}

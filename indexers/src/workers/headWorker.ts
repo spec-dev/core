@@ -36,6 +36,7 @@ export function getHeadWorker(): Worker {
                 port: config.INDEXER_REDIS_PORT,
             },
             concurrency: config.HEAD_JOB_CONCURRENCY_LIMIT,
+            lockDuration: 45000,
         }
     )
 

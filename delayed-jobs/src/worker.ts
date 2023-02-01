@@ -19,6 +19,7 @@ export function getWorker(): Worker {
                 port: config.INDEXER_REDIS_PORT,
             },
             concurrency: config.DELAYED_JOB_CONCURRENCY_LIMIT,
+            lockDuration: 60000,
         }
     )
 
