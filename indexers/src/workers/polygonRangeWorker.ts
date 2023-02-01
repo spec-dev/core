@@ -108,6 +108,7 @@ class PolygonRangeWorker {
             blockNumber,
             blockHash: null,
             replace: false,
+            force: true,
         }
     }
 

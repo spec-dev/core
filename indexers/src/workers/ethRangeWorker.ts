@@ -236,6 +236,7 @@ class EthRangeWorker {
             blockNumber,
             blockHash: null,
             replace: false,
+            force: true,
         }
     }
 
