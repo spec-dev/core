@@ -9,6 +9,7 @@ import {
     getAbis,
     StringKeyMap,
     formatAbiValueWithType,
+    IsNull,
     unique,
 } from '../../../shared'
 import { exit } from 'process'
@@ -271,7 +272,7 @@ class DecodeLogWorker {
                 (await logsRepo().find({
                     where: {
                         blockNumber: In(numbers),
-                        eventName: null,
+                        eventName: IsNull(),
                     }
                 })) || []
             )

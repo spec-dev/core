@@ -181,7 +181,7 @@ export {
     createLiveEdgeFunctionVersion,
     createLiveEdgeFunctionVersionWithTx,
 } from './lib/core/db/services/liveEdgeFunctionVersionServices'
-export { In, Not } from 'typeorm'
+export { In, Not, IsNull } from 'typeorm'
 
 // Will be removed
 export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/entities/EthReceipt'

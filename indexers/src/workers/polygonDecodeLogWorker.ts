@@ -10,6 +10,7 @@ import {
     StringKeyMap,
     formatAbiValueWithType,
     unique,
+    IsNull,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -271,7 +272,7 @@ class PolygonDecodeLogWorker {
                 (await logsRepo().find({
                     where: {
                         blockNumber: In(numbers),
-                        eventName: null,
+                        eventName: IsNull(),
                     }
                 })) || []
             )
