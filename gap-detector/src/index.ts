@@ -1,4 +1,4 @@
-import { logger, chainIds, IndexerDB } from '../../shared'
+import { logger, chainIds, IndexerDB, SharedTables } from '../../shared'
 import GapDetector from './gapDetector'
 
 const chainsToDetect = [
@@ -8,7 +8,10 @@ const chainsToDetect = [
 ]
 
 async function run() {
-    await IndexerDB.initialize()
+    await Promise.all([
+        IndexerDB.initialize(),
+        SharedTables.initialize(),
+    ])
     const gapDetector = new GapDetector(chainsToDetect)
     logger.info('Starting gap detector...')
     gapDetector.run()

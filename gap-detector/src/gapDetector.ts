@@ -1,7 +1,7 @@
 import config from './config'
 import createSubscriber, { Subscriber } from 'pg-listen'
 import { NewBlockEvent } from './types'
-import { sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks } from '../../shared'
+import { SharedTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId } from '../../shared'
 import { Queue, QueueScheduler } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
 import { gapTolerances, checkInTolerances } from './utils/tolerances'
@@ -19,6 +19,8 @@ class GapDetector {
     missingBlocks: { [key: string]: Set<number> } = {}
 
     reenqueuedBlocks: { [key: string]: any } = {}
+
+    numbersPendingReenqueue: { [key: string]: Set<number> } = {}
 
     queues: { [key: string]: Queue } = {}
 
@@ -44,6 +46,13 @@ class GapDetector {
         })
 
         setInterval(() => this._monitorReenqueuedBlocks(), 20000)
+
+        setTimeout(() => {
+            for (const chainId of this.chains) {
+                this._findGapsWithSeriesGeneration(chainId)
+            }
+        }, 10000)
+
         try {
             await this.pgListener.connect()
             await Promise.all(this.chains.map(chainId => this.pgListener.listenTo(this._chainChannel(chainId))))
@@ -57,6 +66,10 @@ class GapDetector {
 
         this._resetCheckInTimer(chainId)
         const newBlockNumber = Number(event.number)
+
+        if (this.numbersPendingReenqueue[chainId] && this.numbersPendingReenqueue[chainId].has(newBlockNumber)) {
+            this.numbersPendingReenqueue[chainId].delete(newBlockNumber)
+        }
 
         if (this.reenqueuedBlocks[chainId].hasOwnProperty(newBlockNumber)) {
             logger.info(`[${chainId}] ${newBlockNumber} recovered successfully.`)
@@ -142,7 +155,15 @@ class GapDetector {
     async _reenqueueBlocks(indexedBlocks: IndexedBlock[]) {
         try {
             for (const indexedBlock of indexedBlocks) {
-                this.reenqueuedBlocks[indexedBlock.chainId.toString()][Number(indexedBlock.number)] = indexedBlock
+                const chainId = indexedBlock.chainId.toString()
+                const number = Number(indexedBlock.number)
+
+                this.reenqueuedBlocks[chainId][number] = indexedBlock
+
+                if (this.numbersPendingReenqueue[chainId] && this.numbersPendingReenqueue[chainId].has(number)) {
+                    this.numbersPendingReenqueue[chainId].delete(number)
+                }
+
                 await this._enqueueBlock(indexedBlock)
                 await sleep(100)
             }
@@ -231,6 +252,102 @@ class GapDetector {
         await this._reenqueueBlocks(resetEntries)
     }
  
+    async _findGapsWithSeriesGeneration(chainId: string) {
+        const schema = schemaForChainId[chainId]
+        if (!schema) {
+            logger.error(`No schema for chainId: ${chainId}`)
+            return
+        }
+        
+        // Get largest block number for this chain.
+        const largestBlockNumber = await this._getLargestBlockNumberInSchema(schema)
+        if (largestBlockNumber === null) {
+            logger.error(
+                `Finding gaps with series generation failed. ` + 
+                `Couldn't find largest block number for in schema ${schema}`
+            )
+            await sleep(20000)
+            this._findGapsWithSeriesGeneration(chainId)
+            return
+        }
+
+        // See if any of the last 100 blocks are missing.
+        const from = Math.max(largestBlockNumber - 100, 0)
+        const to = largestBlockNumber
+        const missingNumbers = await this._findMissingBlockNumbersInSeries(schema, from, to)
+        if (!missingNumbers?.length) {
+            missingNumbers === null && logger.error(
+                `Finding gaps with series generation failed. ` + 
+                `Couldn't find missing block numbers in series (${from}, ${to}) for schema ${schema}`
+            )
+            await sleep(20000)
+            this._findGapsWithSeriesGeneration(chainId)
+            return
+        }
+
+        // Find numbers that haven't already been reenqued by another method.
+        const chainReenqueuedBlockNumbers = new Set(
+            Object.keys(this.reenqueuedBlocks[chainId] || {}).map(v => Number(v))
+        )
+        const missingNumbersNotAlreadyReenqueued = missingNumbers.filter(n => !chainReenqueuedBlockNumbers.has(n))
+        if (!missingNumbersNotAlreadyReenqueued.length) {
+            await sleep(20000)
+            this._findGapsWithSeriesGeneration(chainId)
+            return
+        }
+
+        // Add them to a shared pending object and wait 20sec for other methods 
+        // to remove these entries as the blocks appear (potentially).
+        this.numbersPendingReenqueue[chainId] = new Set(missingNumbersNotAlreadyReenqueued)
+        await sleep(20000)
+
+        // Get final group of missing numbers to reenqueue.
+        const numbersToReenqueue = this._sortInts(Array.from(this.numbersPendingReenqueue[chainId]))
+        if (!numbersToReenqueue.length) {
+            this._findGapsWithSeriesGeneration(chainId)
+            return
+        }
+
+        // Create indexed block instances to enqueue for this missing numbers.
+        const indexedBlocks = await this._upsertIndexedBlocks(numbersToReenqueue, chainId)
+        if (!indexedBlocks.length) {
+            logger.error(`[${chainId}] _upsertIndexedBlocks must have failed -- no entries to reenqueue.`)
+            this._findGapsWithSeriesGeneration(chainId)
+            return
+        }
+
+        logger.info(`[${chainId}] Enqueueing missing blocks found with series generation: ${numbersToReenqueue.join(', ')}`)
+        await this._reenqueueBlocks(indexedBlocks)
+        await sleep(1000)
+
+        // Recurse.
+        this._findGapsWithSeriesGeneration(chainId)
+    }
+
+    async _getLargestBlockNumberInSchema(schema: string): Promise<number | null> {
+        try {
+            const result = (await SharedTables.query(
+                `select number from ${schema}.blocks order by number desc limit 1`
+            ))[0] || {}
+            return result.number ? Number(result.number) : null
+        } catch (err) {
+            logger.error(`Error finding largest number within ${schema}.blocks: ${err}`)
+            return null
+        }
+    }
+
+    async _findMissingBlockNumbersInSeries(schema: string, from: number, to: number): Promise<number[] | null> {
+        try {
+            const result = (await SharedTables.query(
+                `select s.id as number from generate_series(${from}, ${to}) s(id) where not exists (select 1 from ${schema}.blocks WHERE number = s.id)`
+            )) || []
+            return result.map(r => Number(r.number))
+        } catch (err) {
+            logger.error(`Error finding missing numbers in ${schema}.blocks series (${from}, ${to}):${err}`)
+            return null
+        }
+    }
+
     _sortInts(arr: number[]): number[] {
         return arr.sort((a, b) => a - b)
     }
