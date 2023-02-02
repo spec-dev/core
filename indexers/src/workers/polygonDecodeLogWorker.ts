@@ -97,7 +97,7 @@ class PolygonDecodeLogWorker {
 
         // Get all abis for addresses needed to decode logs.
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
-        const abis = await getAbis(unique([ ...logAddresses ]))
+        const abis = await getAbis(unique([ ...logAddresses ]), config.CHAIN_ID)
 
         // Use abis to decode logs and report progress.
         logs = this._decodeLogs(logs, abis)
@@ -121,6 +121,10 @@ class PolygonDecodeLogWorker {
         const insertBindings = []
         let i = 1
         for (const log of logs) {
+            if (log.eventName === 'ProfileCreated') {
+                console.log('ProfileCreated', log.logIndex, log.transactionHash)
+            }
+
             let eventArgs
             try {
                 eventArgs = log.eventArgs === null ? null : JSON.stringify(log.eventArgs)
