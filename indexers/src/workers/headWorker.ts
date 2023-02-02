@@ -19,8 +19,9 @@ export function getHeadWorker(): Worker {
                 IndexedBlockStatus.Indexing
             )
 
-            if (job.attemptsMade > 0 && head.replace) {
+            if (job.attemptsMade > 0) {
                 head.replace = false
+                head.blockHash = null
             }
 
             // Get proper indexer based on head's chain id.
