@@ -289,7 +289,7 @@ class GapDetector {
         // NOTE: Your next move if gaps continue should be to use all "missingNumbers" found above rather
         // than filtering those down against this.reenqueuedBlocks[chainId].
         // *****************************************************************
-        
+
         // Find numbers that haven't already been reenqued by another method.
         const chainReenqueuedBlockNumbers = new Set(
             Object.keys(this.reenqueuedBlocks[chainId] || {}).map(v => Number(v))
@@ -321,7 +321,7 @@ class GapDetector {
             return
         }
 
-        logger.info(`[${chainId}:${new Date().toISOString()}] Enqueueing missing blocks found with series generation: ${numbersToReenqueue.join(', ')}`)
+        logger.error(`[${chainId}:${new Date().toISOString()}] Enqueueing missing blocks found with series generation: ${numbersToReenqueue.join(', ')}`)
         await this._reenqueueBlocks(indexedBlocks)
         await sleep(1000)
 
