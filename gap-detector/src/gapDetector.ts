@@ -72,7 +72,7 @@ class GapDetector {
         }
 
         if (this.reenqueuedBlocks[chainId].hasOwnProperty(newBlockNumber)) {
-            logger.info(`[${chainId}] ${newBlockNumber} recovered successfully.`)
+            logger.info(`[${chainId}:${new Date().toISOString()}] ${newBlockNumber} recovered successfully.`)
             delete this.reenqueuedBlocks[chainId][newBlockNumber]
         }
 
@@ -186,7 +186,7 @@ class GapDetector {
             force: false,
         }
 
-        logger.info(`[${chainId}] Enqueueing missing block ${number}...`)
+        logger.info(`[${chainId}:${new Date().toISOString()}] Enqueueing missing block ${number}...`)
 
         this._upsertQueue(chainId)
         const queue = this.queues[chainId]
@@ -247,7 +247,7 @@ class GapDetector {
         // Reset/reenqueue them again.
         const resetEntries = await resetIndexedBlocks(failedIds)
         for (const indexedBlock of resetEntries) {
-            logger.error(`${[indexedBlock.chainId]}: Reenqueuing failed indexed block ${indexedBlock.number}`)
+            logger.error(`[${[indexedBlock.chainId]}:${new Date().toISOString()}] Reenqueuing failed indexed block ${indexedBlock.number}`)
         }
         await this._reenqueueBlocks(resetEntries)
     }
@@ -316,7 +316,7 @@ class GapDetector {
             return
         }
 
-        logger.info(`[${chainId}] Enqueueing missing blocks found with series generation: ${numbersToReenqueue.join(', ')}`)
+        logger.info(`[${chainId}:${new Date().toISOString()}] Enqueueing missing blocks found with series generation: ${numbersToReenqueue.join(', ')}`)
         await this._reenqueueBlocks(indexedBlocks)
         await sleep(1000)
 
