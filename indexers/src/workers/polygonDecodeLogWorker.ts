@@ -175,10 +175,10 @@ class PolygonDecodeLogWorker {
                 if (!log) continue
             }
 
-            // // Try decoding as transfer event if couldn't decode with contract ABI.
-            // if (!log.eventName) {
-            //     log = this._tryDecodingLogAsTransfer(log)
-            // }
+            // Try decoding as transfer event if couldn't decode with contract ABI.
+            if (!log.eventName) {
+                log = this._tryDecodingLogAsTransfer(log)
+            }
 
             log?.eventName && decoded.push(log)
         }

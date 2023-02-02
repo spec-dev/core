@@ -448,19 +448,22 @@ class EthereumIndexer extends AbstractIndexer {
     _decodeLogs(logs: EthLog[], abis: { [key: string]: Abi }): EthLog[] {
         const finalLogs = []
         for (let log of logs) {
-            if (!log.address || !abis.hasOwnProperty(log.address) || !log.topic0) {
-                finalLogs.push(log)
-                continue
-            }
-            try {
-                log = this._decodeLog(log, abis[log.address])
-                if (!log.eventName) {
-                    log = this._tryDecodingLogAsTransfer(log)
+            // Standard contract ABI decoding.
+            if (log.address && log.topic0 && abis.hasOwnProperty(log.address)) {
+                try {
+                    log = this._decodeLog(log, abis[log.address])
+                } catch (err) {
+                    this._error(`Error decoding log for address ${log.address}: ${err}`)
                 }
-            } catch (err) {
-                this._error(`Error decoding log for address ${log.address}: ${err}`)
             }
-
+            // Try decoding as transfer event if couldn't decode with contract ABI.
+            if (!log.eventName) {
+                try {
+                    log = this._tryDecodingLogAsTransfer(log)
+                } catch (err) {
+                    this._error(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                }
+            }
             finalLogs.push(log)
         }
         return finalLogs
