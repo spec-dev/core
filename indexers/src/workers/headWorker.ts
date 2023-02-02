@@ -19,7 +19,7 @@ export function getHeadWorker(): Worker {
                 IndexedBlockStatus.Indexing
             )
 
-            if (job.attemptsMade > 0) {
+            if (job.attemptsMade > 1) {
                 head.replace = false
                 head.blockHash = null
             }
