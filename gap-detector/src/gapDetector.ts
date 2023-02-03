@@ -14,6 +14,8 @@ class GapDetector {
 
     checkInTimers: { [key: string]: any } = {}
 
+    checkInDidTimeout: { [key: string]: boolean } = {}
+
     lastSeenBlock: { [key: string]: number } = {}
 
     missingBlocks: { [key: string]: Set<number> } = {}
@@ -64,6 +66,11 @@ class GapDetector {
     async _onNewBlock(event: NewBlockEvent, chainId: string) {
         if (!event || !event.number || !this.chains.includes(chainId)) return
 
+        if (this.checkInDidTimeout[chainId]) {
+            logger.info(`Blocks are back for chain ${chainId} - Got block ${event.number}`)
+            this.checkInDidTimeout[chainId] = false
+        }
+
         this._resetCheckInTimer(chainId)
         const newBlockNumber = Number(event.number)
 
@@ -91,10 +98,13 @@ class GapDetector {
 
         const gapTolerance = gapTolerances[chainId] || 5
         const numbersToReenqueue = []
-        for (const number of this._sortInts(Array.from(this.missingBlocks[chainId]))) {
+        const missing = this._sortInts(Array.from(this.missingBlocks[chainId]))
+        for (const number of missing) {
             if (this.lastSeenBlock[chainId] - number >= gapTolerance) {
                 numbersToReenqueue.push(number)
                 this.missingBlocks[chainId].delete(number)
+            } else {
+                logger.info(`[${chainId}] ${missing.length} missing blocks within tolerance: ${missing.join(', ')}`)
             }
         }
         if (!numbersToReenqueue.length) return
@@ -129,6 +139,7 @@ class GapDetector {
                 `No new block on chain ${chainId} in the last ${requiredCheckInTime / 1000}s. ` + 
                 `Last seen block - ${this.lastSeenBlock[chainId]}`
             )
+            this.checkInDidTimeout[chainId] = true
         }, requiredCheckInTime)
     }
 

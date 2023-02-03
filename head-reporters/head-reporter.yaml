@@ -42,3 +42,5 @@ spec:
           value: {{INDEXER_DB_USERNAME}}
         - name: INDEXER_DB_PASSWORD
           value: {{INDEXER_DB_PASSWORD}}
+        - name: HEAD_BUFFER
+          value: "{{HEAD_BUFFER}}"
