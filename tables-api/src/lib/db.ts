@@ -4,6 +4,7 @@ import config from './config'
 import { QueryPayload, StringKeyMap } from './types'
 import { Pool } from 'pg'
 import QueryStream from 'pg-query-stream'
+import { ident } from 'pg-format'
 
 // Create connection pool.
 export const pool = new Pool({
@@ -18,55 +19,79 @@ export const pool = new Pool({
     query_timeout: 0,
     connectionTimeoutMillis: 0,
     statement_timeout: 0,
-    // idle_in_transaction_session_timeout: 0,
 })
 pool.on('error', err => logger.error('PG client error', err))
 
-export async function performQuery(query: QueryPayload): Promise<StringKeyMap[]> {
-    const { sql, bindings } = query
-
-    // Get a connection from the pool.
+async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: string) {
     let conn
     try {
         conn = await pool.connect()
+        role && await conn.query(`SET ROLE ${ident(role)}`)
     } catch (err) {
         conn && conn.release()
         logger.error(errors.QUERY_FAILED, query, err)
         throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
     }
+    return conn
+}
+
+export async function performQuery(query: QueryPayload, role: string): Promise<StringKeyMap[]> {
+    const { sql, bindings } = query
+    const conn = await getPoolConnection(query, role)
 
     // Perform the query.
-    let result, error
+    let result
     try {
         result = await conn.query(sql, bindings)
     } catch (err) {
-        error = err
+        logger.error(errors.QUERY_FAILED, query, err)
+        throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
     } finally {
         conn.release()
     }
-    if (error) {
-        logger.error(errors.QUERY_FAILED, query, error)
-        throw `${errors.QUERY_FAILED}: ${error?.message || error}`    
-    }
+
     if (!result) {
         logger.error(errors.EMPTY_QUERY_RESULT, query)
         throw `${errors.EMPTY_QUERY_RESULT}`
     }
+
     return result.rows || []
+}
+
+export async function performTx(queries: QueryPayload[], role: string) {
+    const conn = await getPoolConnection(queries, role)
+
+    let results = []
+    try {
+        await conn.query('BEGIN')
+        results = await Promise.all(queries.map(({ sql, bindings }) => (
+            conn.query(sql, bindings)
+        )))
+        await conn.query('COMMIT')
+    } catch (err) {
+        await conn.query('ROLLBACK')
+        logger.error(errors.QUERY_FAILED, queries, err)
+        throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
+    } finally {
+        conn.release()
+    }
+
+    const responses = []
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (!result) {
+            logger.error(errors.EMPTY_QUERY_RESULT, queries[i])
+            throw `${errors.EMPTY_QUERY_RESULT}`
+        }
+        responses.push(result.rows || [])
+    }
+    
+    return responses
 }
 
 export async function createQueryStream(query: QueryPayload) {
     const { sql, bindings } = query
-
-    // Get a client from the pool.
-    let conn
-    try {
-        conn = await pool.connect()
-    } catch (err) {
-        conn && conn.release()
-        logger.error(errors.QUERY_FAILED, query, err)
-        throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
-    }
+    const conn = await getPoolConnection(query)
 
     // Build and return the stream.
     try {

@@ -5,9 +5,10 @@ import codes from './lib/codes'
 import paths from './lib/paths'
 import errors from './lib/errors'
 import { specEnvs, logger } from '../../shared'
-import { getQueryPayload } from './lib/payload'
-import { performQuery, createQueryStream } from './lib/db'
+import { getQueryPayload, getTxPayload } from './lib/payload'
+import { performQuery, performTx, createQueryStream } from './lib/db'
 import { streamQuery, cleanupStream } from './lib/stream'
+import { authRequest } from './lib/auth'
 
 // Create Express app.
 const app = express()
@@ -21,6 +22,7 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
 
 // Basic query route.
 app.post(paths.QUERY, async (req, res) => {
+    const role = authRequest(req)
     const [query, isValid] = getQueryPayload(req.body)
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
@@ -29,12 +31,32 @@ app.post(paths.QUERY, async (req, res) => {
 
     let records = []
     try {
-        records = await performQuery(query)
+        records = await performQuery(query, role)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
 
     return res.status(codes.SUCCESS).json(records)
+})
+
+// Transaction route.
+app.post(paths.TRANSACTION, async (req, res) => {
+    const role = authRequest(req)
+    const [queries, isValid] = getTxPayload(req.body)
+    if (!isValid) {
+        logger.error(errors.INVALID_PAYLOAD, queries)
+        return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
+    }
+
+    // Perform all given queries in a single transaction.
+    let resp = []
+    try {
+        resp = await performTx(queries, role)
+    } catch (error) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
+    }
+
+    return res.status(codes.SUCCESS).json(resp)
 })
 
 // Stream query route.
