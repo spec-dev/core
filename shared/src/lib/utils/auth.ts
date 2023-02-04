@@ -12,7 +12,7 @@ export enum ClaimRole {
 
 export interface Claims {
     id: string
-    role: ClaimRole
+    role: ClaimRole | string
     key: string
 }
 
@@ -20,6 +20,14 @@ export function newJWT(claims: Claims, exp: string | number) {
     return jwt.sign(claims, config.JWT_SECRET, {
         expiresIn: exp,
     })
+}
+
+export function verifyJWT(token: string): Claims | null {
+    try {
+        return jwt.verify(token, config.JWT_SECRET) as Claims
+    } catch (err) {
+        return null
+    }
 }
 
 export function newSalt(): string {
