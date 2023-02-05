@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
 import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.19'
 import LiveObject from './spec.ts'
 import pgFormat from 'https://deno.land/x/pg_format@v1.0.0/index.js'
-import { verify } from "https://deno.land/x/djwt@v2.8/mod.ts"
+import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
 // Hack for cross-platform Deno + Node support.
 globalThis.ident = pgFormat.ident
@@ -44,7 +44,7 @@ function resp(data: StringKeyMap, code: number = codes.SUCCESS): Response {
 
 function verifyJWT(token: string): boolean {
     try {
-        const claims = verify(token, config.JWT_SECRET)
+        const claims = jwt.verify(token, config.JWT_SECRET)
         return claims?.role === config.JWT_ROLE
     } catch (err) {
         return false
@@ -53,12 +53,9 @@ function verifyJWT(token: string): boolean {
 
 function authRequest(req: any): StringKeyMap {
     const headers = req.headers || {}
-    const authToken = (
-        headers[headerNames.AUTH_TOKEN] || 
-        headers[headerNames.AUTH_TOKEN.toLowerCase()]
-    )
+    const authToken = headers.get(headerNames.AUTH_TOKEN) || headers.get(headerNames.AUTH_TOKEN.toLowerCase())
 
-    if (!authToken || !verifyJWT(authToken)) {
+    if (!authToken || !(verifyJWT(authToken))) {
         return { isAuthed: false }
     }
 
@@ -86,7 +83,7 @@ async function parsePayloadAsEvent(req: any): SpecEvent {
 serve(async req => {
     // Auth the request and get the API token to use for queries to shared tables.
     const { isAuthed, tablesApiToken } = authRequest(req)
-    if (isAuthed) {
+    if (!isAuthed) {
         return resp({ error: errors.UNAUTHORIZED }, codes.UNAUTHORIZED)
     }
 
