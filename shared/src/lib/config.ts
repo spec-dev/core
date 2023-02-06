@@ -26,6 +26,10 @@ const config: StringKeyMap = {
     // Delayed job redis queue
     DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'delayed-jobs'),
 
+    BLOCK_EVENTS_PREFIX: ev('BLOCK_EVENTS_PREFIX', 'block-events-'),
+    BLOCK_EVENTS_QUEUE_PREFIX: ev('BLOCK_EVENTS_QUEUE_KEY', 'block-events-queue-'),
+    SORT_BLOCK_EVENTS_JOB_NAME: ev('SORT_BLOCK_EVENTS_JOB_NAME', 'sort-block-events'),
+
     // Public Tables Postgres Instance
     SHARED_TABLES_DB_NAME: ev('SHARED_TABLES_DB_NAME', 'shared-tables'),
     SHARED_TABLES_DB_HOST: ev('SHARED_TABLES_DB_HOST', 'localhost'),

@@ -357,3 +357,29 @@ export async function savePolygonContracts(
     }
     return true
 }
+
+export async function saveBlockEvents(
+    chainId: string,
+    blockNumber: number,
+    events: StringKeyMap[]
+) {
+    const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
+    try {
+        redis.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
+    } catch (err) {
+        throw `Error saving block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function deleteBlockEvents(chainId: string, blockNumber: number) {
+    const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
+    try {
+        redis.hDel(key, blockNumber.toString())
+    } catch (err) {
+        logger.error(
+            `Error deleting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        )
+        return false
+    }
+    return true
+}

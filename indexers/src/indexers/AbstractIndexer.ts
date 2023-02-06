@@ -6,8 +6,10 @@ import {
     SharedTables,
     StringKeyMap,
     contractNamespaceForChainId,
+    saveBlockEvents,
 } from '../../../shared'
 import config from '../config'
+import { reportBlockEvents } from '../events'
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -59,6 +61,11 @@ class AbstractIndexer {
             this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
             await this._deleteRecordsWithBlockNumber()
         }
+    }
+
+    async _reportBlockEvents(eventSpecs: StringKeyMap[]) {
+        await saveBlockEvents(this.chainId, this.blockNumber, eventSpecs)
+        await reportBlockEvents(this.blockNumber)
     }
 
     async _blockAlreadyExists(schema: string): Promise<boolean> {

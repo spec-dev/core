@@ -58,6 +58,9 @@ export class LiveObjectVersion {
     @Column()
     version: string
 
+    @Column()
+    url: string
+
     @Column('json', { nullable: true })
     properties: LiveObjectVersionProperty[]
 

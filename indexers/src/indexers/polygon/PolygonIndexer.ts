@@ -7,7 +7,6 @@ import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
 import { originEvents } from '../../events'
-import { publishEventSpecs } from '../../events/relay'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
     sleep,
@@ -219,9 +218,8 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        // Contract events.
+        // Decoded contract events.
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
-        contractEventSpecs.length && await publishEventSpecs(contractEventSpecs)
 
         // New Ivy Smart Wallet events.
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
@@ -234,19 +232,25 @@ class PolygonIndexer extends AbstractIndexer {
             )).filter(v => !!v)
         }
 
-        // Token events.
         const tokenEventSpecs = await this._getNewTokenBalanceEventSpecs()
+
+        // ERC-20 Balance events.
         const erc20EventSpecs = (await Promise.all(
             (tokenEventSpecs?.erc20s || []).map(es => originEvents.tokens.NewERC20TokenBalance(es))
         )).filter(v => !!v)
+
+        // NFT Balance events.
         const nftEventSpecs = (await Promise.all(
             (tokenEventSpecs?.nfts || []).map(es => originEvents.tokens.NewNFTBalance(es))
         )).filter(v => !!v)
 
-        newSmartWalletEventSpecs.length && await publishEventSpecs(newSmartWalletEventSpecs)
-        await sleep(200)
-        erc20EventSpecs.length && await publishEventSpecs(erc20EventSpecs)
-        nftEventSpecs.length && await publishEventSpecs(nftEventSpecs)
+        // Publish to Spec's event network.
+        await this._reportBlockEvents([
+            ...contractEventSpecs,
+            ...newSmartWalletEventSpecs,
+            ...erc20EventSpecs,
+            ...nftEventSpecs,
+        ])
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {

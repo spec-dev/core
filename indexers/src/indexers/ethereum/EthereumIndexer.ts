@@ -7,7 +7,6 @@ import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
 import initLatestInteractions from './services/initLatestInteractions'
-import { publishEventSpecs } from '../../events/relay'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
@@ -301,9 +300,9 @@ class EthereumIndexer extends AbstractIndexer {
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
 
         // Publish to Spec's event network.
-        await publishEventSpecs([
-            ...originEventSpecs,
+        await this._reportBlockEvents([
             ...contractEventSpecs,
+            ...originEventSpecs,
         ])
     }
 
