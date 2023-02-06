@@ -46,6 +46,10 @@ const keys = {
     BLOCK_LOGS_INDEXED: 'block-logs-indexed',
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
+    BLOCK_EVENTS_SERIES_NUMBER_PREFIX: 'block-events-series',
+    BLOCK_EVENTS_EAGER_BLOCKS_PREFIX: 'block-events-eager-blocks',
+    BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX: 'block-events-skipped-blocks',
+    PAUSE_EVENT_SORTER_PREFIX: 'event-sorter-paused',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -365,7 +369,7 @@ export async function saveBlockEvents(
 ) {
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        redis.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
+        await redis.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
     } catch (err) {
         throw `Error saving block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
     }
@@ -374,7 +378,7 @@ export async function saveBlockEvents(
 export async function deleteBlockEvents(chainId: string, blockNumber: number) {
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        redis.hDel(key, blockNumber.toString())
+        await redis.hDel(key, blockNumber.toString())
     } catch (err) {
         logger.error(
             `Error deleting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
@@ -382,4 +386,110 @@ export async function deleteBlockEvents(chainId: string, blockNumber: number) {
         return false
     }
     return true
+}
+
+export async function getBlockEventsSeriesNumber(chainId: string): Promise<number | null> {
+    const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
+    try {
+        const blockNumber = parseInt(await redis.get(key))
+        return Number.isNaN(blockNumber) ? null : blockNumber
+    } catch (err) {
+        throw `Error getting block events series number (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: number) {
+    const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
+    try {
+        await redis.set(key, Number(blockNumber))
+    } catch (err) {
+        throw `Error setting block events series number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function getEagerBlocks(chainId: string): Promise<number[]> {
+    const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
+    try {
+        return (await redis.zRange(key, 0, -1)).map((v) => Number(v)).sort()
+    } catch (err) {
+        throw `Error getting eager blocks (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function addEagerBlock(chainId: string, blockNumber: number) {
+    const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
+    blockNumber = Number(blockNumber)
+    try {
+        await redis.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
+    } catch (err) {
+        throw `Error adding eager block ${blockNumber} (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function deleteEagerBlocks(chainId: string, blockNumbers: number[]) {
+    if (!blockNumbers?.length) return
+    const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
+    const values = blockNumbers.map((n) => n.toString())
+    try {
+        await redis.zRem(key, values)
+    } catch (err) {
+        throw `Error deleting eager blocks ${values.join(', ')} (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getSkippedBlocks(chainId: string): Promise<number[]> {
+    const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
+    try {
+        return (await redis.zRange(key, 0, -1)).map((v) => Number(v)).sort()
+    } catch (err) {
+        throw `Error getting skipped blocks (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function markBlockAsSkipped(chainId: string, blockNumber: number) {
+    const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
+    blockNumber = Number(blockNumber)
+    try {
+        await redis.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
+    } catch (err) {
+        throw `Error adding skipped block ${blockNumber} (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function deleteSkippedBlocks(chainId: string, blockNumbers: number[]) {
+    if (!blockNumbers?.length) return
+    const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
+    const values = blockNumbers.map((n) => n.toString())
+    try {
+        await redis.zRem(key, values)
+    } catch (err) {
+        throw `Error deleting skipped blocks ${values.join(', ')} (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function isEventSorterPaused(chainId: string): Promise<boolean> {
+    const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
+    try {
+        return (await redis.get(key)) === 't'
+    } catch (err) {
+        throw `Error getting event sorter pause status (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function pauseEventSorter(chainId: string) {
+    const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
+    try {
+        await redis.set(key, 't')
+    } catch (err) {
+        throw `Error pausing event sorter (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function unpauseEventSorter(chainId: string) {
+    const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
+    try {
+        await redis.set(key, 'f')
+    } catch (err) {
+        throw `Error pausing event sorter (chainId=${chainId}): ${err}`
+    }
 }

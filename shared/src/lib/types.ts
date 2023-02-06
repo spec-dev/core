@@ -9,6 +9,11 @@ export interface NewReportedHead {
     force: boolean
 }
 
+export interface SortedBlockEventsOptions {
+    skipped?: boolean
+    replay?: boolean
+}
+
 export interface SpecFunctionResponse {
     data: any
     error: string | null

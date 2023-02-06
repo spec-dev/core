@@ -40,6 +40,17 @@ export {
     savePolygonContracts,
     saveBlockEvents,
     deleteBlockEvents,
+    getBlockEventsSeriesNumber,
+    setBlockEventsSeriesNumber,
+    getEagerBlocks,
+    addEagerBlock,
+    deleteEagerBlocks,
+    getSkippedBlocks,
+    markBlockAsSkipped,
+    deleteSkippedBlocks,
+    isEventSorterPaused,
+    pauseEventSorter,
+    unpauseEventSorter,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
