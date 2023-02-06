@@ -41,6 +41,12 @@ async function replayFromBlock(skippedBlockNumber: number, currentSeriesNumber: 
     logger.info(chalk.yellowBright(
         `Replaying blocks ${skippedBlockNumber.toLocaleString()} -> ${(currentSeriesNumber - 1).toLocaleString()}`
     ))
+
+    // Remove reference to skipped block as "skipped". Do this first 
+    // before processing the block and those ahead of it so that the 
+    // event generator knows it can safely delete the cached block events.
+    await deleteSkippedBlocks(config.CHAIN_ID, [skippedBlockNumber])
+
     let pastNumber = skippedBlockNumber
     while (pastNumber < currentSeriesNumber) {
         await generateEventsForBlock(pastNumber, 
@@ -48,7 +54,6 @@ async function replayFromBlock(skippedBlockNumber: number, currentSeriesNumber: 
         )
         pastNumber++
     }
-    await deleteSkippedBlocks(config.CHAIN_ID, [skippedBlockNumber])
 }
 
 async function skipBlock(seriesNumber: number, latestBlockNumber: number) {
@@ -81,11 +86,13 @@ async function skipBlock(seriesNumber: number, latestBlockNumber: number) {
         await addEagerBlockToHoldingZone(latestBlockNumber)
     }
 
+    // Skip block first before processing blocks so they 
+    // know not to delete their cached block events.
+    await markBlockAsSkipped(config.CHAIN_ID, seriesNumber)
     await processBlocks(blocksToProcess)
 
     await Promise.all([
         deleteEagerBlocks(config.CHAIN_ID, eagerBlocksToRemove),
-        markBlockAsSkipped(config.CHAIN_ID, seriesNumber),
         setBlockEventsSeriesNumber(config.CHAIN_ID, newSeriesNumber),
     ])
 }
