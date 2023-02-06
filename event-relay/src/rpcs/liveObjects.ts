@@ -26,6 +26,7 @@ export async function resolveLiveObjectVersions(request: any) {
             .createQueryBuilder('eventVersion')
             .leftJoinAndSelect('eventVersion.liveEventVersions', 'liveEventVersion')
             .where('liveEventVersion.liveObjectVersionId IN (:...lovIds)', { lovIds })
+            .andWhere('liveEventVersion.isInput is not true')
             .getMany()) : []
     } catch (err) {
         logger.error(

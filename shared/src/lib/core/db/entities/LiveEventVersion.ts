@@ -24,4 +24,7 @@ export class LiveEventVersion {
     @ManyToOne(() => EventVersion, (eventVersion) => eventVersion.liveEventVersions)
     @JoinColumn({ name: 'event_version_id' })
     eventVersion: EventVersion
+
+    @Column({ name: 'is_input' })
+    isInput: boolean
 }
