@@ -560,6 +560,8 @@ class EthereumIndexer extends AbstractIndexer {
         const eventOrigin = {
             contractAddress: log.address,
             transactionHash: log.transactionHash,
+            transactionIndex: log.transactionIndex,
+            logIndex: log.logIndex,
             blockHash: log.blockHash,
             blockNumber: Number(log.blockNumber),
             blockTimestamp: log.blockTimestamp.toISOString(),

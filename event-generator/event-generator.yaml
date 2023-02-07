@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-generator-{{CHAIN_ID}}
+  labels:
+    app: event-generator-{{CHAIN_ID}}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: event-generator-{{CHAIN_ID}}
+  template:
+    metadata:
+      labels:
+        app: event-generator-{{CHAIN_ID}}
+    spec:
+      containers:
+      - name: event-generator-{{CHAIN_ID}}
+        image: {{IMAGE}}
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: CHAIN_ID
+          value: "{{CHAIN_ID}}"

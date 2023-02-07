@@ -22,6 +22,12 @@ export function newJWT(claims: Claims, exp: string | number) {
     })
 }
 
+export function newTablesJWT(schema: string, exp: string | number) {
+    return jwt.sign({ role: schema }, config.JWT_SECRET, {
+        expiresIn: exp,
+    })
+}
+
 export function verifyJWT(token: string): Claims | null {
     try {
         return jwt.verify(token, config.JWT_SECRET) as Claims

@@ -50,6 +50,8 @@ const keys = {
     BLOCK_EVENTS_EAGER_BLOCKS_PREFIX: 'block-events-eager-blocks',
     BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX: 'block-events-skipped-blocks',
     PAUSE_EVENT_SORTER_PREFIX: 'event-sorter-paused',
+    PAUSE_EVENT_GENERATOR_PREFIX: 'event-generator-paused',
+    FAILING_NAMESPACES: 'failing-namespaces',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -224,16 +226,16 @@ export async function upsertContractCaches() {
     }
 
     const promises = []
-    // Add contracts to redis.
+    // Add contracts to redis?.
     for (let contractUid in contractsMap) {
         promises.push(
-            redis.hSet(keys.CONTRACTS, [contractUid, JSON.stringify(contractsMap[contractUid])])
+            redis?.hSet(keys.CONTRACTS, [contractUid, JSON.stringify(contractsMap[contractUid])])
         )
     }
-    // Add contract instances to redis.
+    // Add contract instances to redis?.
     for (let address in contractInstancesMap) {
         promises.push(
-            redis.hSet(keys.CONTRACT_INSTANCES, [
+            redis?.hSet(keys.CONTRACT_INSTANCES, [
                 address,
                 JSON.stringify(contractInstancesMap[address]),
             ])
@@ -369,16 +371,29 @@ export async function saveBlockEvents(
 ) {
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        await redis.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
+        await redis?.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
     } catch (err) {
         throw `Error saving block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function getBlockEvents(
+    chainId: string,
+    blockNumber: number
+): Promise<StringKeyMap[]> {
+    const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
+    try {
+        const str = await redis?.hmGet(key, blockNumber.toString())
+        return (str ? JSON.stringify(str) || [] : []) as StringKeyMap[]
+    } catch (err) {
+        throw `Error getting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
     }
 }
 
 export async function deleteBlockEvents(chainId: string, blockNumber: number) {
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        await redis.hDel(key, blockNumber.toString())
+        await redis?.hDel(key, blockNumber.toString())
     } catch (err) {
         logger.error(
             `Error deleting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
@@ -391,7 +406,7 @@ export async function deleteBlockEvents(chainId: string, blockNumber: number) {
 export async function getBlockEventsSeriesNumber(chainId: string): Promise<number | null> {
     const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
     try {
-        const blockNumber = parseInt(await redis.get(key))
+        const blockNumber = parseInt(await redis?.get(key))
         return Number.isNaN(blockNumber) ? null : blockNumber
     } catch (err) {
         throw `Error getting block events series number (chainId=${chainId}): ${err}`
@@ -401,7 +416,7 @@ export async function getBlockEventsSeriesNumber(chainId: string): Promise<numbe
 export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: number) {
     const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
     try {
-        await redis.set(key, Number(blockNumber))
+        await redis?.set(key, Number(blockNumber))
     } catch (err) {
         throw `Error setting block events series number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
     }
@@ -410,7 +425,7 @@ export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: n
 export async function getEagerBlocks(chainId: string): Promise<number[]> {
     const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
     try {
-        return (await redis.zRange(key, 0, -1)).map((v) => Number(v)).sort()
+        return (await redis?.zRange(key, 0, -1)).map((v) => Number(v)).sort()
     } catch (err) {
         throw `Error getting eager blocks (chainId=${chainId}): ${err}`
     }
@@ -420,7 +435,7 @@ export async function addEagerBlock(chainId: string, blockNumber: number) {
     const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
     blockNumber = Number(blockNumber)
     try {
-        await redis.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
+        await redis?.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
     } catch (err) {
         throw `Error adding eager block ${blockNumber} (chainId=${chainId}): ${err}`
     }
@@ -431,7 +446,7 @@ export async function deleteEagerBlocks(chainId: string, blockNumbers: number[])
     const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
     const values = blockNumbers.map((n) => n.toString())
     try {
-        await redis.zRem(key, values)
+        await redis?.zRem(key, values)
     } catch (err) {
         throw `Error deleting eager blocks ${values.join(', ')} (chainId=${chainId}): ${err}`
     }
@@ -440,7 +455,7 @@ export async function deleteEagerBlocks(chainId: string, blockNumbers: number[])
 export async function getSkippedBlocks(chainId: string): Promise<number[]> {
     const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
     try {
-        return (await redis.zRange(key, 0, -1)).map((v) => Number(v)).sort()
+        return (await redis?.zRange(key, 0, -1)).map((v) => Number(v)).sort()
     } catch (err) {
         throw `Error getting skipped blocks (chainId=${chainId}): ${err}`
     }
@@ -450,7 +465,7 @@ export async function markBlockAsSkipped(chainId: string, blockNumber: number) {
     const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
     blockNumber = Number(blockNumber)
     try {
-        await redis.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
+        await redis?.zAdd(key, { score: blockNumber, value: blockNumber.toString() })
     } catch (err) {
         throw `Error adding skipped block ${blockNumber} (chainId=${chainId}): ${err}`
     }
@@ -461,7 +476,7 @@ export async function deleteSkippedBlocks(chainId: string, blockNumbers: number[
     const key = [keys.BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX, chainId].join('-')
     const values = blockNumbers.map((n) => n.toString())
     try {
-        await redis.zRem(key, values)
+        await redis?.zRem(key, values)
     } catch (err) {
         throw `Error deleting skipped blocks ${values.join(', ')} (chainId=${chainId}): ${err}`
     }
@@ -470,7 +485,7 @@ export async function deleteSkippedBlocks(chainId: string, blockNumbers: number[
 export async function isEventSorterPaused(chainId: string): Promise<boolean> {
     const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
     try {
-        return (await redis.get(key)) === 't'
+        return (await redis?.get(key)) === 't'
     } catch (err) {
         throw `Error getting event sorter pause status (chainId=${chainId}): ${err}`
     }
@@ -479,7 +494,7 @@ export async function isEventSorterPaused(chainId: string): Promise<boolean> {
 export async function pauseEventSorter(chainId: string) {
     const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
     try {
-        await redis.set(key, 't')
+        await redis?.set(key, 't')
     } catch (err) {
         throw `Error pausing event sorter (chainId=${chainId}): ${err}`
     }
@@ -488,8 +503,62 @@ export async function pauseEventSorter(chainId: string) {
 export async function unpauseEventSorter(chainId: string) {
     const key = [keys.PAUSE_EVENT_SORTER_PREFIX, chainId].join('-')
     try {
-        await redis.set(key, 'f')
+        await redis?.set(key, 'f')
     } catch (err) {
         throw `Error pausing event sorter (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function isEventGeneratorPaused(chainId: string): Promise<boolean> {
+    const key = [keys.PAUSE_EVENT_GENERATOR_PREFIX, chainId].join('-')
+    try {
+        return (await redis?.get(key)) === 't'
+    } catch (err) {
+        throw `Error getting event generator pause status (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function pauseEventGenerator(chainId: string) {
+    const key = [keys.PAUSE_EVENT_GENERATOR_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, 't')
+    } catch (err) {
+        throw `Error pausing event generator (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function unpauseEventGenerator(chainId: string) {
+    const key = [keys.PAUSE_EVENT_GENERATOR_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, 'f')
+    } catch (err) {
+        throw `Error pausing event generator (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getFailingNamespaces(chainId: string): Promise<string[]> {
+    const key = [keys.FAILING_NAMESPACES, chainId].join('-')
+    try {
+        return (await redis?.sMembers(key)) || []
+    } catch (err) {
+        throw `Error getting failing namespaces (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function markNamespaceAsFailing(chainId: string, nsp: string) {
+    const key = [keys.FAILING_NAMESPACES, chainId].join('-')
+    try {
+        await redis?.sAdd(key, nsp)
+    } catch (err) {
+        throw `Error setting namespace ${nsp} to failing (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function unmarkNamespaceAsFailing(chainId: string, nsp: string) {
+    const key = [keys.FAILING_NAMESPACES, chainId].join('-')
+    try {
+        await redis?.sRem(key, nsp)
+    } catch (err) {
+        throw `Error removing namespace ${nsp} as failing (chainId=${chainId}): ${err}`
     }
 }

@@ -284,7 +284,7 @@ class PolygonIndexer extends AbstractIndexer {
 
             for (const { nsp, contractInstanceName } of contractData) {
                 const { data, eventOrigin } = this._formatLogAsSpecEvent(
-                    decodedLog, 
+                    decodedLog,
                     contractInstanceName,
                 )
                 eventSpecs.push({
@@ -311,7 +311,7 @@ class PolygonIndexer extends AbstractIndexer {
             this._error(`Error getting contract_instances: ${err}`)
             return []
         }
-        return contractInstances || []        
+        return contractInstances || []
     }
 
     async _getNewTokenBalanceEventSpecs(): Promise<StringKeyMap> {
@@ -495,6 +495,8 @@ class PolygonIndexer extends AbstractIndexer {
                     origin: {
                         chainId: this.chainId,
                         transactionHash: log.transactionHash,
+                        transactionIndex: log.transactionIndex,
+                        logIndex: log.logIndex,
                         contractAddress: log.address,
                         blockNumber: Number(log.blockNumber),
                         blockHash: log.blockHash,
@@ -520,6 +522,8 @@ class PolygonIndexer extends AbstractIndexer {
                     origin: {
                         chainId: this.chainId,
                         transactionHash: log.transactionHash,
+                        transactionIndex: log.transactionIndex,
+                        logIndex: log.logIndex,
                         contractAddress: log.address,
                         blockNumber: Number(log.blockNumber),
                         blockHash: log.blockHash,
@@ -740,6 +744,8 @@ class PolygonIndexer extends AbstractIndexer {
         const eventOrigin = {
             contractAddress: log.address,
             transactionHash: log.transactionHash,
+            transactionIndex: log.transactionIndex,
+            logIndex: log.logIndex,
             blockHash: log.blockHash,
             blockNumber: Number(log.blockNumber),
             blockTimestamp: log.blockTimestamp.toISOString(),

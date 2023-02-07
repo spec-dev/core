@@ -39,6 +39,7 @@ export {
     getPolygonContracts,
     savePolygonContracts,
     saveBlockEvents,
+    getBlockEvents,
     deleteBlockEvents,
     getBlockEventsSeriesNumber,
     setBlockEventsSeriesNumber,
@@ -51,6 +52,12 @@ export {
     isEventSorterPaused,
     pauseEventSorter,
     unpauseEventSorter,
+    isEventGeneratorPaused,
+    pauseEventGenerator,
+    unpauseEventGenerator,
+    getFailingNamespaces,
+    markNamespaceAsFailing,
+    unmarkNamespaceAsFailing,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -194,7 +201,7 @@ export {
     createLiveEdgeFunctionVersion,
     createLiveEdgeFunctionVersionWithTx,
 } from './lib/core/db/services/liveEdgeFunctionVersionServices'
-export { In, Not, IsNull } from 'typeorm'
+export { In, Not, IsNull, Brackets } from 'typeorm'
 
 // Will be removed
 export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/entities/EthReceipt'

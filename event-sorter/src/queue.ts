@@ -31,11 +31,12 @@ export async function generateEventsForBlock(
     options: SortedBlockEventsOptions = {},
 ) {
     blockNumber = Number(blockNumber)
+    
     logger.info(chalk.cyanBright(`Enqueueing sorted block ${blockNumber.toLocaleString()}`))
 
-    // await queue.add(config.EVENT_GENERATOR_JOB_NAME, { ...options, blockNumber }, {
-    //     priority: blockNumber,
-    //     removeOnComplete: true,
-    //     removeOnFail: 10,
-    // })
+    await queue.add(config.EVENT_GENERATOR_JOB_NAME, { ...options, blockNumber }, {
+        priority: blockNumber,
+        removeOnComplete: true,
+        removeOnFail: 10,
+    })
 }

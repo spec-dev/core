@@ -1,17 +1,17 @@
 import { Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, isEventSorterPaused, pauseEventSorter } from '../../shared'
+import { logger, isEventGeneratorPaused, pauseEventGenerator } from '../../shared'
 import perform from './job'
 import chalk from 'chalk'
 
 export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
-        [config.BLOCK_EVENTS_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
+        [config.EVENT_GENERATOR_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
         async (j: Job) => {
             await perform(j.data)
-            if (await isEventSorterPaused(config.CHAIN_ID)) {
-                await pauseEventSorter(config.CHAIN_ID)
+            if (await isEventGeneratorPaused(config.CHAIN_ID)) {
+                await pauseEventGenerator(config.CHAIN_ID)
             }
         },
         {
@@ -25,15 +25,15 @@ export function getWorker(): Worker {
     )
 
     worker.on('paused', () => {
-        logger.info(chalk.yellow('Event sorter paused.'))
+        logger.info(chalk.yellow('Event generator paused.'))
     })
 
     worker.on('failed', async (job, err) => {
-        logger.error(`[${config.CHAIN_ID}:${job.data?.blockNumber}] Event sorter job failed -- ${err}.`)
+        logger.error(`[${config.CHAIN_ID}:${job.data?.blockNumber}] Event generator job failed -- ${err}.`)
     })
 
     worker.on('error', (err) => {
-        logger.error(`[${config.CHAIN_ID}] Event sorter worker error: ${err}.`)
+        logger.error(`[${config.CHAIN_ID}] Event generator worker error: ${err}.`)
     })
 
     return worker
