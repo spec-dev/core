@@ -67,45 +67,55 @@ function authRequest(req: any): StringKeyMap {
     return { isAuthed: true, tablesApiToken }
 }
 
-async function parsePayloadAsEvent(req: any): SpecEvent {
-    let event
+async function parseEventsFromPayload(req: any): Promise<SpecEvent[]> {
+    let events
     try {
-        event = (await req.json()) || {}
+        events = (await req.json()) || []
     } catch (err) {
         return null
     }
-    if (!event.id || !event.name || !event.data || !event.origin) {
-        return null
+    for (const event of events) {
+        if (!event.id || !event.name || !event.data || !event.origin) {
+            return null
+        }    
     }
-    return event as SpecEvent
+    return events as SpecEvent[]
 }
 
-serve(async req => {
+serve(async (req: Request) => {
     // Auth the request and get the API token to use for queries to shared tables.
     const { isAuthed, tablesApiToken } = authRequest(req)
     if (!isAuthed) {
         return resp({ error: errors.UNAUTHORIZED }, codes.UNAUTHORIZED)
     }
 
-    // The request payload should just be the Spec event.
-    const event = await parsePayloadAsEvent(req)
-    if (!event) {
+    // The request payload should just be the input events.
+    const inputEvents = await parseEventsFromPayload(req)
+    if (inputEvents === null) {
         return resp({ error: errors.INVALID_PAYLOAD }, codes.BAD_REQUEST)
     }
-
-    // Create the live object with a single event queue instance to capture published events.
-    const publishedEventQueue = new PublishEventQueue()
-    const liveObject = new LiveObject(publishedEventQueue)
-    liveObject.tablesApiToken = tablesApiToken
-
-    // Handle the event and auto-save.
-    try {
-        await liveObject.handleEvent(event)
-        await liveObject.save()
-    } catch (err) {
-        return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
+    if (!inputEvents.length) {
+        return resp([])
     }
 
-    // Return the resulting events that should be published.
-    return resp(liveObject.publishedEvents)
+    // Process input events in series.
+    const allPublishedEvents = []
+    for (const inputEvent of inputEvents) {
+        // Create the live object with a single event queue instance to capture published events.
+        const publishedEventQueue = new PublishEventQueue()
+        const liveObject = new LiveObject(publishedEventQueue)
+        liveObject.tablesApiToken = tablesApiToken
+
+        // Handle the event and auto-save.
+        try {
+            await liveObject.handleEvent(inputEvent)
+            await liveObject.save()
+        } catch (err) {
+            return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
+        }
+        allPublishedEvents.push(liveObject.publishedEvents)
+    }
+
+    // Return all generated events to be published.
+    return resp(allPublishedEvents)
 })
