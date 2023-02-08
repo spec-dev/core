@@ -162,21 +162,18 @@ class AbiTracker {
         if (!tableRows.length) return null
 
         const addresses = tableRows.map(tr => {
-            const addressLink = tr.querySelector('td:first-child > a')
-            return addressLink ? addressLink.innerText?.toLowerCase() : null
+            const addressLink = tr.querySelector('td:first-child > span > a')
+            const href = addressLink?.attrs?.href
+            if (!href) return null
+            return new URL(`http://localhost${href}`).pathname.split('/').pop()
         }).filter(v => !!v)
 
         if (addresses.length !== addressesPerPage) {
-            logger.error(`Only found $${addresses.length}/${addressesPerPage} on page ${pageNumber}...`)
+            logger.error(`Only found ${addresses.length}/${addressesPerPage} on page ${pageNumber}...`)
         }
 
         return addresses
     }
-
-    // async _upsertAbisForAddresses(addresses: string[]) {
-    //     const abisMap = await this._fetchAbis(addresses)
-    //     await this._saveAbis(abisMap)
-    // }
 
     async _upsertAbisForAddresses(addresses: string[]) {
         const { error } = await client.upsertAbis(addresses)
