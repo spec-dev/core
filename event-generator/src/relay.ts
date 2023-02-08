@@ -1,9 +1,8 @@
 import { SpecEvent } from '@spec.types/spec'
-import { StringKeyMap, logger, storePublishedEvent } from '../../shared'
+import { StringKeyMap, logger, storePublishedEvent, CoreDB, nowAsUTCDateString } from '../../shared'
 import { createEventClient } from '@spec.dev/event-client'
 import config from './config'
 import short from 'short-uuid'
-import { toUTCDate } from './utils/date'
 import chalk from 'chalk'
 
 // Client that publishes events to the event relay.
@@ -27,11 +26,20 @@ const formatSpecEvent = (eventSpec: StringKeyMap, eventTimestamp: string): Strin
     }
 }
 
+async function getDBTimestamp(): Promise<string> {
+    try {
+        const result = await CoreDB.query(`select timezone('UTC', now())`)
+        return new Date(result[0].timezone.toUTCString()).toISOString()    
+    } catch (err) {
+        return nowAsUTCDateString()
+    }
+}
+
 export async function publishEvents(eventSpecs: StringKeyMap[], generated?: boolean) {
     if (!eventSpecs.length) return
     
     // Format event specs as spec events.
-    const eventTimestamp = toUTCDate(new Date().toDateString()).toISOString()
+    const eventTimestamp = await getDBTimestamp()
     const events = eventSpecs.map(es => formatSpecEvent(es, eventTimestamp))
 
     // Save each event to its redis stream, adding its nonce into its payload once saved.

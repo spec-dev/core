@@ -7,11 +7,13 @@ const liveEventVersions = () => CoreDB.getRepository(LiveEventVersion)
 
 export async function createLiveEventVersion(
     liveObjectVersionId: number,
-    eventVersionId: number
+    eventVersionId: number,
+    isInput?: boolean
 ): Promise<LiveEventVersion> {
     const liveEventVersion = new LiveEventVersion()
     liveEventVersion.liveObjectVersionId = liveObjectVersionId
     liveEventVersion.eventVersionId = eventVersionId
+    liveEventVersion.isInput = isInput || false
 
     try {
         await liveEventVersions().save(liveEventVersion)

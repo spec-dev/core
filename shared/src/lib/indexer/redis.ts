@@ -383,8 +383,8 @@ export async function getBlockEvents(
 ): Promise<StringKeyMap[]> {
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        const str = await redis?.hmGet(key, blockNumber.toString())
-        return (str ? JSON.stringify(str) || [] : []) as StringKeyMap[]
+        const results = (await redis?.hmGet(key, blockNumber.toString())) || []
+        return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap[]
     } catch (err) {
         throw `Error getting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
     }
@@ -546,6 +546,7 @@ export async function getFailingNamespaces(chainId: string): Promise<string[]> {
 }
 
 export async function markNamespaceAsFailing(chainId: string, nsp: string) {
+    logger.warn(`Marking namespace "${nsp}" as failing.`)
     const key = [keys.FAILING_NAMESPACES, chainId].join('-')
     try {
         await redis?.sAdd(key, nsp)

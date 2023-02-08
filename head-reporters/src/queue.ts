@@ -26,6 +26,7 @@ const queueScheduler = new QueueScheduler(config.HEAD_REPORTER_QUEUE_KEY, {
 
 export async function reportBlock(block: IndexedBlock, replace: boolean) {
     const { id, chainId, number, hash } = block
+    if (number < 39040750) return
     const data: NewReportedHead = {
         id,
         chainId: chainId.toString(),

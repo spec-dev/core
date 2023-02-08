@@ -1,22 +1,26 @@
 import { logger, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, getSkippedBlocks, markNamespaceAsFailing, newTablesJWT, getFailingNamespaces } from '../../shared'
 import config from './config'
 import { publishEvents } from './relay'
+import { camelizeKeys } from 'humps'
+import fetch from 'cross-fetch'
 
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
     const skipped = data.skipped || false
     const replay = data.replay || false
 
-    logger.info(`\nGenerating events for block ${blockNumber.toLocaleString()}...`)
+    logger.info(`\nGenerating events for block ${blockNumber}...`)
 
     // Get the events for this block number from redis.
     let blockEvents = await getBlockEvents(config.CHAIN_ID, blockNumber)
-    if (!blockEvents.length) throw `No block events found for block ${blockNumber}`
+    if (!blockEvents.length) {
+        logger.warn(`No block events found for block ${blockNumber}`)
+        return
+    }
 
     // Separate our custom origin events out from the actual contract events.
     // Contract events also get sorted by transactionIndex->logIndex here as well.
     const { customOriginEvents, contractEvents } = splitOriginEvents(blockEvents, skipped, replay)
-    if (!customOriginEvents.length) throw `No custom origin events found for block ${blockNumber}`
 
     // Go ahead and publish all origin events up-front.
     await publishOriginEvents(blockNumber, customOriginEvents, contractEvents)
@@ -173,13 +177,16 @@ async function generateLiveObjectEvents(
         throw `Request error to ${lovUrl} (lovId=${lovId}): ${err}`
     }
     clearTimeout(timer)
-    
+
     // Get the live object events generated from the response.
     let generatedEventGroups
     try {
-        generatedEventGroups = (await resp.json()) || []
+        generatedEventGroups = (await resp?.json()) || []
     } catch (err) {
         throw `Failed to parse JSON response (lovId=${lovId}): ${err}`
+    }
+    if (resp?.status !== 200) {
+        throw `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${generatedEventGroups}.`
     }
     if (!generatedEventGroups?.length) {
         return []
@@ -215,6 +222,8 @@ function groupEventsByLovNamespace(
     const eventsByLovNsp = {}
     for (const event of events) {
         const lovsDependentOnEventVersion = inputEventVersionsToLovs[event.name]
+        if (!lovsDependentOnEventVersion?.length) continue
+
         for (const { lovNsp, lovId, lovUrl, lovTableSchema } of lovsDependentOnEventVersion) {
             if (failingNamespaces.has(lovNsp)) continue
             if (!eventsByLovNsp.hasOwnProperty(lovNsp)) {
@@ -236,6 +245,7 @@ function groupEventsByLovNamespace(
         let adjacentEventsWithSameLov = []
         let matchingLovId = null
         let lovId, lovUrl, lovTableSchema
+
         for (const entry of eventsByLovNsp[nsp]) {
             const { event } = entry
             lovId = entry.lovId
@@ -310,10 +320,11 @@ async function getLiveObjectVersionToEventVersionMappings(
     // Map live object versions to the event versions they are allowed to generate (i.e. outputs).
     const generatedEventVersionsWhitelist = {}
     for (const { nsp, name, version, lovId } of generatedEventVersionResults) {
-        if (!generatedEventVersionsWhitelist.hasOwnProperty(lovId)) {
-            generatedEventVersionsWhitelist[lovId] = new Set()
+        const numericLovId = Number(lovId)
+        if (!generatedEventVersionsWhitelist.hasOwnProperty(numericLovId)) {
+            generatedEventVersionsWhitelist[numericLovId] = new Set()
         }
-        generatedEventVersionsWhitelist[lovId].add(toNamespacedVersion(nsp, name, version))
+        generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
     }
 
     return {
@@ -328,6 +339,7 @@ async function getLiveObjectVersionsFromInputLiveEventVersions(
 ): Promise<StringKeyMap[]> {
     const andClauses = []
     const bindings = []
+
     let i = 1
     for (const { nsp, name, version } of eventVersionComps) {
         andClauses.push(`(event_versions.nsp = $${i} and event_versions.name = $${i + 1} and event_versions.version = $${i + 2} and live_event_versions.is_input = true)`)
@@ -338,10 +350,10 @@ async function getLiveObjectVersionsFromInputLiveEventVersions(
 event_versions.nsp as nsp,
 event_versions.name as name,
 event_versions.version as version,
-live_object_versions.nsp as lovNsp,
-live_object_versions.id as lovId,
-live_object_versions.url as lovUrl,
-live_object_versions.config -> 'table' as lovTablePath
+live_object_versions.nsp as lov_nsp,
+live_object_versions.id as lov_id,
+live_object_versions.url as lov_url,
+live_object_versions.config -> 'table' as lov_table_path
 from live_event_versions
 join event_versions on live_event_versions.event_version_id = event_versions.id
 join live_object_versions on live_event_versions.live_object_version_id = live_object_versions.id
@@ -353,13 +365,15 @@ where ${andClauses.join(' or ')}`
     } catch (err) {
         throw `[${blockNumber}] Error finding live object versions with event versions: ${err}`
     }
-    return results
+
+    return camelizeKeys(results)
 }
 
 async function getGeneratedEventVersionsForLovs(
     lovIds: number[],
     blockNumber: number,
 ): Promise<StringKeyMap[]> {
+    if (!lovIds.length) return []
     const placeholders = []
     const bindings = []
     let i = 1
@@ -374,7 +388,7 @@ async function getGeneratedEventVersionsForLovs(
 event_versions.nsp as nsp,
 event_versions.name as name,
 event_versions.version as version,
-live_object_versions.id as lovId,
+live_object_versions.id as lov_id
 from live_event_versions
 join event_versions on live_event_versions.event_version_id = event_versions.id
 join live_object_versions on live_event_versions.live_object_version_id = live_object_versions.id
@@ -386,7 +400,7 @@ where live_object_versions.id in (${placeholders.join(', ')}) and live_event_ver
     } catch (err) {
         throw `[${blockNumber}] Error finding event versions from live object versions: ${err}`
     }
-    return results
+    return camelizeKeys(results)
 }
 
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {

@@ -29,7 +29,7 @@ export function getWorker(): Worker {
     })
 
     worker.on('failed', async (job, err) => {
-        logger.error(`[${config.CHAIN_ID}:${job.data?.blockNumber}] Event generator job failed -- ${err}.`)
+        logger.error(`[${config.CHAIN_ID}:${job.data?.blockNumber}] Event generator job failed`, err)
     })
 
     worker.on('error', (err) => {

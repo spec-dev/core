@@ -19,7 +19,7 @@
         "bullmq": "^1.86.4",
         "chalk": "4.1.0",
         "cross-fetch": "^3.1.5",
-        "dayjs": "^1.11.7",
+        "humps": "^2.0.1",
         "short-uuid": "^4.2.2"
     },
     "devDependencies": {

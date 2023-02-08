@@ -5,7 +5,7 @@ import logger from '../lib/logger'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { exit } from 'process'
 
-async function perform(lov: string, eventVersion: string) {
+async function perform(lov: string, eventVersion: string, isInput: boolean) {
     await CoreDB.initialize()
 
     const liveObjectVersion = (await getLiveObjectVersionsByNamespacedVersions([lov]))[0]
@@ -23,7 +23,7 @@ async function perform(lov: string, eventVersion: string) {
     }
 
     logger.info(`Creating live_event_version ${nsp}.${name}@${version}...`)
-    await createLiveEventVersion(liveObjectVersion.id, eventVersionRecord.id)
+    await createLiveEventVersion(liveObjectVersion.id, eventVersionRecord.id, isInput)
     logger.info('Success.')
     exit(0)
 }
