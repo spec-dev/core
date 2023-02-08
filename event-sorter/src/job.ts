@@ -6,11 +6,15 @@ import chalk from 'chalk'
 
 async function perform({ blockNumber }) {
     blockNumber = Number(blockNumber)
-    const [seriesNumber, skippedNumbers] = await Promise.all([
+    
+    let seriesNumber, skippedNumbers
+    ;([seriesNumber, skippedNumbers] = await Promise.all([
         getBlockEventsSeriesNumber(config.CHAIN_ID),
         getSkippedBlocks(config.CHAIN_ID)
-    ])
-    if (seriesNumber === null) throw 'Series number missing'
+    ]))
+    if (seriesNumber === null) {
+        seriesNumber = blockNumber
+    }
 
     // Replay from the skipped number to the current series 
     // number when a skipped number is finally received.
