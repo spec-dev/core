@@ -1,0 +1,96 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{JOB_NAME}}
+  labels:
+    type: live-object-indexer
+spec:
+  template:
+    metadata:
+      labels:
+        type: live-object-indexer
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            type: live-object-indexer
+      containers:
+      - name: live-object-indexer
+        image: {{IMAGE}}
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: RANGE_WORKER_TYPE
+          value: {{RANGE_WORKER_TYPE}}
+        - name: FROM
+          value: "{{FROM}}"
+        - name: TO
+          value: "{{TO}}"
+        - name: SPECIFIC_INDEX_NUMBERS
+          value: "{{SPECIFIC_INDEX_NUMBERS}}"
+        - name: RANGE_GROUP_SIZE
+          value: "{{RANGE_GROUP_SIZE}}"
+        - name: CHAIN_ID
+          value: "{{CHAIN_ID}}"
+        - name: ALCHEMY_API_KEY
+          value: {{ALCHEMY_API_KEY}}
+        - name: ALCHEMY_REST_URL
+          value: {{ALCHEMY_REST_URL}}
+        - name: ALCHEMY_SUBSCRIPTION_URL
+          value: {{ALCHEMY_SUBSCRIPTION_URL}}
+        - name: PUBLISHER_ROLE_KEY
+          value: {{PUBLISHER_ROLE_KEY}}
+        - name: EVENT_RELAY_HOSTNAME
+          value: {{EVENT_RELAY_HOSTNAME}}
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
+        - name: INDEXER_DB_NAME
+          value: {{INDEXER_DB_NAME}}
+        - name: INDEXER_DB_HOST
+          value: {{INDEXER_DB_HOST}}
+        - name: INDEXER_DB_PORT
+          value: "{{INDEXER_DB_PORT}}"
+        - name: INDEXER_DB_USERNAME
+          value: {{INDEXER_DB_USERNAME}}
+        - name: INDEXER_DB_PASSWORD
+          value: {{INDEXER_DB_PASSWORD}}
+        - name: CORE_REDIS_HOST
+          value: {{CORE_REDIS_HOST}}
+        - name: CORE_REDIS_PORT
+          value: "{{CORE_REDIS_PORT}}"
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
+        - name: SHARED_TABLES_DB_NAME
+          value: {{SHARED_TABLES_DB_NAME}}
+        - name: SHARED_TABLES_DB_HOST
+          value: {{SHARED_TABLES_DB_HOST}}
+        - name: SHARED_TABLES_DB_PORT
+          value: "{{SHARED_TABLES_DB_PORT}}"
+        - name: SHARED_TABLES_DB_USERNAME
+          value: {{SHARED_TABLES_DB_USERNAME}}
+        - name: SHARED_TABLES_DB_PASSWORD
+          value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: ABI_REDIS_HOST
+          value: {{ABI_REDIS_HOST}}
+        - name: ABI_REDIS_PORT
+          value: "{{ABI_REDIS_PORT}}"
+        - name: ETHERSCAN_API_KEY
+          value: 2AVI7MJT2URAPWS32TEC9TYV25NIUCUSYR
+        - name: SHARED_TABLES_MAX_POOL_SIZE
+          value: "200"
+        - name: SAVE_BATCH_MULTIPLE
+          value: "1"
+      restartPolicy: Never

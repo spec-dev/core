@@ -132,7 +132,7 @@ async function generateEventsForNamespace(
         } catch (err) {
             logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
             // If any generator ever fails, mark the entire namespace as failing.
-            // await markNamespaceAsFailing(config.CHAIN_ID, nsp)
+            await markNamespaceAsFailing(config.CHAIN_ID, nsp)
             break
         }
         if (!generatedEvents?.length) continue
@@ -412,7 +412,7 @@ where live_object_versions.id in (${placeholders.join(', ')}) and live_event_ver
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {
     return contractEvents.sort((a, b) => (
         (a.transactionIndex - b.transactionIndex) || 
-        (a.logIndex - b.logIndex)
+        (Number(a.logIndex) - Number(b.logIndex))
     ))
 }
 

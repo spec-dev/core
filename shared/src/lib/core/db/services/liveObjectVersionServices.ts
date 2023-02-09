@@ -1,4 +1,4 @@
-import { LiveObjectVersion } from '../entities/LiveObjectVersion'
+import { LiveObjectVersion, LiveObjectVersionStatus } from '../entities/LiveObjectVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
@@ -124,4 +124,14 @@ export async function createLiveObjectVersionWithTx(
                 .execute()
         ).generatedMaps[0] || null
     )
+}
+
+export async function updateLiveObjectVersionStatus(id: number, status: LiveObjectVersionStatus) {
+    try {
+        await liveObjectVersions().createQueryBuilder().update({ status }).where({ id }).execute()
+    } catch (err) {
+        logger.error(`Error setting LiveObjectVersion(id=${id}) status to ${status}: ${err}`)
+        return false
+    }
+    return true
 }

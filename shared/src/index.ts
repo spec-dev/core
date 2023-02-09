@@ -112,6 +112,7 @@ export {
     LiveObjectVersionProperty,
     LiveObjectVersionPropertyOptions,
     LiveObjectVersionConfig,
+    LiveObjectVersionStatus,
 } from './lib/core/db/entities/LiveObjectVersion'
 export { LiveEventVersion } from './lib/core/db/entities/LiveEventVersion'
 export {
@@ -192,6 +193,7 @@ export {
     updateLiveObjectVersionConfig,
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
+    updateLiveObjectVersionStatus,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,
