@@ -51,7 +51,10 @@ class LovIndexer {
         while (true) {
             const [eventLogs, done] = await this._getNextEventLogsBatch()
             await this._processEventLogs(eventLogs)
-            if (done) break
+            if (done) {
+                const [_, reallyDone] = await this._getNextEventLogsBatch()
+                if (reallyDone) break
+            }
         }
         logger.info(`Done. Setting ${this.namespacedLov} to "live".`)
         await updateLiveObjectVersionStatus(this.id, LiveObjectVersionStatus.Live)
@@ -233,7 +236,9 @@ class LovIndexer {
         )) || []).map(r => camelizeKeys(r)))
 
         const isLastBatch = logs.length < limit
-        this.offset += limit
+        this.offset += logs.length
+
+        if (!logs.length) return [[], true]
 
         const uniqueTxHashes = unique(logs.map(log => log.transactionHash))
         const placeholders = []
@@ -249,7 +254,6 @@ class LovIndexer {
         const successfulTxHashes = new Set(
             txResults.filter(tx => tx.status != 0).map(tx => tx.hash)
         )
-
         const successfulLogs = logs.filter(log => successfulTxHashes.has(log.transactionHash))
 
         return [successfulLogs, isLastBatch]
