@@ -110,6 +110,7 @@ async function generateEventsForNamespace(
     blockNumber: number,
 ) {
     const tablesApiTokens = {}
+
     for (const eventGroup of eventGroups) {
         const { lovId, lovUrl, lovTableSchema, events } = eventGroup
 
@@ -131,7 +132,7 @@ async function generateEventsForNamespace(
         } catch (err) {
             logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
             // If any generator ever fails, mark the entire namespace as failing.
-            await markNamespaceAsFailing(config.CHAIN_ID, nsp)
+            // await markNamespaceAsFailing(config.CHAIN_ID, nsp)
             break
         }
         if (!generatedEvents?.length) continue
@@ -186,7 +187,7 @@ async function generateLiveObjectEvents(
         throw `Failed to parse JSON response (lovId=${lovId}): ${err}`
     }
     if (resp?.status !== 200) {
-        throw `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${generatedEventGroups}.`
+        throw `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
     }
     if (!generatedEventGroups?.length) {
         return []
@@ -243,39 +244,41 @@ function groupEventsByLovNamespace(
     for (const nsp in eventsByLovNsp) {
         const groupedByLov = []
         let adjacentEventsWithSameLov = []
-        let matchingLovId = null
-        let lovId, lovUrl, lovTableSchema
+        let prevLovId = null
+        let lovId, prevLovUrl, prevLovTableSchema
 
         for (const entry of eventsByLovNsp[nsp]) {
             const { event } = entry
             lovId = entry.lovId
-            lovUrl = entry.lovUrl
-            lovTableSchema = entry.lovTableSchema
 
-            if (matchingLovId === null) {
+            if (prevLovId === null) {
                 adjacentEventsWithSameLov = [event]
-                matchingLovId = lovId
+                prevLovId = lovId
+                prevLovUrl = entry.lovUrl
+                prevLovTableSchema = entry.lovTableSchema    
                 continue
             }
 
-            if (lovId !== matchingLovId) {
+            if (lovId !== prevLovId) {
                 groupedByLov.push({
-                    lovId,
-                    lovUrl,
-                    lovTableSchema,
+                    lovId: prevLovId,
+                    lovUrl: prevLovUrl,
+                    lovTableSchema: prevLovTableSchema,
                     events: adjacentEventsWithSameLov,
                 })
                 adjacentEventsWithSameLov = [event]
-                matchingLovId = lovId
+                prevLovId = lovId
+                prevLovUrl = entry.lovUrl
+                prevLovTableSchema = entry.lovTableSchema
                 continue
             }
 
             adjacentEventsWithSameLov.push(event)
         }
         adjacentEventsWithSameLov.length && groupedByLov.push({
-            lovId,
-            lovUrl,
-            lovTableSchema,
+            lovId: prevLovId,
+            lovUrl: prevLovUrl,
+            lovTableSchema: prevLovTableSchema,
             events: adjacentEventsWithSameLov,
         })
         eventsByNamespaceAndLov[nsp] = groupedByLov
@@ -342,7 +345,7 @@ async function getLiveObjectVersionsFromInputLiveEventVersions(
 
     let i = 1
     for (const { nsp, name, version } of eventVersionComps) {
-        andClauses.push(`(event_versions.nsp = $${i} and event_versions.name = $${i + 1} and event_versions.version = $${i + 2} and live_event_versions.is_input = true)`)
+        andClauses.push(`(event_versions.nsp = $${i} and event_versions.name = $${i + 1} and event_versions.version = $${i + 2})`)
         bindings.push(...[nsp, name, version])
         i += 3
     }
@@ -357,7 +360,10 @@ live_object_versions.config -> 'table' as lov_table_path
 from live_event_versions
 join event_versions on live_event_versions.event_version_id = event_versions.id
 join live_object_versions on live_event_versions.live_object_version_id = live_object_versions.id
-where ${andClauses.join(' or ')}`
+where (${andClauses.join(' or ')})
+and live_event_versions.is_input = true
+and live_object_versions.url is not null
+and live_object_versions.status = 1`
 
     let results = []
     try {
