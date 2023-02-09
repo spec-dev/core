@@ -35,6 +35,12 @@ export interface LiveObjectVersionConfig {
     tableName?: string
 }
 
+export enum LiveObjectVersionStatus {
+    Indexing = 0,
+    Live = 1,
+    Failing = 2,
+}
+
 /**
  * A particular version of a live object.
  */
@@ -58,8 +64,11 @@ export class LiveObjectVersion {
     @Column()
     version: string
 
-    @Column()
+    @Column({ nullable: true })
     url: string
+
+    @Column('int2', { nullable: true })
+    status: LiveObjectVersionStatus
 
     @Column('json', { nullable: true })
     properties: LiveObjectVersionProperty[]
