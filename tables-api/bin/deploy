@@ -28,8 +28,8 @@ jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
 shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
 shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
-shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_RANDY_DB_USERNAME" )
-shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_RANDY_DB_PASSWORD" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -43,8 +43,8 @@ $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
-$shared_bin_dir/assert_env "SHARED_TABLES_RANDY_DB_USERNAME" "$shared_tables_db_username"
-$shared_bin_dir/assert_env "SHARED_TABLES_RANDY_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -54,7 +54,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
+# image_version=$( $shared_bin_dir/latest_sha )
+image_version="21d3561"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

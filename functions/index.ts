@@ -1,12 +1,7 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.19'
+import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.27'
 import LiveObject from './spec.ts'
-import pgFormat from 'https://deno.land/x/pg_format@v1.0.0/index.js'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
-
-// Hack for cross-platform Deno + Node support.
-globalThis.ident = pgFormat.ident
-globalThis.literal = pgFormat.literal
 
 const errors = {
     INVALID_PAYLOAD: 'Invalid payload',
@@ -47,6 +42,7 @@ function verifyJWT(token: string): boolean {
         const claims = jwt.verify(token, config.JWT_SECRET)
         return claims?.role === config.JWT_ROLE
     } catch (err) {
+        console.error(err)
         return false
     }
 }
@@ -77,7 +73,7 @@ async function parseEventsFromPayload(req: any): Promise<SpecEvent[]> {
     for (const event of events) {
         if (!event.name || !event.data || !event.origin) {
             return null
-        }    
+        }
     }
     return events as SpecEvent[]
 }
@@ -111,7 +107,7 @@ serve(async (req: Request) => {
             await liveObject.handleEvent(inputEvent)
             await liveObject.save()
         } catch (err) {
-            console.error(err?.message || err)
+            console.error(err)
             return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
         }
         allPublishedEvents.push(liveObject.publishedEvents)
