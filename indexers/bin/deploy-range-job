@@ -123,7 +123,6 @@ image="$registry_image:$image_version"
 # ======== CREATE & APPLY TEMPLATE ======== #
 
 template_path="$indexers_dir/range-job.yaml"
-
 job_name="indexer-$image_version-$FROM-$TO-$range_worker_type"
 
 # Create the config template.

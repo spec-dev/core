@@ -5,7 +5,7 @@ metadata:
   labels:
     app: event-sorter-{{CHAIN_ID}}
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: event-sorter-{{CHAIN_ID}}
@@ -22,3 +22,9 @@ spec:
           value: production
         - name: CHAIN_ID
           value: "{{CHAIN_ID}}"
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}

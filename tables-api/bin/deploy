@@ -22,6 +22,7 @@ port=$( $shared_bin_dir/env_reader "$env" "TABLES_API_PORT" )
 stream_batch_size=$( $shared_bin_dir/env_reader "$env" "TABLES_API_STREAM_BATCH_SIZE" )
 cert_arm=$( $shared_bin_dir/env_reader "$env" "ACM_WILDCARD_CERT_ARM" )
 bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "TABLES_API_BUGSNAG_API_KEY" )
+jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -36,6 +37,7 @@ $shared_bin_dir/assert_env "TABLES_API_PORT" "$port"
 $shared_bin_dir/assert_env "TABLES_API_STREAM_BATCH_SIZE" "$stream_batch_size"
 $shared_bin_dir/assert_env "ACM_WILDCARD_CERT_ARM" "$cert_arm"
 $shared_bin_dir/assert_env "TABLES_API_BUGSNAG_API_KEY" "$bugsnag_api_key"
+$shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -52,8 +54,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="fa286f9"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -64,6 +65,7 @@ template_path="$tables_api_dir/tables-api-new.yaml"
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{PORT}}|$port|g" | \
+    sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
     sed "s|{{ACM_WILDCARD_CERT_ARM}}|$cert_arm|g" | \
     sed "s|{{STREAM_BATCH_SIZE}}|$stream_batch_size|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \

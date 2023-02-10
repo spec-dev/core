@@ -75,7 +75,7 @@ async function parseEventsFromPayload(req: any): Promise<SpecEvent[]> {
         return null
     }
     for (const event of events) {
-        if (!event.id || !event.name || !event.data || !event.origin) {
+        if (!event.name || !event.data || !event.origin) {
             return null
         }    
     }
@@ -111,6 +111,7 @@ serve(async (req: Request) => {
             await liveObject.handleEvent(inputEvent)
             await liveObject.save()
         } catch (err) {
+            console.error(err?.message || err)
             return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
         }
         allPublishedEvents.push(liveObject.publishedEvents)

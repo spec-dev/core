@@ -61,7 +61,7 @@ async function replayFromBlock(skippedBlockNumber: number, currentSeriesNumber: 
 }
 
 async function skipBlock(seriesNumber: number, latestBlockNumber: number) {
-    logger.info(chalk.redBright(`Skipping block ${seriesNumber.toLocaleString()}`))
+    logger.error(chalk.redBright(`Skipping block ${seriesNumber.toLocaleString()}`))
 
     const eagerNumbers = new Set(await getEagerBlocks(config.CHAIN_ID))
     const blocksToProcess = []
