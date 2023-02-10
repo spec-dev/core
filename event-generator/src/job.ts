@@ -1,4 +1,4 @@
-import { logger, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, getSkippedBlocks, markNamespaceAsFailing, newTablesJWT, getFailingNamespaces } from '../../shared'
+import { logger, sleep, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, getSkippedBlocks, markNamespaceAsFailing, newTablesJWT, getFailingNamespaces } from '../../shared'
 import config from './config'
 import { publishEvents } from './relay'
 import { camelizeKeys } from 'humps'
@@ -152,6 +152,7 @@ async function generateLiveObjectEvents(
     acceptedOutputEvents: Set<string>,
     inputEvents: StringKeyMap[],
     tablesApiToken: string,
+    attempts: number = 0,
 ): Promise<StringKeyMap[]> {
     // Prep both auth headers. One for the event generator function itself, 
     // and one for the event generator to make calls to the Tables API.
@@ -175,7 +176,21 @@ async function generateLiveObjectEvents(
         })
     } catch (err) {
         clearTimeout(timer)
-        throw `Request error to ${lovUrl} (lovId=${lovId}): ${err}`
+        const error = `Request error to ${lovUrl} (lovId=${lovId}): ${err}`
+        logger.error(error)
+        if (attempts <= 10) {
+            await sleep(1000)
+            return generateLiveObjectEvents(
+                lovId,
+                lovUrl,
+                acceptedOutputEvents,
+                inputEvents,
+                tablesApiToken,
+                attempts + 1,
+            )
+        } else {
+            throw err
+        }
     }
     clearTimeout(timer)
 
@@ -424,7 +439,7 @@ function getUniqueEventVersionComps(originEvents: StringKeyMap[]): StringKeyMap[
 }
 
 function newTablesApiToken(schema: string) {
-    return newTablesJWT(schema, config.EVENT_GEN_RESPONSE_TIMEOUT * 5)
+    return newTablesJWT(schema, config.EVENT_GEN_RESPONSE_TIMEOUT * 10)
 }
 
 export default perform

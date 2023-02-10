@@ -1,0 +1,5 @@
+[db]
+# Name of database to connect to.
+name = ''
+# Local database port to connect to.
+port = 5432

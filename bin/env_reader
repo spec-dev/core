@@ -40,7 +40,7 @@ if [[ "$env_name" = "all" ]]; then
 
 elif [[ "$env_name" ]]; then
 	# Get value for specific env name.
-	env_var=$( cat "$env_file_path" | grep "$env_name=" )
+	env_var=$( cat "$env_file_path" | grep "^$env_name=" )
 
 	# If env var exists...
 	if [[ "$env_var" ]]; then
