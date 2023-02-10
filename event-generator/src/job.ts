@@ -132,7 +132,7 @@ async function generateEventsForNamespace(
         } catch (err) {
             logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
             // If any generator ever fails, mark the entire namespace as failing.
-            await markNamespaceAsFailing(config.CHAIN_ID, nsp)
+            // await markNamespaceAsFailing(config.CHAIN_ID, nsp)
             break
         }
         if (!generatedEvents?.length) continue
@@ -202,7 +202,21 @@ async function generateLiveObjectEvents(
         throw `Failed to parse JSON response (lovId=${lovId}): ${err}`
     }
     if (resp?.status !== 200) {
-        throw `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
+        const msg = `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
+        logger.error(msg)
+        if (attempts <= 10) {
+            await sleep(1000)
+            return generateLiveObjectEvents(
+                lovId,
+                lovUrl,
+                acceptedOutputEvents,
+                inputEvents,
+                tablesApiToken,
+                attempts + 1,
+            )
+        } else {
+            throw msg
+        }
     }
     if (!generatedEventGroups?.length) {
         return []

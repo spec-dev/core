@@ -114,7 +114,14 @@ class LovIndexer {
             throw `Failed to parse JSON response (lovId=${this.id}): ${err}`
         }
         if (resp?.status !== 200) {
-            throw `Request to ${this.liveObjectVersion.url} (lovId=${this.id}) failed with status ${resp?.status}: ${JSON.stringify(respData || [])}.`
+            const msg = `Request to ${this.liveObjectVersion.url} (lovId=${this.id}) failed with status ${resp?.status}: ${JSON.stringify(respData || [])}.`
+            logger.error(msg)
+            if (attempts <= 10) {
+                await sleep(2000)
+                this._sendInputEventsToLov(events, attempts + 1)
+            } else {
+                throw msg
+            }
         }
     }
 
