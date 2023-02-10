@@ -1,4 +1,4 @@
-import { snakeToCamel, newTablesJWT, stripLeadingAndTrailingUnderscores, logger, schemaForChainId, CoreDB, toNamespacedVersion, SharedTables, StringKeyMap, EventVersion, LiveObjectVersion, ContractInstance, unique, In, updateLiveObjectVersionStatus, LiveObjectVersionStatus, toChunks } from '../../shared'
+import { snakeToCamel, sleep, newTablesJWT, stripLeadingAndTrailingUnderscores, logger, schemaForChainId, CoreDB, toNamespacedVersion, SharedTables, StringKeyMap, EventVersion, LiveObjectVersion, ContractInstance, unique, In, updateLiveObjectVersionStatus, LiveObjectVersionStatus, toChunks } from '../../shared'
 import config from './config'
 import { ident, literal } from 'pg-format'
 import { camelizeKeys } from 'humps'
@@ -84,7 +84,7 @@ class LovIndexer {
         return eventSpecs
     }
 
-    async _sendInputEventsToLov(events: StringKeyMap[]) {
+    async _sendInputEventsToLov(events: StringKeyMap[], attempts: number = 0) {
         const headers = {
             [config.EVENT_GEN_AUTH_HEADER_NAME]: config.EVENT_GENERATORS_JWT,
             [config.TABLES_AUTH_HEADER_NAME]: this.tablesApiToken,
@@ -98,7 +98,13 @@ class LovIndexer {
                 body: JSON.stringify(events),
             })
         } catch (err) {
-            throw `Request error to ${this.liveObjectVersion.url} (lovId=${this.id}): ${err}`
+            logger.error(`Request error to ${this.liveObjectVersion.url} (lovId=${this.id}): ${err}`)
+            if (attempts <= 10) {
+                await sleep(2000)
+                this._sendInputEventsToLov(events, attempts + 1)
+            } else {
+                throw err
+            }
         }
 
         let respData
