@@ -134,7 +134,7 @@ async function generateEventsForNamespace(
             logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
             // If any generator ever fails, mark the entire namespace as failing.
             // await markNamespaceAsFailing(config.CHAIN_ID, nsp)
-            break
+            continue
         }
         if (!generatedEvents?.length) continue
 
