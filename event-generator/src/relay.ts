@@ -50,6 +50,11 @@ export async function publishEvents(eventSpecs: StringKeyMap[], generated?: bool
         finalEvents.push({ ...event, nonce })
     }
 
+    if (!generated) {
+        const { chainId, blockNumber } = finalEvents[0].origin
+        logger.info(`[${chainId}:${blockNumber}] Publishing ${finalEvents.length} origin events...`)
+    }
+
     for (const event of finalEvents) {
         await emit(event, generated)
     }
@@ -57,6 +62,6 @@ export async function publishEvents(eventSpecs: StringKeyMap[], generated?: bool
 
 export async function emit(event: SpecEvent, generated?: boolean) {
     const log = `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
-    generated ? logger.info(chalk.cyanBright(log)) : logger.info(log)
+    generated && logger.info(chalk.cyanBright(log))
     await eventClient.socket.transmitPublish(event.name, event)
 }
