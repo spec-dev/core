@@ -7,6 +7,7 @@ const liveObjectIndexerConfig: StringKeyMap = {
     TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
     LIVE_OBJECT_VERSION_ID: Number(ev('LIVE_OBJECT_VERSION_ID')),
     BLOCK_RANGE_SIZE: Number(ev('BLOCK_RANGE_SIZE', 1000)),
+    OFFSET: Number(ev('OFFSET', 0)),
 }
 
 export default liveObjectIndexerConfig

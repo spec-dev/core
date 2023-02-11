@@ -29,9 +29,9 @@ class LovIndexer {
     
     tablesApiToken: string
 
-    constructor(id: number) {
+    constructor(id: number, offset?: number) {
         this.id = id
-        this.offset = 0
+        this.offset = offset || 0
         this.liveObjectVersion = null
         this.namespacedLov = null
         this.inputContractEventVersions = []
