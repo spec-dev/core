@@ -48,3 +48,5 @@ spec:
           value: "100"
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: FORCE_COLOR
+          value: "1"

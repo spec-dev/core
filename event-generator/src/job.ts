@@ -202,7 +202,7 @@ async function generateLiveObjectEvents(
     try {
         generatedEventGroups = (await resp?.json()) || []
     } catch (err) {
-        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err}`)
+        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - inputEvents: ${JSON.stringify(inputEvents, null, 4)}`)
     }
     if (resp?.status !== 200) {
         const msg = `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
@@ -215,6 +215,7 @@ async function generateLiveObjectEvents(
                 acceptedOutputEvents,
                 inputEvents,
                 tablesApiToken,
+                blockNumber,
                 attempts + 1,
             )
         } else {
