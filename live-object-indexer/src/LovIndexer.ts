@@ -111,7 +111,7 @@ class LovIndexer {
         try {
             respData = (await resp?.json()) || []
         } catch (err) {
-            throw `Failed to parse JSON response (lovId=${this.id}): ${err}`
+            logger.error(`Failed to parse JSON response (lovId=${this.id}): ${err}`)
         }
         if (resp?.status !== 200) {
             const msg = `Request to ${this.liveObjectVersion.url} (lovId=${this.id}) failed with status ${resp?.status}: ${JSON.stringify(respData || [])}.`

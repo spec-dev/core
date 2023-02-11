@@ -128,6 +128,7 @@ async function generateEventsForNamespace(
                 generatedEventVersionsWhitelist[lovId],
                 events,
                 tablesApiTokens[lovTableSchema],
+                blockNumber,
             )) || []).flat()
         } catch (err) {
             logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
@@ -152,6 +153,7 @@ async function generateLiveObjectEvents(
     acceptedOutputEvents: Set<string>,
     inputEvents: StringKeyMap[],
     tablesApiToken: string,
+    blockNumber: number,
     attempts: number = 0,
 ): Promise<StringKeyMap[]> {
     // Prep both auth headers. One for the event generator function itself, 
@@ -176,7 +178,7 @@ async function generateLiveObjectEvents(
         })
     } catch (err) {
         clearTimeout(timer)
-        const error = `Request error to ${lovUrl} (lovId=${lovId}): ${err}`
+        const error = `[${blockNumber}] Request error to ${lovUrl} (lovId=${lovId}): ${err}`
         logger.error(error)
         if (attempts <= 10) {
             await sleep(1000)
@@ -186,6 +188,7 @@ async function generateLiveObjectEvents(
                 acceptedOutputEvents,
                 inputEvents,
                 tablesApiToken,
+                blockNumber,
                 attempts + 1,
             )
         } else {
@@ -195,14 +198,14 @@ async function generateLiveObjectEvents(
     clearTimeout(timer)
 
     // Get the live object events generated from the response.
-    let generatedEventGroups
+    let generatedEventGroups = []
     try {
         generatedEventGroups = (await resp?.json()) || []
     } catch (err) {
-        throw `Failed to parse JSON response (lovId=${lovId}): ${err}`
+        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err}`)
     }
     if (resp?.status !== 200) {
-        const msg = `Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
+        const msg = `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
         logger.error(msg)
         if (attempts <= 10) {
             await sleep(1000)
@@ -229,7 +232,7 @@ async function generateLiveObjectEvents(
         const inputEvent = inputEvents[i]
         for (const event of generatedEvents) {
             if (!acceptedOutputEvents.has(event.name)) {
-                logger.error(`Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
+                logger.error(`[${blockNumber}] Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
                 continue
             }
             // Attach input event origin to generated events.

@@ -42,6 +42,7 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
     // Perform the query.
     let result
     try {
+        logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
     } catch (err) {
         logger.error(errors.QUERY_FAILED, query, err)
@@ -64,9 +65,10 @@ export async function performTx(queries: QueryPayload[], role: string) {
     let results = []
     try {
         await conn.query('BEGIN')
-        results = await Promise.all(queries.map(({ sql, bindings }) => (
-            conn.query(sql, bindings)
-        )))
+        results = await Promise.all(queries.map(({ sql, bindings }) => {
+            logger.info(sql, bindings)
+            return conn.query(sql, bindings)
+        }))
         await conn.query('COMMIT')
     } catch (err) {
         await conn.query('ROLLBACK')
