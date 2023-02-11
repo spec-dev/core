@@ -8,8 +8,8 @@ export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
         [config.EVENT_GENERATOR_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
-        async (j: Job) => {
-            await perform(j.data)
+        async (job: Job) => {
+            await perform(job.data)
             if (await isEventGeneratorPaused(config.CHAIN_ID)) {
                 await pauseEventGenerator(config.CHAIN_ID)
             }

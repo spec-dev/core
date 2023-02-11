@@ -119,22 +119,23 @@ async function generateEventsForNamespace(
             tablesApiTokens[lovTableSchema] = newTablesApiToken(lovTableSchema)
         }
 
-        // Generate events to publish for this live object.
-        let generatedEvents
-        try {
-            generatedEvents = ((await generateLiveObjectEvents(
+        let generatedEvents = await generateLiveObjectEventsWithProtection(
+            lovId,
+            lovUrl,
+            generatedEventVersionsWhitelist[lovId],
+            events,
+            tablesApiTokens[lovTableSchema],
+            blockNumber,
+        )
+        if (generatedEvents === null && events.length > 1) {
+            generatedEvents = (await Promise.all(events.map(event => generateLiveObjectEventsWithProtection(
                 lovId,
                 lovUrl,
                 generatedEventVersionsWhitelist[lovId],
-                events,
+                [event],
                 tablesApiTokens[lovTableSchema],
                 blockNumber,
-            )) || []).flat()
-        } catch (err) {
-            logger.error(`[${blockNumber}] Generating events for namespace ${nsp} failed. ${err}`)
-            // If any generator ever fails, mark the entire namespace as failing.
-            // await markNamespaceAsFailing(config.CHAIN_ID, nsp)
-            continue
+            )))).filter(v => v !== null).flat()
         }
         if (!generatedEvents?.length) continue
 
@@ -145,6 +146,31 @@ async function generateEventsForNamespace(
             throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
         }
     }
+}
+
+async function generateLiveObjectEventsWithProtection(
+    lovId: string,
+    lovUrl: string,
+    acceptedOutputEvents: Set<string>,
+    inputEvents: StringKeyMap[],
+    tablesApiToken: string,
+    blockNumber: number,
+): Promise<StringKeyMap[] | null> {
+    let generatedEvents = []
+    try {
+        generatedEvents = ((await generateLiveObjectEvents(
+            lovId,
+            lovUrl,
+            acceptedOutputEvents,
+            inputEvents,
+            tablesApiToken,
+            blockNumber,
+        )) || []).flat()
+    } catch (err) {
+        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}). Input events: ${JSON.stringify(inputEvents, null, 4)}`)
+        return null
+    }
+    return generatedEvents
 }
 
 async function generateLiveObjectEvents(
