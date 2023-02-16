@@ -36,7 +36,7 @@ async function getDBTimestamp(): Promise<string> {
 }
 
 export async function publishEvents(eventSpecs: StringKeyMap[], generated?: boolean) {
-    if (!eventSpecs.length) return
+    if (!eventSpecs?.length) return
     
     // Format event specs as spec events.
     const eventTimestamp = await getDBTimestamp()

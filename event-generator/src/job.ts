@@ -13,7 +13,7 @@ async function perform(data: StringKeyMap) {
 
     // Get the events for this block number from redis.
     let blockEvents = await getBlockEvents(config.CHAIN_ID, blockNumber)
-    if (!blockEvents.length) {
+    if (!blockEvents?.length) {
         logger.warn(`No block events found for block ${blockNumber}`)
         return
     }
@@ -62,7 +62,7 @@ async function perform(data: StringKeyMap) {
     // If any blocks have been skipped, keep the block events in redis. 
     // Otherwise, they can safely be removed.
     const skippedBlocks = await getSkippedBlocks(config.CHAIN_ID)
-    if (skippedBlocks.length) return
+    if (skippedBlocks?.length) return
     await deleteBlockEvents(config.CHAIN_ID, blockNumber)
 }
 
@@ -127,7 +127,7 @@ async function generateEventsForNamespace(
             tablesApiTokens[lovTableSchema],
             blockNumber,
         )
-        if (generatedEvents === null && events.length > 1) {
+        if (generatedEvents === null && events?.length > 1) {
             generatedEvents = (await Promise.all(events.map(event => generateLiveObjectEventsWithProtection(
                 lovId,
                 lovUrl,
@@ -438,7 +438,7 @@ async function getGeneratedEventVersionsForLovs(
     lovIds: number[],
     blockNumber: number,
 ): Promise<StringKeyMap[]> {
-    if (!lovIds.length) return []
+    if (!lovIds?.length) return []
     const placeholders = []
     const bindings = []
     let i = 1
