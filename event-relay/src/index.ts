@@ -26,11 +26,11 @@ const agServer = socketClusterServer.attach(httpServer, agOptions)
 
 // Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
-    for await (let action of stream) { 
+    for await (let action of stream) {
         // Auth new connections.
+        // TODO: This isn't working currently -> this needs to be action.SUBSCRIBE instead, and to kick the connection when unauthed.
         if (action.type === action.AUTHENTICATE) {
             const authToken = action.socket.authToken
-
             if (!authToken || !(await authConnection(authToken))) {
                 const authError = new Error('Unauthorized')
                 authError.name = 'AuthError'

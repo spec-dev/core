@@ -54,8 +54,7 @@ export async function loadSchemaRoles() {
 }
 
 async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: string) {
-    const useRole = role && schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
-    console.log('would use role', useRole)
+    // const useRole = role && schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
     let conn
     try {
         conn = await pool.connect()
