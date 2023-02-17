@@ -1,4 +1,5 @@
 const errors = {
+    UNAUTHORIZED: 'Unauthorized request',
     INVALID_PAYLOAD: 'Invalid payload',
     EMPTY_QUERY_RESULT: 'Empty query result',
     QUERY_FAILED: 'Query failed',

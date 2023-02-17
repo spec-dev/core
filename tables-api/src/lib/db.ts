@@ -22,11 +22,43 @@ export const pool = new Pool({
 })
 pool.on('error', err => logger.error('PG client error', err))
 
-async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: string) {
+let schemaRoles = new Set<string>()
+
+export async function loadSchemaRoles() {
     let conn
     try {
         conn = await pool.connect()
-        role && await conn.query(`SET ROLE ${ident(role)}`)
+    } catch (err) {
+        conn && conn.release()
+        logger.error('Error loading schema roles', err)
+    }
+
+    let result
+    try {
+        result = await conn.query(
+            `select rolname as name from pg_roles where rolname in (select nspname from pg_namespace)`
+        )
+    } catch (err) {
+        logger.error(errors.QUERY_FAILED, 'loading schema roles', err)
+    } finally {
+        conn.release()
+    }
+
+    if (!result) {
+        logger.error(errors.EMPTY_QUERY_RESULT, 'loading schema roles')
+        return
+    }
+
+    const roles = (result?.rows || []).map(r => r.name)
+    schemaRoles = new Set(roles)
+}
+
+async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: string) {
+    const useRole = role && schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
+    let conn
+    try {
+        conn = await pool.connect()
+        await conn.query(`SET ROLE ${ident(useRole)}`)
     } catch (err) {
         conn && conn.release()
         logger.error(errors.QUERY_FAILED, query, err)
@@ -91,9 +123,9 @@ export async function performTx(queries: QueryPayload[], role: string) {
     return responses
 }
 
-export async function createQueryStream(query: QueryPayload) {
+export async function createQueryStream(query: QueryPayload, role: string) {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query)
+    const conn = await getPoolConnection(query, role)
 
     // Build and return the stream.
     try {
