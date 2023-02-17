@@ -21,6 +21,7 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
 log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "LOG_RELAY_BUGSNAG_API_KEY" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -42,6 +43,7 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
+$shared_bin_dir/assert_env "LOG_RELAY_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -66,8 +68,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "LOG_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="eb2fb8f"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -77,6 +78,7 @@ template_path="$log_relay_dir/log-relay.yaml"
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
     sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
