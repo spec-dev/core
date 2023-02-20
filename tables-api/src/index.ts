@@ -24,6 +24,10 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
  * Perform a basic query.
  */
 app.post(paths.QUERY, async (req, res) => {
+    try {
+        console.log(JSON.stringify(req.headers, null, 4))
+    } catch (err) {}
+    
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
     // if (!role) {
