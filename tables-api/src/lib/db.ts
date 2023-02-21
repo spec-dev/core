@@ -148,8 +148,8 @@ export async function createQueryStream(query: QueryPayload) {
 
     // Build and return the stream.
     try {
-        logger.info('Setting role', config.SHARED_TABLES_DEFAULT_ROLE)
-        await conn.query(`SET ROLE ${config.SHARED_TABLES_DEFAULT_ROLE}`)
+        // logger.info('Setting role', config.SHARED_TABLES_DEFAULT_ROLE)
+        // await conn.query(`SET ROLE ${config.SHARED_TABLES_DEFAULT_ROLE}`)
         logger.info(sql, bindings)
         const stream = conn.query(
             new QueryStream(sql, bindings, { batchSize: config.STREAM_BATCH_SIZE })
