@@ -53,19 +53,18 @@ export async function loadSchemaRoles() {
     schemaRoles = new Set(roles)
 }
 
-async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: string) {
-    let useRole = null
-    if (role) {
-        useRole = schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
+function resolveRole(role?: string): string | null {
+    let resolvedRole = null
+    if (!!role) {
+        resolvedRole = schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
     }
+    return resolvedRole
+}
 
-    console.log('ROLE', role)
-    console.log('USEROLE', useRole)
-
+async function getPoolConnection(query: QueryPayload | QueryPayload[]) {
     let conn
     try {
         conn = await pool.connect()
-        // useRole && await conn.query(`SET ROLE ${ident(useRole)}`)
     } catch (err) {
         conn && conn.release()
         logger.error(errors.QUERY_FAILED, JSON.stringify(query), err)
@@ -76,11 +75,16 @@ async function getPoolConnection(query: QueryPayload | QueryPayload[], role?: st
 
 export async function performQuery(query: QueryPayload, role: string): Promise<StringKeyMap[]> {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query, role)
+    const conn = await getPoolConnection(query)
+    role = resolveRole(role)
 
     // Perform the query.
     let result
     try {
+        if (role !== null) {
+            logger.info('Setting role', role)
+            await conn.query(`SET ROLE ${role}`)
+        }
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
     } catch (err) {
@@ -99,11 +103,16 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
 }
 
 export async function performTx(queries: QueryPayload[], role: string) {
-    const conn = await getPoolConnection(queries, role)
+    const conn = await getPoolConnection(queries)
+    role = resolveRole(role)
 
     let results = []
     try {
         await conn.query('BEGIN')
+        if (role !== null) {
+            logger.info('Setting role', role)
+            await conn.query(`SET ROLE ${role}`)
+        }
         results = await Promise.all(queries.map(({ sql, bindings }) => {
             logger.info(sql, bindings)
             return conn.query(sql, bindings)
@@ -130,12 +139,14 @@ export async function performTx(queries: QueryPayload[], role: string) {
     return responses
 }
 
-export async function createQueryStream(query: QueryPayload, role: string) {
+export async function createQueryStream(query: QueryPayload) {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query, role)
+    const conn = await getPoolConnection(query)
 
     // Build and return the stream.
     try {
+        logger.info('Setting role', config.SHARED_TABLES_DEFAULT_ROLE)
+        await conn.query(`SET ROLE ${config.SHARED_TABLES_DEFAULT_ROLE}`)
         logger.info(sql, bindings)
         const stream = conn.query(
             new QueryStream(sql, bindings, { batchSize: config.STREAM_BATCH_SIZE })

@@ -24,12 +24,9 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
  * Perform a basic query.
  */
 app.post(paths.QUERY, async (req, res) => {
-    try {
-        console.log(JSON.stringify(req.headers, null, 4))
-    } catch (err) {}
-    
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
+
     // if (!role) {
     //     logger.error(errors.UNAUTHORIZED)
     //     return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
@@ -101,7 +98,7 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     // Create a query stream and stream the response.
     let stream, conn
     try {
-        ;([stream, conn] = await createQueryStream(query, role))
+        ;([stream, conn] = await createQueryStream(query))
         streamQuery(stream, conn, res)
     } catch (error) {
         logger.error(error)
