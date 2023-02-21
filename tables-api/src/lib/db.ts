@@ -55,7 +55,7 @@ export async function loadSchemaRoles() {
 
 function resolveRole(role?: string): string | null {
     let resolvedRole = null
-    if (!!role) {
+    if (!!role && role !== 'null') {
         resolvedRole = schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
     }
     return resolvedRole
