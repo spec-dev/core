@@ -81,14 +81,17 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
     // Perform the query.
     let result
     try {
+        await conn.query('BEGIN')
         if (role !== null) {
             logger.info('Setting role', role)
             await conn.query(`SET ROLE ${role}`)
         }
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
+        await conn.query('COMMIT')
     } catch (err) {
-        logger.error(errors.QUERY_FAILED, query, err)
+        await conn.query('ROLLBACK')
+        logger.error(errors.QUERY_FAILED, JSON.stringify(query), err)
         throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
     } finally {
         conn.release()
@@ -120,7 +123,7 @@ export async function performTx(queries: QueryPayload[], role: string) {
         await conn.query('COMMIT')
     } catch (err) {
         await conn.query('ROLLBACK')
-        logger.error(errors.QUERY_FAILED, queries, err)
+        logger.error(errors.QUERY_FAILED, JSON.stringify(queries), err)
         throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
     } finally {
         conn.release()
