@@ -26,7 +26,5 @@ spec:
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
           value: "{{INDEXER_REDIS_PORT}}"
-        - name: BLOCK_EVENTS_QUEUE_KEY
-          value: spec-block-events-queue
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}

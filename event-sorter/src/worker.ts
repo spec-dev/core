@@ -9,6 +9,7 @@ export function getWorker(): Worker {
     worker = new Worker(
         ['beq', config.CHAIN_ID].join('-'),
         async (j: Job) => {
+            console.log('got job', j)
             await perform(j.data)
             // if (await isEventSorterPaused(config.CHAIN_ID)) {
             //     await pauseEventSorter(config.CHAIN_ID)
@@ -23,6 +24,10 @@ export function getWorker(): Worker {
             concurrency: 1,
         }
     )
+
+    worker.on('active', () => {
+        logger.info('Active')
+    })
 
     worker.on('paused', () => {
         logger.info(chalk.yellow('Event sorter paused.'))
