@@ -35,7 +35,7 @@ async function listen() {
 
         for (const indexedBlock of indexedBlocks) {
             await reportBlock(indexedBlock, false)
-            await sleep(1000)
+            await sleep(300)
         }
         logger.info('Done.')
         return
