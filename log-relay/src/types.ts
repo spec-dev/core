@@ -6,6 +6,7 @@ export interface Log {
     level: LogLevel
     timestamp: string
     projectId: string
+    env?: string
 }
 
 export enum LogLevel {
