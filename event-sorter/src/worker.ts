@@ -9,16 +9,16 @@ export function getWorker(): Worker {
     worker = new Worker(
         ['beq', config.CHAIN_ID].join('-'),
         async (j: Job) => {
-            console.log('got job', j)
+            console.log('got job')
             await perform(j.data)
-            // if (await isEventSorterPaused(config.CHAIN_ID)) {
-            //     await pauseEventSorter(config.CHAIN_ID)
-            // }
+            if (await isEventSorterPaused(config.CHAIN_ID)) {
+                await pauseEventSorter(config.CHAIN_ID)
+            }
         },
         {
             autorun: false,
             connection: {
-                host: config.INDEXER_REDIS_HOST,
+                host: 'idx.5lbcv9.ng.0001.usw1.cache.amazonaws.com',
                 port: config.INDEXER_REDIS_PORT,
             },
             concurrency: 1,
