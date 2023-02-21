@@ -12,7 +12,7 @@ export const originEvents = {
 }
 
 // Queue for reporting block events to the event sorter.
-const queueKey = [config.BLOCK_EVENTS_QUEUE_PREFIX, config.CHAIN_ID].join('-')
+const queueKey = ['beq', config.CHAIN_ID].join('-')
 const queue = new Queue(queueKey, {
     connection: {
         host: config.INDEXER_REDIS_HOST,
