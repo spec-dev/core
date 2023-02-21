@@ -20,7 +20,7 @@ spec:
         env:
         - name: NODE_ENV
           value: production
-        - name: CHAIN_IDf
+        - name: CHAIN_ID
           value: "{{CHAIN_ID}}"
         - name: ALCHEMY_API_KEY
           value: {{ALCHEMY_API_KEY}}
