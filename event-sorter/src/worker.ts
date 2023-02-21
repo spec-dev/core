@@ -18,7 +18,7 @@ export function getWorker(): Worker {
         {
             autorun: false,
             connection: {
-                host: 'idx.5lbcv9.ng.0001.usw1.cache.amazonaws.com',
+                host: config.INDEXER_REDIS_HOST,
                 port: config.INDEXER_REDIS_PORT,
             },
             concurrency: 1,

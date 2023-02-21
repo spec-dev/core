@@ -15,7 +15,7 @@ export const originEvents = {
 const queueKey = ['beq', config.CHAIN_ID].join('-')
 const queue = new Queue(queueKey, {
     connection: {
-        host: 'idx.5lbcv9.ng.0001.usw1.cache.amazonaws.com',
+        host: config.INDEXER_REDIS_HOST,
         port: config.INDEXER_REDIS_PORT,
     },
     defaultJobOptions: {
@@ -29,7 +29,7 @@ const queue = new Queue(queueKey, {
 
 const queueScheduler = new QueueScheduler(queueKey, {
     connection: {
-        host: 'idx.5lbcv9.ng.0001.usw1.cache.amazonaws.com',
+        host: config.INDEXER_REDIS_HOST,
         port: config.INDEXER_REDIS_PORT,
     }
 })
