@@ -139,7 +139,7 @@ async function generateEventsForNamespace(
         }
         if (!generatedEvents?.length) continue
 
-        // Publish generated events on-the-fly as the come back.
+        // Publish generated events on-the-fly as they come back.
         try {
             await publishEvents(generatedEvents, true)
         } catch (err) {
