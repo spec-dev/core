@@ -15,7 +15,7 @@ async function run() {
     if (!id) throw 'No live object version id set in config.'
 
     try {
-        const indexer = new LovIndexer(id, config.OFFSET)
+        const indexer = new LovIndexer(id, config.OFFSET, config.START_BLOCK_NUMBER)
         await indexer.run()
     } catch (err) {
         logger.error(`Indexing live object version (id=${id}) failed:`, err)

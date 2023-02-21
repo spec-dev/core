@@ -13,6 +13,8 @@ class LovIndexer {
 
     offset: number
 
+    startBlockNumber: number
+
     liveObjectVersion: LiveObjectVersion
 
     namespacedLov: string
@@ -29,9 +31,10 @@ class LovIndexer {
     
     tablesApiToken: string
 
-    constructor(id: number, offset?: number) {
+    constructor(id: number, offset?: number, startBlockNumber?: number) {
         this.id = id
         this.offset = offset || 0
+        this.startBlockNumber = startBlockNumber || 0
         this.liveObjectVersion = null
         this.namespacedLov = null
         this.inputContractEventVersions = []
@@ -245,7 +248,7 @@ class LovIndexer {
         logger.info(`${this.offset} -> ${this.offset + limit}`)
 
         const logs = this._sortEventLogs(((await SharedTables.query(
-            `select * from ${ident(this.schema)}.${ident('logs')} where ${this.inputEventsQueryComps.join(' or ')} order by block_number asc offset ${this.offset} limit ${limit}`
+            `select * from ${ident(this.schema)}.${ident('logs')} where ${this.inputEventsQueryComps.join(' or ')} and block_number > ${this.startBlockNumber} order by block_number asc offset ${this.offset} limit ${limit}`
         )) || []).map(r => camelizeKeys(r)))
 
         const isLastBatch = logs.length < limit

@@ -53,4 +53,6 @@ spec:
           value: "100"
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: START_BLOCK_NUMBER
+          value: "39528000"
       restartPolicy: Never
