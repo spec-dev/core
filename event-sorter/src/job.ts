@@ -38,7 +38,10 @@ async function perform({ blockNumber }) {
     // Got target block in series.
     if (blockNumber === seriesNumber) {
         await gotTargetBlock(blockNumber)
+        return
     }
+
+    await generateEventsForBlock(blockNumber, { replay: true })
 }
 
 async function replayFromBlock(skippedBlockNumber: number, currentSeriesNumber: number) {
@@ -79,7 +82,6 @@ async function skipBlock(seriesNumber: number, latestBlockNumber: number) {
             isEager && eagerBlocksToRemove.push(newSeriesNumber)
             newSeriesNumber++
             continue
-
         }
         break // Dip out if you hit a new gap.
     }
