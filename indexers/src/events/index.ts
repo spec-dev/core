@@ -12,7 +12,7 @@ export const originEvents = {
 }
 
 // Queue for reporting block events to the event sorter.
-const queueKey = ['beq', config.CHAIN_ID].join('-')
+const queueKey = [config.BLOCK_EVENTS_QUEUE_PREFIX, config.CHAIN_ID].join('-')
 const queue = new Queue(queueKey, {
     connection: {
         host: config.INDEXER_REDIS_HOST,
@@ -39,7 +39,7 @@ export async function reportBlockEvents(blockNumber: number) {
     logger.info(`Reporting block events...`)
 
     await queue.add(config.SORT_BLOCK_EVENTS_JOB_NAME, { blockNumber }, {
-        priority: blockNumber,
+        // priority: blockNumber,
         removeOnComplete: true,
         removeOnFail: 10,
     })

@@ -7,16 +7,15 @@ import chalk from 'chalk'
 export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
-        ['beq', config.CHAIN_ID].join('-'),
+        [config.BLOCK_EVENTS_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
         async (j: Job) => {
-            console.log('got job')
             await perform(j.data)
             if (await isEventSorterPaused(config.CHAIN_ID)) {
                 await pauseEventSorter(config.CHAIN_ID)
             }
         },
         {
-            autorun: false,
+            autorun: true,
             connection: {
                 host: config.INDEXER_REDIS_HOST,
                 port: config.INDEXER_REDIS_PORT,
@@ -24,10 +23,6 @@ export function getWorker(): Worker {
             concurrency: 1,
         }
     )
-
-    worker.on('active', () => {
-        logger.info('Active')
-    })
 
     worker.on('paused', () => {
         logger.info(chalk.yellow('Event sorter paused.'))

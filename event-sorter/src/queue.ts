@@ -34,7 +34,7 @@ export async function generateEventsForBlock(
     logger.info(chalk.cyanBright(`Enqueueing sorted block ${blockNumber}`))
 
     await queue.add(config.EVENT_GENERATOR_JOB_NAME, { ...options, blockNumber }, {
-        priority: blockNumber,
+        // priority: blockNumber,
         removeOnComplete: true,
         removeOnFail: 10,
     })

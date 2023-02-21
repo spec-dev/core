@@ -1,4 +1,4 @@
-import { logger, indexerRedis, getBlockEventsSeriesNumber } from '../../shared'
+import { logger, indexerRedis } from '../../shared'
 import { getWorker } from './worker'
 
 async function run() {
