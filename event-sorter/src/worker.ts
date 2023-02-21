@@ -7,12 +7,12 @@ import chalk from 'chalk'
 export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
-        [config.BLOCK_EVENTS_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
+        'spec-block-events-queue-137',
         async (j: Job) => {
             await perform(j.data)
-            if (await isEventSorterPaused(config.CHAIN_ID)) {
-                await pauseEventSorter(config.CHAIN_ID)
-            }
+            // if (await isEventSorterPaused(config.CHAIN_ID)) {
+            //     await pauseEventSorter(config.CHAIN_ID)
+            // }
         },
         {
             autorun: false,
