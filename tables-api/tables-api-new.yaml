@@ -5,7 +5,7 @@ metadata:
   labels:
     app: tables-api-new
 spec:
-  replicas: 3
+  replicas: 5
   selector:
     matchLabels:
       component: tables-api-new
