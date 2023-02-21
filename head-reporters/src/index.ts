@@ -1,5 +1,5 @@
 import config from './config'
-import { logger, IndexerDB, indexerRedis, IndexedBlock, IndexedBlockStatus, sleep, insertIndexedBlocks } from '../../shared'
+import { logger, IndexerDB, indexerRedis, IndexedBlock, IndexedBlockStatus, sleep, insertIndexedBlocks, range } from '../../shared'
 import { getReporter } from './reporters'
 import  { reportBlock } from './queue'
 
@@ -26,7 +26,8 @@ async function listen() {
     await indexerRedis.connect()
 
     if (config.MANUALLY_REPORT_NUMBERS.length) {
-        const indexedBlocks = await upsertIndexedBlocks(config.MANUALLY_REPORT_NUMBERS, config.CHAIN_ID)
+        const numbers = range(config.MANUALLY_REPORT_NUMBERS[0], config.MANUALLY_REPORT_NUMBERS[1])
+        const indexedBlocks = await upsertIndexedBlocks(numbers, config.CHAIN_ID)
         if (!indexedBlocks.length) {
             logger.error(`Can't re-enqueue blocks without indexed_block instances.`)
             return
