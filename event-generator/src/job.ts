@@ -156,22 +156,70 @@ async function generateLiveObjectEventsWithProtection(
     tablesApiToken: string,
     blockNumber: number,
 ): Promise<StringKeyMap[] | null> {
-    let generatedEvents = []
+    let data: StringKeyMap = {}
     try {
-        generatedEvents = ((await generateLiveObjectEvents(
+        data = await generateLiveObjectEvents(
             lovId,
             lovUrl,
             acceptedOutputEvents,
             inputEvents,
             tablesApiToken,
             blockNumber,
-        )) || []).flat()
+        )
     } catch (err) {
-        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}). Input events: ${JSON.stringify(inputEvents, null, 4)}`)
+        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for input events: ${JSON.stringify(inputEvents, null, 4)}`)
         return null
     }
-    return generatedEvents
-}
+
+    const liveObjectEvents = data?.liveObjectEvents || []
+    const retryInputEvents = data?.retryInputEvents || []
+    if (!retryInputEvents.length) {
+        return liveObjectEvents
+    }
+
+    await sleep(1000)
+    const eventsReceivedOnRetry = []
+
+    for (const { inputEvent, pendingEvents } of retryInputEvents) {
+        const originalPendingEvents = pendingEvents || []
+        let attempt = 0
+        let success = false
+        while (attempt < 3) {
+            let retryData: StringKeyMap = {}
+            try {
+                retryData = await generateLiveObjectEvents(
+                    lovId,
+                    lovUrl,
+                    acceptedOutputEvents,
+                    [inputEvent],
+                    tablesApiToken,
+                    blockNumber,
+                )
+            } catch (err) {
+                logger.error(`[${blockNumber}] Retrying event-generation failed (lovId=${lovId}). Input event: ${JSON.stringify(inputEvent, null, 4)}`)
+            }
+            const events = retryData?.liveObjectEvents || []
+            if (events.length) {
+                eventsReceivedOnRetry.push(...events)
+                success = true
+                break
+            }
+            await sleep(500)
+            attempt++
+        }
+
+        if (!success && originalPendingEvents.length) {
+            eventsReceivedOnRetry.push(...originalPendingEvents)
+        }
+
+        if (!success) {
+            logger.error(`[${blockNumber}] Not able to recover all empty data events for input event ${JSON.stringify(inputEvent, null, 4)}`)
+        }
+    }
+
+    liveObjectEvents.push(...eventsReceivedOnRetry)
+    return liveObjectEvents
+}   
 
 async function generateLiveObjectEvents(
     lovId: string,
@@ -181,7 +229,7 @@ async function generateLiveObjectEvents(
     tablesApiToken: string,
     blockNumber: number,
     attempts: number = 0,
-): Promise<StringKeyMap[]> {
+): Promise<StringKeyMap> {
     // Prep both auth headers. One for the event generator function itself, 
     // and one for the event generator to make calls to the Tables API.
     const headers = {
@@ -249,29 +297,47 @@ async function generateLiveObjectEvents(
         }
     }
     if (!generatedEventGroups?.length) {
-        return []
+        return { liveObjectEvents: [], retryInputEvents: [] }
     }
 
     // Filter generated events by those that are allowed to be created / registered with Spec.
     const liveObjectEvents = []
+    const retryInputEvents = []
     let i = 0
     for (const generatedEvents of generatedEventGroups) {
         const inputEvent = inputEvents[i]
+        const receivedEmptyGeneratedEvent = !!generatedEvents.find(e => e?.data && !Object.keys(e.data).length)
+        const pendingEvents = []
+        
         for (const event of generatedEvents) {
             if (!acceptedOutputEvents.has(event.name)) {
                 logger.error(`[${blockNumber}] Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
                 continue
             }
-            // Attach input event origin to generated events.
-            liveObjectEvents.push({
+
+            if (!Object.keys(event.data || {}).length) {
+                logger.error(`[${blockNumber}] Received empty generated event for input event ${JSON.stringify(inputEvent, null, 4)}`)
+                continue
+            }
+
+            const liveObjectEvent = {
                 ...event,
                 origin: inputEvent.origin,
-            })
+            }
+
+            receivedEmptyGeneratedEvent 
+                ? pendingEvents.push(liveObjectEvent) 
+                : liveObjectEvents.push(liveObjectEvent)
+        }
+        
+        if (receivedEmptyGeneratedEvent) {
+            console.log('generatedEvents', generatedEvents)
+            retryInputEvents.push({ inputEvent, pendingEvents })
         }
         i++
     }
 
-    return liveObjectEvents
+    return { liveObjectEvents, retryInputEvents }
 }
 
 function groupEventsByLovNamespace(
