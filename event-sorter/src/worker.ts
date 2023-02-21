@@ -7,7 +7,7 @@ import chalk from 'chalk'
 export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
-        'spec-block-events-queue-137',
+        ['beq', config.CHAIN_ID].join('-'),
         async (j: Job) => {
             await perform(j.data)
             // if (await isEventSorterPaused(config.CHAIN_ID)) {
