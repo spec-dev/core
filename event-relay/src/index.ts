@@ -123,7 +123,9 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
 }
 
 // Setup broker client to connect to SCC.
-if (config.SCC_STATE_SERVER_HOST) {
+if (config.SCC_STATE_SERVER_HOST && config.USE_SCC_CLUSTER) {
+    logger.info(`Running in cluster mode.`) 
+
     const sccClient = sccBrokerClient.attach(agServer.brokerEngine, {
         instanceId: config.SCC_INSTANCE_ID,
         instancePort: config.SOCKETCLUSTER_PORT,

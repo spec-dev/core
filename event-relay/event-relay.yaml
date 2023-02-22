@@ -19,14 +19,20 @@ spec:
         - name: event-relay
           containerPort: {{SOCKETCLUSTER_PORT}}
         env:
-        - name: SCC_INSTANCE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
         - name: ENV
           value: prod
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
+        - name: USE_SCC_CLUSTER
+          value: "{{USE_SCC_CLUSTER}}"
+        - name: SCC_STATE_SERVER_HOST
+          value: scc-state
+        - name: SCC_STATE_SERVER_PORT
+          value: "{{SCC_STATE_SERVER_PORT}}"
+        - name: SCC_INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: SOCKETCLUSTER_PORT
           value: "{{SOCKETCLUSTER_PORT}}"
         - name: SOCKETCLUSTER_LOG_LEVEL
