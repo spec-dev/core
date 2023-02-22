@@ -27,11 +27,13 @@ const agServer = socketClusterServer.attach(httpServer, agOptions)
 // Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
     for await (let action of stream) {
-        // Auth new connections.
-        // TODO: This isn't working currently -> this needs to be action.SUBSCRIBE instead, and to kick the connection when unauthed.
-        if (action.type === action.AUTHENTICATE) {
+        // Auth new connections, subscriptions, and RPC calls.
+        if (action.type === action.AUTHENTICATE || 
+            action.type === action.SUBSCRIBE ||
+            action.type === action.INVOKE
+        ) {
             const authToken = action.socket.authToken
-            if (!authToken || !(await authConnection(authToken))) {
+            if (!authToken || !(await authConnection(authToken, action.type === action.AUTHENTICATE))) {
                 const authError = new Error('Unauthorized')
                 authError.name = 'AuthError'
                 action.block(authError)
@@ -42,8 +44,6 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
         // Secure who can publish.
         if (action.type === action.PUBLISH_IN) {
             const authToken = action.socket.authToken
-
-            // Must be an event publisher.
             if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
                 const publishError = new Error('You are not authorized to publish events.')
                 publishError.name = 'PublishError'
@@ -51,11 +51,11 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
                 continue
             }
         }
-
+        
         action.allow()
     }
 })
-  
+
 // Create Express app.
 const expressApp = express()
 if (config.ENV !== specEnvs.PROD) {
