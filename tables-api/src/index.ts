@@ -24,6 +24,7 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
  * Perform a basic query.
  */
 app.post(paths.QUERY, async (req, res) => {
+    logger.info('QUERY - Is read only:', config.IS_READ_ONLY)
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
 
@@ -53,6 +54,8 @@ app.post(paths.QUERY, async (req, res) => {
  * Perform a database transaction with a series of queries.
  */
 app.post(paths.TRANSACTION, async (req, res) => {
+    logger.info('TX - Is read only:', config.IS_READ_ONLY)
+
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
     // if (!role) {
@@ -81,6 +84,8 @@ app.post(paths.TRANSACTION, async (req, res) => {
  * Perform a query & stream the results in realtime as a readable stream.
  */
 app.post(paths.STREAM_QUERY, async (req, res) => {
+    logger.info('STREAM - Is read only:', config.IS_READ_ONLY)
+
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
     // if (!role) {

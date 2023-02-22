@@ -7,6 +7,7 @@ const tablesApiConfig: StringKeyMap = {
     AUTH_HEADER_NAME: 'Spec-Auth-Token',
     LOAD_SCHEMA_ROLES_INTERVAL: Number(ev('LOAD_SCHEMA_ROLES_INTERVAL', 60000)),
     SHARED_TABLES_DEFAULT_ROLE: ev('SHARED_TABLES_DEFAULT_ROLE', 'bear'),
+    IS_READ_ONLY: [true, 'true'].includes(ev('IS_READ_ONLY')),
 }
 
 export default tablesApiConfig

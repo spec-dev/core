@@ -14,7 +14,7 @@ env="$1"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai|dev"
 
 # ======== SET KEY VARS ======== #
 
@@ -31,6 +31,7 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DEFAULT_ROLE" )
+shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -47,6 +48,7 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 $shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_role"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -57,7 +59,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
-# image_version="6c06742"
+# last
+# image_version="7e52a01"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -77,6 +80,7 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
     sed "s|{{SHARED_TABLES_DEFAULT_ROLE}}|$shared_tables_default_role|g" | \
+    sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating Tables API resources..."

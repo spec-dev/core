@@ -4,7 +4,6 @@ import config from './config'
 import { QueryPayload, StringKeyMap } from './types'
 import { Pool } from 'pg'
 import QueryStream from 'pg-query-stream'
-import { ident } from 'pg-format'
 
 // Create connection pool.
 export const pool = new Pool({
@@ -54,6 +53,9 @@ export async function loadSchemaRoles() {
 }
 
 function resolveRole(role?: string): string | null {
+    // Role doesn't matter for read replicas.
+    if (config.IS_READ_ONLY) return null
+
     let resolvedRole = null
     if (!!role && role !== 'null') {
         resolvedRole = schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
@@ -148,8 +150,6 @@ export async function createQueryStream(query: QueryPayload) {
 
     // Build and return the stream.
     try {
-        // logger.info('Setting role', config.SHARED_TABLES_DEFAULT_ROLE)
-        // await conn.query(`SET ROLE ${config.SHARED_TABLES_DEFAULT_ROLE}`)
         logger.info(sql, bindings)
         const stream = conn.query(
             new QueryStream(sql, bindings, { batchSize: config.STREAM_BATCH_SIZE })
