@@ -16,7 +16,7 @@ spec:
       - name: event-relay-scc-broker
         image: socketcluster/scc-broker:v8.0.0
         ports:
-        - name: event-relay-scc-broker
+        - name: er-scc-broker
           containerPort: {{SCC_BROKER_PORT}}
         env:
         - name: SCC_STATE_SERVER_HOST
@@ -30,12 +30,12 @@ spec:
         readinessProbe:
           httpGet:
             path: /health-check
-            port: event-relay-scc-broker
+            port: er-scc-broker
           initialDelaySeconds: 5
           timeoutSeconds: 10
         livenessProbe:
           httpGet:
             path: /health-check
-            port: event-relay-scc-broker
+            port: er-scc-broker
           initialDelaySeconds: 15
           timeoutSeconds: 20

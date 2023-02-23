@@ -16,17 +16,17 @@ spec:
       - name: event-relay-scc-state
         image: socketcluster/scc-state:v8.0.2
         ports:
-        - name: event-relay-scc-state
+        - name: er-scc-state
           containerPort: {{SCC_STATE_SERVER_PORT}}
         readinessProbe:
           httpGet:
             path: /health-check
-            port: event-relay-scc-state
+            port: er-scc-state
           initialDelaySeconds: 5
           timeoutSeconds: 10
         livenessProbe:
           httpGet:
             path: /health-check
-            port: event-relay-scc-state
+            port: er-scc-state
           initialDelaySeconds: 15
           timeoutSeconds: 20
