@@ -82,7 +82,7 @@ class LovIndexer {
                 origin: eventOrigin,
                 name: toNamespacedVersion(nsp, log.eventName, '0.0.1'),
                 data: data,
-            })      
+            })
         }
         return eventSpecs
     }

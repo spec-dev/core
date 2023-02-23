@@ -54,5 +54,7 @@ spec:
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: START_BLOCK_NUMBER
-          value: "39528000"
+          value: "39300000"
+        - name: OFFSET
+          value: "2033000"
       restartPolicy: Never

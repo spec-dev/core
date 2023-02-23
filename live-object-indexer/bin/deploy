@@ -67,11 +67,11 @@ image_name=$( $shared_bin_dir/env_reader "$env" "LIVE_OBJECT_INDEXER_IMAGE_NAME"
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="4e33e41"
+image_version="63b69be"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
- 
+
 template_path="$live_object_indexer_dir/live-object-indexer.yaml"
 job_name="lov-indexer-$lov_id-$image_version"
 
