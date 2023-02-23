@@ -21,6 +21,8 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai|dev"
 port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
 log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+use_scc_cluster=$( $shared_bin_dir/env_reader "$env" "USE_EVENT_RELAY_SCC_CLUSTER" )
+scc_state_server_port=$( $shared_bin_dir/env_reader "$env" "SCC_STATE_SERVER_PORT" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -38,6 +40,8 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
+$shared_bin_dir/assert_env "USE_EVENT_RELAY_SCC_CLUSTER" "$use_scc_cluster"
+$shared_bin_dir/assert_env "SCC_STATE_SERVER_PORT" "$scc_state_server_port"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -58,8 +62,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="2474b5e"
+image_version=$( $shared_bin_dir/latest_sha )
+# image_version="2474b5e"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -70,6 +74,8 @@ template_path="$event_relay_dir/event-relay.yaml"
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
+    sed "s|{{USE_SCC_CLUSTER}}|$use_scc_cluster|g" | \
+    sed "s|{{SCC_STATE_SERVER_PORT}}|$scc_state_server_port|g" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
