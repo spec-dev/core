@@ -283,7 +283,7 @@ class GapDetector {
         }
 
         // See if any of the last 100 blocks are missing.
-        const from = Math.max(largestBlockNumber - 100, 0)
+        const from = Math.max(largestBlockNumber - config.SERIES_GEN_NUMBER_RANGE, 0)
         const to = largestBlockNumber
         const missingNumbers = await this._findMissingBlockNumbersInSeries(schema, from, to)
         if (!missingNumbers?.length) {
