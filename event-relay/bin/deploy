@@ -63,7 +63,9 @@ image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
+# Before clustering
 # image_version="2474b5e"
+
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
