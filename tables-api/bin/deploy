@@ -58,13 +58,11 @@ image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
-# last
-# image_version="7e52a01"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
-template_path="$tables_api_dir/tables-api-new.yaml"
+template_path="$tables_api_dir/tables-api.yaml"
 
 # Create the config template.
 template=$( cat "$template_path" | \
