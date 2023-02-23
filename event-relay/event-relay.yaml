@@ -4,7 +4,7 @@ metadata:
   name: event-relay
 spec:
   replicas: 1
-  selector:
+  selector:=
     matchLabels:
       component: event-relay
   template:

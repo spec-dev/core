@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# --- Create and deploy event-relay SCC brokers --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+event_relay_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai|dev"
+
+# ======== SET KEY VARS ======== #
+
+broker_port=$( $shared_bin_dir/env_reader "$env" "SCC_BROKER_PORT" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "SCC_BROKER_PORT" "$broker_port"
+
+# ======== CREATE & APPLY TEMPLATES ======== #
+
+deployment_template_path="$event_relay_dir/scc/scc-broker-deployment.yaml"
+service_template_path="$event_relay_dir/scc/scc-broker-service.yaml"
+
+echo "Creating SCC broker resources..."
+
+deployment_template=$( cat "$deployment_template_path" | \
+    sed "s|{{SCC_BROKER_PORT}}|$broker_port|g" )
+
+service_template=$( cat "$service_template_path" | \
+    sed "s|{{SCC_BROKER_PORT}}|$broker_port|g" )
+
+echo "$deployment_template" | kubectl apply -f -
+echo "$service_template" | kubectl apply -f -
