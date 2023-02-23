@@ -26,11 +26,10 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
 app.post(paths.QUERY, async (req, res) => {
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
-
-    // if (!role) {
-    //     logger.error(errors.UNAUTHORIZED)
-    //     return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
-    // }
+    if (!role) {
+        logger.error(errors.UNAUTHORIZED)
+        return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+    }
 
     // Parse sql and bindings from payload.
     const [query, isValid] = getQueryPayload(req.body)
@@ -55,10 +54,10 @@ app.post(paths.QUERY, async (req, res) => {
 app.post(paths.TRANSACTION, async (req, res) => {
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
-    // if (!role) {
-    //     logger.error(errors.UNAUTHORIZED)
-    //     return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
-    // }
+    if (!role) {
+        logger.error(errors.UNAUTHORIZED)
+        return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+    }
 
     // Get list of queries to run inside a transaction.
     const [queries, isValid] = getTxPayload(req.body)
@@ -83,10 +82,10 @@ app.post(paths.TRANSACTION, async (req, res) => {
 app.post(paths.STREAM_QUERY, async (req, res) => {
     // Auth the JWT to get RBAC role.
     const role = authRequest(req)
-    // if (!role) {
-    //     logger.error(errors.UNAUTHORIZED)
-    //     return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
-    // }
+    if (!role) {
+        logger.error(errors.UNAUTHORIZED)
+        return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+    }
 
     // Parse sql and bindings from payload.
     const [query, isValid] = getQueryPayload(req.body)

@@ -52,15 +52,8 @@ export async function loadSchemaRoles() {
     schemaRoles = new Set(roles)
 }
 
-function resolveRole(role?: string): string | null {
-    // Role doesn't matter for read replicas.
-    if (config.IS_READ_ONLY) return null
-
-    let resolvedRole = null
-    if (!!role && role !== 'null') {
-        resolvedRole = schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
-    }
-    return resolvedRole
+function resolveRole(role?: string): string {
+    return schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
 }
 
 async function getPoolConnection(query: QueryPayload | QueryPayload[]) {
@@ -84,10 +77,8 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
     let result
     try {
         await conn.query('BEGIN')
-        if (role !== null) {
-            logger.info('Setting role', role)
-            await conn.query(`SET LOCAL ROLE ${role}`)
-        }
+        logger.info('Setting role', role)
+        await conn.query(`SET LOCAL ROLE ${role}`)
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
         await conn.query('COMMIT')
@@ -114,10 +105,8 @@ export async function performTx(queries: QueryPayload[], role: string) {
     let results = []
     try {
         await conn.query('BEGIN')
-        if (role !== null) {
-            logger.info('Setting role', role)
-            await conn.query(`SET LOCAL ROLE ${role}`)
-        }
+        logger.info('Setting role', role)
+        await conn.query(`SET LOCAL ROLE ${role}`)
         results = await Promise.all(queries.map(({ sql, bindings }) => {
             logger.info(sql, bindings)
             return conn.query(sql, bindings)
