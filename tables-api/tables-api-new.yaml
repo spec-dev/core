@@ -18,7 +18,7 @@ spec:
       - name: tables-api-primary
         image: {{IMAGE}}
         ports:
-        - name: tables-api-primary
+        - name: tables-api-pr
           containerPort: 80
         env:
         - name: NODE_ENV
@@ -50,13 +50,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /health-check
-            port: tables-api-primary
+            port: tables-api-pr
           initialDelaySeconds: 5
           timeoutSeconds: 10
         livenessProbe:
           httpGet:
             path: /health-check
-            port: tables-api-primary
+            port: tables-api-pr
           initialDelaySeconds: 15
           timeoutSeconds: 20
 ---
@@ -80,7 +80,7 @@ spec:
       - name: tables-api-reader
         image: {{IMAGE}}
         ports:
-        - name: tables-api-reader
+        - name: tables-api-rr
           containerPort: 80
         env:
         - name: IS_READ_ONLY
@@ -114,13 +114,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /health-check
-            port: tables-api-reader
+            port: tables-api-rr
           initialDelaySeconds: 5
           timeoutSeconds: 10
         livenessProbe:
           httpGet:
             path: /health-check
-            port: tables-api-reader
+            port: tables-api-rr
           initialDelaySeconds: 15
           timeoutSeconds: 20
 ---
