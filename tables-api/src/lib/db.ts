@@ -86,7 +86,7 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
         await conn.query('BEGIN')
         if (role !== null) {
             logger.info('Setting role', role)
-            await conn.query(`SET ROLE ${role}`)
+            await conn.query(`SET LOCAL ROLE ${role}`)
         }
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
@@ -116,7 +116,7 @@ export async function performTx(queries: QueryPayload[], role: string) {
         await conn.query('BEGIN')
         if (role !== null) {
             logger.info('Setting role', role)
-            await conn.query(`SET ROLE ${role}`)
+            await conn.query(`SET LOCAL ROLE ${role}`)
         }
         results = await Promise.all(queries.map(({ sql, bindings }) => {
             logger.info(sql, bindings)
