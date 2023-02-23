@@ -5,7 +5,7 @@ metadata:
   labels:
     app: tables-api-primary
 spec:
-  replicas: 1
+  replicas: 4
   selector:
     matchLabels:
       component: tables-api-primary
@@ -67,7 +67,7 @@ metadata:
   labels:
     app: tables-api-reader
 spec:
-  replicas: 1
+  replicas: 8
   selector:
     matchLabels:
       component: tables-api-reader
