@@ -95,20 +95,20 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     }
 
     // Create a query stream and stream the response.
-    let stream, conn
+    let stream, conn, keepAliveTimer
     try {
         ;([stream, conn] = await createQueryStream(query))
-        streamQuery(stream, conn, res)
+        keepAliveTimer = streamQuery(stream, conn, res)
     } catch (error) {
         logger.error(error)
-        cleanupStream(stream, conn)
+        cleanupStream(stream, conn, keepAliveTimer)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
 
     // Ensure stream closes when a request is cancelled.
     req.on('close', () => {
         logger.info('Request closed.')
-        cleanupStream(stream, conn)
+        cleanupStream(stream, conn, keepAliveTimer)
     })
 })
 

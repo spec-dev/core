@@ -34,7 +34,7 @@ export function streamQuery(stream, conn, res) {
     
     stream.on('end', () => {
         logger.info(`Query stream ended.`)
-        cleanupStream(stream, conn)
+        cleanupStream(stream, conn, keepAliveTimer)
         streamEnded = true
     })
 
@@ -53,6 +53,8 @@ export function streamQuery(stream, conn, res) {
     }, 1000)
 
     stream.pipe(jsonPipe).pipe(res)
+
+    return keepAliveTimer
 }
 
 export function cleanupStream(stream, conn, keepAliveTimer?) {
