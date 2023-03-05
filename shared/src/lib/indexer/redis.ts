@@ -52,6 +52,10 @@ const keys = {
     PAUSE_EVENT_SORTER_PREFIX: 'event-sorter-paused',
     PAUSE_EVENT_GENERATOR_PREFIX: 'event-generator-paused',
     FAILING_NAMESPACES: 'failing-namespaces',
+    LATEST_BLOCKS: 'latest-blocks',
+    LATEST_BLOCK_NUMBERS: 'latest-block-numbers',
+    LATEST_TRANSACTIONS: 'latest-transactions',
+    TRANSACTION_HASHES_FOR_BLOCK_HASH: 'block-transactions',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -561,5 +565,172 @@ export async function unmarkNamespaceAsFailing(chainId: string, nsp: string) {
         await redis?.sRem(key, nsp)
     } catch (err) {
         throw `Error removing namespace ${nsp} as failing (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function cacheLatestBlockAndTransactions(
+    block: StringKeyMap,
+    transactions: StringKeyMap[],
+    chainId: string
+): Promise<boolean> {
+    const latestBlocksKey = [keys.LATEST_BLOCKS, chainId].join('-')
+    const latestTransactionsKey = [keys.LATEST_TRANSACTIONS, chainId].join('-')
+    const transactionHashesForBlockHashKey = [keys.TRANSACTION_HASHES_FOR_BLOCK_HASH, chainId].join(
+        '-'
+    )
+    const latestBlockNumbersKey = [keys.LATEST_BLOCK_NUMBERS, chainId].join('-')
+
+    // Cache the latest block.
+    try {
+        await redis?.hSet(latestBlocksKey, [block.hash, JSON.stringify(block)])
+    } catch (err) {
+        logger.error(`Error caching latest block (hash=${block.hash}, chainId=${chainId}): ${err}`)
+        return false
+    }
+
+    // Cache the latest transactions.
+    const latestTxs = {}
+    const txHashes = []
+    for (const tx of transactions) {
+        latestTxs[tx.hash] = JSON.stringify(tx)
+        txHashes.push(tx.hash)
+    }
+    if (transactions.length) {
+        try {
+            await redis?.hSet(latestTransactionsKey, latestTxs)
+        } catch (err) {
+            logger.error(
+                `Error caching latest transactions for block (hash=${block.hash}, chainId=${chainId}): ${err}`
+            )
+            return false
+        }
+        try {
+            await redis?.hSet(transactionHashesForBlockHashKey, [
+                block.hash,
+                JSON.stringify(txHashes),
+            ])
+        } catch (err) {
+            logger.error(
+                `Error caching block transaction hashes for block (hash=${block.hash}, chainId=${chainId}): ${err}`
+            )
+            return false
+        }
+    }
+
+    // Register the latest block's number as having been cached.
+    try {
+        await redis?.zAdd(latestBlockNumbersKey, {
+            score: Number(block.number),
+            value: block.hash,
+        })
+    } catch (err) {
+        logger.error(
+            `Error adding latest block number to sorted set ${block.number} (chainId=${chainId}): ${err}`
+        )
+        return false
+    }
+
+    // Get all cached latest block hashes, sorted by block number (score).
+    let latestBlockHashes = []
+    try {
+        latestBlockHashes = await redis?.zRange(latestBlockNumbersKey, 0, -1, { REV: true })
+    } catch (err) {
+        logger.error(`Error getting lastest block hashes from cache (chainId=${chainId}): ${err}`)
+        return false
+    }
+
+    // Trim all cached data that's not for the latest 10 blocks.
+    const blockHashesToRemoveDataFor = latestBlockHashes.slice(10)
+    if (!blockHashesToRemoveDataFor.length) return
+
+    // Remove old cached blocks.
+    try {
+        await redis?.hDel(latestBlocksKey, blockHashesToRemoveDataFor)
+    } catch (err) {
+        logger.error(
+            `Error deleting cached blocks with hashes ${blockHashesToRemoveDataFor.join(
+                ', '
+            )} (chainId=${chainId}): ${err}`
+        )
+        return false
+    }
+
+    // Remove old cached transactions.
+    let txHashesToRemove = []
+    try {
+        txHashesToRemove = (
+            await redis?.hmGet(transactionHashesForBlockHashKey, blockHashesToRemoveDataFor)
+        )
+            .filter((v) => !!v)
+            .map((v) => JSON.parse(v))
+            .flat()
+    } catch (err) {
+        logger.error(
+            `Error getting cached transaction hashes for block hashes ${blockHashesToRemoveDataFor.join(
+                ', '
+            )} (chainId=${chainId}): ${err}`
+        )
+    }
+    try {
+        txHashesToRemove.length && (await redis?.hDel(latestTransactionsKey, txHashesToRemove))
+    } catch (err) {
+        logger.error(
+            `Error deleting cached transactions for block hashes ${blockHashesToRemoveDataFor.join(
+                ', '
+            )} (chainId=${chainId}): ${err}`
+        )
+        return false
+    }
+    try {
+        await redis?.hDel(transactionHashesForBlockHashKey, blockHashesToRemoveDataFor)
+    } catch (err) {
+        logger.error(
+            `Error deleting cached transaction hashes for block hashes ${blockHashesToRemoveDataFor.join(
+                ', '
+            )} (chainId=${chainId}): ${err}`
+        )
+        return false
+    }
+
+    // Unregister old block numbers as cached.
+    try {
+        await redis?.zRem(latestBlockNumbersKey, blockHashesToRemoveDataFor)
+    } catch (err) {
+        logger.error(
+            `Error deleting cached block hashes from sorted set ${blockHashesToRemoveDataFor.join(
+                ', '
+            )} (chainId=${chainId}): ${err}`
+        )
+        return false
+    }
+
+    return true
+}
+
+export async function getCachedBlockByHash(
+    hash: string,
+    chainId: string
+): Promise<StringKeyMap | null> {
+    try {
+        const results = (await redis?.hmGet([keys.LATEST_BLOCKS, chainId].join('-'), hash)).filter(
+            (v) => !!v
+        )
+        return results.length ? JSON.parse(results[0]) : null
+    } catch (err) {
+        throw `Error getting cached block (hash=${hash}, chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getCachedTransactionByHash(
+    hash: string,
+    chainId: string
+): Promise<StringKeyMap | null> {
+    try {
+        const results = (
+            await redis?.hmGet([keys.LATEST_TRANSACTIONS, chainId].join('-'), hash)
+        ).filter((v) => !!v)
+        return results.length ? JSON.parse(results[0]) : null
+    } catch (err) {
+        throw `Error getting cached transaction (hash=${hash}, chainId=${chainId}): ${err}`
     }
 }

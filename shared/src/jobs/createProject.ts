@@ -18,7 +18,7 @@ async function perform() {
             port: config.INDEXER_REDIS_PORT,
         },
     })
-    const counts = await queue.getJobCounts('wait', 'completed', 'failed');
+    const counts = await queue.getJobCounts('wait', 'completed', 'failed')
     console.log(counts)
 
     await queue.resume()
