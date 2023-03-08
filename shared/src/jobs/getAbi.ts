@@ -17,7 +17,7 @@ async function perform(address: string, chainId: string, fetchIfNotThere: boolea
 
         if (fetchIfNotThere) {
             logger.info('Fetching ABI...')
-            await enqueueDelayedJob('upsertAbis', { addresses: [address] })
+            await enqueueDelayedJob('upsertAbis', { addresses: [address], chainId })
         }
     }
 
