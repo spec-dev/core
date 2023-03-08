@@ -4,7 +4,9 @@ import { getHeadWorker } from './headWorker'
 import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
-import { getLogWorker } from './logWorker'
+import { getPullLogsWorker } from './pullLogsWorker'
+import { getPullTracesWorker } from './pullTracesWorker'
+import { getPullContractsWorker } from './pullContractsWorker'
 import { getDecodeLogWorker } from './decodeLogWorker'
 import { getPolygonDecodeLogWorker } from './polygonDecodeLogWorker'
 import { getGapWorker } from './gapWorker'
@@ -19,8 +21,14 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
     }
-    if (config.RANGE_WORKER_TYPE === 'log') {
-        return getLogWorker()
+    if (config.RANGE_WORKER_TYPE === 'pull-logs') {
+        return getPullLogsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-traces') {
+        return getPullTracesWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-contracts') {
+        return getPullContractsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'dlog') {
         switch (config.CHAIN_ID) {

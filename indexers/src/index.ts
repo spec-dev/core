@@ -20,9 +20,6 @@ async function run() {
         abiRedis.connect(),
     ])
 
-    // Make sure verified contracts and instances are cached.
-    await upsertContractCaches()
-
     logger.info(
         config.IS_RANGE_MODE
             ? `Indexing block range ${config.FROM} -> ${config.TO}...`

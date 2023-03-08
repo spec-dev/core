@@ -22,7 +22,7 @@ const web3 = new Web3()
 
 const transactionsRepo = () => SharedTables.getRepository(EthTransaction)
 
-class DecodeTxWorker {
+export class DecodeTxWorker {
     from: number 
 
     to: number | null

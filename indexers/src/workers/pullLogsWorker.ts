@@ -1,5 +1,4 @@
 import config from '../config'
-// import { JSONParser } from '@streamparser/json'
 import JSONStream from 'JSONStream'
 import {
     logger,
@@ -14,7 +13,7 @@ import {
 import { exit } from 'process'
 import https from 'https'
 
-class LogWorker {
+class PullLogsWorker {
     
     from: number
 
@@ -27,8 +26,6 @@ class LogWorker {
     jsonStream: JSONStream
 
     batch: StringKeyMap[] = []
-
-    pendingDataPromise: any = null
 
     savePromises: any[] = []
 
@@ -57,7 +54,6 @@ class LogWorker {
     }
 
     async _streamLogs(resp) {
-        this.pendingDataPromise = null
         this.batch = []
         this.savePromises = []
 
@@ -66,10 +62,6 @@ class LogWorker {
         const readData = () =>
             new Promise((resolve, _) => {
                 resp.on('data', async (chunk) => {
-                    // if (this.pendingDataPromise) {
-                    //     await this.pendingDataPromise
-                    //     this.pendingDataPromise = null
-                    // }
                     this.jsonStream.write(chunk)
                 })
                 resp.on('end', () => resolve(null))
@@ -168,6 +160,6 @@ class LogWorker {
     }
 }
 
-export function getLogWorker(): LogWorker {
-    return new LogWorker(config.FROM, config.TO)
+export function getPullLogsWorker(): PullLogsWorker {
+    return new PullLogsWorker(config.FROM, config.TO)
 }
