@@ -39,7 +39,7 @@ export async function reportBlockEvents(blockNumber: number) {
     logger.info(`Reporting block events...`)
 
     await queue.add(config.SORT_BLOCK_EVENTS_JOB_NAME, { blockNumber }, {
-        // priority: blockNumber,
+        priority: blockNumber,
         removeOnComplete: true,
         removeOnFail: 10,
     })
