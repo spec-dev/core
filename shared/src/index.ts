@@ -244,7 +244,14 @@ export {
     PolygonContract,
     fullContractUpsertConfig as fullPolygonContractUpsertConfig,
 } from './lib/shared-tables/db/entities/PolygonContract'
-
+export {
+    PolygonTrace,
+    PolygonTraceType,
+    PolygonCallType,
+    PolygonRewardType,
+    PolygonTraceStatus,
+    fullPolygonTraceUpsertConfig,
+} from './lib/shared-tables/db/entities/PolygonTrace'
 import schemas from './lib/shared-tables/schemas'
 export { schemas }
 

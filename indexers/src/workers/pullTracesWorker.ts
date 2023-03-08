@@ -3,18 +3,15 @@ import JSONStream from 'JSONStream'
 import {
     logger,
     StringKeyMap,
-    EthLog,
     SharedTables,
-    uniqueByKeys,
-    normalizeEthAddress,
-    normalizeByteData,
+    PolygonTrace,
     sleep,
+    uniqueByKeys,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
 
 class PullTracesWorker {
-    
     from: number
 
     to: number
@@ -50,10 +47,10 @@ class PullTracesWorker {
         const initialRequestTimer = setTimeout(() => abortController.abort(), 20000)
         const resp = await this._makeSliceRequest(slice, abortController)
         clearTimeout(initialRequestTimer)
-        await this._streamLogs(resp)
+        await this._streamTraces(resp)
     }
 
-    async _streamLogs(resp) {
+    async _streamTraces(resp) {
         this.batch = []
         this.savePromises = []
 
@@ -74,7 +71,7 @@ class PullTracesWorker {
         }
 
         if (this.batch.length) {
-            this.savePromises.push(this._saveLogs([...this.batch]))
+            this.savePromises.push(this._saveTraces([...this.batch]))
         }
 
         await Promise.all(this.savePromises)
@@ -85,7 +82,7 @@ class PullTracesWorker {
         this.jsonStream.on('data', (data) => {
             this.batch.push(data as StringKeyMap)
             if (this.batch.length === this.saveBatchSize) {
-                this.savePromises.push(this._saveLogs([...this.batch]))
+                this.savePromises.push(this._saveTraces([...this.batch]))
                 this.batch = []
             }
         })
@@ -102,53 +99,60 @@ class PullTracesWorker {
                     resolve(resp)
                 })
                 .on('error', async (error) => {
-                    logger.error(`Error fetching JSON slice ${slice}:`, error)
-                    if (attempt <= 3) {
-                        logger.error(`Retrying with attempt ${attempt}...`)
-                        await sleep(50)
+                    const err = JSON.stringify(error)
+                    if (!err.includes('ECONNRESET')) {
+                        logger.error(`Error fetching JSON slice ${slice}:`, error)
+                    }
+                    if (attempt <= 10) {
+                        if (!err.includes('ECONNRESET')) {
+                            logger.error(`Retrying with attempt ${attempt}...`)
+                        }
+                        await sleep(100)
                         return this._makeSliceRequest(slice, abortController, attempt + 1)
                     }
                 })
         })
     }
 
-    async _saveLogs(logs: StringKeyMap[]) {
-        logs = uniqueByKeys(
-            logs.map((l) => this._bigQueryLogToEthLog(l)),
-            ['logIndex', 'transactionHash']
-        )
+    async _saveTraces(traces: StringKeyMap[]) {
+        traces = uniqueByKeys(traces.map((l) => this._bigQueryModelToInternalModel(l)), ['id'])
 
         await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder().insert().into(EthLog).values(logs).orIgnore().execute()
+            await tx.createQueryBuilder()
+                .insert()
+                .into(PolygonTrace)
+                .values(traces)
+                .orIgnore()
+                .execute()
         })
     }
 
-    _bigQueryLogToEthLog(bqLog: StringKeyMap): StringKeyMap {
-        const topics = bqLog.topics || []
-        const topic0 = topics[0] || null
-        const topic1 = topics[1] || null
-        const topic2 = topics[2] || null
-        const topic3 = topics[3] || null
-
+    _bigQueryModelToInternalModel(bqTrace: StringKeyMap): StringKeyMap {
         return {
-            logIndex: Number(bqLog.log_index),
-            transactionHash: bqLog.transaction_hash,
-            transactionIndex: Number(bqLog.transaction_index),
-            address: normalizeEthAddress(bqLog.address),
-            data: normalizeByteData(bqLog.data),
-            topic0,
-            topic1,
-            topic2,
-            topic3,
-            blockHash: bqLog.block_hash,
-            blockNumber: Number(bqLog.block_number),
-            blockTimestamp: new Date(bqLog.block_timestamp).toISOString(),
+            id: bqTrace.trace_id,
+            from: bqTrace.from_address,
+            to: bqTrace.to_address,
+            value: bqTrace.value,
+            input: bqTrace.input,
+            output: bqTrace.output,
+            traceType: bqTrace.trace_type,
+            callType: bqTrace.call_type,
+            rewardType: bqTrace.reward_type,
+            subtraces: bqTrace.subtraces === null ? null : Number(bqTrace.subtraces),
+            traceAddress: bqTrace.trace_address,
+            error: bqTrace.error,
+            status: bqTrace.status === null ? null : Number(bqTrace.status),
+            gas: bqTrace.gas,
+            gasUsed: bqTrace.gas_used,
+            blockHash: bqTrace.block_hash,
+            blockNumber: Number(bqTrace.block_number),
+            blockTimestamp: new Date(bqTrace.block_timestamp).toISOString(),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/logs/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/polygon-traces/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
