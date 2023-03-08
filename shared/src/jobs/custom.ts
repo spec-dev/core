@@ -1,24 +1,14 @@
+import { redis } from '../lib/indexer/redis'
 import { exit } from 'process'
-import { Queue } from 'bullmq'
-import config from '../lib/config'
 
 async function perform() {
-    const queueEth = new Queue([config.BLOCK_EVENTS_QUEUE_PREFIX, '1'].join('-'), {
-        connection: {
-            host: config.INDEXER_REDIS_HOST,
-            port: config.INDEXER_REDIS_PORT,
-        },
-    })
-    await queueEth.obliterate()
-    console.log('Success')
-    const queueMumbai = new Queue([config.BLOCK_EVENTS_QUEUE_PREFIX, '80001'].join('-'), {
-        connection: {
-            host: config.INDEXER_REDIS_HOST,
-            port: config.INDEXER_REDIS_PORT,
-        },
-    })
-    await queueMumbai.obliterate()
-    console.log('Success')
+    await redis.connect()
+    await redis.del('block-events-series-1')
+    await redis.del('block-events-series-80001')
+    await redis.del('block-events-eager-blocks-1')
+    await redis.del('block-events-eager-blocks-80001')
+    await redis.del('block-events-skipped-blocks-1')
+    await redis.del('block-events-skipped-blocks-80001')
     exit(0)
 }
 
