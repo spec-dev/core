@@ -30,6 +30,8 @@ export const BATCH_TRANSFER_INPUTS = [
         type: 'uint256[]'
     }
 ]
+export const METADATA_UPDATE_TOPIC = '0xf8e1a15aba9398e019f0b49df1a4fde98ee17ae345cb5f6b5e2c27f5033e8ce7'
+export const BATCH_METADATA_UPDATE_TOPIC = '0x6bd5c950a8d8df17f772f5af37cb3655737899cbf903264b9795592da439661c'
 
 // ################################
 //  ERC-20
