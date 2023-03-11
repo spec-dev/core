@@ -18,6 +18,7 @@ const alchemySubUrl = ev('ALCHEMY_SUBSCRIPTION_URL')
 const indexerConfig: StringKeyMap = {
     ...config,
     CHAIN_ID: ev('CHAIN_ID'),
+    ALCHEMY_API_KEY: ev('ALCHEMY_API_KEY'),
     ALCHEMY_REST_URL: alchemyRestUrl ? alchemyRestUrl : `https://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     ALCHEMY_SUBSCRIPTION_URL: alchemySubUrl ? alchemySubUrl : `wss://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
