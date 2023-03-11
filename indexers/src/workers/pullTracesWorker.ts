@@ -33,7 +33,7 @@ class PullTracesWorker {
     }
 
     async run() {
-        while (this.cursor < this.to) {
+        while (this.cursor <= this.to) {
             logger.info(`Slice ${this.cursor} / ${this.to}`)
             await this._pullTracesForSlice(this.cursor)
             this.cursor++
