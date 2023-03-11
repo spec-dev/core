@@ -105,7 +105,7 @@ export class DecodeTraceWorker {
 
         this.tracesToSave.push(...traces)
 
-        if (this.tracesToSave.length >= 3000) {
+        if (this.tracesToSave.length >= 5000) {
             await this._updateTraces(this.tracesToSave)
             this.tracesToSave = []
         }
