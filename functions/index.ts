@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.27'
+import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.31'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -56,10 +56,10 @@ function authRequest(req: any): StringKeyMap {
     }
 
     const tablesApiToken = (
-        headers[headerNames.TABLES_AUTH_TOKEN] || 
-        headers[headerNames.TABLES_AUTH_TOKEN.toLowerCase()]
+        headers.get(headerNames.TABLES_AUTH_TOKEN) || 
+        headers.get(headerNames.TABLES_AUTH_TOKEN.toLowerCase())
     )
-
+    
     return { isAuthed: true, tablesApiToken }
 }
 
