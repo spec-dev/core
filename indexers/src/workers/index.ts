@@ -16,6 +16,7 @@ import { getAbiPolisher } from './abiPolisher'
 import { chainIds } from '../../../shared'
 import { getClassifyContractWorker } from './classifyContractWorker'
 import { getTracesToInteractionsWorker } from './tracesIntoInteractionsWorker'
+import { getSeedNftTablesWorker } from './seedNftTablesWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -29,6 +30,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'pull-contracts') {
         return getPullContractsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'seed-nft-tables') {
+        return getSeedNftTablesWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'dlog') {
         switch (config.CHAIN_ID) {
