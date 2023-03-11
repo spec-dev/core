@@ -17,6 +17,7 @@ import { chainIds } from '../../../shared'
 import { getClassifyContractWorker } from './classifyContractWorker'
 import { getTracesToInteractionsWorker } from './tracesIntoInteractionsWorker'
 import { getSeedNftTablesWorker } from './seedNftTablesWorker'
+import { getDecodeTraceWorker } from './decodeTraceWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -54,6 +55,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'dtx') {
         return getDecodeTxWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'dtrace') {
+        return getDecodeTraceWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'cc') {
         return getClassifyContractWorker()
