@@ -147,29 +147,12 @@ class EthereumIndexer extends AbstractIndexer {
             return
         }
 
-        // Initialize our internal models for both transactions and logs.
+        // Initialize internal models for both transactions and logs.
         let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
             : []
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
-        // Get all abis for addresses needed to decode both transactions and logs.
-        const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
-        const logAddresses = logs.map(l => l.address).filter(v => !!v)
-        const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
-        const [abis, functionSignatures] = await Promise.all([
-            getAbis(unique([ ...txToAddresses, ...logAddresses ])),
-            getFunctionSignatures(unique(sigs)),
-        ])
-        const numAbis = Object.keys(abis).length
-        const numFunctionSigs = Object.keys(functionSignatures).length
-
-        // Decode transactions and logs.
-        transactions = transactions.length && (numAbis || numFunctionSigs) 
-            ? this._decodeTransactions(transactions, abis, functionSignatures) 
-            : transactions
-        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
-        
         // Wait for traces to resolve and ensure there's not block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
@@ -180,6 +163,30 @@ class EthereumIndexer extends AbstractIndexer {
         }
         traces = this._enrichTraces(traces, block)
 
+        // Get all abis for addresses needed to decode transactions, traces, and logs.
+        const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
+        const traceToAddresses = traces.map(t => t.to).filter(v => !!v)
+        const logAddresses = logs.map(l => l.address).filter(v => !!v)
+        const sigs = unique([
+            ...transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10)),
+            ...traces.filter(trace => !!trace.input).map(trace => trace.input.slice(0, 10)),
+        ])
+        const [abis, functionSignatures] = await Promise.all([
+            getAbis(unique([ ...txToAddresses, ...traceToAddresses, ...logAddresses ])),
+            getFunctionSignatures(sigs),
+        ])
+        const numAbis = Object.keys(abis).length
+        const numFunctionSigs = Object.keys(functionSignatures).length
+
+        // Decode transactions, traces, and logs.
+        transactions = transactions.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTransactions(transactions, abis, functionSignatures) 
+            : transactions
+        traces = traces.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTraces(traces, abis, functionSignatures) 
+            : traces
+        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
+        
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
@@ -396,48 +403,126 @@ class EthereumIndexer extends AbstractIndexer {
         const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
         if (!abiItem) return tx
 
-        if (!abiItem.inputs?.length) {
-            tx.functionName = abiItem.name
-            tx.functionArgs = []
-            return tx
-        }
+        tx.functionName = abiItem.name
+        tx.functionArgs = []
+
+        if (!abiItem.inputs?.length) return tx
 
         let functionArgs
         try {
-            functionArgs = this._decodeFunctionArgs(abiItem.inputs, argData, tx.hash)
+            functionArgs = this._decodeFunctionArgs(abiItem.inputs, argData)
         } catch (err) {
             this._error(err.message)
         }
         if (!functionArgs) return tx
 
-        tx.functionName = abiItem.name
-        tx.functionArgs = functionArgs
-
         // Ensure args are stringifyable.
         try {
             JSON.stringify(functionArgs)
         } catch (err) {
-            tx.functionArgs = null
-            this._warn(`Transaction function args not stringifyable (hash=${tx.hash})`)
+            functionArgs = null
+            this._warn(`Transaction function args not stringifiable (hash=${tx.hash})`)
         }
+
+        tx.functionArgs = functionArgs
 
         return tx
     }
 
-    _decodeFunctionArgs(inputs: StringKeyMap[], argData: string, hash: string): StringKeyMap[] | null {
+    _decodeTraces(
+        traces: EthTrace[], 
+        abis: { [key: string]: Abi },
+        functionSignatures: { [key: string]: AbiItem },
+    ): EthTrace[] {
+        const finalTraces = []
+        for (let trace of traces) {
+            if (!trace.to || !abis.hasOwnProperty(trace.to) || !trace.input) {
+                finalTraces.push(trace)
+                continue
+            }
+            trace = this._decodeTrace(trace, abis[trace.to], functionSignatures)
+            finalTraces.push(trace)
+        }
+        return finalTraces
+    }
+
+    _decodeTrace(
+        trace: EthTrace,
+        abi: Abi,
+        functionSignatures: { [key: string]: AbiItem },
+    ): EthTrace {
+        const inputSig = trace.input?.slice(0, 10) || ''
+        const inputData = trace.input?.slice(10) || ''
+        if (!inputSig) return trace
+
+        const abiItem = abi.find(item => item.signature === inputSig) || functionSignatures[inputSig] 
+        if (!abiItem) return trace
+
+        trace.functionName = abiItem.name
+        trace.functionArgs = []
+        trace.functionOutputs = []
+
+        // Decode function inputs.
+        if (abiItem.inputs?.length) {
+            let functionArgs
+            try {
+                functionArgs = this._decodeFunctionArgs(abiItem.inputs, inputData)
+            } catch (err) {
+                this._error(err.message)
+            }
+
+            // Ensure args are stringifyable.
+            try {
+                functionArgs && JSON.stringify(functionArgs)
+            } catch (err) {
+                functionArgs = null
+                this._warn(`Trace function args not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionArgs) {
+                trace.functionArgs = functionArgs
+            }
+        }
+
+        // Decode function outputs.
+        if (abiItem.outputs?.length && !!trace.output && trace.output.length > 2) { // 0x
+            let functionOutputs
+            try {
+                functionOutputs = this._decodeFunctionArgs(abiItem.outputs, trace.output.slice(2))
+            } catch (err) {
+                this._error(err.message)
+            }
+
+            // Ensure outputs are stringifyable.
+            try {
+                functionOutputs && JSON.stringify(functionOutputs)
+            } catch (err) {
+                functionOutputs = null
+                this._warn(`Trace function outputs not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionOutputs) {
+                trace.functionOutputs = functionOutputs
+            }
+        }
+
+        return trace
+    }
+
+    _decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKeyMap[] | null {
         let functionArgs
         try {
             const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
-            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${argData}`)
+            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
             functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
         } catch (err) {
             if (err.reason?.includes('out-of-bounds') && 
                 err.code === 'BUFFER_OVERRUN' && 
-                argData.length % 64 === 0 &&
-                inputs.length > (argData.length / 64)
+                inputData.length % 64 === 0 &&
+                inputs.length > (inputData.length / 64)
             ) {
-                const numInputsToUse = argData.length / 64
-                return this._decodeFunctionArgs(inputs.slice(0, numInputsToUse), argData, hash)
+                const numInputsToUse = inputData.length / 64
+                return this._decodeFunctionArgs(inputs.slice(0, numInputsToUse), inputData)
             }
             return null
         }
