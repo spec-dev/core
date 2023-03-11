@@ -97,7 +97,8 @@ async function registerContractInstances(
         }
     }
 
-    // Kick off jobs to back-decode all events for their associated contract instance addresses.
+    // TODO: Kick off jobs to back-decode all events for their 
+    // associated contract instance addresses (if needed).
 }
 
 async function upsertVerifiedAbis(

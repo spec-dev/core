@@ -5,6 +5,7 @@ import {
     saveAbis,
     saveFunctionSignatures,
     Abi,
+    AbiItem,
     AbiItemType,
     sleep,
     toChunks,
@@ -23,8 +24,11 @@ import qs from 'querystring'
 import Web3 from 'web3'
 import { ident } from 'pg-format'
 import config from '../config'
+import { camelizeKeys } from 'humps'
 
 const web3 = new Web3()
+
+const PROXY_UPGRADED_TOPIC = '0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b'
 
 export const providers = {
     STARSCAN: '*scan',
@@ -44,7 +48,7 @@ const starscanApiKey = {
 }
 
 async function upsertAbis(
-    addresses: string[], 
+    addresses: string[],
     chainId: string,
     overwriteWithStarscan?: boolean,
     overwriteWithSamczsun?: boolean,
@@ -157,10 +161,44 @@ async function groupFetchAbis(data: any[], provider: string, chainId: string): P
     return await Promise.all(abiPromises)
 }
 
-async function fetchAbi(data: any, provider: string, chainId: string) {
-    return provider === providers.STARSCAN
-        ? fetchAbiFromStarscan(data, chainId)
-        : fetchAbiFromSamczsun(data)
+async function fetchAbi(data: any, provider: string, chainId: string): Promise<Abi | null> {
+    // Use samczsun if not pulling from etherscan/polyscan/etc.
+    if (provider !== providers.STARSCAN) {
+        return fetchAbiFromSamczsun(data)
+    }
+
+    // Fetch from etherscan/polyscan/etc.
+    const abi = await fetchAbiFromStarscan(data, chainId)
+    if (!abi) return null
+
+    // Detect if contract could be a proxy contract.
+    const upgradedAbiItem = abi.find(item => item.name === 'Upgraded' && item.type === AbiItemType.Event)
+    const isUpgradableProxy = !!upgradedAbiItem && createAbiItemSignature(upgradedAbiItem) === PROXY_UPGRADED_TOPIC
+    if (!isUpgradableProxy) return abi
+        
+    // Find the most recent Upgraded event emitted by this contract.
+    const upgradedEventLog = await getFirstProxyUpgradedEventLog(data, chainId)
+    if (!upgradedEventLog) return abi
+
+    // Get proxy implementation address from event args.
+    const implementationAddress = decodeUpgradedEventForImplementationAddress(
+        upgradedAbiItem,
+        upgradedEventLog,
+    )
+    if (!implementationAddress) return abi
+
+    logger.info(`Detected potential proxy contract ${data}.`)
+
+    // Get implementation contract ABI.
+    const implementationAbi = await fetchAbiFromStarscan(implementationAddress, chainId)
+    if (!implementationAbi) {
+        logger.warn(`[${chainId}] Unable to find ABI for implementation contract ${implementationAddress}.`)
+        return abi
+    }
+
+    // Return merged proxy + implementation abi.
+    const fullAbi = [...abi, ...implementationAbi]
+    return fullAbi
 }
 
 async function fetchAbiFromStarscan(address: string, chainId: string, attempt: number = 1): Promise<Abi | null> {
@@ -386,13 +424,56 @@ export async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {
         return
     }
 
-
     // Only dealing with EVM chains for now, so all of them will just share the same
     // function signatures within under "eth-function-signatures".
     if (!(await saveFunctionSignatures(stringified))) {
         logger.error(`Failed to save function sig hashes.`)
         return
     }
+}
+
+async function getFirstProxyUpgradedEventLog(contractAddress: string, chainId: string): Promise<StringKeyMap> {
+    const schema = schemaForChainId[chainId]
+    if (!schema) {
+        logger.error(`No schema found for chain id ${chainId}.`)
+        return []
+    }
+    try {
+        const results = await SharedTables.query(
+            `select * from ${ident(schema)}."logs" where "address" = $1 and "topic0" = $2 order by block_number desc limit 1`,
+            [contractAddress, PROXY_UPGRADED_TOPIC],
+        )
+        const log = (results || [])[0] || {}
+        return camelizeKeys(log)
+    } catch (err) {
+        logger.error(`Error querying ${ident(schema)}."logs" for upgraded event: ${err}`)
+        return null
+    }
+}
+
+function decodeUpgradedEventForImplementationAddress(abiItem: AbiItem, log: StringKeyMap): string | null {
+    if (log.eventArgs?.length) {
+        return log.eventArgs[0].value
+    }
+
+    const topics = []
+    abiItem.anonymous && topics.push(log.topic0)
+    log.topic1 && topics.push(log.topic1)
+    log.topic2 && topics.push(log.topic2)
+    log.topic3 && topics.push(log.topic3)
+
+    console.log(log)
+
+    let decodedArgs
+    try {
+        decodedArgs = web3.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
+    } catch (err) {
+        logger.error(`Error decoding log: ${err}`)
+        return null
+    }
+    if (!decodedArgs) return null
+
+    return decodedArgs['0']
 }
 
 function stringify(abi: any): string | null {
