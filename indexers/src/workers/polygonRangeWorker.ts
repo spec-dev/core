@@ -8,9 +8,13 @@ import {
     PolygonBlock,
     PolygonLog,
     PolygonTransaction,
+    PolygonTrace,
+    PolygonContract,
     fullPolygonBlockUpsertConfig,
     fullPolygonLogUpsertConfig,
     fullPolygonTransactionUpsertConfig,
+    fullPolygonTraceUpsertConfig,
+    fullPolygonContractUpsertConfig,
     SharedTables,
     uniqueByKeys,
     toChunks,
@@ -124,6 +128,8 @@ class PolygonRangeWorker {
         let blocks = []
         let transactions = []
         let logs = []
+        let traces = []
+        let contracts = []
 
         for (const result of results) {
             if (!result) continue
@@ -135,7 +141,22 @@ class PolygonRangeWorker {
                 }))
             )
             logs.push(
-                ...result.logs.map((l) => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp }))
+                ...result.logs.map((l) => ({ 
+                    ...l, 
+                    blockTimestamp: () => result.pgBlockTimestamp 
+                }))
+            )
+            traces.push(
+                ...result.traces.map((t) => ({
+                    ...t,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            contracts.push(
+                ...result.contracts.map((c) => ({
+                    ...c,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
             )
         }
 
@@ -148,6 +169,12 @@ class PolygonRangeWorker {
         if (!this.upsertConstraints.log && logs.length) {
             this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
         }
+        if (!this.upsertConstraints.trace && traces.length) {
+            this.upsertConstraints.trace = fullPolygonTraceUpsertConfig(traces[0])
+        }
+        if (!this.upsertConstraints.contract && contracts.length) {
+            this.upsertConstraints.contract = fullPolygonContractUpsertConfig(contracts[0])
+        }
 
         blocks = this.upsertConstraints.block
             ? uniqueByKeys(blocks, this.upsertConstraints.block[1])
@@ -159,11 +186,21 @@ class PolygonRangeWorker {
 
         logs = this.upsertConstraints.log ? uniqueByKeys(logs, ['logIndex', 'transactionHash']) : logs
 
+        traces = this.upsertConstraints.trace
+            ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
+            : traces
+
+        contracts = this.upsertConstraints.contract
+            ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
+            : contracts
+
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
                 this._upsertTransactions(transactions, tx),
                 this._upsertLogs(logs, tx),
+                this._upsertTraces(traces, tx),
+                this._upsertContracts(contracts, tx),
             ])
         })
     }
@@ -213,6 +250,40 @@ class PolygonRangeWorker {
                 })
             )
         ).map(result => result.generatedMaps).flat()
+    }
+
+    async _upsertTraces(traces: StringKeyMap[], tx: any) {
+        if (!traces.length) return
+        logger.info(`Saving ${traces.length} traces...`)
+        const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
+        await Promise.all(
+            toChunks(traces, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(PolygonTrace)
+                    .values(chunk)
+                    .orUpdate(updateTraceCols, conflictTraceCols)
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertContracts(contracts: StringKeyMap[], tx: any) {
+        if (!contracts.length) return
+        logger.info(`Saving ${contracts.length} contracts...`)
+        const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
+        await Promise.all(
+            toChunks(contracts, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(PolygonContract)
+                    .values(chunk)
+                    .orUpdate(updateContractCols, conflictContractCols)
+                    .execute()
+            })
+        )
     }
 }
 
