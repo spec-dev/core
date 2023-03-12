@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
+import { Entity, PrimaryColumn, Column } from 'typeorm'
 import schemas from '../../schemas'
 import { decamelize } from 'humps'
 
@@ -56,7 +56,6 @@ export class PolygonLog {
     blockHash: string
 
     // The number of the block this transaction was included in.
-    @Index()
     @Column('int8', {
         name: 'block_number',
         transformer: {

@@ -1,5 +1,0 @@
-#!/bin/bash
-
-createdb core
-createdb indexer
-createdb shared-tables
