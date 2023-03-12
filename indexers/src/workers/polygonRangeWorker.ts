@@ -143,7 +143,7 @@ class PolygonRangeWorker {
         traces = traces.length && (numAbis || numFunctionSigs) 
             ? this._decodeTraces(traces, abis, functionSignatures) 
             : traces
-            
+
         // Get any new contracts deployed this block.
         const contracts = getContracts(traces)
         
