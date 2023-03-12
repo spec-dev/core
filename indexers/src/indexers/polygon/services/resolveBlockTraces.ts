@@ -40,7 +40,7 @@ async function resolveBlockTraces(
 async function fetchTraces(hexBlockNumber: string): Promise<StringKeyMap[] | null> {
     let resp, error
     try {
-        resp = await fetch(config.QUICKNODE_REST_URL, {
+        resp = await fetch(config.ALCHEMY_REST_URL, {
             method: 'POST',
             body: JSON.stringify({
                 method: 'debug_traceBlockByNumber',
