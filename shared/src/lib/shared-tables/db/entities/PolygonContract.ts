@@ -46,7 +46,7 @@ export class PolygonContract {
     blockTimestamp: Date
 }
 
-export const fullContractUpsertConfig = (contract: PolygonContract): string[][] => {
+export const fullPolygonContractUpsertConfig = (contract: PolygonContract): string[][] => {
     const conflictCols = ['address']
     const updateCols = Object.keys(contract)
         .map((key) => {

@@ -65,3 +65,16 @@ export interface ExternalPolygonReceipt {
     blockHash: string
     blockNumber: string
 }
+
+export interface ExternalPolygonTrace {
+    type: string
+    from: string
+    to: string
+    value?: string
+    gas: string
+    gasUsed: string
+    input: string
+    output: string
+    error?: string
+    calls?: ExternalPolygonTrace[]
+}

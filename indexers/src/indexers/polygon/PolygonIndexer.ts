@@ -18,9 +18,13 @@ import {
     fullPolygonBlockUpsertConfig,
     fullPolygonLogUpsertConfig,
     fullPolygonTransactionUpsertConfig,
+    fullPolygonTraceUpsertConfig,
+    fullPolygonContractUpsertConfig,
     StringKeyMap,
     toChunks,
     getAbis,
+    ensureNamesExistOnAbiInputs,
+    groupAbiInputsWithValues,
     getFunctionSignatures,
     Abi,
     AbiItem,
@@ -36,9 +40,13 @@ import {
     snakeToCamel,
     stripLeadingAndTrailingUnderscores,
     toNamespacedVersion,
+    PolygonTrace,
+    PolygonContract,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
+import resolveBlockTraces from './services/resolveBlockTraces'
+import getContracts from './services/getContracts'
 import { getERC20TokenBalance, getERC1155TokenBalance } from '../../services/contractServices'
 import { 
     decodeTransferEvent, 
@@ -68,6 +76,10 @@ class PolygonIndexer extends AbstractIndexer {
 
     logs: PolygonLog[] = []
 
+    traces: PolygonTrace[] = []
+
+    contracts: PolygonContract[] = []
+
     successfulLogs: PolygonLog[] = []
 
     ivySmartWalletInitializerWalletCreated: string // hack
@@ -85,15 +97,23 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // Get blocks (+transactions), receipts (+logs).
+        // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
+        let tracesPromise = null
+        if (this.blockHash) {
+            tracesPromise = this._getTraces()
+        }
 
         // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
         let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
         const [externalBlock, block] = blockResult
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
+
+        if (tracesPromise === null) {
+            tracesPromise = this._getTraces()
+        }
 
         // Quick uncle check.
         if (await this._wasUncled()) {
@@ -140,16 +160,26 @@ class PolygonIndexer extends AbstractIndexer {
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
         // Wait for traces to resolve and ensure there's not block hash mismatch.
-        // Perform one final block hash mismatch check and error out if so.
-        this._ensureAllShareSameBlockHash(block, receipts || [])
+        let traces = await tracesPromise
+        if (traces.length && traces[0].blockHash !== block.hash) {
+            this._warn(
+                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
+            )
+            traces = await this._waitAndRefetchTraces(block.hash)
+        }
+        traces = this._enrichTraces(traces, block)
 
         // Get all abis for addresses needed to decode both transactions and logs.
         const txToAddresses = transactions.map(t => t.to).filter(v => !!v)
+        const traceToAddresses = traces.map(t => t.to).filter(v => !!v)
         const logAddresses = logs.map(l => l.address).filter(v => !!v)
-        const sigs = transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10))
+        const sigs = unique([
+            ...transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10)),
+            ...traces.filter(trace => !!trace.input).map(trace => trace.input.slice(0, 10)),
+        ])
         const [abis, functionSignatures] = await Promise.all([
-            getAbis(unique([ ...txToAddresses, ...logAddresses ]), this.chainId),
-            getFunctionSignatures(unique(sigs), this.chainId),
+            getAbis(unique([ ...txToAddresses, ...traceToAddresses, ...logAddresses ]), this.chainId),
+            getFunctionSignatures(sigs),
         ])
         const numAbis = Object.keys(abis).length
         const numFunctionSigs = Object.keys(functionSignatures).length
@@ -158,8 +188,18 @@ class PolygonIndexer extends AbstractIndexer {
         transactions = transactions.length && (numAbis || numFunctionSigs) 
             ? this._decodeTransactions(transactions, abis, functionSignatures) 
             : transactions
+        traces = traces.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTraces(traces, abis, functionSignatures) 
+            : traces
         logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
+                
+        // Perform one final block hash mismatch check and error out if so.
+        this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
+        // Get any new contracts deployed this block.
+        const contracts = getContracts(traces)
+        contracts.length && this._info(`Got ${contracts.length} new contracts.`)
+        
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
@@ -172,6 +212,8 @@ class PolygonIndexer extends AbstractIndexer {
                 block,
                 transactions,
                 logs,
+                traces,
+                contracts,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -183,7 +225,7 @@ class PolygonIndexer extends AbstractIndexer {
         }
 
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs)
+        await this._savePrimitives(block, transactions, logs, traces, contracts)
 
         // Curate list of logs from transactions that succeeded.
         this._curateSuccessfulLogs()
@@ -205,6 +247,8 @@ class PolygonIndexer extends AbstractIndexer {
         block: PolygonBlock,
         transactions: PolygonTransaction[],
         logs: PolygonLog[],
+        traces: PolygonTrace[],
+        contracts: PolygonContract[],
     ) {
         this._info('Saving primitives...')
 
@@ -213,6 +257,8 @@ class PolygonIndexer extends AbstractIndexer {
                 this._upsertBlock(block, tx),
                 this._upsertTransactions(transactions, tx),
                 this._upsertLogs(logs, tx),
+                this._upsertTraces(traces, tx),
+                this._upsertContracts(contracts, tx),
             ])
         })
     }
@@ -561,11 +607,7 @@ class PolygonIndexer extends AbstractIndexer {
                 finalTxs.push(tx)
                 continue
             }
-            try {
-                tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
-            } catch (err) {
-                this._error(`Error decoding transaction ${tx.hash}: ${err}`)
-            }
+            tx = this._decodeTransaction(tx, abis[tx.to], functionSignatures)
             finalTxs.push(tx)
         }
         return finalTxs
@@ -582,50 +624,131 @@ class PolygonIndexer extends AbstractIndexer {
 
         const abiItem = abi.find(item => item.signature === sig) || functionSignatures[sig] 
         if (!abiItem) return tx
-        
-        const argNames = []
-        const argTypes = []
-        for (const input of abiItem.inputs || []) {
-            input.name && argNames.push(input.name)
-            argTypes.push(input.type)
-        }
-
-        const decodedArgs = web3js.eth.abi.decodeParameters(argTypes, `0x${argData}`)
-        const numArgs = parseInt(decodedArgs.__length__)
-
-        const argValues = []
-        for (let i = 0; i < numArgs; i++) {
-            const stringIndex = i.toString()
-            if (!decodedArgs.hasOwnProperty(stringIndex)) continue
-            argValues.push(decodedArgs[stringIndex])
-        }
-        if (argValues.length !== argTypes.length) return tx
-
-        const includeArgNames = argNames.length === argTypes.length
-        const functionArgs = []
-        for (let j = 0; j < argValues.length; j++) {
-            const entry: StringKeyMap = {
-                type: argTypes[j],
-                value: formatAbiValueWithType(argValues[j], argTypes[j]),
-            }
-            if (includeArgNames) {
-                entry.name = argNames[j]
-            }
-            functionArgs.push(entry)
-        }
 
         tx.functionName = abiItem.name
-        tx.functionArgs = functionArgs
-    
+        tx.functionArgs = []
+
+        if (!abiItem.inputs?.length) return tx
+
+        let functionArgs
+        try {
+            functionArgs = this._decodeFunctionArgs(abiItem.inputs, argData)
+        } catch (err) {
+            this._error(err.message)
+        }
+        if (!functionArgs) return tx
+
         // Ensure args are stringifyable.
         try {
             JSON.stringify(functionArgs)
         } catch (err) {
-            tx.functionArgs = null
-            this._warn(`Transaction function args not stringifyable (hash=${tx.hash})`)
+            functionArgs = null
+            this._warn(`Transaction function args not stringifiable (hash=${tx.hash})`)
         }
-        
+
+        tx.functionArgs = functionArgs
+
         return tx
+    }
+
+    _decodeTraces(
+        traces: PolygonTrace[], 
+        abis: { [key: string]: Abi },
+        functionSignatures: { [key: string]: AbiItem },
+    ): PolygonTrace[] {
+        const finalTraces = []
+        for (let trace of traces) {
+            if (!trace.to || !abis.hasOwnProperty(trace.to) || !trace.input) {
+                finalTraces.push(trace)
+                continue
+            }
+            trace = this._decodeTrace(trace, abis[trace.to], functionSignatures)
+            finalTraces.push(trace)
+        }
+        return finalTraces
+    }
+
+    _decodeTrace(
+        trace: PolygonTrace,
+        abi: Abi,
+        functionSignatures: { [key: string]: AbiItem },
+    ): PolygonTrace {
+        const inputSig = trace.input?.slice(0, 10) || ''
+        const inputData = trace.input?.slice(10) || ''
+        if (!inputSig) return trace
+
+        const abiItem = abi.find(item => item.signature === inputSig) || functionSignatures[inputSig] 
+        if (!abiItem) return trace
+
+        trace.functionName = abiItem.name
+        trace.functionArgs = []
+        trace.functionOutputs = []
+
+        // Decode function inputs.
+        if (abiItem.inputs?.length) {
+            let functionArgs
+            try {
+                functionArgs = this._decodeFunctionArgs(abiItem.inputs, inputData)
+            } catch (err) {
+                this._error(err.message)
+            }
+
+            // Ensure args are stringifyable.
+            try {
+                functionArgs && JSON.stringify(functionArgs)
+            } catch (err) {
+                functionArgs = null
+                this._warn(`Trace function args not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionArgs) {
+                trace.functionArgs = functionArgs
+            }
+        }
+
+        // Decode function outputs.
+        if (abiItem.outputs?.length && !!trace.output && trace.output.length > 2) { // 0x
+            let functionOutputs
+            try {
+                functionOutputs = this._decodeFunctionArgs(abiItem.outputs, trace.output.slice(2))
+            } catch (err) {
+                this._error(err.message)
+            }
+
+            // Ensure outputs are stringifyable.
+            try {
+                functionOutputs && JSON.stringify(functionOutputs)
+            } catch (err) {
+                functionOutputs = null
+                this._warn(`Trace function outputs not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionOutputs) {
+                trace.functionOutputs = functionOutputs
+            }
+        }
+
+        return trace
+    }
+
+    _decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKeyMap[] | null {
+        let functionArgs
+        try {
+            const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
+            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
+            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
+        } catch (err) {
+            if (err.reason?.includes('out-of-bounds') && 
+                err.code === 'BUFFER_OVERRUN' && 
+                inputData.length % 64 === 0 &&
+                inputs.length > (inputData.length / 64)
+            ) {
+                const numInputsToUse = inputData.length / 64
+                return this._decodeFunctionArgs(inputs.slice(0, numInputsToUse), inputData)
+            }
+            return null
+        }
+        return functionArgs || []
     }
 
     _decodeLogs(logs: PolygonLog[], abis: { [key: string]: Abi }): PolygonLog[] {
@@ -847,9 +970,49 @@ class PolygonIndexer extends AbstractIndexer {
         return receipts || []
     }
 
+    async _getTraces(): Promise<PolygonTrace[]> {
+        try {
+            return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.blockHash, this.chainId)
+        } catch (err) {
+            throw err
+        }
+    }
+
+    async _waitAndRefetchTraces(blockHash: string): Promise<PolygonTrace[]> {
+        const getTraces = async () => {
+            const traces = await this._getTraces()
+            if (traces.length && traces[0].blockHash !== blockHash) {
+                return null
+            } else {
+                return traces
+            }
+        }
+
+        let traces = null
+        let numAttempts = 0
+        while (traces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+            traces = await getTraces()
+            if (traces === null) {
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
+            }
+            numAttempts += 1
+        }
+        return traces || []
+    }
+
+    _enrichTraces(traces: PolygonTrace[], block: PolygonBlock): PolygonTrace[] {
+        return traces.map((t, i) => {
+            t.blockTimestamp = block.timestamp
+            return t
+        })
+    }
+
     _ensureAllShareSameBlockHash(
         block: PolygonBlock,
         receipts: ExternalPolygonReceipt[],
+        traces: PolygonTrace[],
     ) {
         const hash = this.head.blockHash || block.hash
         if (block.hash !== hash) {
@@ -859,6 +1022,13 @@ class PolygonIndexer extends AbstractIndexer {
             receipts.forEach((r) => {
                 if (r.blockHash !== hash) {
                     throw `Receipts have hash mismatch -- Truth: ${hash}; Received: ${r.blockHash}`
+                }
+            })
+        }
+        if (traces.length > 0) {
+            traces.forEach((t) => {
+                if (t.blockHash !== hash) {
+                    throw `Traces have hash mismatch -- Truth: ${hash}; Received: ${t.blockHash}`
                 }
             })
         }
@@ -918,6 +1088,46 @@ class PolygonIndexer extends AbstractIndexer {
         )
             .map((result) => result.generatedMaps)
             .flat()
+    }
+
+    async _upsertTraces(traces: PolygonTrace[], tx: any) {
+        if (!traces.length) return
+        const [updateCols, conflictCols] = fullPolygonTraceUpsertConfig(traces[0])
+        const blockTimestamp = this.pgBlockTimestamp
+        traces = uniqueByKeys(traces, conflictCols) as PolygonTrace[]
+        this.traces = (
+            await Promise.all(
+                toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(PolygonTrace)
+                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
+    }
+
+    async _upsertContracts(contracts: PolygonContract[], tx: any) {
+        if (!contracts.length) return
+        const [updateCols, conflictCols] = fullPolygonContractUpsertConfig(contracts[0])
+        const blockTimestamp = this.pgBlockTimestamp
+        contracts = uniqueByKeys(contracts, conflictCols) as PolygonContract[]
+        this.contracts = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(PolygonContract)
+                .values(contracts.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps
     }
 
     async _deleteRecordsWithBlockNumber(attempt: number = 1) {

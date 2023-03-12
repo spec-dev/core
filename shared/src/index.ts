@@ -242,7 +242,7 @@ export {
 } from './lib/shared-tables/db/entities/PolygonLog'
 export {
     PolygonContract,
-    fullContractUpsertConfig as fullPolygonContractUpsertConfig,
+    fullPolygonContractUpsertConfig as fullPolygonContractUpsertConfig,
 } from './lib/shared-tables/db/entities/PolygonContract'
 export {
     PolygonTrace,

@@ -191,7 +191,7 @@ class EthereumIndexer extends AbstractIndexer {
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
         // Get any new contracts deployed this block.
-        const [contracts, _] = getContracts(traces)
+        const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
         // Format transactions & traces as latest interactions between addresses.

@@ -1,14 +1,14 @@
 import config from '../../../config'
 import fetch from 'cross-fetch'
-import { ExternalEthTrace } from '../types'
-import { EthTrace, logger, sleep } from '../../../../../shared'
+import { PolygonTrace, logger, sleep, StringKeyMap } from '../../../../../shared'
 import { externalToInternalTraces } from '../transforms/traceTransforms'
 
 async function resolveBlockTraces(
     hexBlockNumber: string,
     blockNumber: number,
-    chainId: string
-): Promise<EthTrace[]> {
+    blockHash: string,
+    chainId: string,
+): Promise<PolygonTrace[]> {
     let externalTraces = null
     let numAttempts = 0
 
@@ -34,17 +34,17 @@ async function resolveBlockTraces(
         config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got traces.`)
     }
 
-    return externalToInternalTraces(externalTraces, chainId)
+    return externalToInternalTraces(externalTraces, blockNumber, blockHash, chainId)
 }
 
-async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] | null> {
+async function fetchTraces(hexBlockNumber: string): Promise<StringKeyMap[] | null> {
     let resp, error
     try {
-        resp = await fetch(config.ALCHEMY_REST_URL, {
+        resp = await fetch(config.QUICKNODE_REST_URL, {
             method: 'POST',
             body: JSON.stringify({
-                method: 'trace_block',
-                params: [hexBlockNumber],
+                method: 'debug_traceBlockByNumber',
+                params: [hexBlockNumber, { tracer: 'callTracer' }],
                 id: 1,
                 jsonrpc: '2.0',
             }),
@@ -75,7 +75,7 @@ async function fetchTraces(hexBlockNumber: string): Promise<ExternalEthTrace[] |
     } else if (data?.error) {
         throw `error fetching traces: ${data.error.code} - ${data.error.message}`
     } else {
-        return (data.result || []) as ExternalEthTrace[]
+        return (data.result || []) as StringKeyMap[]
     }
 }
 

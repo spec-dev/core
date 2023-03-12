@@ -41,6 +41,8 @@ spec:
           value: {{ALCHEMY_REST_URL}}
         - name: ALCHEMY_SUBSCRIPTION_URL
           value: {{ALCHEMY_SUBSCRIPTION_URL}}
+        - name: QUICKNODE_REST_URL
+          value: {{QUICKNODE_REST_URL}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME

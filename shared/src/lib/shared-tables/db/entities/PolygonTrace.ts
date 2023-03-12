@@ -70,6 +70,18 @@ export class PolygonTrace {
     @Column('varchar', { nullable: true })
     output: string
 
+    // Name of the contract function executed.
+    @Column('varchar', { name: 'function_name', nullable: true })
+    functionName: string
+
+    // Arguments provided to the contract function.
+    @Column('json', { name: 'function_args', nullable: true })
+    functionArgs: object[]
+
+    // Contract function outputs.
+    @Column('json', { name: 'function_outputs', nullable: true })
+    functionOutputs: object[]
+
     // One of call, create, suicide, reward, genesis, daofork.
     @Column('varchar', { name: 'trace_type', length: 20 })
     traceType: PolygonTraceType
@@ -127,11 +139,15 @@ export class PolygonTrace {
     // Timestamp of when this trace's block was collated.
     @Column('timestamptz', { name: 'block_timestamp' })
     blockTimestamp: Date
+
+    traceAddressList: number[]
 }
 
 export const fullPolygonTraceUpsertConfig = (trace: PolygonTrace): string[][] => {
     const conflictCols = ['id']
+    const nonColKeys = ['traceAddressList']
     const updateCols = Object.keys(trace)
+        .filter((key) => !nonColKeys.includes(key))
         .map(decamelize)
         .filter((col) => !conflictCols.includes(col))
     return [updateCols, conflictCols]

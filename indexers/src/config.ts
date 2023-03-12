@@ -21,6 +21,7 @@ const indexerConfig: StringKeyMap = {
     ALCHEMY_API_KEY: ev('ALCHEMY_API_KEY'),
     ALCHEMY_REST_URL: alchemyRestUrl ? alchemyRestUrl : `https://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     ALCHEMY_SUBSCRIPTION_URL: alchemySubUrl ? alchemySubUrl : `wss://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
+    QUICKNODE_REST_URL: ev('QUICKNODE_REST_URL'),
     PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
     EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
     EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
