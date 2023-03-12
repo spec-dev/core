@@ -15,7 +15,7 @@ export function getWorker(): Worker {
             }
         },
         {
-            autorun: true,
+            autorun: false,
             connection: {
                 host: config.INDEXER_REDIS_HOST,
                 port: config.INDEXER_REDIS_PORT,
