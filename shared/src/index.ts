@@ -202,9 +202,6 @@ export {
 } from './lib/core/db/services/liveEdgeFunctionVersionServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
-// Will be removed
-export { EthReceipt, fullReceiptUpsertConfig } from './lib/shared-tables/db/entities/EthReceipt'
-
 export {
     redis as abiRedis,
     abiRedisKeys,

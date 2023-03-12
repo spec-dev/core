@@ -86,6 +86,7 @@ export class EthBlock {
     transactionCount: number
 
     // Timestamp of when this block was collated.
+    @Index({ unique: true })
     @Column('timestamptz')
     timestamp: Date
 }
