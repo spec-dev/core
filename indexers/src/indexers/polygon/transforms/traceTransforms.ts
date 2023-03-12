@@ -33,9 +33,7 @@ export function buildTracesFromCallStructure(
     for (let i = 0; i < callData.length; i++) {
         const externalTrace = (callData[i].result ? callData[i].result : callData[i]) as ExternalPolygonTrace
         const trace = externalToInternalTrace(externalTrace, parentTraceAddressList, i, parentTraceStatus)
-        if (!trace) {
-            logger.error(JSON.stringify(callData, null, 4))
-        }
+        if (!trace) continue
         traces.push(trace)
 
         if (externalTrace.calls?.length) {
@@ -82,7 +80,7 @@ export function externalToInternalTrace(
             break
         default:
             if (!givenType) {
-                logger.info('Got trace with no type:', JSON.stringify(externalTrace, null, 4))
+                logger.error('Got trace with no type:', JSON.stringify(externalTrace, null, 4))
                 return null
             }
             trace.traceType = givenType as PolygonTraceType
