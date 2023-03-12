@@ -67,7 +67,7 @@ metadata:
   labels:
     app: tables-api-reader
 spec:
-  replicas: 8
+  replicas: 4
   selector:
     matchLabels:
       component: tables-api-reader
@@ -110,7 +110,7 @@ spec:
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: FLIP
-          value: tails
+          value: heads
         readinessProbe:
           httpGet:
             path: /health-check
