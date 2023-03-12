@@ -1,5 +1,4 @@
 import config from '../config'
-import { getIndexer } from '../indexers'
 import {
     logger,
     NewReportedHead,
@@ -10,16 +9,33 @@ import {
     PolygonTransaction,
     PolygonTrace,
     PolygonContract,
+    range,
     fullPolygonBlockUpsertConfig,
     fullPolygonLogUpsertConfig,
     fullPolygonTransactionUpsertConfig,
     fullPolygonTraceUpsertConfig,
     fullPolygonContractUpsertConfig,
     SharedTables,
+    unique,
     uniqueByKeys,
     toChunks,
+    In,
+    numberToHex,
+    getAbis,
+    Abi,
+    ensureNamesExistOnAbiInputs,
+    groupAbiInputsWithValues,
+    AbiItem,
+    getFunctionSignatures,
 } from '../../../shared'
 import { exit } from 'process'
+import resolveBlockTraces from '../indexers/polygon/services/resolveBlockTraces'
+import getContracts from '../indexers/polygon/services/getContracts'
+import Web3 from 'web3'
+
+const web3 = new Web3()
+
+const blocksRepo = () => SharedTables.getRepository(PolygonBlock)
 
 class PolygonRangeWorker {
 
@@ -70,15 +86,18 @@ class PolygonRangeWorker {
 
     async _indexBlockGroup(start: number, end: number) {
         logger.info(`Indexing ${start} --> ${end}...`)
+        const blockNumbers = range(start, end)
 
-        const missingBlockNumbers = (await SharedTables.query(
-            `SELECT s.id AS missing FROM generate_series(${start}, ${end}) s(id) WHERE NOT EXISTS (SELECT 1 FROM polygon.blocks WHERE number = s.id)`
-        )).map(r => r.missing)
-        if (!missingBlockNumbers.length) return
+        // const missingBlockNumbers = (await SharedTables.query(
+        //     `SELECT s.id AS missing FROM generate_series(${start}, ${end}) s(id) WHERE NOT EXISTS (SELECT 1 FROM polygon.blocks WHERE number = s.id)`
+        // )).map(r => r.missing)
+        // if (!missingBlockNumbers.length) return
+
+        const blocks = await this._getBlocks(blockNumbers)
 
         const indexResultPromises = []
-        for (const blockNumber of missingBlockNumbers) {
-            indexResultPromises.push(this._indexBlock(blockNumber))
+        for (const block of blocks) {
+            indexResultPromises.push(this._indexBlock(block))
         }
         const indexResults = await Promise.all(indexResultPromises)
 
@@ -92,17 +111,154 @@ class PolygonRangeWorker {
         }
     }
 
-    async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
-        let result
+    async _getBlocks(numbers: number[]): Promise<PolygonBlock[]> {
         try {
-            result = await getIndexer(this._atNumber(blockNumber)).perform()
+            return (
+                (await blocksRepo().find({
+                    select: { hash: true, number: true, timestamp: true },
+                    where: { number: In(numbers) }
+                })) || []
+            )
         } catch (err) {
-            logger.error(`Error indexing block ${blockNumber}:`, err)
+            logger.error(`Error getting logs: ${err}`)
+            return []
+        }
+    }
+
+    async _indexBlock(block: PolygonBlock): Promise<StringKeyMap | null> {
+        let traces = await this._getTraces(block.number, block.hash)
+        for (const trace of traces) {
+            trace.blockTimestamp = block.timestamp
+        }
+
+        const traceToAddresses = traces.map(t => t.to).filter(v => !!v)
+        const sigs = unique(traces.filter(trace => !!trace.input).map(trace => trace.input.slice(0, 10)))
+        const [abis, functionSignatures] = await Promise.all([
+            getAbis(unique(traceToAddresses), config.CHAIN_ID),
+            getFunctionSignatures(sigs),
+        ])
+        const numAbis = Object.keys(abis).length
+        const numFunctionSigs = Object.keys(functionSignatures).length
+
+        traces = traces.length && (numAbis || numFunctionSigs) 
+            ? this._decodeTraces(traces, abis, functionSignatures) 
+            : traces
+            
+        // Get any new contracts deployed this block.
+        const contracts = getContracts(traces)
+        
+        return {
+            traces,
+            contracts,
+        }
+    }
+
+    async _getTraces(blockNumber: number, blockHash: string, ): Promise<PolygonTrace[]> {
+        try {
+            return resolveBlockTraces(numberToHex(blockNumber), blockNumber, blockHash, config.CHAIN_ID)
+        } catch (err) {
+            throw err
+        }
+    }
+
+    _decodeTraces(
+        traces: PolygonTrace[], 
+        abis: { [key: string]: Abi },
+        functionSignatures: { [key: string]: AbiItem },
+    ): PolygonTrace[] {
+        const finalTraces = []
+        for (let trace of traces) {
+            if (!trace.to || !abis.hasOwnProperty(trace.to) || !trace.input) {
+                finalTraces.push(trace)
+                continue
+            }
+            trace = this._decodeTrace(trace, abis[trace.to], functionSignatures)
+            finalTraces.push(trace)
+        }
+        return finalTraces
+    }
+
+    _decodeTrace(
+        trace: PolygonTrace,
+        abi: Abi,
+        functionSignatures: { [key: string]: AbiItem },
+    ): PolygonTrace {
+        const inputSig = trace.input?.slice(0, 10) || ''
+        const inputData = trace.input?.slice(10) || ''
+        if (!inputSig) return trace
+
+        const abiItem = abi.find(item => item.signature === inputSig) || functionSignatures[inputSig] 
+        if (!abiItem) return trace
+
+        trace.functionName = abiItem.name
+        trace.functionArgs = []
+        trace.functionOutputs = []
+
+        // Decode function inputs.
+        if (abiItem.inputs?.length) {
+            let functionArgs
+            try {
+                functionArgs = this._decodeFunctionArgs(abiItem.inputs, inputData)
+            } catch (err) {
+                logger.error(err.message)
+            }
+
+            // Ensure args are stringifyable.
+            try {
+                functionArgs && JSON.stringify(functionArgs)
+            } catch (err) {
+                functionArgs = null
+                logger.warn(`Trace function args not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionArgs) {
+                trace.functionArgs = functionArgs
+            }
+        }
+
+        // Decode function outputs.
+        if (abiItem.outputs?.length && !!trace.output && trace.output.length > 2) { // 0x
+            let functionOutputs
+            try {
+                functionOutputs = this._decodeFunctionArgs(abiItem.outputs, trace.output.slice(2))
+            } catch (err) {
+                logger.error(err.message)
+            }
+
+            // Ensure outputs are stringifyable.
+            try {
+                functionOutputs && JSON.stringify(functionOutputs)
+            } catch (err) {
+                functionOutputs = null
+                logger.warn(`Trace function outputs not stringifyable (id=${trace.id})`)
+            }
+
+            if (functionOutputs) {
+                trace.functionOutputs = functionOutputs
+            }
+        }
+
+        return trace
+    }
+
+    _decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKeyMap[] | null {
+        let functionArgs
+        try {
+            const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
+            const values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
+            functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
+        } catch (err) {
+            if (err.reason?.includes('out-of-bounds') && 
+                err.code === 'BUFFER_OVERRUN' && 
+                inputData.length % 64 === 0 &&
+                inputs.length > (inputData.length / 64)
+            ) {
+                const numInputsToUse = inputData.length / 64
+                return this._decodeFunctionArgs(inputs.slice(0, numInputsToUse), inputData)
+            }
             return null
         }
-        if (!result) return null
-
-        return result as StringKeyMap
+        return functionArgs || []
     }
 
     _atNumber(blockNumber: number): NewReportedHead {
@@ -133,42 +289,44 @@ class PolygonRangeWorker {
 
         for (const result of results) {
             if (!result) continue
-            blocks.push({ ...result.block, timestamp: () => result.pgBlockTimestamp })
-            transactions.push(
-                ...result.transactions.map((t) => ({
-                    ...t,
-                    blockTimestamp: () => result.pgBlockTimestamp,
-                }))
-            )
-            logs.push(
-                ...result.logs.map((l) => ({ 
-                    ...l, 
-                    blockTimestamp: () => result.pgBlockTimestamp 
-                }))
-            )
-            traces.push(
-                ...result.traces.map((t) => ({
-                    ...t,
-                    blockTimestamp: () => result.pgBlockTimestamp,
-                }))
-            )
-            contracts.push(
-                ...result.contracts.map((c) => ({
-                    ...c,
-                    blockTimestamp: () => result.pgBlockTimestamp,
-                }))
-            )
+            // blocks.push({ ...result.block, timestamp: () => result.pgBlockTimestamp })
+            // transactions.push(
+            //     ...result.transactions.map((t) => ({
+            //         ...t,
+            //         blockTimestamp: () => result.pgBlockTimestamp,
+            //     }))
+            // )
+            // logs.push(
+            //     ...result.logs.map((l) => ({ 
+            //         ...l, 
+            //         blockTimestamp: () => result.pgBlockTimestamp 
+            //     }))
+            // )
+            // traces.push(
+            //     ...result.traces.map((t) => ({
+            //         ...t,
+            //         blockTimestamp: () => result.pgBlockTimestamp,
+            //     }))
+            // )
+            // contracts.push(
+            //     ...result.contracts.map((c) => ({
+            //         ...c,
+            //         blockTimestamp: () => result.pgBlockTimestamp,
+            //     }))
+            // )
+            traces.push(...result.traces)
+            contracts.push(...result.contracts)
         }
 
-        if (!this.upsertConstraints.block && blocks.length) {
-            this.upsertConstraints.block = fullPolygonBlockUpsertConfig(blocks[0])
-        }
-        if (!this.upsertConstraints.transaction && transactions.length) {
-            this.upsertConstraints.transaction = fullPolygonTransactionUpsertConfig(transactions[0])
-        }
-        if (!this.upsertConstraints.log && logs.length) {
-            this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
-        }
+        // if (!this.upsertConstraints.block && blocks.length) {
+        //     this.upsertConstraints.block = fullPolygonBlockUpsertConfig(blocks[0])
+        // }
+        // if (!this.upsertConstraints.transaction && transactions.length) {
+        //     this.upsertConstraints.transaction = fullPolygonTransactionUpsertConfig(transactions[0])
+        // }
+        // if (!this.upsertConstraints.log && logs.length) {
+        //     this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
+        // }
         if (!this.upsertConstraints.trace && traces.length) {
             this.upsertConstraints.trace = fullPolygonTraceUpsertConfig(traces[0])
         }
@@ -176,15 +334,15 @@ class PolygonRangeWorker {
             this.upsertConstraints.contract = fullPolygonContractUpsertConfig(contracts[0])
         }
 
-        blocks = this.upsertConstraints.block
-            ? uniqueByKeys(blocks, this.upsertConstraints.block[1])
-            : blocks
+        // blocks = this.upsertConstraints.block
+        //     ? uniqueByKeys(blocks, this.upsertConstraints.block[1])
+        //     : blocks
 
-        transactions = this.upsertConstraints.transaction
-            ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
-            : transactions
+        // transactions = this.upsertConstraints.transaction
+        //     ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
+        //     : transactions
 
-        logs = this.upsertConstraints.log ? uniqueByKeys(logs, ['logIndex', 'transactionHash']) : logs
+        // logs = this.upsertConstraints.log ? uniqueByKeys(logs, ['logIndex', 'transactionHash']) : logs
 
         traces = this.upsertConstraints.trace
             ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
@@ -196,9 +354,9 @@ class PolygonRangeWorker {
 
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
-                this._upsertBlocks(blocks, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
+                // this._upsertBlocks(blocks, tx),
+                // this._upsertTransactions(transactions, tx),
+                // this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
             ])
