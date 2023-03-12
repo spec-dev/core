@@ -52,7 +52,7 @@ spec:
         - name: CORE_API_ADMIN_TOKEN
           value: {{CORE_API_ADMIN_TOKEN}}
         - name: FLIP
-          value: heads
+          value: tails
         readinessProbe:
           httpGet:
             path: /health-check
