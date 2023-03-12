@@ -5,7 +5,7 @@ export class addChainIdNumberIndex1661890160095 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(
-            `CREATE INDEX "IDX_74ce352943bc1c6fb0ced2e330" ON "indexed_blocks" ("chain_id", "number") `
+            `CREATE INDEX "IDX_74ce352943bc1c6fb0ced2e330" ON "indexed_blocks" ("chain_id", "number")`
         )
     }
 
