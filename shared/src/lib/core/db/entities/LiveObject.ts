@@ -36,7 +36,7 @@ export class LiveObject {
     @Column({ name: 'has_icon', nullable: true })
     hasIcon: boolean
 
-    @Column('int8', { name: 'namespace_id' })
+    @Column({ name: 'namespace_id' })
     namespaceId: number
 
     @ManyToOne(() => Namespace, (nsp) => nsp.liveObjects)

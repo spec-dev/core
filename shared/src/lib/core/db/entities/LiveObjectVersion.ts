@@ -54,7 +54,7 @@ export class LiveObjectVersion {
     @Index({ unique: true })
     uid: string
 
-    // Denormalized namespace name for quicker proxy lookups.
+    // Denormalized namespace name for quicker lookups.
     @Column()
     nsp: string
 
@@ -86,7 +86,7 @@ export class LiveObjectVersion {
     })
     createdAt: Date
 
-    @Column('int8', { name: 'live_object_id' })
+    @Column({ name: 'live_object_id' })
     liveObjectId: number
 
     @ManyToOne(() => LiveObject, (liveObject) => liveObject.liveObjectVersions)

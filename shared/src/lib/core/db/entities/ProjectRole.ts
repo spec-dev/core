@@ -20,10 +20,10 @@ export class ProjectRole {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column('int8', { name: 'project_id' })
+    @Column({ name: 'project_id' })
     projectId: number
 
-    @Column('int8', { name: 'org_user_id' })
+    @Column({ name: 'org_user_id' })
     orgUserId: number
 
     @Column('varchar')

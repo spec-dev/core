@@ -11,20 +11,20 @@ export class LiveEventVersion {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column('int8', { name: 'live_object_version_id' })
+    @Column({ name: 'live_object_version_id' })
     liveObjectVersionId: number
 
     @ManyToOne(() => LiveObjectVersion, (liveObjectVersion) => liveObjectVersion.liveEventVersions)
     @JoinColumn({ name: 'live_object_version_id' })
     liveObjectVersion: LiveObjectVersion
 
-    @Column('int8', { name: 'event_version_id' })
+    @Column({ name: 'event_version_id' })
     eventVersionId: number
 
     @ManyToOne(() => EventVersion, (eventVersion) => eventVersion.liveEventVersions)
     @JoinColumn({ name: 'event_version_id' })
     eventVersion: EventVersion
 
-    @Column({ name: 'is_input' })
+    @Column({ name: 'is_input', nullable: true })
     isInput: boolean
 }

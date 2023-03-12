@@ -21,7 +21,7 @@ export class Session {
     @Column()
     uid: string
 
-    @Column('int8', { name: 'user_id' })
+    @Column({ name: 'user_id' })
     userId: number
 
     @Index()

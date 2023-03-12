@@ -27,7 +27,7 @@ export class Project {
     @Column()
     uid: string
 
-    @Column('int8', { name: 'org_id' })
+    @Column({ name: 'org_id' })
     orgId: number
 
     @Column()

@@ -39,7 +39,7 @@ export class Contract {
     })
     createdAt: Date
 
-    @Column('int8', { name: 'namespace_id' })
+    @Column({ name: 'namespace_id' })
     namespaceId: number
 
     @ManyToOne(() => Namespace, (nsp) => nsp.contracts)

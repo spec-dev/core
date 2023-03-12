@@ -33,7 +33,7 @@ export class Event {
     @Column({ name: 'is_contract_event', nullable: true })
     isContractEvent: boolean
 
-    @Column('int8', { name: 'namespace_id' })
+    @Column({ name: 'namespace_id' })
     namespaceId: number
 
     @ManyToOne(() => Namespace, (nsp) => nsp.events)

@@ -26,10 +26,10 @@ export class OrgUser {
     @Column()
     uid: string
 
-    @Column('int8', { name: 'org_id' })
+    @Column({ name: 'org_id' })
     orgId: number
 
-    @Column('int8', { name: 'user_id' })
+    @Column({ name: 'user_id' })
     userId: number
 
     @Column('varchar')

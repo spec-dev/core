@@ -108,7 +108,6 @@ export { ContractInstance } from './lib/core/db/entities/ContractInstance'
 export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities/EventGenerator'
 export { Event } from './lib/core/db/entities/Event'
 export { EventVersion } from './lib/core/db/entities/EventVersion'
-export { PublishedEvent } from './lib/core/db/entities/PublishedEvent'
 export { LiveObject } from './lib/core/db/entities/LiveObject'
 export {
     LiveObjectVersion,
@@ -177,11 +176,6 @@ export {
     updateDeploymentStatus,
     deploymentFailed,
 } from './lib/core/db/services/deploymentServices'
-export {
-    initPublishedEvent,
-    savePublishedEvents,
-    getPublishedEventsAfterId,
-} from './lib/core/db/services/publishedEventServices'
 export * from './lib/utils/auth'
 export {
     createLiveObject,
