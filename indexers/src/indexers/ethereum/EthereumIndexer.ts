@@ -252,7 +252,10 @@ class EthereumIndexer extends AbstractIndexer {
         // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
         // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
         const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
-        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { addresses: missingAddresses })
+        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { 
+            addresses: missingAddresses,
+            chainId: this.chainId
+        })
     }
 
     async _savePrimitives(
@@ -286,23 +289,25 @@ class EthereumIndexer extends AbstractIndexer {
             blockTimestamp: this.block.timestamp.toISOString(),
         }
 
+        const isMainnet = this.chainId === chainIds.ETHEREUM
+
         // eth.NewBlock
-        const originEventSpecs = [
+        const originEventSpecs = isMainnet ? [
             originEvents.eth.NewBlock(this.block, eventOrigin),
-        ]
+        ] : []
 
         // eth.NewTransactions
-        this.transactions?.length && originEventSpecs.push(
+        isMainnet && this.transactions?.length && originEventSpecs.push(
             originEvents.eth.NewTransactions(this.transactions, eventOrigin)
         )
 
         // eth.NewContracts
-        this.contracts?.length && originEventSpecs.push(
+        isMainnet && this.contracts?.length && originEventSpecs.push(
             originEvents.eth.NewContracts(this.contracts, eventOrigin)
         )
 
         // eth.NewInteractions
-        this.latestInteractions?.length && originEventSpecs.push(
+        isMainnet && this.latestInteractions?.length && originEventSpecs.push(
             originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
         )
 

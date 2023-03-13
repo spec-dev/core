@@ -37,12 +37,14 @@ export const providers = {
 
 const starscanHostnames = {
     [chainIds.ETHEREUM]: 'api.etherscan.io',
+    [chainIds.GOERLI]: 'api-goerli.etherscan.io',
     [chainIds.POLYGON]: 'api.polygonscan.com',
     [chainIds.MUMBAI]: 'api-testnet.polygonscan.com',
 }
 
 const starscanApiKey = {
     [chainIds.ETHEREUM]: config.ETHERSCAN_API_KEY,
+    [chainIds.GOERLI]: config.GOERLISCAN_API_KEY,
     [chainIds.POLYGON]: config.POLYGONSCAN_API_KEY,
     [chainIds.MUMBAI]: config.MUMBAISCAN_API_KEY,
 }
