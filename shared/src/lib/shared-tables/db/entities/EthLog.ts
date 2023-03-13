@@ -5,7 +5,7 @@ import { decamelize } from 'humps'
 /**
  * An Ethereum Log
  */
-@Entity('logs', { schema: schemas.ETHEREUM })
+@Entity('logs', { schema: schemas.ethereum() })
 export class EthLog {
     // The index of this log in the transaction receipt.
     @PrimaryColumn('int8', { name: 'log_index' })

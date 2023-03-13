@@ -5,7 +5,7 @@ import { decamelize } from 'humps'
 /**
  * An Ethereum Contract
  */
-@Entity('contracts', { schema: schemas.ETHEREUM })
+@Entity('contracts', { schema: schemas.ethereum() })
 export class EthContract {
     // Contract address.
     @PrimaryColumn('varchar', { length: 50 })

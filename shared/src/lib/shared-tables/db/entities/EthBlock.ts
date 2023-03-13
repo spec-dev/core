@@ -5,7 +5,7 @@ import { decamelize } from 'humps'
 /**
  * An Ethereum Block
  */
-@Entity('blocks', { schema: schemas.ETHEREUM })
+@Entity('blocks', { schema: schemas.ethereum() })
 export class EthBlock {
     // Block hash.
     @PrimaryColumn('varchar', { length: 70 })

@@ -31,7 +31,7 @@ export enum EthTraceStatus {
 /**
  * An Ethereum Trace
  */
-@Entity('traces', { schema: schemas.ETHEREUM })
+@Entity('traces', { schema: schemas.ethereum() })
 export class EthTrace {
     // Primary key with the following calculated value:
     // * For transaction-scoped traces --> {trace_type}_{transaction_hash}_{trace_address}

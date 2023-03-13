@@ -10,7 +10,7 @@ export enum EthTransactionStatus {
 /**
  * An Ethereum Transaction
  */
-@Entity('transactions', { schema: schemas.ETHEREUM })
+@Entity('transactions', { schema: schemas.ethereum() })
 export class EthTransaction {
     // Transaction hash.
     @PrimaryColumn('varchar', { length: 70 })

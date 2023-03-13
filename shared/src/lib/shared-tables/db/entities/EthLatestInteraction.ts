@@ -17,7 +17,7 @@ export enum EthLatestInteractionType {
 /**
  * Represents the latest "interaction" between 2 ethereum addresses.
  */
-@Entity('latest_interactions', { schema: schemas.ETHEREUM })
+@Entity('latest_interactions', { schema: schemas.ethereum() })
 export class EthLatestInteraction {
     // Address this transaction or trace was sent from.
     @PrimaryColumn('varchar', { length: 50 })
