@@ -49,6 +49,7 @@ import {
     snakeToCamel,
     stripLeadingAndTrailingUnderscores,
     toNamespacedVersion,
+    chainIds,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -172,7 +173,7 @@ class EthereumIndexer extends AbstractIndexer {
             ...traces.filter(trace => !!trace.input).map(trace => trace.input.slice(0, 10)),
         ])
         const [abis, functionSignatures] = await Promise.all([
-            getAbis(unique([ ...txToAddresses, ...traceToAddresses, ...logAddresses ])),
+            getAbis(unique([ ...txToAddresses, ...traceToAddresses, ...logAddresses ]), this.chainId),
             getFunctionSignatures(sigs),
         ])
         const numAbis = Object.keys(abis).length
@@ -195,7 +196,9 @@ class EthereumIndexer extends AbstractIndexer {
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
         // Format transactions & traces as latest interactions between addresses.
-        const latestInteractions = await initLatestInteractions(transactions, traces, contracts)
+        const latestInteractions = this.chainId === chainIds.ETHEREUM
+            ? await initLatestInteractions(transactions, traces, contracts)
+            : []
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
@@ -241,7 +244,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _alreadyIndexedBlock(): Promise<boolean> {
         if (this.head.force) return false
-        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ETHEREUM))
+        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ethereum()))
     }
 
     async _fetchAbisForNewContracts(contracts: EthContract[]) {

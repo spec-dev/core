@@ -69,17 +69,13 @@ class EthRangeWorker {
     }
 
     async run() {
-        const chunks = toChunks(numbers, this.groupSize)
-        for (const chunk of chunks) {
-            await this._indexBlockGroup(chunk)
+        while (this.cursor < this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            const groupBlockNumbers = range(start, end)
+            await this._indexBlockGroup(groupBlockNumbers)
+            this.cursor = this.cursor + this.groupSize
         }
-        // while (this.cursor < this.to) {
-        //     const start = this.cursor
-        //     const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-        //     const groupBlockNumbers = range(start, end)
-        //     await this._indexBlockGroup(groupBlockNumbers)
-        //     this.cursor = this.cursor + this.groupSize
-        // }
         if (this.batchResults.length) {
             await this._saveBatches(
                 this.batchBlockNumbersIndexed,
@@ -157,51 +153,51 @@ class EthRangeWorker {
             return
         }
 
-        // Group index results by block number.
-        const retriedBlockNumbersThatSucceeded = []
-        const inserts = []
-        for (let i = 0; i < batchBlockNumbersIndexed.length; i++) {
-            const blockNumber = batchBlockNumbersIndexed[i]
-            const result = batchResults[i]
-            const succeeded = !!result
+        // // Group index results by block number.
+        // const retriedBlockNumbersThatSucceeded = []
+        // const inserts = []
+        // for (let i = 0; i < batchBlockNumbersIndexed.length; i++) {
+        //     const blockNumber = batchBlockNumbersIndexed[i]
+        //     const result = batchResults[i]
+        //     const succeeded = !!result
 
-            if (!succeeded) {
-                logger.error(`Indexing Block Failed: ${blockNumber}`)
-            }
+        //     if (!succeeded) {
+        //         logger.error(`Indexing Block Failed: ${blockNumber}`)
+        //     }
 
-            // If the indexed block already existed, but now succeeded, just update the 'failed' status.
-            const existingIndexedBlock = batchExistingBlocksMap[blockNumber]
-            if (existingIndexedBlock) {
-                succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
-                continue
-            }
+        //     // If the indexed block already existed, but now succeeded, just update the 'failed' status.
+        //     const existingIndexedBlock = batchExistingBlocksMap[blockNumber]
+        //     if (existingIndexedBlock) {
+        //         succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
+        //         continue
+        //     }
 
-            // Fresh new indexed block entries.
-            inserts.push({
-                chainId: config.CHAIN_ID,
-                number: blockNumber,
-                hash: result?.block?.hash,
-                status: IndexedBlockStatus.Complete,
-                failed: !succeeded,
-            })
-        }
+        //     // Fresh new indexed block entries.
+        //     inserts.push({
+        //         chainId: config.CHAIN_ID,
+        //         number: blockNumber,
+        //         hash: result?.block?.hash,
+        //         status: IndexedBlockStatus.Complete,
+        //         failed: !succeeded,
+        //     })
+        // }
 
-        let persistResultPromises = []
-        // Persist updates.
-        retriedBlockNumbersThatSucceeded.length &&
-            persistResultPromises.push(
-                setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
-            )
-        // Persist inserts.
-        inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
-        try {
-            await Promise.all(persistResultPromises)
-        } catch (err) {
-            logger.error(
-                `Error persisting indexed block results to DB for block range: ${batchBlockNumbersIndexed}`,
-                err
-            )
-        }
+        // let persistResultPromises = []
+        // // Persist updates.
+        // retriedBlockNumbersThatSucceeded.length &&
+        //     persistResultPromises.push(
+        //         setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
+        //     )
+        // // Persist inserts.
+        // inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
+        // try {
+        //     await Promise.all(persistResultPromises)
+        // } catch (err) {
+        //     logger.error(
+        //         `Error persisting indexed block results to DB for block range: ${batchBlockNumbersIndexed}`,
+        //         err
+        //     )
+        // }
     }
 
     async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
@@ -334,9 +330,11 @@ class EthRangeWorker {
             ])
         })
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertLatestInteractions(latestInteractions, tx)
-        })
+        if (latestInteractions.length) {
+            await SharedTables.manager.transaction(async (tx) => {
+                await this._upsertLatestInteractions(latestInteractions, tx)
+            })
+        }
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {

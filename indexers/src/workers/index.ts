@@ -74,6 +74,7 @@ export async function getWorker(): Promise<IndexerWorker> {
                 : getPolygonRangeWorker()
 
         case chainIds.ETHEREUM:
+        case chainIds.GOERLI:
             return getEthRangeWorker()
     }
 }

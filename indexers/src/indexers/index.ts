@@ -15,6 +15,7 @@ export const getIndexer = (head: NewReportedHead): Indexer | null => {
     switch (head.chainId) {
         // Ethereum
         case chainIds.ETHEREUM:
+        case chainIds.GOERLI:
             return new EthereumIndexer(head, getWeb3())
 
         // Polygon
