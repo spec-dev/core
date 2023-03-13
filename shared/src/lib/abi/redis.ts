@@ -16,6 +16,8 @@ redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 export const abiRedisKeys = {
     ETH_CONTRACTS: 'eth-contracts',
     ETH_FUNCTION_SIGNATURES: 'eth-function-signatures',
+    GOERLI_CONTRACTS: 'goerli-contracts',
+    GOERLI_FUNCTION_SIGNATURES: 'goerli-function-signatures',
     POLYGON_CONTRACTS: 'polygon-contracts',
     POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
     MUMBAI_CONTRACTS: 'mumbai-contracts',
@@ -26,6 +28,8 @@ const contractsKeyForChainId = (chainId: string): string | null => {
     switch (chainId) {
         case chainIds.ETHEREUM:
             return abiRedisKeys.ETH_CONTRACTS
+        case chainIds.GOERLI:
+            return abiRedisKeys.GOERLI_CONTRACTS
         case chainIds.POLYGON:
             return abiRedisKeys.POLYGON_CONTRACTS
         case chainIds.MUMBAI:
@@ -39,6 +43,8 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
     switch (chainId) {
         case chainIds.ETHEREUM:
             return abiRedisKeys.ETH_FUNCTION_SIGNATURES
+        case chainIds.GOERLI:
+            return abiRedisKeys.GOERLI_FUNCTION_SIGNATURES
         case chainIds.POLYGON:
             return abiRedisKeys.POLYGON_FUNCTION_SIGNATURES
         case chainIds.MUMBAI:
