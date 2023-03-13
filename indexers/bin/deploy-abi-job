@@ -18,7 +18,7 @@ range_worker_type="abi"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 $shared_bin_dir/validate_arg "from" "$from"
 
 # ======== SET KEY VARS ======== #

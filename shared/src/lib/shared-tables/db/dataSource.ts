@@ -8,7 +8,7 @@ export const SharedTables = new DataSource({
     port: config.SHARED_TABLES_DB_PORT,
     username: config.SHARED_TABLES_DB_USERNAME,
     password: config.SHARED_TABLES_DB_PASSWORD,
-    database: 'st-dev',
+    database: config.SHARED_TABLES_DB_NAME,
     synchronize: false,
     logging: false,
     entities: [__dirname + '/entities/*.{js,ts}'],

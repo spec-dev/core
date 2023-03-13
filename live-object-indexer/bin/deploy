@@ -15,7 +15,7 @@ lov_id="$2"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 $shared_bin_dir/validate_arg "lov_id" "$lov_id"
 
 # ======== SET KEY VARS ======== #
