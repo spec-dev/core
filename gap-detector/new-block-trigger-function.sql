@@ -15,6 +15,23 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER on_new_ethereum_block AFTER INSERT ON ethereum.blocks 
 FOR EACH ROW EXECUTE PROCEDURE new_ethereum_block_sub();
 
+-- GOERLI --------
+
+CREATE OR REPLACE FUNCTION new_goerli_block_sub() RETURNS trigger AS $$
+DECLARE
+    rec RECORD;
+    payload TEXT;
+BEGIN
+    rec := NEW;
+    payload := '{"number":"' || rec.number || '"}';
+    PERFORM pg_notify('new_block_chain_5', payload);
+    RETURN rec;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_new_goerli_block AFTER INSERT ON goerli.blocks 
+FOR EACH ROW EXECUTE PROCEDURE new_goerli_block_sub();
+
 -- POLYGON --------
 
 CREATE OR REPLACE FUNCTION new_polygon_block_sub() RETURNS trigger AS $$

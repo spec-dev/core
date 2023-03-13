@@ -14,7 +14,7 @@ env="$1"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
@@ -40,6 +40,7 @@ indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
 # Head reporter queue keys
 ethereum_head_reporter_queue_key=$( $shared_bin_dir/env_reader "eth" "HEAD_REPORTER_QUEUE_KEY" )
+goerli_head_reporter_queue_key=$( $shared_bin_dir/env_reader "goerli" "HEAD_REPORTER_QUEUE_KEY" )
 polygon_head_reporter_queue_key=$( $shared_bin_dir/env_reader "polygon" "HEAD_REPORTER_QUEUE_KEY" )
 mumbai_head_reporter_queue_key=$( $shared_bin_dir/env_reader "mumbai" "HEAD_REPORTER_QUEUE_KEY" )
 
@@ -67,6 +68,7 @@ $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
 # Head reporter queue keys
 $shared_bin_dir/assert_env "ETHEREUM_HEAD_REPORTER_QUEUE_KEY" "$ethereum_head_reporter_queue_key"
+$shared_bin_dir/assert_env "GOERLI_HEAD_REPORTER_QUEUE_KEY" "$goerli_head_reporter_queue_key"
 $shared_bin_dir/assert_env "POLYGON_HEAD_REPORTER_QUEUE_KEY" "$polygon_head_reporter_queue_key"
 $shared_bin_dir/assert_env "MUMBAI_HEAD_REPORTER_QUEUE_KEY" "$mumbai_head_reporter_queue_key"
 
@@ -101,6 +103,7 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
     sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
     sed "s|{{ETHEREUM_HEAD_REPORTER_QUEUE_KEY}}|$ethereum_head_reporter_queue_key|g" | \
+    sed "s|{{GOERLI_HEAD_REPORTER_QUEUE_KEY}}|$goerli_head_reporter_queue_key|g" | \
     sed "s|{{POLYGON_HEAD_REPORTER_QUEUE_KEY}}|$polygon_head_reporter_queue_key|g" | \
     sed "s|{{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}|$mumbai_head_reporter_queue_key|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )

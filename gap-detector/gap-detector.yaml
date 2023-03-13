@@ -48,6 +48,8 @@ spec:
           value: {{INDEXER_DB_PASSWORD}}
         - name: ETHEREUM_HEAD_REPORTER_QUEUE_KEY
           value: {{ETHEREUM_HEAD_REPORTER_QUEUE_KEY}}
+        - name: GOERLI_HEAD_REPORTER_QUEUE_KEY
+          value: {{GOERLI_HEAD_REPORTER_QUEUE_KEY}}
         - name: POLYGON_HEAD_REPORTER_QUEUE_KEY
           value: {{POLYGON_HEAD_REPORTER_QUEUE_KEY}}
         - name: MUMBAI_HEAD_REPORTER_QUEUE_KEY
