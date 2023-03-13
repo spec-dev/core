@@ -90,8 +90,6 @@ export {
     isContractNamespace,
     namespaceForChainId,
 } from './lib/utils/chainIds'
-import blockTimes from './lib/utils/blockTimes'
-export { blockTimes }
 import config from './lib/config'
 export { config }
 import logger from './lib/logger'
