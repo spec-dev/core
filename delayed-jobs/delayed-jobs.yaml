@@ -54,6 +54,8 @@ spec:
           value: {{CORE_DB_PASSWORD}}
         - name: ETHERSCAN_API_KEY
           value: {{ETHERSCAN_API_KEY}}
+        - name: GOERLISCAN_API_KEY
+          value: {{GOERLISCAN_API_KEY}}
         - name: POLYGONSCAN_API_KEY
           value: {{POLYGONSCAN_API_KEY}}
         - name: MUMBAISCAN_API_KEY
