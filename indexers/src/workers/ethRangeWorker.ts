@@ -32,10 +32,6 @@ import fs from 'fs'
 
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
-const numbers =	[
-    16369454,
-]
-
 class EthRangeWorker {
     from: number
 
@@ -77,127 +73,40 @@ class EthRangeWorker {
             this.cursor = this.cursor + this.groupSize
         }
         if (this.batchResults.length) {
-            await this._saveBatches(
-                this.batchBlockNumbersIndexed,
-                this.batchResults,
-                this.batchExistingBlocksMap
-            )
+            try {
+                await this._saveBatchResults(this.batchResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return
+            } 
         }
         logger.info('DONE')
         exit()
     }
 
     async _indexBlockGroup(blockNumbers: number[]) {
-        // Get the indexed blocks for these numbers from our registry (Indexer DB).
-        // const existingIndexedBlocks = await this._getIndexedBlocksInNumberRange(blockNumbers)
-        const existingIndexedBlocks = []
-        if (existingIndexedBlocks === null) return // is only null on failure
-
-        // Map existing blocks by number.
-        const existingIndexedBlocksMap = {}
-        for (const existingIndexedBlock of existingIndexedBlocks) {
-            existingIndexedBlocksMap[Number(existingIndexedBlock.number)] = existingIndexedBlock
-        }
-
-        // Start indexing this block group.
-        const blockNumbersIndexed = []
         const indexResultPromises = []
         for (const blockNumber of blockNumbers) {
-            const existingIndexedBlock = existingIndexedBlocksMap[blockNumber]
-
-            // Only index blocks that haven't been indexed before or have previously failed.
-            const shouldIndexBlock = !existingIndexedBlock || existingIndexedBlock.failed
-            if (!shouldIndexBlock) continue
-
-            blockNumbersIndexed.push(blockNumber)
             indexResultPromises.push(this._indexBlock(blockNumber))
         }
 
-        // Don't do anything if the entire block group has already *successfully* been indexed.
-        if (!blockNumbersIndexed.length) return
-
         logger.info(`Indexing ${blockNumbers[0]} --> ${blockNumbers[blockNumbers.length - 1]}...`)
 
-        // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
-
-        this.batchBlockNumbersIndexed.push(...blockNumbersIndexed)
         this.batchResults.push(...indexResults)
-        this.batchExistingBlocksMap = {
-            ...this.batchExistingBlocksMap,
-            ...existingIndexedBlocksMap,
-        }
         this.saveBatchIndex++
 
         if (this.saveBatchIndex === this.saveBatchMultiple) {
             this.saveBatchIndex = 0
-            const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
             const batchResults = [...this.batchResults]
-            const batchExistingBlocksMap = { ...this.batchExistingBlocksMap }
-            await this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
-            this.batchBlockNumbersIndexed = []
+            try {
+                await this._saveBatchResults(batchResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return
+            }
             this.batchResults = []
-            this.batchExistingBlocksMap = {}
         }
-    }
-
-    async _saveBatches(
-        batchBlockNumbersIndexed: number[] = [],
-        batchResults: any[],
-        batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
-    ) {
-        try {
-            await this._saveBatchResults(batchResults)
-        } catch (err) {
-            logger.error(`Error saving batch: ${err}`)
-            return
-        }
-
-        // // Group index results by block number.
-        // const retriedBlockNumbersThatSucceeded = []
-        // const inserts = []
-        // for (let i = 0; i < batchBlockNumbersIndexed.length; i++) {
-        //     const blockNumber = batchBlockNumbersIndexed[i]
-        //     const result = batchResults[i]
-        //     const succeeded = !!result
-
-        //     if (!succeeded) {
-        //         logger.error(`Indexing Block Failed: ${blockNumber}`)
-        //     }
-
-        //     // If the indexed block already existed, but now succeeded, just update the 'failed' status.
-        //     const existingIndexedBlock = batchExistingBlocksMap[blockNumber]
-        //     if (existingIndexedBlock) {
-        //         succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
-        //         continue
-        //     }
-
-        //     // Fresh new indexed block entries.
-        //     inserts.push({
-        //         chainId: config.CHAIN_ID,
-        //         number: blockNumber,
-        //         hash: result?.block?.hash,
-        //         status: IndexedBlockStatus.Complete,
-        //         failed: !succeeded,
-        //     })
-        // }
-
-        // let persistResultPromises = []
-        // // Persist updates.
-        // retriedBlockNumbersThatSucceeded.length &&
-        //     persistResultPromises.push(
-        //         setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
-        //     )
-        // // Persist inserts.
-        // inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
-        // try {
-        //     await Promise.all(persistResultPromises)
-        // } catch (err) {
-        //     logger.error(
-        //         `Error persisting indexed block results to DB for block range: ${batchBlockNumbersIndexed}`,
-        //         err
-        //     )
-        // }
     }
 
     async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
@@ -339,6 +248,7 @@ class EthRangeWorker {
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
         if (!blocks.length) return
+        logger.info(`Saving ${blocks.length} blocks...`)
         const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
         await tx
             .createQueryBuilder()
