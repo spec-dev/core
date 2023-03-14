@@ -32,7 +32,8 @@ Run initial migrations:
 $ cd shared
 $ bin/migrate core
 $ bin/migrate indexer
-$ psql -d shared-tables -f create-ethereum-primitives.sql
-$ psql -d shared-tables -f create-polygon-primitives.sql
-$ psql -d shared-tables -f create-mumbai-primitives.sql
+$ psql -d shared-tables -f bin/create-ethereum-primitives.sql
+$ psql -d shared-tables -f bin/create-goerli-primitives.sql
+$ psql -d shared-tables -f bin/create-polygon-primitives.sql
+$ psql -d shared-tables -f bin/create-mumbai-primitives.sql
 ```
