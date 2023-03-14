@@ -37,7 +37,7 @@ export class EthTransaction {
     contractAddress: string
 
     // Value transferred in Wei.
-    @Column('varchar', { nullable: true, length: 40 })
+    @Column('varchar', { nullable: true, length: 70 })
     value: string
 
     // Data sent along with the transaction.
@@ -65,31 +65,31 @@ export class EthTransaction {
     root: string
 
     // Gas provided by the sender.
-    @Column('varchar', { length: 40, nullable: true })
+    @Column('varchar', { length: 70, nullable: true })
     gas: string
 
     // Gas price provided by the sender in Wei.
-    @Column('varchar', { name: 'gas_price', length: 40, nullable: true })
+    @Column('varchar', { name: 'gas_price', length: 70, nullable: true })
     gasPrice: string
 
     // Total fee that covers both base and priority fees.
-    @Column('varchar', { name: 'max_fee_per_gas', length: 40, nullable: true })
+    @Column('varchar', { name: 'max_fee_per_gas', length: 70, nullable: true })
     maxFeePerGas: string
 
     // Fee given to miners to incentivize them to include the transaction.
-    @Column('varchar', { name: 'max_priority_fee_per_gas', length: 40, nullable: true })
+    @Column('varchar', { name: 'max_priority_fee_per_gas', length: 70, nullable: true })
     maxPriorityFeePerGas: string
 
     // Amount of gas used by this specific transaction alone.
-    @Column('varchar', { name: 'gas_used', length: 40, nullable: true })
+    @Column('varchar', { name: 'gas_used', length: 70, nullable: true })
     gasUsed: string
 
     // Total amount of gas used when this transaction was executed in the block.
-    @Column('varchar', { name: 'cumulative_gas_used', length: 40, nullable: true })
+    @Column('varchar', { name: 'cumulative_gas_used', length: 70, nullable: true })
     cumulativeGasUsed: string
 
     // The actual value per gas deducted from the senders account.
-    @Column('varchar', { name: 'effective_gas_price', length: 40, nullable: true })
+    @Column('varchar', { name: 'effective_gas_price', length: 70, nullable: true })
     effectiveGasPrice: string
 
     // The hash of the block this transaction was included in.

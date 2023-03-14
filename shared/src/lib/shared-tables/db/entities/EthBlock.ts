@@ -70,15 +70,15 @@ export class EthBlock {
     extraData: string
 
     // Maximum gas allowed in this block.
-    @Column('varchar', { name: 'gas_limit', length: 40, nullable: true })
+    @Column('varchar', { name: 'gas_limit', length: 70, nullable: true })
     gasLimit: string
 
     // Total used gas by all transactions in this block.
-    @Column('varchar', { name: 'gas_used', length: 40, nullable: true })
+    @Column('varchar', { name: 'gas_used', length: 70, nullable: true })
     gasUsed: string
 
     // The market price for gas.
-    @Column('varchar', { name: 'base_fee_per_gas', length: 40, nullable: true })
+    @Column('varchar', { name: 'base_fee_per_gas', length: 70, nullable: true })
     baseFeePerGas: string
 
     // Number of transactions included in this block.

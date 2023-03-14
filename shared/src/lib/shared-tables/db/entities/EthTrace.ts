@@ -59,7 +59,7 @@ export class EthTrace {
     to: string
 
     // Value transferred in Wei.
-    @Column('varchar', { nullable: true, length: 40 })
+    @Column('varchar', { nullable: true, length: 70 })
     value: string
 
     // The data sent along with the message call.
@@ -115,11 +115,11 @@ export class EthTrace {
     status: EthTraceStatus
 
     // Gas provided with the message call.
-    @Column('varchar', { length: 40, nullable: true })
+    @Column('varchar', { length: 70, nullable: true })
     gas: string
 
     // Gas used by the message call.
-    @Column('varchar', { name: 'gas_used', length: 40, nullable: true })
+    @Column('varchar', { name: 'gas_used', length: 70, nullable: true })
     gasUsed: string
 
     // The hash of the block this trace was included in.
