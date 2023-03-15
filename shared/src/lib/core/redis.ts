@@ -91,7 +91,7 @@ export async function tailLogs(projectUid: string, id: string = '$') {
                 key: projectUid,
                 id,
             },
-            { COUNT: 1, BLOCK: 0 }
+            { COUNT: 1, BLOCK: 3000 }
         )
         if (!resp?.length) return []
         return resp[0].messages || []
