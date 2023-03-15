@@ -1,6 +1,6 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseGetProjectPayload, parseIdPayload } from './projectPayloads'
+import { parseGetProjectPayload, parseStreamLogsPayload } from './projectPayloads'
 import { logger, getProject, toSlug } from '../../../../shared'
 import { codes, errors, authorizeRequest } from '../../utils/requests'
 import { streamLogs } from '../../services/streamLogs'
@@ -55,7 +55,7 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
     if (!user) return
 
     // Parse & validate payload.
-    const { payload, isValid, error } = parseIdPayload(req.query)
+    const { payload, isValid, error } = parseStreamLogsPayload(req.query)
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
@@ -77,7 +77,7 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
     
     // Stream logs as a response.
     try {
-        await streamLogs(project.uid, req, res)
+        await streamLogs(project.uid, payload.env, req, res)
     } catch (error) {
         logger.error(error)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
