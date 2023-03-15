@@ -1,24 +1,10 @@
-import { redis } from '../lib/indexer/redis'
+import { redis } from '../lib/core/redis'
 import { exit } from 'process'
-import { Queue } from 'bullmq'
-import config from '../lib/config'
 
 async function perform() {
-    const queueEth = new Queue([config.EVENT_GENERATOR_QUEUE_PREFIX, '1'].join('-'), {
-        connection: {
-            host: config.INDEXER_REDIS_HOST,
-            port: config.INDEXER_REDIS_PORT,
-        },
-    })
-    await queueEth.obliterate()
-
-    const queueMumbai = new Queue([config.EVENT_GENERATOR_QUEUE_PREFIX, '80001'].join('-'), {
-        connection: {
-            host: config.INDEXER_REDIS_HOST,
-            port: config.INDEXER_REDIS_PORT,
-        },
-    })
-    await queueMumbai.obliterate()
+    await redis.connect()
+    await redis.del('lajaijveutrfanbufusu')
+    await redis.del('lajaijveutrfanbufusu-staging')
     exit(0)
 }
 
