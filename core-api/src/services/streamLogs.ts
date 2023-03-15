@@ -2,10 +2,7 @@ import { logger, tailLogs, getLastXLogs, sleep } from '../../../shared'
 import { codes } from '../utils/requests'
 import config from '../config'
 
-let i = 0
-
 export async function streamLogs(projectUid, env, req, res) {
-    i++
     const keySuffix = env && env !== 'prod' ? `-${env}` : ''
     const streamKey = `${projectUid}${keySuffix}`
 
@@ -13,7 +10,6 @@ export async function streamLogs(projectUid, env, req, res) {
     let keepAliveTimer = null
 
     const cleanup = () => {
-        logger.info(i, 'cleanup')
         run = false
         keepAliveTimer && clearInterval(keepAliveTimer)
     }
@@ -21,18 +17,9 @@ export async function streamLogs(projectUid, env, req, res) {
         'Content-Type': 'application/json',
         'Transfer-Encoding': 'chunked',
     })
-    req.on('close', () => {
-        logger.info(i, 'Request closed.')
-        cleanup()
-    })
-    res.on('close', () => {
-        logger.info(i, 'Response closed.')
-        cleanup()
-    })
-    res.on('destroy', () => {
-        logger.info(i, 'Response destroyed.')
-        cleanup()
-    })
+    req.on('close', cleanup)
+    res.on('close', cleanup)
+    res.on('destroy', cleanup)
     res.on('error', err => {
         logger.error(i, 'Streaming log response error', err)
         cleanup()
