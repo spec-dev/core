@@ -1,8 +1,11 @@
-import { logger, tailLogs, getLastXLogs } from '../../../shared'
+import { logger, tailLogs, getLastXLogs, sleep } from '../../../shared'
 import { codes } from '../utils/requests'
 import config from '../config'
 
+let i = 0
+
 export async function streamLogs(projectUid, env, req, res) {
+    i++
     const keySuffix = env && env !== 'prod' ? `-${env}` : ''
     const streamKey = `${projectUid}${keySuffix}`
 
@@ -10,7 +13,7 @@ export async function streamLogs(projectUid, env, req, res) {
     let keepAliveTimer = null
 
     const cleanup = () => {
-        logger.info('cleanup', new Date().toISOString())
+        logger.info(i, 'cleanup')
         run = false
         keepAliveTimer && clearInterval(keepAliveTimer)
     }
@@ -18,11 +21,20 @@ export async function streamLogs(projectUid, env, req, res) {
         'Content-Type': 'application/json',
         'Transfer-Encoding': 'chunked',
     })
-    req.on('close', cleanup)
-    res.on('close', cleanup)
-    res.on('destroy', cleanup)
+    req.on('close', () => {
+        logger.info(i, 'Request closed.')
+        cleanup()
+    })
+    res.on('close', () => {
+        logger.info(i, 'Response closed.')
+        cleanup()
+    })
+    res.on('destroy', () => {
+        logger.info(i, 'Response destroyed.')
+        cleanup()
+    })
     res.on('error', err => {
-        logger.error('Streaming log response error', err)
+        logger.error(i, 'Streaming log response error', err)
         cleanup()
     })
 
@@ -44,8 +56,12 @@ export async function streamLogs(projectUid, env, req, res) {
         hasEnqueuedAnObject = true
     }
 
+    logger.info(i, 'Getting last X logs...')
+
     const trailingLogs = await getLastXLogs(streamKey, config.TRAILING_LOGS_BATCH_SIZE)
     trailingLogs.forEach(log => enqueueLog(log))
+
+    logger.info(i, 'Creating interval...')
 
     keepAliveTimer = setInterval(() => {
         if (!run) return
@@ -53,12 +69,21 @@ export async function streamLogs(projectUid, env, req, res) {
             run && enqueueLog({ ping: true, message: 'ping' })
         } catch (err) {}
     }, 15000)
+    
+    logger.info(i, 'Creating infinite loop...')
 
     let lastLogId = '$'
     while (run) {
         try {
             const logs = await tailLogs(streamKey, lastLogId)
-            if (!logs) continue
+            if (!logs) {
+                await sleep(10)
+                if (run) {
+                    continue
+                } else {
+                    break
+                }
+            }
             lastLogId = logs[0].id || '$'
             logs.forEach(log => enqueueLog(log))
         } catch(err) {
@@ -66,6 +91,9 @@ export async function streamLogs(projectUid, env, req, res) {
             break
         }
     }
+
+    logger.info(i, 'BELOW LOOP')
+
     cleanup()
     res.end()
 }
