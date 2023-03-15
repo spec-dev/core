@@ -76,13 +76,9 @@ export async function streamLogs(projectUid, env, req, res) {
     while (run) {
         try {
             const logs = await tailLogs(streamKey, lastLogId)
-            if (!logs) {
+            if (!logs?.length) {
                 await sleep(10)
-                if (run) {
-                    continue
-                } else {
-                    break
-                }
+                continue
             }
             lastLogId = logs[0].id || '$'
             logs.forEach(log => enqueueLog(log))
