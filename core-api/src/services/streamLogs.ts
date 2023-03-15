@@ -10,6 +10,7 @@ export async function streamLogs(projectUid, env, req, res) {
     let keepAliveTimer = null
 
     const cleanup = () => {
+        logger.info('cleanup', new Date().toISOString())
         run = false
         keepAliveTimer && clearInterval(keepAliveTimer)
     }
