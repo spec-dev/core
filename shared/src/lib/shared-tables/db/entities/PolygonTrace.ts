@@ -106,6 +106,9 @@ export class PolygonTrace {
     @Column({ name: 'trace_index', nullable: true })
     traceIndex: number
 
+    @Column({ name: 'trace_index_is_per_tx', nullable: true })
+    traceIndexIsPerTx: boolean
+
     // Error if message call failed. This field doesn't contain top-level trace errors.
     @Column('varchar', { nullable: true })
     error: string

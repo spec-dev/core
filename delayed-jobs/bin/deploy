@@ -23,6 +23,8 @@ etherscan_api_key=$( $shared_bin_dir/env_reader "$env" "ETHERSCAN_API_KEY" )
 goerliscan_api_key=$( $shared_bin_dir/env_reader "$env" "GOERLISCAN_API_KEY" )
 polygonscan_api_key=$( $shared_bin_dir/env_reader "$env" "POLYGONSCAN_API_KEY" )
 mumbaiscan_api_key=$( $shared_bin_dir/env_reader "$env" "MUMBAISCAN_API_KEY" )
+polygon_alchemy_rest_url=$( $shared_bin_dir/env_reader "polygon" "ALCHEMY_REST_URL" )
+mumbai_alchemy_rest_url=$( $shared_bin_dir/env_reader "mumbai" "ALCHEMY_REST_URL" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -53,6 +55,8 @@ $shared_bin_dir/assert_env "ETHERSCAN_API_KEY" "$etherscan_api_key"
 $shared_bin_dir/assert_env "GOERLISCAN_API_KEY" "$goerliscan_api_key"
 $shared_bin_dir/assert_env "POLYGONSCAN_API_KEY" "$polygonscan_api_key"
 $shared_bin_dir/assert_env "MUMBAISCAN_API_KEY" "$mumbaiscan_api_key"
+$shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url"
+$shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -108,6 +112,8 @@ template=$( cat "$template_path" | \
     sed "s|{{GOERLISCAN_API_KEY}}|$goerliscan_api_key|g" | \
     sed "s|{{POLYGONSCAN_API_KEY}}|$polygonscan_api_key|g" | \
     sed "s|{{MUMBAISCAN_API_KEY}}|$mumbaiscan_api_key|g" | \
+    sed "s|{{POLYGON_ALCHEMY_REST_URL}}|$polygon_alchemy_rest_url|g" | \
+    sed "s|{{MUMBAI_ALCHEMY_REST_URL}}|$mumbai_alchemy_rest_url|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \

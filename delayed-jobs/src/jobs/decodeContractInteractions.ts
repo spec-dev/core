@@ -10,6 +10,10 @@ import {
     formatAbiValueWithType,
     chainIds,
     enqueueDelayedJob,
+    mapByKey,
+    toChunks,
+    sleep,
+    range,
 } from '../../../shared'
 import config from '../config'
 import { ident } from 'pg-format'
@@ -17,6 +21,7 @@ import { camelizeKeys } from 'humps'
 import Web3 from 'web3'
 import { Pool } from 'pg'
 import short from 'short-uuid'
+import processTransactionTraces from '../services/processTransactionTraces'
 
 const web3 = new Web3()
 
@@ -63,10 +68,6 @@ async function decodeContractInteractions(
         password : config.SHARED_TABLES_DB_PASSWORD,
         database : config.SHARED_TABLES_DB_NAME,
         max: config.SHARED_TABLES_MAX_POOL_SIZE,
-        idleTimeoutMillis: 0,
-        query_timeout: 0,
-        connectionTimeoutMillis: 0,
-        statement_timeout: 0,
     })
     pool.on('error', err => logger.error('PG client error', err))
 
@@ -123,6 +124,7 @@ async function decodePrimitivesUsingContracts(
 
     let batchTransactions = []
     let batchTraces = []
+    let batchNewTraces = []
     let batchLogs = []
     let cursor = startBlock
 
@@ -140,7 +142,8 @@ async function decodePrimitivesUsingContracts(
         // If on Polygon, ensure all traces have been pulled for these transactions since 
         // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
         if (onPolygon) {
-            traces = await ensureTracesExistForEachTransaction(transactions, traces)
+            const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
+            batchNewTraces.push(...newTraces)
         }
 
         batchTransactions.push(...transactions)
@@ -149,12 +152,14 @@ async function decodePrimitivesUsingContracts(
         
         const saveTransactions = batchTransactions.length > SAVE_BATCH_SIZE
         const saveTraces = batchTraces.length > SAVE_BATCH_SIZE
+        const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
         const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
 
         const savePromises = []
-        saveTransactions && savePromises.push(bulkSaveTransactions(transactions, tables.transactions, pool))
-        saveTraces && savePromises.push(bulkSaveTraces(traces, tables.traces, pool))
-        saveLogs && savePromises.push(bulkSaveLogs(logs, tables.logs, pool))
+        saveTransactions && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
+        saveTraces && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
+        insertNewTraces && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
+        saveLogs && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
         await Promise.all(savePromises)
 
         if (saveTransactions) {
@@ -162,6 +167,9 @@ async function decodePrimitivesUsingContracts(
         }
         if (saveTraces) {
             batchTraces = []
+        }
+        if (insertNewTraces) {
+            batchNewTraces = []
         }
         if (saveLogs) {
             batchLogs = []
@@ -173,17 +181,130 @@ async function decodePrimitivesUsingContracts(
     const savePromises = []
     batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
     batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
+    batchNewTraces.length && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
     batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
     await Promise.all(savePromises)
 
     return cursor
 }
 
-async function ensureTracesExistForEachTransaction(
+export async function ensureTracesExistForEachTransaction(
     transactions: StringKeyMap[],
     traces: StringKeyMap[],
+    abisMap: StringKeyMap,
+    chainId: string,
 ): Promise<StringKeyMap[]> {
-    return traces
+    const tracesByTxHash = mapByKey(traces, 'transactionHash')
+    const txsToFetchTracesFor = transactions.filter(tx => !tracesByTxHash[tx.hash])
+    if (!txsToFetchTracesFor.length) return []
+    logger.info(`[${chainId}] Tracing ${txsToFetchTracesFor.length} untraced transactions...`)
+
+    const txGroups = toChunks(txsToFetchTracesFor, 10)
+    let newTraces = []
+    for (const txs of txGroups) {
+        const groupTraces = (await Promise.all(txs.map(tx => traceTransaction(
+            tx.hash,
+            tx.transactionIndex,
+            tx.blockNumber,
+            tx.blockHash,
+            tx.blockTimestamp,
+            chainId,
+        )))).flat()
+        newTraces.push(...groupTraces)
+    }
+
+    return decodeFunctionCalls(newTraces, abisMap)
+}
+
+async function traceTransaction(
+    transactionHash: string,
+    transactionIndex: number,
+    blockNumber: number,
+    blockHash: string,
+    blockTimestamp: string,
+    chainId: string,
+): Promise<StringKeyMap[]> {
+    let externalTraceData = null
+    let numAttempts = 0
+
+    try {
+        while (externalTraceData === null && numAttempts < 10) {
+            externalTraceData = await fetchTxTraces(transactionHash, chainId)
+            if (externalTraceData === null) {
+                await sleep(
+                    (1.5 ** numAttempts) * 200
+                )
+            }
+            numAttempts += 1
+        }
+    } catch (err) {
+        logger.error(`[${chainId}] Error fetching traces for transaction ${transactionHash}: ${err}`)
+        return []
+    }
+
+    if (externalTraceData === null) {
+        logger.error(`[${chainId}] Out of attempts - No traces found for transaction ${transactionHash}...`)
+        return []
+    }
+
+    if (Object.keys(externalTraceData).length === 0) {
+        return []
+    }
+
+    return processTransactionTraces(
+        externalTraceData,
+        transactionHash,
+        transactionIndex,
+        blockNumber,
+        blockHash,
+        blockTimestamp,
+    )
+}
+
+async function fetchTxTraces(txHash: string, chainId: string): Promise<StringKeyMap | null> {
+    const url = chainId === chainIds.POLYGON 
+        ? config.POLYGON_ALCHEMY_REST_URL 
+        : config.MUMBAI_ALCHEMY_REST_URL
+
+    let resp, error
+    try {
+        resp = await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify({
+                method: 'debug_traceTransaction',
+                params: [txHash, { tracer: 'callTracer' }],
+                id: 1,
+                jsonrpc: '2.0',
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        })
+    } catch (err) {
+        error = err
+    }
+
+    if (error) {
+        logger.error(`[${chainId}] Error fetching traces for transaction ${txHash}: ${error}. Will retry`)
+        return null
+    }
+
+    let data: { [key: string]: any } = {}
+    try {
+        data = await resp.json()
+    } catch (err) {
+        logger.error(
+            `[${chainId}] Error parsing json response while fetching traces for transaction ${txHash}: ${err}`
+        )
+        data = {}
+    }
+
+    if (data?.error?.code === -32000 || !data?.result) {
+        return null
+    } else if (data?.error) {
+        logger.error(`[${chainId}] Error fetching trace for transaction ${txHash}: ${data.error.code} - ${data.error.message}`)
+        return null
+    } else {
+        return data.result || {}
+    }
 }
 
 async function bulkSaveTransactions(transactions: StringKeyMap[], table: string, pool: Pool) {
@@ -271,6 +392,97 @@ async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool: Pool)
     }
 }
 
+export async function bulkInsertNewTraces(traces: StringKeyMap[], table: string, pool: Pool) {
+    logger.info(`Saving ${traces.length} new traces...`)
+
+    const insertPlaceholders = []
+    const insertBindings = []
+    let i = 1
+    for (const trace of traces) {
+        let functionArgs
+        try {
+            functionArgs = trace.functionArgs === null ? null : JSON.stringify(trace.functionArgs)
+        } catch (e) {
+            continue
+        }
+        let functionOutputs
+        try {
+            functionOutputs = trace.functionOutputs === null ? null : JSON.stringify(trace.functionOutputs)
+        } catch (e) {
+            continue
+        }
+        insertPlaceholders.push(`(${range(i, i + 23).map(n => `$${n}`).join(', ')})`)
+        insertBindings.push(...[
+            trace.id,
+            trace.transactionHash,
+            trace.transactionIndex,
+            trace.from || null,
+            trace.to || null,
+            trace.value || null,
+            trace.input || null,
+            trace.output || null,
+            trace.functionName || null,
+            functionArgs,
+            functionOutputs,
+            trace.traceType,
+            trace.callType || null,
+            trace.subtraces,
+            trace.traceAddress,
+            trace.traceIndex,
+            trace.traceIndexIsPerTx,
+            trace.error || null,
+            trace.status,
+            trace.gas || null,
+            trace.gasUsed || null,
+            trace.blockHash,
+            trace.blockNumber,
+            trace.blockTimestamp,
+        ])
+        i += 24
+    }
+
+    const columns = [
+        'id',
+        'transaction_hash',
+        'transaction_index',
+        ident('from'),
+        ident('to'),
+        'value',
+        'input',
+        'output',
+        'function_name',
+        'function_args',
+        'function_outputs',
+        'trace_type',
+        'call_type',
+        'subtraces',
+        'trace_address',
+        'trace_index',
+        'trace_index_is_per_tx',
+        'error',
+        'status',
+        'gas',
+        'gas_used',
+        'block_hash',
+        'block_number',
+        'block_timestamp',
+    ]
+
+    const insertQuery = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (id) DO NOTHING`
+
+    const client = await pool.connect()
+    try {
+        await client.query('BEGIN')
+        await client.query(insertQuery, insertBindings)
+        await client.query('COMMIT')
+    } catch (e) {
+        await client.query('ROLLBACK')
+        logger.error(e)
+    } finally {
+        client.release()
+    }
+}
+
 async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool) {
     logger.info(`Saving ${logs.length} decoded logs...`)
 
@@ -321,7 +533,7 @@ async function decodeTransactions(
     // Get all transactions sent *to* any of these contracts in this block range.
     const transactions = await findContractInteractionsInBlockRange(
         tables.transactions,
-        ['hash', 'input', 'to'],
+        ['hash', 'input', 'to', 'transaction_index', 'block_number', 'block_hash', 'block_timestamp'],
         startBlock,
         endBlock,
         contractAddresses,

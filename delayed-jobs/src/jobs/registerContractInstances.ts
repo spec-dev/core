@@ -29,6 +29,7 @@ import {
     CONTRACT_NAME_COL,
     CONTRACT_ADDRESS_COL,
     namespaceForChainId,
+    chainIds,
     getAbis,
     enqueueDelayedJob,
 } from '../../../shared'
@@ -103,11 +104,16 @@ async function registerContractInstances(
     if (!currentHead) return
 
     // Kick off job to back-decode all interactions with these contracts.
-    await enqueueDelayedJob('decodeContractInteractions', {
+    const djParams: StringKeyMap = {
         chainId, 
         contractAddresses: allContractAddresses,
         finalEndBlock: currentHead + 2,
-    })
+    }
+    if ([chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)) {
+        djParams.queryRangeSize = 10
+        djParams.jobRangeSize = 100
+    }
+    await enqueueDelayedJob('decodeContractInteractions', djParams)
 }
 
 async function upsertVerifiedAbis(

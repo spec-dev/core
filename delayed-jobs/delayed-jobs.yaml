@@ -60,3 +60,7 @@ spec:
           value: {{POLYGONSCAN_API_KEY}}
         - name: MUMBAISCAN_API_KEY
           value: {{MUMBAISCAN_API_KEY}}
+        - name: POLYGON_ALCHEMY_REST_URL
+          value: {{POLYGON_ALCHEMY_REST_URL}}
+        - name: MUMBAI_ALCHEMY_REST_URL
+          value: {{MUMBAI_ALCHEMY_REST_URL}}
