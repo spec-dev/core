@@ -1,6 +1,15 @@
 import { ValidatedPayload, StringKeyMap, NewContractsPayload } from '../../../types'
 import { supportedChainIds } from '../../../../../shared'
 
+interface DecodeContractInteractionsPayload {
+    chainId: string
+    contractAddresses: string[]
+    finalEndBlock: number
+    startBlock?: number
+    queryRangeSize?: number
+    jobRangeSize?: number
+}
+
 export function parseNewContractInstancesPayload(
     data: StringKeyMap
 ): ValidatedPayload<NewContractsPayload> {
@@ -53,5 +62,43 @@ export function parseNewContractInstancesPayload(
             contracts,
             refetchAbis,
         },
+    }
+}
+
+export function parseDecodeContractInteractionsPayload(
+    data: StringKeyMap
+): ValidatedPayload<DecodeContractInteractionsPayload> {
+    const chainId = data?.chainId
+    const contractAddresses = (data?.contractAddresses || []).map(a => a.toLowerCase())
+    const finalEndBlock = data?.finalEndBlock
+    const queryRangeSize = data?.queryRangeSize
+    const jobRangeSize = data?.jobRangeSize
+
+    if (!supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
+
+    if (!contractAddresses.length) {
+        return { isValid: false, error: '"contractAddresses" was missing or empty' }
+    }
+
+    if (!finalEndBlock) {
+        return { isValid: false, error: '"finalEndBlock" is required' }
+    }
+
+    const payload: DecodeContractInteractionsPayload = {
+        chainId,
+        contractAddresses,
+        finalEndBlock,
+        queryRangeSize,
+        jobRangeSize,
+    }
+    if (data?.hasOwnProperty('startBlock')) {
+        payload.startBlock = data.startBlock
+    }
+
+    return {
+        isValid: true,
+        payload,
     }
 }
