@@ -170,6 +170,12 @@ async function decodePrimitivesUsingContracts(
         cursor = cursor + queryRangeSize
     }
 
+    const savePromises = []
+    batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
+    batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
+    batchLogs.length && savePromises.push(bulkSaveLogs(batchTraces, tables.logs, pool))
+    await Promise.all(savePromises)
+
     return cursor
 }
 
