@@ -271,7 +271,7 @@ async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool: Pool)
     }
 }
 
-export async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool) {
+async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool) {
     logger.info(`Saving ${logs.length} decoded logs...`)
 
     const tempTableName = `logs_${short.generate()}`
@@ -370,7 +370,7 @@ async function decodeLogs(
     return decodeLogEvents(logs, abisMap)
 }
 
-export async function findContractInteractionsInBlockRange(
+async function findContractInteractionsInBlockRange(
     table: string,
     columns: string[],
     startBlock: number,
@@ -394,7 +394,7 @@ export async function findContractInteractionsInBlockRange(
     }
 }
 
-export async function findContractLogsInBlockRange(
+async function findContractLogsInBlockRange(
     table: string,
     startBlock: number,
     endBlock: number,

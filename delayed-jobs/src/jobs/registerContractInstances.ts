@@ -30,6 +30,7 @@ import {
     CONTRACT_ADDRESS_COL,
     namespaceForChainId,
     getAbis,
+    enqueueDelayedJob,
 } from '../../../shared'
 import { EventViewSpec, EventSpec } from '../types'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
@@ -97,8 +98,16 @@ async function registerContractInstances(
         }
     }
 
-    // TODO: Kick off jobs to back-decode all events for their 
-    // associated contract instance addresses (if needed).
+    // Get current head of this chain.
+    const currentHead = await getCurrentHead(chainId)
+    if (!currentHead) return
+
+    // Kick off job to back-decode all interactions with these contracts.
+    await enqueueDelayedJob('decodeContractInteractions', {
+        chainId, 
+        contractAddresses: allContractAddresses,
+        finalEndBlock: currentHead + 2,
+    })
 }
 
 async function upsertVerifiedAbis(
@@ -418,6 +427,20 @@ async function upsertEvents(
     await upsertEventVersionsWithTx(eventVersionsData, tx)
 
     return eventSpecs
+}
+
+async function getCurrentHead(chainId: string): Promise<number | null> {
+    const schema = schemaForChainId[chainId]
+    try {
+        const block = ((await SharedTables.query(
+            `select number from ${ident(schema)}."blocks" order by number desc limit 1`
+        )) || [])[0] || {}
+        const number = Number(block.number)
+        return Number.isNaN(number) ? null : number
+    } catch (err) {
+        logger.error(`Error trying to query ${schema}.blocks for head`, err)
+        return null
+    }
 }
 
 export default function job(params: StringKeyMap) {
