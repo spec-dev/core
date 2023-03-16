@@ -364,7 +364,7 @@ async function decodeLogs(
     return decodeLogEvents(logs, abisMap)
 }
 
-async function findContractInteractionsInBlockRange(
+export async function findContractInteractionsInBlockRange(
     table: string,
     columns: string[],
     startBlock: number,
@@ -378,7 +378,7 @@ async function findContractInteractionsInBlockRange(
     }).join(', ')
     try {
         return camelizeKeys((await SharedTables.query(
-            `select ${columns.map(ident).join(', ')} from ${table} where "to" in (${addressPlaceholders}) and "block_number" >= ${i + 1} and "block_number" <= ${i + 2}`,
+            `select ${columns.map(ident).join(', ')} from ${table} where "to" in (${addressPlaceholders}) and "block_number" >= $${i + 1} and "block_number" <= $${i + 2}`,
             [ ...contractAddresses, startBlock, endBlock ],
         )) || [])
     } catch (err) {
@@ -401,7 +401,7 @@ async function findContractLogsInBlockRange(
     }).join(', ')
     try {
         return camelizeKeys((await SharedTables.query(
-            `select * from ${table} where "address" in (${addressPlaceholders}) and "block_number" >= ${i + 1} and "block_number" <= ${i + 2}`,
+            `select * from ${table} where "address" in (${addressPlaceholders}) and "block_number" >= $${i + 1} and "block_number" <= $${i + 2}`,
             [ ...contractAddresses, startBlock, endBlock ],
         )) || [])
     } catch (err) {
