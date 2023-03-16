@@ -173,7 +173,7 @@ async function decodePrimitivesUsingContracts(
     const savePromises = []
     batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
     batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
-    batchLogs.length && savePromises.push(bulkSaveLogs(batchTraces, tables.logs, pool))
+    batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
     await Promise.all(savePromises)
 
     return cursor
@@ -271,7 +271,7 @@ async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool: Pool)
     }
 }
 
-async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool) {
+export async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool) {
     logger.info(`Saving ${logs.length} decoded logs...`)
 
     const tempTableName = `logs_${short.generate()}`
@@ -359,12 +359,12 @@ async function decodeLogs(
     tables: StringKeyMap,
 ): Promise<StringKeyMap[]> {
     // Get all logs emitted by any of these contracts in this block range.
-    const logs = (await findContractLogsInBlockRange(
+    const logs = await findContractLogsInBlockRange(
         tables.logs,
         startBlock,
         endBlock,
         contractAddresses,
-    ))
+    )
 
     // Decode all of them.
     return decodeLogEvents(logs, abisMap)
@@ -394,7 +394,7 @@ export async function findContractInteractionsInBlockRange(
     }
 }
 
-async function findContractLogsInBlockRange(
+export async function findContractLogsInBlockRange(
     table: string,
     startBlock: number,
     endBlock: number,
