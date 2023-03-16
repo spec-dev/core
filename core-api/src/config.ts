@@ -4,7 +4,7 @@ import uuid4 from 'uuid4'
 const coreApiConfig: StringKeyMap = {
     ...config,
 
-    // SocketCluster 
+    // SocketCluster
     SOCKETCLUSTER_PORT: Number(ev('CORE_SOCKETCLUSTER_PORT', 7777)),
     SOCKETCLUSTER_WS_ENGINE: ev('CORE_SOCKETCLUSTER_WS_ENGINE', 'ws'),
     SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT: Number(ev('CORE_SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT', 1000)),

@@ -1,11 +1,17 @@
-import { Project, Deployment, DeploymentStatus, createDeployment, updateDeploymentStatus } from '../../../shared'
+import {
+    Project,
+    Deployment,
+    DeploymentStatus,
+    createDeployment,
+    updateDeploymentStatus,
+} from '../../../shared'
 import { UploadedFile } from 'express-fileupload'
 import { messageSpecInstance } from '../server'
 import { uploadConfigFile, generatePresignedUrl } from '../utils/file'
 
 async function deployConfig(
-    project: Project, 
-    configFile: UploadedFile,
+    project: Project,
+    configFile: UploadedFile
 ): Promise<[Deployment | null, string | null]> {
     // Create a new project deployment.
     const deployment = await createDeployment(project.id)
@@ -14,11 +20,7 @@ async function deployConfig(
     }
 
     // Upload the config file to S3.
-    const fileUrl = await uploadConfigFile(
-        configFile,
-        project.uid,
-        deployment.version,
-    )
+    const fileUrl = await uploadConfigFile(configFile, project.uid, deployment.version)
     if (!fileUrl) {
         return [deployment, 'Config file upload failed.']
     }
@@ -43,7 +45,7 @@ async function deployConfig(
     if (!(await updateDeploymentStatus(deployment.id, DeploymentStatus.Deployed))) {
         return [deployment, 'Deployment status update (deployed) failed.']
     }
-    
+
     return [deployment, null]
 }
 

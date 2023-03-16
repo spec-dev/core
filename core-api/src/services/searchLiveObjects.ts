@@ -1,5 +1,11 @@
 import { StringKeyMap, LatestLiveObject } from '../types'
-import { buildIconUrl, CoreDB, LiveObjectVersion, logger, isContractNamespace } from '../../../shared'
+import {
+    buildIconUrl,
+    CoreDB,
+    LiveObjectVersion,
+    logger,
+    isContractNamespace,
+} from '../../../shared'
 import path from 'path'
 
 async function searchLiveObjects(query?: StringKeyMap): Promise<StringKeyMap> {
@@ -44,7 +50,7 @@ function formatAsLatestLiveObject(liveObjectVersion: LiveObjectVersion): LatestL
 
     // TODO: Clean this up.
     let codeUrl = null
-    if (!isContractEvent && namespace.codeUrl && !!(config?.folder)) {
+    if (!isContractEvent && namespace.codeUrl && !!config?.folder) {
         codeUrl = path.join(namespace.codeUrl, 'blob', 'master', config.folder, 'spec.ts')
     }
 
@@ -63,8 +69,8 @@ function formatAsLatestLiveObject(liveObjectVersion: LiveObjectVersion): LatestL
             properties: liveObjectVersion.properties,
             example: liveObjectVersion.example,
             config: config,
-            createdAt: liveObjectVersion.createdAt.toISOString(),        
-        }
+            createdAt: liveObjectVersion.createdAt.toISOString(),
+        },
     }
 }
 

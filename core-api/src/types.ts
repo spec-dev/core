@@ -5,7 +5,7 @@ export { StringMap, NewContractsPayload, PublishLiveObjectVersionPayload } from 
 export interface ValidatedPayload<T> {
     isValid: boolean
     payload?: T
-    error?: string 
+    error?: string
 }
 
 export interface LatestLiveObjectVersion {

@@ -12,7 +12,8 @@ export const errors = {
     UNKNOWN_ERROR: 'Unknown error',
     JOB_SCHEDULING_FAILED: 'Failed to schedule job',
     NAMESPACE_NOT_FOUND: 'Namespace not found',
-    NAMESPACE_MISSING_CODE_URL: 'Namespace does not have a remote git repository assigned to it yet.',
+    NAMESPACE_MISSING_CODE_URL:
+        'Namespace does not have a remote git repository assigned to it yet.',
     VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
 }
 
@@ -29,12 +30,13 @@ export async function authorizeRequest(req, res): Promise<User | null> {
     const headers = req.headers || {}
 
     // Get auth header token.
-    const authHeader = headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
+    const authHeader =
+        headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
     if (!authHeader) {
         res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
         return null
     }
-    
+
     // Parse header token into session components.
     const [sessionUid, sessionToken] = deserializeToken(authHeader)
     if (!sessionUid || !sessionToken) {
@@ -54,7 +56,9 @@ export async function authorizeRequest(req, res): Promise<User | null> {
 
 export async function authorizeAdminRequest(req, res): Promise<boolean> {
     const headers = req.headers || {}
-    const adminHeader = headers[config.ADMIN_AUTH_HEADER_NAME] || headers[config.ADMIN_AUTH_HEADER_NAME.toLowerCase()]
+    const adminHeader =
+        headers[config.ADMIN_AUTH_HEADER_NAME] ||
+        headers[config.ADMIN_AUTH_HEADER_NAME.toLowerCase()]
     if (!adminHeader || adminHeader !== config.CORE_API_ADMIN_TOKEN) {
         res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
         return false

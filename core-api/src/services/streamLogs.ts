@@ -20,15 +20,15 @@ export async function streamLogs(projectUid, env, req, res) {
     req.on('close', cleanup)
     res.on('close', cleanup)
     res.on('destroy', cleanup)
-    res.on('error', err => {
-        logger.error(i, 'Streaming log response error', err)
+    res.on('error', (err) => {
+        logger.error('Streaming log response error', err)
         cleanup()
     })
 
     let hasEnqueuedOpeningBracket = false
     let hasEnqueuedAnObject = false
 
-    const enqueueLog = log => {
+    const enqueueLog = (log) => {
         if (!hasEnqueuedOpeningBracket) {
             res.write(new TextEncoder().encode('['))
             hasEnqueuedOpeningBracket = true
@@ -43,12 +43,8 @@ export async function streamLogs(projectUid, env, req, res) {
         hasEnqueuedAnObject = true
     }
 
-    logger.info(i, 'Getting last X logs...')
-
     const trailingLogs = await getLastXLogs(streamKey, config.TRAILING_LOGS_BATCH_SIZE)
-    trailingLogs.forEach(log => enqueueLog(log))
-
-    logger.info(i, 'Creating interval...')
+    trailingLogs.forEach((log) => enqueueLog(log))
 
     keepAliveTimer = setInterval(() => {
         if (!run) return
@@ -56,8 +52,6 @@ export async function streamLogs(projectUid, env, req, res) {
             run && enqueueLog({ ping: true, message: 'ping' })
         } catch (err) {}
     }, 15000)
-    
-    logger.info(i, 'Creating infinite loop...')
 
     let lastLogId = '$'
     while (run) {
@@ -68,14 +62,12 @@ export async function streamLogs(projectUid, env, req, res) {
                 continue
             }
             lastLogId = logs[0].id || '$'
-            logs.forEach(log => enqueueLog(log))
-        } catch(err) {
+            logs.forEach((log) => enqueueLog(log))
+        } catch (err) {
             logger.error('Error tailing logs', err)
             break
         }
     }
-
-    logger.info(i, 'BELOW LOOP')
 
     cleanup()
     res.end()

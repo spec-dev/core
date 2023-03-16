@@ -10,9 +10,7 @@ export async function authConnection(authKey: AGServerSocket.AuthToken): Promise
 
 export async function projectExistsWithAdminKey(adminKey: string): Promise<boolean> {
     try {
-        return (
-            await projects().findOne({ where: { adminKey }, select: { id: true } })
-        ) !== null
+        return (await projects().findOne({ where: { adminKey }, select: { id: true } })) !== null
     } catch (err) {
         logger.error(`Error finding Project by admin key: ${err}`)
         return false

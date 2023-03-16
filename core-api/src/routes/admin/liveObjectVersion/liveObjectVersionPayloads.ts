@@ -78,14 +78,14 @@ export function parsePublishLiveObjectVersionPayload(
             if (!option.name) {
                 return { isValid: false, error: 'property option "name" was empty' }
             }
-    
+
             if (!option.type) {
                 return { isValid: false, error: 'property option "type" was empty' }
             }
-    
+
             if (!option.hasOwnProperty('value')) {
                 return { isValid: false, error: 'property option "value" was missing' }
-            }    
+            }
         }
     }
 
@@ -101,6 +101,6 @@ export function parsePublishLiveObjectVersionPayload(
             config,
             properties,
             additionalEventAssociations,
-        } as PublishLiveObjectVersionPayload
+        } as PublishLiveObjectVersionPayload,
     }
 }

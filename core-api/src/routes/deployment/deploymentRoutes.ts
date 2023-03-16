@@ -30,16 +30,16 @@ app.post(paths.NEW_DEPLOYMENT, async (req, res) => {
     }
 
     // Find project by uid that current user has access to.
-    const project = await getProject({ 
+    const project = await getProject({
         relations: {
             org: true,
             projectRoles: {
                 orgUser: true,
             },
         },
-        where: { uid: payload.projectId, }
+        where: { uid: payload.projectId },
     })
-    if (!project || !project.projectRoles.find(pr => pr.orgUser.userId === user.id)) {
+    if (!project || !project.projectRoles.find((pr) => pr.orgUser.userId === user.id)) {
         logger.error('No project exists for uid that user has access to:', payload.projectId)
         return res.status(codes.NOT_FOUND).json({ error: errors.NOT_FOUND })
     }

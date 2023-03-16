@@ -2,7 +2,13 @@ import { app } from '../../express'
 import paths from '../../../utils/paths'
 import { parsePublishLiveObjectVersionPayload } from './liveObjectVersionPayloads'
 import { codes, errors, authorizeAdminRequest } from '../../../utils/requests'
-import { enqueueDelayedJob, getNamespace, getLiveObject, getLatestLiveObjectVersion, isVersionGt } from '../../../../../shared'
+import {
+    enqueueDelayedJob,
+    getNamespace,
+    getLiveObject,
+    getLatestLiveObjectVersion,
+    isVersionGt,
+} from '../../../../../shared'
 
 /**
  * Publish a new live object version.
@@ -24,18 +30,20 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
 
     // Ensure namespace has a remote git repository assigned to it already.
     if (!namespace.codeUrl) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.NAMESPACE_MISSING_CODE_URL })
+        return res
+            .status(codes.INTERNAL_SERVER_ERROR)
+            .json({ error: errors.NAMESPACE_MISSING_CODE_URL })
     }
 
     // Ensure the version to publish is greater than the existing version.
     const liveObject = await getLiveObject(namespace.id, payload.name)
-    const latestLiveObjectVersion = liveObject && await getLatestLiveObjectVersion(liveObject.id)
+    const latestLiveObjectVersion = liveObject && (await getLatestLiveObjectVersion(liveObject.id))
     if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
         return res.status(codes.NOT_FOUND).json({ error: errors.VERSION_ALREADY_PUBLISHED })
     }
 
     // Kick off delayed job to publish live object version.
-    const scheduled = await enqueueDelayedJob('publishLiveObjectVersion', { 
+    const scheduled = await enqueueDelayedJob('publishLiveObjectVersion', {
         namespace: {
             id: namespace.id,
             name: namespace.name,

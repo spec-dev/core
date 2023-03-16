@@ -18,8 +18,8 @@ export function parseUserLoginPayload(data: StringKeyMap): ValidatedPayload<User
         return { isValid: false, error: 'Invalid email address' }
     }
 
-    return { 
+    return {
         isValid: true,
-        payload: { email, password }, 
+        payload: { email, password },
     }
 }

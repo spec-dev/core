@@ -10,7 +10,7 @@ const coreRedisPromise = coreRedis.connect()
 const indexerRedisPromise = indexerRedis.connect()
 
 // Secure actions.
-agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
+agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async (stream) => {
     for await (let action of stream) {
         // Auth new connections.
         if (action.type === action.AUTHENTICATE) {
@@ -46,8 +46,8 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
 })()
 
 // SocketCluster/WebSocket connection handling loop.
-;(async () => {    
-    for await (let {socket} of agServer.listener('connection')) {
+;(async () => {
+    for await (let { socket } of agServer.listener('connection')) {
         // RPCs...
     }
 })()
@@ -63,7 +63,9 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
     })()
 }
 
-logger.info(`[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`)
+logger.info(
+    `[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`
+)
 
 // Log warnings.
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
@@ -90,7 +92,7 @@ if (config.SCC_STATE_SERVER_HOST) {
         stateServerConnectTimeout: config.SCC_STATE_SERVER_CONNECT_TIMEOUT,
         stateServerAckTimeout: config.SCC_STATE_SERVER_ACK_TIMEOUT,
         stateServerReconnectRandomness: config.SCC_STATE_SERVER_RECONNECT_RANDOMNESS,
-        brokerRetryDelay: config.SCC_BROKER_RETRY_DELAY
+        brokerRetryDelay: config.SCC_BROKER_RETRY_DELAY,
     })
 
     if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {

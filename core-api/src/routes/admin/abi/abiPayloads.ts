@@ -22,9 +22,9 @@ export function parseUpsertAbisPayload(data: StringKeyMap): ValidatedPayload<Ups
         return { isValid: false, error: `Invalid "chainId": ${chainId}` }
     }
 
-    return { 
+    return {
         isValid: true,
-        payload: { 
+        payload: {
             addresses,
             chainId: data?.chainId || chainIds.ETHEREUM,
             overwriteWithStarscan,

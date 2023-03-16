@@ -16,14 +16,13 @@ const credentials = {
 
 const s3 = new AWS.S3(credentials)
 
-export const configFilePath = (projectUid: string, version: string): string => (
+export const configFilePath = (projectUid: string, version: string): string =>
     `${projectUid}/${version}.toml`
-)
 
 export async function uploadConfigFile(
     configFile: UploadedFile,
     projectUid: string,
-    version: string,
+    version: string
 ): Promise<string | null> {
     const params = {
         Bucket: config.S3_BUCKET_NAME,
@@ -33,14 +32,14 @@ export async function uploadConfigFile(
 
     return new Promise((res, _) => {
         try {
-            s3.upload(params, function(err, data) {
+            s3.upload(params, function (err, data) {
                 if (err) {
                     logger.error(`Uploading ${params.Key} failed: ${err}`)
                     res(null)
                     return
                 }
                 res(data.Location)
-            })    
+            })
         } catch (err) {
             logger.error(`Uploading ${params.Key} failed: ${err}`)
             res(null)

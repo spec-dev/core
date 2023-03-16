@@ -1,7 +1,13 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseUserLoginPayload } from './userPayloads'
-import { logger, getUserByEmail, createSession, verifyHash, serializeToken } from '../../../../shared'
+import {
+    logger,
+    getUserByEmail,
+    createSession,
+    verifyHash,
+    serializeToken,
+} from '../../../../shared'
 import { codes, errors } from '../../utils/requests'
 import config from '../../config'
 import { getLoginMessage } from '../../utils/fun'

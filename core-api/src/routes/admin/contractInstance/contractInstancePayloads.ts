@@ -1,7 +1,9 @@
 import { ValidatedPayload, StringKeyMap, NewContractsPayload } from '../../../types'
 import { supportedChainIds } from '../../../../../shared'
 
-export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedPayload<NewContractsPayload> {
+export function parseNewContractInstancesPayload(
+    data: StringKeyMap
+): ValidatedPayload<NewContractsPayload> {
     const nsp = data?.nsp
     const chainId = data?.chainId
     const contracts = data?.contracts || []
@@ -42,14 +44,14 @@ export function parseNewContractInstancesPayload(data: StringKeyMap): ValidatedP
             }
         }
     }
-    
-    return { 
+
+    return {
         isValid: true,
         payload: {
             nsp,
             chainId,
             contracts,
             refetchAbis,
-        }
+        },
     }
 }

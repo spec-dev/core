@@ -4,13 +4,15 @@ export interface NewDeploymentPayload {
     projectId: string
 }
 
-export function parseNewDeploymentPayload(data: StringKeyMap): ValidatedPayload<NewDeploymentPayload> {
+export function parseNewDeploymentPayload(
+    data: StringKeyMap
+): ValidatedPayload<NewDeploymentPayload> {
     const projectId = data?.projectId
     if (!projectId) {
         return { isValid: false, error: '"projectId" required' }
     }
 
-    return { 
+    return {
         isValid: true,
         payload: { projectId },
     }

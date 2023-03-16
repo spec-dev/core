@@ -20,7 +20,7 @@ export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<Get
         return { isValid: false, error: '"org" key required' }
     }
 
-    return { 
+    return {
         isValid: true,
         payload: { project, org },
     }
@@ -31,7 +31,7 @@ export function parseStreamLogsPayload(data: StringKeyMap): ValidatedPayload<Str
     if (!id) {
         return { isValid: false, error: '"id" key required' }
     }
-    return { 
+    return {
         isValid: true,
         payload: { id, env: data?.env || null },
     }
