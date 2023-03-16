@@ -611,7 +611,7 @@ async function findEarliestInteraction(table: string, column: string, addresses:
 
 export default function job(params: StringKeyMap) {
     const chainId = params.chainId
-    const contractAddresses = params.contracts || []
+    const contractAddresses = params.contractAddresses || []
     const startBlock = params.has('startBlock') ? params.startBlock : null
     const queryRangeSize = params.queryRangeSize || config.QUERY_BLOCK_RANGE_SIZE
     const jobRangeSize = params.jobRangeSize || config.JOB_BLOCK_RANGE_SIZE
