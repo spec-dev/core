@@ -567,7 +567,7 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
     try {
         JSON.stringify(eventArgs)
     } catch (err) {
-        log.event_args = null
+        log.eventArgs = null
         logger.warn(
             `Log event args not stringifyable (transaction_hash=${log.transactionHash}, log_index=${log.logIndex})`
         )
@@ -575,7 +575,7 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
     return log
 }
 
-async function getAbisForContracts(contractAddresses: string[], chainId: string): Promise<StringKeyMap> {
+async function getAbisForContracts(contractAddresses: string[], chainId: string): Promise<StringKeyMap | null> {
     const abisMap = await getAbis(contractAddresses, chainId)
     const withAbis = new Set(Object.keys(abisMap))
     if (withAbis.size !== contractAddresses.length) {
