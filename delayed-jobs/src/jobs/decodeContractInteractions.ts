@@ -89,7 +89,7 @@ async function decodeContractInteractions(
 
     // All contract interactions decoded.
     if (endCursor >= finalEndBlock) {
-        logger.info(`Full decoded contract interactions (${contractAddresses.join(', ')})`)
+        logger.info(`Fully decoded contract interactions (${contractAddresses.join(', ')})`)
         return
     }
 
