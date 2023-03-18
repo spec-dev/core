@@ -25,6 +25,7 @@ async function run() {
 
     logger.info(`Starting job ${config.JOB_NAME}...`)
     await job()
+    exit()
 }
 
 run()

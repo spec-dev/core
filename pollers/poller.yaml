@@ -1,9 +1,9 @@
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{JOB_NAME}}
+  name: poll-token-prices
 spec:
-  schedule: {{JOB_SCHEDULE}}
+  schedule: "*/1 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
@@ -12,7 +12,7 @@ spec:
       template:
         spec:
           containers:
-          - name: {{JOB_NAME}}
+          - name: poll-token-prices
             image: {{IMAGE}}
             env:
             - name: NODE_ENV

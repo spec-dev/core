@@ -12,13 +12,13 @@ pollers_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
 job_name="$2"
-job_schedule="$3"
+# job_schedule="$3"
 
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 $shared_bin_dir/validate_arg "job_name" "$job_name"
-$shared_bin_dir/validate_arg "job_schedule" "$job_schedule"
+# $shared_bin_dir/validate_arg "job_schedule" "$job_schedule"
 
 # ======== SET KEY VARS ======== #
 
@@ -69,7 +69,6 @@ template_path="$pollers_dir/poller.yaml"
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
-    sed "s|{{JOB_SCHEDULE}}|$job_schedule|g" | \
     sed "s|{{CMC_API_KEY}}|$cmc_api_key|g" | \
     sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
     sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
