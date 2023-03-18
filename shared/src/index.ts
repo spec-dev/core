@@ -22,6 +22,7 @@ export {
     fullLatestInteractionUpsertConfig,
     EthLatestInteractionAddressCategory,
 } from './lib/shared-tables/db/entities/EthLatestInteraction'
+export { TokenPrice } from './lib/shared-tables/db/entities/TokenPrice'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,
@@ -151,6 +152,8 @@ export {
     addLog,
     tailLogs,
     getLastXLogs,
+    getLatestTokenPrices,
+    setLatestTokenPrices,
 } from './lib/core/redis'
 export {
     createContract,

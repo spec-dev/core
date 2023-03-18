@@ -25,6 +25,7 @@ redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 
 const keys = {
     EDGE_FUNCTION_URLS: 'edge-function-urls',
+    LATEST_TOKEN_PRICES: 'latest-token-prices',
 }
 
 export const formatEdgeFunctionVersionStr = (nsp: string, name: string, version?: string | null) =>
@@ -53,6 +54,7 @@ export async function getEdgeFunctionUrl(
 ): Promise<string | null> {
     const key = formatEdgeFunctionVersionStr(nsp, name, version)
     let urls = []
+
     try {
         urls = (await redis?.hmGet(keys.EDGE_FUNCTION_URLS, key)) || []
     } catch (err) {
@@ -97,5 +99,34 @@ export async function tailLogs(projectUid: string, id: string = '$') {
         return resp[0].messages || []
     } catch (err) {
         logger.error(`Error tailing logs for project.uid=${projectUid}: ${err}.`)
+    }
+}
+
+export async function getLatestTokenPrices(
+    tokenKeys?: string[] // ['<chainId>:<address>', ...]
+): Promise<StringKeyMap> {
+    try {
+        const results = !!tokenKeys?.length
+            ? await redis?.hmGet(keys.LATEST_TOKEN_PRICES, tokenKeys)
+            : await redis?.hGetAll(keys.LATEST_TOKEN_PRICES)
+
+        const prices = {}
+        for (const key in results) {
+            prices[key] = JSON.parse(results[key])
+        }
+        return prices
+    } catch (err) {
+        logger.error(`Error getting latest token prices from redis: ${JSON.stringify(err)}.`)
+        return {}
+    }
+}
+
+export async function setLatestTokenPrices(map: StringKeyMap): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.LATEST_TOKEN_PRICES, map)
+        return true
+    } catch (err) {
+        logger.error(`Error setting latest token prices in redis: ${JSON.stringify(err)}.`)
+        return false
     }
 }
