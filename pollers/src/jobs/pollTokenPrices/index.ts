@@ -20,8 +20,8 @@ const buildUrl = (ids: number[]): string => {
 }
 
 async function pollTokenPrices() {
-    await sleep(10000)
-    
+    await sleep(5000)
+
     // Get the latest token prices mapped by id.
     const quotes = await fetchTokenPrices()
     
