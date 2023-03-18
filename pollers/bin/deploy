@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Create and deploy K8S pollers job resources --- #
+# --- Create and deploy K8S pollers job --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -8,23 +8,21 @@ set -e # exit if any child script exits with non-zero status
 
 this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
-delayed_jobs_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+pollers_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
+job_name="$2"
+job_schedule="$3"
 
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
+$shared_bin_dir/validate_arg "job_name" "$job_name"
+$shared_bin_dir/validate_arg "job_schedule" "$job_schedule"
 
 # ======== SET KEY VARS ======== #
 
-deno_deploy_token=$( $shared_bin_dir/env_reader "$env" "DENO_DEPLOY_TOKEN" )
-etherscan_api_key=$( $shared_bin_dir/env_reader "$env" "ETHERSCAN_API_KEY" )
-goerliscan_api_key=$( $shared_bin_dir/env_reader "$env" "GOERLISCAN_API_KEY" )
-polygonscan_api_key=$( $shared_bin_dir/env_reader "$env" "POLYGONSCAN_API_KEY" )
-mumbaiscan_api_key=$( $shared_bin_dir/env_reader "$env" "MUMBAISCAN_API_KEY" )
-polygon_alchemy_rest_url=$( $shared_bin_dir/env_reader "polygon" "ALCHEMY_REST_URL" )
-mumbai_alchemy_rest_url=$( $shared_bin_dir/env_reader "mumbai" "ALCHEMY_REST_URL" )
+cmc_api_key=$( $shared_bin_dir/env_reader "$env" "CMC_API_KEY" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -33,30 +31,13 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
-# Indexer Redis
-indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
-indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
-
-# ABI Redis
-abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
-abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
-
-# Core DB
-core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
-core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
-core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
-core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
-core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "DENO_DEPLOY_TOKEN" "$deno_deploy_token"
-$shared_bin_dir/assert_env "ETHERSCAN_API_KEY" "$etherscan_api_key"
-$shared_bin_dir/assert_env "GOERLISCAN_API_KEY" "$goerliscan_api_key"
-$shared_bin_dir/assert_env "POLYGONSCAN_API_KEY" "$polygonscan_api_key"
-$shared_bin_dir/assert_env "MUMBAISCAN_API_KEY" "$mumbaiscan_api_key"
-$shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url"
-$shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
+$shared_bin_dir/assert_env "CMC_API_KEY" "$cmc_api_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -65,20 +46,9 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 
-# Indexer Redis
-$shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
-$shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
-
-# ABI Redis
-$shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
-$shared_bin_dir/assert_env "ABI_REDIS_PORT" "$abi_redis_port"
-
-# Core DB
-$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
-$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
-$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
-$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
-$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -92,35 +62,24 @@ image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
- 
-template_path="$delayed_jobs_dir/pollers.yaml"
+
+template_path="$pollers_dir/poller.yaml"
 
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
-    sed "s|{{DENO_DEPLOY_TOKEN}}|$deno_deploy_token|g" | \
-    sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
-    sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" | \
-    sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
-    sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" | \
-    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
-    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
-    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
-    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
-    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
-    sed "s|{{ETHERSCAN_API_KEY}}|$etherscan_api_key|g" | \
-    sed "s|{{GOERLISCAN_API_KEY}}|$goerliscan_api_key|g" | \
-    sed "s|{{POLYGONSCAN_API_KEY}}|$polygonscan_api_key|g" | \
-    sed "s|{{MUMBAISCAN_API_KEY}}|$mumbaiscan_api_key|g" | \
-    sed "s|{{POLYGON_ALCHEMY_REST_URL}}|$polygon_alchemy_rest_url|g" | \
-    sed "s|{{MUMBAI_ALCHEMY_REST_URL}}|$mumbai_alchemy_rest_url|g" | \
+    sed "s|{{JOB_NAME}}|$job_name|g" | \
+    sed "s|{{JOB_SCHEDULE}}|$job_schedule|g" | \
+    sed "s|{{CMC_API_KEY}}|$cmc_api_key|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
 
-echo "Creating pollers job resources..."
+echo "Creating $job_name pollers job..."
 
 # Apply the template.
 echo "$template" | kubectl apply -f -
