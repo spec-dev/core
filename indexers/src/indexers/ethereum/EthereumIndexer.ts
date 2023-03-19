@@ -200,9 +200,12 @@ class EthereumIndexer extends AbstractIndexer {
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
         // New tokens and latest interactions.
-        const secondary: any = [resolveNewTokenContracts(contracts, this.chainId)]
-        this.chainId === chainIds.ETHEREUM && secondary.push(initLatestInteractions(transactions, traces, contracts))
-        const [latestInteractions, newTokens] = await Promise.all(secondary)
+        const [newTokens, latestInteractions] = await Promise.all([
+            resolveNewTokenContracts(contracts, this.chainId),
+            (() => this.chainId === chainIds.ETHEREUM
+                ? initLatestInteractions(transactions, traces, contracts)
+                : [])(),
+        ])
         const [erc20Tokens, nftCollections] = newTokens
 
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
@@ -239,8 +242,8 @@ class EthereumIndexer extends AbstractIndexer {
         await this._savePrimitives(
             block, 
             transactions, 
-            logs, 
-            traces, 
+            logs,
+            traces,
             contracts,
             latestInteractions,
             erc20Tokens, 
@@ -315,9 +318,9 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertLatestInteractions(latestInteractions, tx),
                 this._upsertErc20Tokens(erc20Tokens, tx),
                 this._upsertNftCollections(nftCollections, tx),
-                this._upsertLatestInteractions(latestInteractions),
             ])
         })
     }
@@ -962,6 +965,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _upsertLatestInteractions(
         latestInteractions: EthLatestInteraction[],
+        tx: any,
         attempt: number = 1
     ) {
         if (!latestInteractions.length) return
@@ -969,33 +973,30 @@ class EthereumIndexer extends AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         latestInteractions = uniqueByKeys(latestInteractions, conflictCols) as EthLatestInteraction[]
         try {
-            await SharedTables.manager.transaction(async (tx) => {
-                this.latestInteractions = (
-                    await (tx as any)
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthLatestInteraction)
-                        .values(
-                            latestInteractions.map((li) => ({
-                                ...li,
-                                timestamp: () => blockTimestamp,
-                            }))
-                        )
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
-                ).generatedMaps
-            })
+            this.latestInteractions = (
+                await (tx as any)
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthLatestInteraction)
+                    .values(
+                        latestInteractions.map((li) => ({
+                            ...li,
+                            timestamp: () => blockTimestamp,
+                        }))
+                    )
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps
         } catch (err) {
             this._error(err)
             const message = err.message || err.toString() || ''
             this.latestInteractions = []
-
             // Wait and try again if deadlocked.
             if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
                 this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
                 await sleep(randomIntegerInRange(50, 150))
-                await this._upsertLatestInteractions(latestInteractions, attempt + 1)
+                await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
             }
         }
     }

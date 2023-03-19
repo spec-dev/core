@@ -16,7 +16,7 @@ export class Erc20Transfer {
     @Column('int8', { name: 'log_index' })
     logIndex: number
 
-    @Column('varchar', { name: 'token_address', length: })
+    @Column('varchar', { name: 'token_address', length: 50 })
     tokenAddress: string
 
     @Column('varchar', { name: 'token_name', nullable: true })

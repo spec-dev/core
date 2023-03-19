@@ -19,3 +19,5 @@ export const values = (obj: object): any[] => {
         return []
     }
 }
+
+export const noop = () => {}
