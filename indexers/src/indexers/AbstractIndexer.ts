@@ -7,6 +7,11 @@ import {
     StringKeyMap,
     contractNamespaceForChainId,
     saveBlockEvents,
+    Erc20Token,
+    fullErc20TokenUpsertConfig,
+    NftCollection,
+    fullNftCollectionUpsertConfig,
+    uniqueByKeys,
 } from '../../../shared'
 import config from '../config'
 import { reportBlockEvents } from '../events'
@@ -19,6 +24,10 @@ class AbstractIndexer {
     blockUnixTimestamp: number | null
 
     contractEventNsp: string
+
+    erc20Tokens: Erc20Token[] = []
+
+    nftCollections: NftCollection[] = []
 
     get chainId(): string {
         return this.head.chainId
@@ -82,6 +91,46 @@ class AbstractIndexer {
             this._error(err)
             return false
         }
+    }
+
+    async _upsertErc20Tokens(erc20Tokens: Erc20Token[], tx: any) {
+        if (!erc20Tokens.length) return
+        const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
+        const blockTimestamp = this.pgBlockTimestamp
+        erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols) as Erc20Token[]
+        this.erc20Tokens = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(Erc20Token)
+                .values(erc20Tokens.map((c) => ({ ...c, 
+                    blockTimestamp: () => blockTimestamp,
+                    lastUpdated: () => blockTimestamp
+                })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps
+    }
+
+    async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
+        if (!nftCollections.length) return
+        const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
+        const blockTimestamp = this.pgBlockTimestamp
+        nftCollections = uniqueByKeys(nftCollections, conflictCols) as NftCollection[]
+        this.nftCollections = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(NftCollection)
+                .values(nftCollections.map((c) => ({ ...c, 
+                    blockTimestamp: () => blockTimestamp,
+                    lastUpdated: () => blockTimestamp
+                })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps
     }
 
     async _deleteRecordsWithBlockNumber() {

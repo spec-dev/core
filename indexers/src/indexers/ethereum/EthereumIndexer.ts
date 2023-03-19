@@ -10,6 +10,7 @@ import initLatestInteractions from './services/initLatestInteractions'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
+import { resolveNewTokenContracts } from '../../services/contractServices'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
     sleep,
@@ -50,6 +51,8 @@ import {
     stripLeadingAndTrailingUnderscores,
     toNamespacedVersion,
     chainIds,
+    Erc20Token,
+    NftCollection,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -64,6 +67,7 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
+import initTokenTransfers from '../../services/initTokenTransfers'
 
 const web3js = new Web3()
 
@@ -195,10 +199,14 @@ class EthereumIndexer extends AbstractIndexer {
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // Format transactions & traces as latest interactions between addresses.
-        const latestInteractions = this.chainId === chainIds.ETHEREUM
-            ? await initLatestInteractions(transactions, traces, contracts)
-            : []
+        // New tokens and latest interactions.
+        const secondary: any = [resolveNewTokenContracts(contracts, this.chainId)]
+        this.chainId === chainIds.ETHEREUM && secondary.push(initLatestInteractions(transactions, traces, contracts))
+        const [latestInteractions, newTokens] = await Promise.all(secondary)
+        const [erc20Tokens, nftCollections] = newTokens
+
+        erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
+        nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
@@ -215,6 +223,8 @@ class EthereumIndexer extends AbstractIndexer {
                 traces,
                 contracts,
                 latestInteractions,
+                erc20Tokens, 
+                nftCollections,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -226,10 +236,38 @@ class EthereumIndexer extends AbstractIndexer {
         }
 
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
+        await this._savePrimitives(
+            block, 
+            transactions, 
+            logs, 
+            traces, 
+            contracts,
+            latestInteractions,
+            erc20Tokens, 
+            nftCollections,
+        )
 
         // Curate list of logs from transactions that succeeded.
         this._curateSuccessfulLogs()
+
+        // Token transfers.
+        // const [erc20Transfers, nftTransfers] = await initTokenTransfers(
+        //     erc20Tokens,
+        //     nftCollections,
+        //     this.successfulLogs,
+        // )
+
+                /*
+                - tokens.erc20_tokens
+                - tokens.nft_collections
+        
+                * tokens.erc20s (balances)
+                * tokens.nfts (balances)
+                
+                * tokens.erc20_transfers
+                * tokens.nft_transfers
+                */
+        
 
         // Create and publish Spec events to the event relay.
         try {
@@ -264,7 +302,9 @@ class EthereumIndexer extends AbstractIndexer {
         logs: EthLog[],
         traces: EthTrace[],
         contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[]
+        latestInteractions: EthLatestInteraction[],
+        erc20Tokens: Erc20Token[],
+        nftCollections: NftCollection[],
     ) {
         this._info('Saving primitives...')
 
@@ -275,9 +315,11 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertErc20Tokens(erc20Tokens, tx),
+                this._upsertNftCollections(nftCollections, tx),
+                this._upsertLatestInteractions(latestInteractions),
             ])
         })
-        await this._upsertLatestInteractions(latestInteractions)
     }
 
     async _createAndPublishEvents() {
@@ -313,6 +355,13 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Decoded contract events.
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
+
+        // Get all Transfer events
+        // - get all erc20 transfers (Log.address)
+        // - get new totalSupply for each unique erc20 contract a transfer occurred on
+        // - get current token prices for each erc20 transfer event
+        // - build erc20 transfer records for entry into its own table
+        // - save these and create event specs to report
 
         // Publish to Spec's event network.
         await this._reportBlockEvents([

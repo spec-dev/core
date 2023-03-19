@@ -259,6 +259,18 @@ export const ERC721_TOKEN_URI_ITEM = {
     signature: '0xc87b56dd',
 }
 
+
+export const ERC721_TOTAL_SUPPLY_ITEM = {
+    constant: true,
+    inputs: [],
+    name: 'totalSupply',
+    outputs: [{ name: '', type: 'uint256' }],
+    payable: false,
+    stateMutability: 'view',
+    type: 'function',
+    signature: '0x18160ddd',
+}
+
 // ################################
 //  ERC-1155
 // ################################

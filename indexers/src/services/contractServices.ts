@@ -1,12 +1,14 @@
 import { getSocketWeb3 } from '../providers'
-import { StringKeyMap, logger, nullPromise } from '../../../shared'
+import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
+import config from '../config'
 import {
     ERC20_NAME_ITEM,
     ERC20_SYMBOL_ITEM,
     ERC20_DECIMALS_ITEM,
     ERC20_BALANCE_OF_ITEM,
+    ERC20_TOTAL_SUPPLY_ITEM,
     ERC721_BALANCE_OF_ITEM,
     ERC721_OWNER_OF_ITEM,
     ERC721_TRANSFER_ITEM,
@@ -14,10 +16,87 @@ import {
     ERC721_APPROVE_ITEM,
     ERC721_NAME_ITEM,
     ERC721_SYMBOL_ITEM,
+    ERC721_TOTAL_SUPPLY_ITEM,
     ERC1155_BALANCE_OF_ITEM,
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
+
+export async function resolveNewTokenContracts(
+    contracts: StringKeyMap[],
+    chainId: string,
+): Promise<[Erc20Token[], NftCollection[]]> {
+    const erc20Contracts = []
+    const nftContracts = []
+    for (const contract of contracts) {
+        if (contract.isERC20) {
+            erc20Contracts.push(contract)
+        } else if (contract.isERC721 || contract.isERC1155) {
+            nftContracts.push(contract)
+        }
+    }
+    if (!erc20Contracts.length && !nftContracts.length) return [[], []]
+
+    const erc20Batches = toChunks(erc20Contracts, 10)
+    const erc20Tokens = []
+    for (const batch of erc20Batches) {
+        const batchERC20Tokens = await Promise.all(batch.map(c => newERC20Token(c, chainId)))
+        erc20Tokens.push(...batchERC20Tokens)
+    }
+
+    const nftBatches = toChunks(nftContracts, 10)
+    const nftCollections = []
+    for (const batch of nftBatches) {
+        const batchNFTTokens = await Promise.all(batch.map(c => newNFTCollection(c, chainId)))
+        nftCollections.push(...batchNFTTokens)
+    }
+
+    return [erc20Tokens, nftCollections]
+}
+
+async function newERC20Token(contract: StringKeyMap, chainId: string): Promise<Erc20Token> {
+    const token = new Erc20Token()
+    token.address = contract.address
+    token.blockHash = contract.blockHash
+    token.blockNumber = contract.blockNumber
+    token.blockTimestamp = contract.blockTimestamp
+    token.lastUpdated = contract.blockTimestamp
+    token.chainId = chainId
+
+    const metadata = await resolveERC20Metadata(contract)
+    token.name = metadata.name
+    token.symbol = metadata.symbol
+    token.decimals = metadata.decimals
+    token.totalSupply = metadata.totalSupply
+    
+    return token
+}
+
+async function newNFTCollection(contract: StringKeyMap, chainId: string): Promise<NftCollection> {
+    const collection = new NftCollection()
+
+    if (contract.isERC721) {
+        collection.standard = NftStandard.ERC721
+    } else if (contract.isERC1155) {
+        collection.standard = NftStandard.ERC1155
+    } else {
+        collection.standard = NftStandard.Unknown
+    }
+
+    collection.address = contract.address
+    collection.blockHash = contract.blockHash
+    collection.blockNumber = contract.blockNumber
+    collection.blockTimestamp = contract.blockTimestamp
+    collection.lastUpdated = contract.blockTimestamp
+    collection.chainId = chainId
+
+    const metadata = await resolveNFTContractMetadata(contract)
+    collection.name = metadata.name
+    collection.symbol = metadata.symbol
+    collection.totalSupply = metadata.totalSupply
+
+    return collection
+}
 
 export function getContractInterface(address: string, abi: any): StringKeyMap {
     const web3 = getSocketWeb3()
@@ -74,18 +153,22 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     sigs.has(ERC20_NAME_ITEM.signature) && abiItems.push(ERC20_NAME_ITEM)
     sigs.has(ERC20_SYMBOL_ITEM.signature) && abiItems.push(ERC20_SYMBOL_ITEM)
     sigs.has(ERC20_DECIMALS_ITEM.signature) && abiItems.push(ERC20_DECIMALS_ITEM)
+    sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
     const methods = getContractInterface(contract.address, abiItems)
     try {
-        const [name, symbol, decimals] = await Promise.all([
+        const [name, symbol, decimals, totalSupply] = await Promise.all([
             sigs.has(ERC20_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
             sigs.has(ERC20_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
             sigs.has(ERC20_DECIMALS_ITEM.signature) ? methods.decimals().call() : nullPromise(),
+            sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
         ])
-        return { name, symbol, decimals }
+        return { name, symbol, decimals, totalSupply }
     } catch (err) {
-        logger.error(err)
+        logger.error(
+            `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+        )
         return {}
     }
 }
@@ -98,17 +181,21 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     const sigs = new Set(functionSignatures)
     sigs.has(ERC721_NAME_ITEM.signature) && abiItems.push(ERC721_NAME_ITEM)
     sigs.has(ERC721_SYMBOL_ITEM.signature) && abiItems.push(ERC721_SYMBOL_ITEM)
+    sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC721_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
     const methods = getContractInterface(contract.address, abiItems)
     try {
-        const [name, symbol] = await Promise.all([
+        const [name, symbol, totalSupply] = await Promise.all([
             sigs.has(ERC721_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
             sigs.has(ERC721_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
+            sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
         ])
-        return { name, symbol }
+        return { name, symbol, totalSupply }
     } catch (err) {
-        logger.error(err)
+        logger.error(
+            `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+        )
         return {}
     }
 }
