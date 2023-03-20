@@ -6,6 +6,7 @@ import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import config from '../../config'
+import { resolveNewTokenContracts } from '../../services/contractServices'
 import { originEvents } from '../../events'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
@@ -42,6 +43,8 @@ import {
     toNamespacedVersion,
     PolygonTrace,
     PolygonContract,
+    Erc20Token,
+    NftCollection,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -200,6 +203,11 @@ class PolygonIndexer extends AbstractIndexer {
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
         
+        // New token contracts.
+        const [erc20Tokens, nftCollections] = await resolveNewTokenContracts(contracts, this.chainId)
+        erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
+        nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
+
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
@@ -214,6 +222,8 @@ class PolygonIndexer extends AbstractIndexer {
                 logs,
                 traces,
                 contracts,
+                erc20Tokens, 
+                nftCollections,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -225,7 +235,15 @@ class PolygonIndexer extends AbstractIndexer {
         }
 
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs, traces, contracts)
+        await this._savePrimitives(
+            block,
+            transactions,
+            logs,
+            traces,
+            contracts,
+            erc20Tokens, 
+            nftCollections,
+        )
 
         // Curate list of logs from transactions that succeeded.
         this._curateSuccessfulLogs()
@@ -249,6 +267,8 @@ class PolygonIndexer extends AbstractIndexer {
         logs: PolygonLog[],
         traces: PolygonTrace[],
         contracts: PolygonContract[],
+        erc20Tokens: Erc20Token[],
+        nftCollections: NftCollection[],
     ) {
         this._info('Saving primitives...')
 
@@ -259,6 +279,8 @@ class PolygonIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertErc20Tokens(erc20Tokens, tx),
+                this._upsertNftCollections(nftCollections, tx),
             ])
         })
     }
