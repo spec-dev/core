@@ -218,6 +218,16 @@ export async function getERC20TokenBalance(
     }
 }
 
+export async function getERC20TotalSupply(tokenAddress: string): Promise<string> {
+    const methods = getContractInterface(tokenAddress, [ERC20_TOTAL_SUPPLY_ITEM])
+    try {
+        return await methods.totalSupply().call()
+    } catch (err) {
+        logger.error(`Error fetching totalSupply for ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+        return null
+    }
+}
+
 export async function getERC1155TokenBalance(
     tokenAddress: string,
     tokenId: string,

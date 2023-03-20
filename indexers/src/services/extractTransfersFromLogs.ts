@@ -38,7 +38,6 @@ function extractTransfersFromLogs(logs: StringKeyMap[]): StringKeyMap[] {
                 break
         }
     }
-
     return [
         ...extractTransferEvents(transferEvents),
         ...extractTransferSingleEvents(transferSingleEvents),

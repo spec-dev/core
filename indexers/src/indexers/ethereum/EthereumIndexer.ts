@@ -254,23 +254,12 @@ class EthereumIndexer extends AbstractIndexer {
         this._curateSuccessfulLogs()
 
         // Token transfers.
-        // const [erc20Transfers, nftTransfers] = await initTokenTransfers(
-        //     erc20Tokens,
-        //     nftCollections,
-        //     this.successfulLogs,
-        // )
-
-                /*
-                - tokens.erc20_tokens
-                - tokens.nft_collections
-        
-                * tokens.erc20s (balances)
-                * tokens.nfts (balances)
-                
-                * tokens.erc20_transfers
-                * tokens.nft_transfers
-                */
-        
+        const [erc20Transfers, nftTransfers] = await initTokenTransfers(
+            erc20Tokens,
+            nftCollections,
+            this.successfulLogs,
+            this.chainId,
+        )
 
         // Create and publish Spec events to the event relay.
         try {
