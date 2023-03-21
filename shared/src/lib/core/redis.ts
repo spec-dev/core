@@ -106,13 +106,24 @@ export async function getLatestTokenPrices(
     tokenKeys?: string[] // ['<chainId>:<address>', ...]
 ): Promise<StringKeyMap> {
     try {
-        const results = !!tokenKeys?.length
-            ? await redis?.hmGet(keys.LATEST_TOKEN_PRICES, tokenKeys)
-            : await redis?.hGetAll(keys.LATEST_TOKEN_PRICES)
+        if (tokenKeys?.length) {
+            const results = await redis?.hmGet(keys.LATEST_TOKEN_PRICES, tokenKeys)
+            const prices = {}
+            for (let i = 0; i < tokenKeys.length; i++) {
+                const key = tokenKeys[i]
+                const result = results[i]
+                if (!result) continue
+                prices[key] = JSON.parse(result)
+            }
+            return prices
+        }
 
+        const results = await redis?.hGetAll(keys.LATEST_TOKEN_PRICES)
         const prices = {}
         for (const key in results) {
-            prices[key] = JSON.parse(results[key])
+            const result = results[key]
+            if (!result) continue
+            prices[key] = JSON.parse(result)
         }
         return prices
     } catch (err) {

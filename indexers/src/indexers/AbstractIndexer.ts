@@ -11,9 +11,16 @@ import {
     fullErc20TokenUpsertConfig,
     NftCollection,
     fullNftCollectionUpsertConfig,
+    fullErc20TransferUpsertConfig,
+    fullNftTransferUpsertConfig,
     uniqueByKeys,
+    Erc20Transfer,
+    NftTransfer,
+    snakeToCamel,
 } from '../../../shared'
 import config from '../config'
+import short from 'short-uuid'
+import { Pool } from 'pg'
 import { reportBlockEvents } from '../events'
 
 class AbstractIndexer {
@@ -25,9 +32,15 @@ class AbstractIndexer {
 
     contractEventNsp: string
 
+    pool: Pool
+
     erc20Tokens: Erc20Token[] = []
 
+    erc20Transfers: Erc20Transfer[] = []
+
     nftCollections: NftCollection[] = []
+
+    nftTransfers: NftTransfer[] = []
 
     get chainId(): string {
         return this.head.chainId
@@ -58,6 +71,15 @@ class AbstractIndexer {
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
         this.contractEventNsp = contractNamespaceForChainId(this.chainId)
+        this.pool = new Pool({
+            host : config.SHARED_TABLES_DB_HOST,
+            port : config.SHARED_TABLES_DB_PORT,
+            user : config.SHARED_TABLES_DB_USERNAME,
+            password : config.SHARED_TABLES_DB_PASSWORD,
+            database : config.SHARED_TABLES_DB_NAME,
+            max: config.SHARED_TABLES_MAX_POOL_SIZE,
+        })
+        this.pool.on('error', err => logger.error('PG client error', err))
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -97,7 +119,7 @@ class AbstractIndexer {
         if (!erc20Tokens.length) return
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
-        erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols) as Erc20Token[]
+        erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
         this.erc20Tokens = (
             await tx
                 .createQueryBuilder()
@@ -113,11 +135,32 @@ class AbstractIndexer {
         ).generatedMaps
     }
 
+    async _upsertErc20Transfers(erc20Transfers: Erc20Transfer[], tx: any) {
+        if (!erc20Transfers.length) return
+        console.log(erc20Transfers.length)
+        const [updateCols, conflictCols] = fullErc20TransferUpsertConfig(erc20Transfers[0])
+        const blockTimestamp = this.pgBlockTimestamp
+        erc20Transfers = uniqueByKeys(erc20Transfers, conflictCols.map(snakeToCamel)) as Erc20Transfer[]
+        console.log(erc20Transfers.length)
+        this.erc20Transfers = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(Erc20Transfer)
+                .values(erc20Transfers.map((c) => ({ ...c, 
+                    blockTimestamp: () => blockTimestamp,
+                })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps
+    }
+    
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
         if (!nftCollections.length) return
         const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
-        nftCollections = uniqueByKeys(nftCollections, conflictCols) as NftCollection[]
+        nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
         this.nftCollections = (
             await tx
                 .createQueryBuilder()
@@ -131,6 +174,61 @@ class AbstractIndexer {
                 .returning('*')
                 .execute()
         ).generatedMaps
+    }
+
+    async _upsertNftTransfers(nftTransfers: NftTransfer[], tx: any) {
+        if (!nftTransfers.length) return
+        const [updateCols, conflictCols] = fullNftTransferUpsertConfig(nftTransfers[0])
+        const blockTimestamp = this.pgBlockTimestamp
+        nftTransfers = uniqueByKeys(nftTransfers, conflictCols.map(snakeToCamel)) as NftTransfer[]
+        this.nftTransfers = (
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(NftTransfer)
+                .values(nftTransfers.map((c) => ({ ...c, 
+                    blockTimestamp: () => blockTimestamp,
+                })))
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps
+    }
+
+    async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
+        if (!updates.length) return
+        const tempTableName = `erc20_tokens_${short.generate()}`
+        const insertPlaceholders = []
+        const insertBindings = []
+        let i = 1
+        for (const { id, totalSupply } of updates) {
+            insertPlaceholders.push(`($${i}, $${i + 1}, $${i + 2})`)
+            insertBindings.push(...[id, totalSupply, timestamp])
+            i += 3
+        }
+        
+        const client = await this.pool.connect()
+        try {
+            // Create temp table and insert updates + primary key data.
+            await client.query('BEGIN')
+            await client.query(
+                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
+            )
+
+            // Bulk insert the updated records to the temp table.
+            await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
+
+            // Merge the temp table updates into the target table ("bulk update").
+            await client.query(
+                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id`
+            )
+            await client.query('COMMIT')
+        } catch (e) {
+            await client.query('ROLLBACK')
+            this._error(`Error bulk updating ERC-20 Tokens`, updates, e)
+        } finally {
+            client.release()
+        }
     }
 
     async _deleteRecordsWithBlockNumber() {

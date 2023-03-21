@@ -232,6 +232,7 @@ export {
 
 export * from './lib/abi/types'
 export * from './lib/utils/general'
+export * from './lib/utils/tokenMappings'
 
 export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'
 

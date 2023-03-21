@@ -53,6 +53,8 @@ import {
     chainIds,
     Erc20Token,
     NftCollection,
+    Erc20Transfer,
+    NftTransfer,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -190,7 +192,7 @@ class EthereumIndexer extends AbstractIndexer {
         traces = traces.length && (numAbis || numFunctionSigs) 
             ? this._decodeTraces(traces, abis, functionSignatures) 
             : traces
-        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
+        logs = logs.length ? this._decodeLogs(logs, abis) : logs
         
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
@@ -211,9 +213,35 @@ class EthereumIndexer extends AbstractIndexer {
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
+        const txSuccess = {}
+        for (const tx of transactions) {
+            txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
+        }
+        this.successfulLogs = logs
+            .filter(log => txSuccess[log.transactionHash])
+            .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
+        )
+
+        // Token transfers.
+        const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = await initTokenTransfers(
+            erc20Tokens,
+            nftCollections,
+            this.successfulLogs,
+            this.chainId,
+        )
+
+        erc20Transfers.length && this._info(`${erc20Transfers.length} ERC-20 transfers.`)
+        nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
+
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
             return
         }
 
@@ -226,18 +254,14 @@ class EthereumIndexer extends AbstractIndexer {
                 traces,
                 contracts,
                 latestInteractions,
-                erc20Tokens, 
+                erc20Tokens,
+                erc20Transfers,
                 nftCollections,
+                nftTransfers,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
-
-        // One last check before saving primitives / publishing events.
-        if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
-            return
-        }
-
+        
         // Save primitives to shared tables.
         await this._savePrimitives(
             block, 
@@ -246,19 +270,11 @@ class EthereumIndexer extends AbstractIndexer {
             traces,
             contracts,
             latestInteractions,
-            erc20Tokens, 
-            nftCollections,
-        )
-
-        // Curate list of logs from transactions that succeeded.
-        this._curateSuccessfulLogs()
-
-        // Token transfers.
-        const [erc20Transfers, nftTransfers] = await initTokenTransfers(
             erc20Tokens,
+            erc20Transfers,
             nftCollections,
-            this.successfulLogs,
-            this.chainId,
+            nftTransfers,
+            erc20TotalSupplyUpdates,
         )
 
         // Create and publish Spec events to the event relay.
@@ -296,7 +312,11 @@ class EthereumIndexer extends AbstractIndexer {
         contracts: EthContract[],
         latestInteractions: EthLatestInteraction[],
         erc20Tokens: Erc20Token[],
+        erc20Transfers: Erc20Transfer[],
         nftCollections: NftCollection[],
+        nftTransfers: NftTransfer[],
+        erc20TotalSupplyUpdates: StringKeyMap[],
+
     ) {
         this._info('Saving primitives...')
 
@@ -309,8 +329,14 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertContracts(contracts, tx),
                 this._upsertLatestInteractions(latestInteractions, tx),
                 this._upsertErc20Tokens(erc20Tokens, tx),
+                this._upsertErc20Transfers(erc20Transfers, tx),
                 this._upsertNftCollections(nftCollections, tx),
+                this._upsertNftTransfers(nftTransfers, tx),
             ])
+            erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
+                erc20TotalSupplyUpdates,
+                this.block.timestamp.toISOString(),
+            )
         })
     }
 
