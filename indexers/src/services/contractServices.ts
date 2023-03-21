@@ -1,5 +1,5 @@
 import { getSocketWeb3 } from '../providers'
-import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard } from '../../../shared'
+import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
 import config from '../config'
@@ -157,19 +157,28 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     if (!abiItems.length) return {}
 
     const methods = getContractInterface(contract.address, abiItems)
-    try {
-        const [name, symbol, decimals, totalSupply] = await Promise.all([
-            sigs.has(ERC20_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
-            sigs.has(ERC20_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
-            sigs.has(ERC20_DECIMALS_ITEM.signature) ? methods.decimals().call() : nullPromise(),
-            sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
-        ])
-        return { name, symbol, decimals, totalSupply }
-    } catch (err) {
-        logger.error(
-            `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${JSON.stringify(err)}`
-        )
-        return {}
+
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            const [name, symbol, decimals, totalSupply] = await Promise.all([
+                sigs.has(ERC20_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
+                sigs.has(ERC20_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
+                sigs.has(ERC20_DECIMALS_ITEM.signature) ? methods.decimals().call() : nullPromise(),
+                sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
+            ])
+            return { name, symbol, decimals, totalSupply }
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(
+                `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+            )
+            return {}
+        }    
     }
 }
 
@@ -185,18 +194,27 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     if (!abiItems.length) return {}
 
     const methods = getContractInterface(contract.address, abiItems)
-    try {
-        const [name, symbol, totalSupply] = await Promise.all([
-            sigs.has(ERC721_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
-            sigs.has(ERC721_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
-            sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
-        ])
-        return { name, symbol, totalSupply }
-    } catch (err) {
-        logger.error(
-            `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${JSON.stringify(err)}`
-        )
-        return {}
+
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            const [name, symbol, totalSupply] = await Promise.all([
+                sigs.has(ERC721_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
+                sigs.has(ERC721_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
+                sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
+            ])
+            return { name, symbol, totalSupply }
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(
+                `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+            )
+            return {}
+        }
     }
 }
 
@@ -205,26 +223,42 @@ export async function getERC20TokenBalance(
     ownerAddress: string, 
     decimals: number = 18,
     formatWithDecimals: boolean = true,
-): Promise<string> {
+): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
-    try {
-        let balance = await methods.balanceOf(ownerAddress).call()
-        if (!formatWithDecimals) return balance
-
-        balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals) || 18)
-        return Number(balance) === 0 ? '0' : balance
-    } catch (err) {
-        return null
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            let balance = await methods.balanceOf(ownerAddress).call()
+            if (!formatWithDecimals) return balance
+            balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals) || 18)
+            return Number(balance) === 0 ? '0' : balance
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(`Error calling balanceOf(${ownerAddress}) on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+            return null
+        }
     }
 }
 
-export async function getERC20TotalSupply(tokenAddress: string): Promise<string> {
+export async function getERC20TotalSupply(tokenAddress: string): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC20_TOTAL_SUPPLY_ITEM])
-    try {
-        return await methods.totalSupply().call()
-    } catch (err) {
-        logger.error(`Error fetching totalSupply for ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
-        return null
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            return await methods.totalSupply().call()
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(`Error calling totalSupply() on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+            return null
+        }
     }
 }
 
@@ -232,13 +266,22 @@ export async function getERC1155TokenBalance(
     tokenAddress: string,
     tokenId: string,
     ownerAddress: string, 
-): Promise<string> {
+): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC1155_BALANCE_OF_ITEM])
-    try {
-        let balance = await methods.balanceOf(ownerAddress, tokenId).call()
-        return Number(balance) === 0 ? '0' : balance
-    } catch (err) {
-        return null
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            let balance = await methods.balanceOf(ownerAddress, tokenId).call()
+            return Number(balance) === 0 ? '0' : balance
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(`Error calling balanceOf(${ownerAddress}, ${tokenId}) on ERC-1155 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+            return null
+        }
     }
 }
 
