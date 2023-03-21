@@ -68,6 +68,10 @@ async function newERC20Token(contract: StringKeyMap, chainId: string): Promise<E
     token.symbol = metadata.symbol
     token.decimals = metadata.decimals
     token.totalSupply = metadata.totalSupply
+
+    if (token.symbol.includes('\\')) {
+
+    }
     
     return token
 }

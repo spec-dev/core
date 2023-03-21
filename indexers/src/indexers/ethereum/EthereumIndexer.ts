@@ -328,15 +328,15 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
                 this._upsertLatestInteractions(latestInteractions, tx),
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertErc20Transfers(erc20Transfers, tx),
-                this._upsertNftCollections(nftCollections, tx),
-                this._upsertNftTransfers(nftTransfers, tx),
+                // this._upsertErc20Tokens(erc20Tokens, tx),
+                // this._upsertErc20Transfers(erc20Transfers, tx),
+                // this._upsertNftCollections(nftCollections, tx),
+                // this._upsertNftTransfers(nftTransfers, tx),
             ])
-            erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
-                erc20TotalSupplyUpdates,
-                this.block.timestamp.toISOString(),
-            )
+            // erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
+            //     erc20TotalSupplyUpdates,
+            //     this.block.timestamp.toISOString(),
+            // )
         })
     }
 
