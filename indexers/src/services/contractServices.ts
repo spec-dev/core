@@ -64,16 +64,21 @@ async function newERC20Token(contract: StringKeyMap, chainId: string): Promise<E
     token.chainId = chainId
 
     const metadata = await resolveERC20Metadata(contract)
-    token.name = metadata.name
-    token.symbol = metadata.symbol
+    token.name = parseTokenString(metadata.name)
+    token.symbol = parseTokenString(metadata.symbol)
     token.decimals = metadata.decimals
     token.totalSupply = metadata.totalSupply
 
-    if (token.symbol.includes('\\')) {
-
-    }
-    
     return token
+}
+
+function parseTokenString(value: string): string | null {
+    if (!value) return null
+    try {
+        return JSON.stringify(value).includes('\\') ? null : value
+    } catch (e) {
+        return null
+    }
 }
 
 async function newNFTCollection(contract: StringKeyMap, chainId: string): Promise<NftCollection> {
@@ -95,8 +100,8 @@ async function newNFTCollection(contract: StringKeyMap, chainId: string): Promis
     collection.chainId = chainId
 
     const metadata = await resolveNFTContractMetadata(contract)
-    collection.name = metadata.name
-    collection.symbol = metadata.symbol
+    collection.name = parseTokenString(metadata.name)
+    collection.symbol = parseTokenString(metadata.symbol)
     collection.totalSupply = metadata.totalSupply
 
     return collection
