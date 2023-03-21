@@ -1,12 +1,11 @@
 import cmcIds from './cmcIds'
-import { StringKeyMap, logger, sleep, toChunks, chainIds, getLatestTokenPrices, setLatestTokenPrices, TokenPrice, SharedTables } from '../../../../shared'
+import { NULL_ADDRESS, StringKeyMap, logger, sleep, toChunks, chainIds, getLatestTokenPrices, setLatestTokenPrices, TokenPrice, SharedTables } from '../../../../shared'
 import config from '../../config'
 import fetch from 'cross-fetch'
 
 const ETHEREUM_CMC_ID = 1027
 const POLYGON_CMC_ID = 3890
 const BATCH_SIZE = 700
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const chainIdForPlatform = {
     [ETHEREUM_CMC_ID]: chainIds.ETHEREUM,
@@ -20,8 +19,6 @@ const buildUrl = (ids: number[]): string => {
 }
 
 async function pollTokenPrices() {
-    await sleep(5000)
-
     // Get the latest token prices mapped by id.
     const quotes = await fetchTokenPrices()
     
@@ -127,10 +124,10 @@ function buildPricedTokens(
     for (const tokenData of tokenPrices) {
         let chainId, tokenAddress
         if (tokenData.id === ETHEREUM_CMC_ID) {
-            tokenAddress = ZERO_ADDRESS
+            tokenAddress = NULL_ADDRESS
             chainId = chainIds.ETHEREUM
         } else if (tokenData.id === POLYGON_CMC_ID) {
-            tokenAddress = ZERO_ADDRESS
+            tokenAddress = NULL_ADDRESS
             chainId = chainIds.POLYGON
         }
 

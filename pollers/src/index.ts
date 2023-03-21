@@ -25,7 +25,7 @@ async function run() {
 
     logger.info(`Starting job ${config.JOB_NAME}...`)
     await job()
-    exit()
+    setInterval(async () => { await job() }, config.JOB_INTERVAL)
 }
 
 run()
