@@ -10,6 +10,8 @@ import {
     Erc20Token,
     camelizeKeys,
     schemaForChainId,
+    snakeToCamel,
+    sleep,
 } from '../../../shared'
 import { ident } from 'pg-format'
 import { exit } from 'process'
@@ -71,7 +73,8 @@ class SeedTokenContractsWorker {
 
         // Init tokens for contracts.
         const [erc20Tokens, nftCollections] = await resolveNewTokenContracts(contracts, config.CHAIN_ID)
-
+        await sleep(50)
+        
         this.erc20Tokens.push(...erc20Tokens)
         this.nftCollections.push(...nftCollections)
 
@@ -92,7 +95,7 @@ class SeedTokenContractsWorker {
     async _upsertErc20Tokens(erc20Tokens: Erc20Token[], tx: any) {
         if (!erc20Tokens.length) return
         const [_, conflictCols] = fullErc20TokenUpsertConfig()
-        erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols) as Erc20Token[]
+        erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
         await tx
             .createQueryBuilder()
             .insert()
@@ -105,7 +108,7 @@ class SeedTokenContractsWorker {
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
         if (!nftCollections.length) return
         const [_, conflictCols] = fullNftCollectionUpsertConfig()
-        nftCollections = uniqueByKeys(nftCollections, conflictCols) as NftCollection[]
+        nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
         await tx
             .createQueryBuilder()
             .insert()
