@@ -79,12 +79,14 @@ class SeedTokenContractsWorker {
         this.nftCollections.push(...nftCollections)
 
         if (this.erc20Tokens.length >= 2000) {
+            logger.info('Saving tokens...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertErc20Tokens([...this.erc20Tokens], tx)
             })
             this.erc20Tokens = []
         }
         if (this.nftCollections.length >= 2000) {
+            logger.info('Saving collections...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertNftCollections([...this.nftCollections], tx)
             })
@@ -127,7 +129,12 @@ class SeedTokenContractsWorker {
                 `select * from ${table} where (is_erc20 = true and ${numberClause}) or (is_erc721 = true and ${numberClause}) or (is_erc1155 = true and ${numberClause})`,
                 [start, end]
             )) || []
-            return camelizeKeys(results) as StringKeyMap[]
+            return camelizeKeys(results).map(c => {
+                c.isERC20 = c.isErc20
+                c.isERC721 = c.isErc721
+                c.isERC1155 = c.isErc1155
+                return c
+            }) as StringKeyMap[]
         } catch (err) {
             logger.error(`Error getting contracts: ${err}`)
             return []
