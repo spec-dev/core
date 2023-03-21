@@ -137,11 +137,9 @@ class AbstractIndexer {
 
     async _upsertErc20Transfers(erc20Transfers: Erc20Transfer[], tx: any) {
         if (!erc20Transfers.length) return
-        console.log(erc20Transfers.length)
         const [updateCols, conflictCols] = fullErc20TransferUpsertConfig(erc20Transfers[0])
         const blockTimestamp = this.pgBlockTimestamp
         erc20Transfers = uniqueByKeys(erc20Transfers, conflictCols.map(snakeToCamel)) as Erc20Transfer[]
-        console.log(erc20Transfers.length)
         this.erc20Transfers = (
             await tx
                 .createQueryBuilder()
