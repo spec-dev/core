@@ -165,7 +165,8 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    const methods = getContractInterface(contract.address, abiItems)
+    let methods = getContractInterface(contract.address, abiItems)
+    let usingBytesAbi = false
 
     let numAttempts = 0
     while (numAttempts < 5) {
@@ -179,12 +180,29 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
             ])
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
+            const error = JSON.stringify(err)
             if (numAttempts < 5) {
+                const switchAbi = error.includes('NUMERIC_FAULT')
+                if (switchAbi && !usingBytesAbi) {
+                    const newAbiItems = []
+                    sigs.has(ERC20_NAME_ITEM.signature) && newAbiItems.push({ 
+                        ...ERC20_NAME_ITEM, 
+                        outputs: [{ name: '', type: 'bytes32' }] 
+                    })
+                    sigs.has(ERC20_SYMBOL_ITEM.signature) && newAbiItems.push({ 
+                        ...ERC20_SYMBOL_ITEM,
+                        outputs: [{ name: '', type: 'bytes32' }] 
+                    })
+                    sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
+                    sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
+                    methods = getContractInterface(contract.address, newAbiItems)
+                    usingBytesAbi = true
+                }
                 await sleep((1.5 ** numAttempts) * 10)
                 continue
             }
             logger.error(
-                `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+                `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${error}`
             )
             return {}
         }    
@@ -202,7 +220,8 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC721_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    const methods = getContractInterface(contract.address, abiItems)
+    let methods = getContractInterface(contract.address, abiItems)
+    let usingBytesAbi = false
 
     let numAttempts = 0
     while (numAttempts < 5) {
@@ -215,12 +234,29 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
             ])
             return { name, symbol, totalSupply }
         } catch (err) {
+            const error = JSON.stringify(err)
             if (numAttempts < 5) {
+                const switchAbi = error.includes('NUMERIC_FAULT')
+                if (switchAbi && !usingBytesAbi) {
+                    const newAbiItems = []
+                    sigs.has(ERC721_NAME_ITEM.signature) && newAbiItems.push({ 
+                        ...ERC721_NAME_ITEM, 
+                        outputs: [{ name: '', type: 'bytes32' }] 
+                    })
+                    sigs.has(ERC721_SYMBOL_ITEM.signature) && newAbiItems.push({ 
+                        ...ERC721_SYMBOL_ITEM,
+                        outputs: [{ name: '', type: 'bytes32' }] 
+                    })
+                    sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
+                    sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
+                    methods = getContractInterface(contract.address, newAbiItems)
+                    usingBytesAbi = true
+                }
                 await sleep((1.5 ** numAttempts) * 10)
                 continue
             }
             logger.error(
-                `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${JSON.stringify(err)}`
+                `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${error}`
             )
             return {}
         }
