@@ -10,6 +10,7 @@ import {
     Erc20Token,
     camelizeKeys,
     schemaForChainId,
+    toChunks,
     snakeToCamel,
     sleep,
 } from '../../../shared'
@@ -49,12 +50,14 @@ class SeedTokenContractsWorker {
         }
 
         if (this.erc20Tokens.length) {
+            logger.info('Saving tokens...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertErc20Tokens(this.erc20Tokens, tx)
             })
         }
 
         if (this.nftCollections.length) {
+            logger.info('Saving collections...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertNftCollections(this.nftCollections, tx)
             })
@@ -98,26 +101,34 @@ class SeedTokenContractsWorker {
         if (!erc20Tokens.length) return
         const [_, conflictCols] = fullErc20TokenUpsertConfig()
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
-        await tx
-            .createQueryBuilder()
-            .insert()
-            .into(Erc20Token)
-            .values(erc20Tokens)
-            .orUpdate(['name', 'symbol', 'decimals', 'total_supply'], conflictCols)
-            .execute()
+        await Promise.all(
+            toChunks(erc20Tokens, 2000).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(Erc20Token)
+                    .values(chunk)
+                    .orUpdate(['name', 'symbol', 'decimals', 'total_supply'], conflictCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
         if (!nftCollections.length) return
         const [_, conflictCols] = fullNftCollectionUpsertConfig()
         nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
-        await tx
-            .createQueryBuilder()
-            .insert()
-            .into(NftCollection)
-            .values(nftCollections)
-            .orUpdate(['name', 'symbol', 'total_supply'], conflictCols)
-            .execute()
+        await Promise.all(
+            toChunks(nftCollections, 2000).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(NftCollection)
+                    .values(chunk)
+                    .orUpdate(['name', 'symbol', 'total_supply'], conflictCols)
+                    .execute()
+            })
+        )
     }
 
     async _getContractsInBlockRange(start: number, end: number): Promise<StringKeyMap[]> {
