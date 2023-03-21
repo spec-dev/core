@@ -120,19 +120,25 @@ class AbstractIndexer {
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
-        this.erc20Tokens = (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(Erc20Token)
-                .values(erc20Tokens.map((c) => ({ ...c, 
-                    blockTimestamp: () => blockTimestamp,
-                    lastUpdated: () => blockTimestamp
-                })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps
+
+        try {
+            this.erc20Tokens = (
+                await tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(Erc20Token)
+                    .values(erc20Tokens.map((c) => ({ ...c, 
+                        blockTimestamp: () => blockTimestamp,
+                        lastUpdated: () => blockTimestamp
+                    })))
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps
+        } catch (err) {
+            this.erc20Tokens = []
+            logger.error(err)
+        }
     }
 
     async _upsertErc20Transfers(erc20Transfers: Erc20Transfer[], tx: any) {

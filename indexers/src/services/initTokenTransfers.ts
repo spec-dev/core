@@ -232,7 +232,7 @@ function getTokenPriceCacheKeys(chainId: string, address: string): string[] {
 export function calculateTokenPrice(value: string, decimals: number, pricePerToken: number): string | null {
     if (!pricePerToken) return null
     try {
-        const decimalValue = FixedNumber.from(utils.formatUnits(BigNumber.from(value), decimals))
+        const decimalValue = FixedNumber.from(utils.formatUnits(BigNumber.from(value), decimals), decimals)
         const price = FixedNumber.from(pricePerToken.toFixed(decimals), decimals)
         const newValue = decimalValue.mulUnsafe(price)
         return newValue.toString()
