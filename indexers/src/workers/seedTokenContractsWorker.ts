@@ -103,7 +103,7 @@ class SeedTokenContractsWorker {
             .insert()
             .into(Erc20Token)
             .values(erc20Tokens)
-            .onConflict(`(${conflictCols.map(ident).join(', ')}) DO NOTHING`)
+            .orUpdate(['name', 'symbol', 'decimals', 'total_supply'], conflictCols)
             .execute()
     }
 
@@ -116,7 +116,7 @@ class SeedTokenContractsWorker {
             .insert()
             .into(NftCollection)
             .values(nftCollections)
-            .onConflict(`(${conflictCols.map(ident).join(', ')}) DO NOTHING`)
+            .orUpdate(['name', 'symbol', 'total_supply'], conflictCols)
             .execute()
     }
 
