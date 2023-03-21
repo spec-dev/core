@@ -11,6 +11,7 @@ import {
     formatAbiValueWithType,
     IsNull,
     unique,
+    schemaForChainId,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -62,10 +63,6 @@ class DecodeLogWorker {
             password : config.SHARED_TABLES_DB_PASSWORD,
             database : config.SHARED_TABLES_DB_NAME,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
-            idleTimeoutMillis: 0,
-            query_timeout: 0,
-            connectionTimeoutMillis: 0,
-            statement_timeout: 0,
         })
 
         this.pool.on('error', err => logger.error('PG client error', err))
@@ -91,7 +88,7 @@ class DecodeLogWorker {
         logger.info(`Indexing ${numbers[0]} --> ${numbers[numbers.length - 1]}...`)
 
         // Get logs for this block range.
-        let logs = await this._getEncodedLogsForBlocks(numbers)
+        let logs = await this._getLogsForBlocks(numbers)
         const numLogsForBlockRange = logs.length
         if (!numLogsForBlockRange) return
 
@@ -115,6 +112,7 @@ class DecodeLogWorker {
 
     async _updateLogs(logs: EthLog[]) {
         logger.info(`Saving ${logs.length} decoded logs...`)
+        const schema = schemaForChainId[config.CHAIN_ID]
 
         const tempTableName = `logs_${short.generate()}`
         const insertPlaceholders = []
@@ -147,7 +145,7 @@ class DecodeLogWorker {
 
             // Merge the temp table updates into the target table ("bulk update").
             await client.query(
-                `UPDATE ethereum.logs SET event_name = ${tempTableName}.event_name, event_args = ${tempTableName}.event_args FROM ${tempTableName} WHERE ethereum.logs.log_index = ${tempTableName}.log_index AND ethereum.logs.transaction_hash = ${tempTableName}.transaction_hash`
+                `UPDATE ${schema}.logs SET event_name = ${tempTableName}.event_name, event_args = ${tempTableName}.event_args FROM ${tempTableName} WHERE ${schema}.logs.log_index = ${tempTableName}.log_index AND ${schema}.logs.transaction_hash = ${tempTableName}.transaction_hash`
             )
             await client.query('COMMIT')
         } catch (e) {
@@ -266,16 +264,13 @@ class DecodeLogWorker {
         return log
     }
 
-    async _getEncodedLogsForBlocks(numbers: number[]): Promise<EthLog[]> {
+    async _getLogsForBlocks(numbers: number[]): Promise<EthLog[]> {
         try {
             return (
                 (await logsRepo().find({
-                    where: {
-                        blockNumber: In(numbers),
-                        eventName: IsNull(),
-                    }
+                    where: { blockNumber: In(numbers) }
                 })) || []
-            )
+            ).filter(log => !log.eventName)
         } catch (err) {
             logger.error(`Error getting logs: ${err}`)
             return []
