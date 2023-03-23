@@ -1,8 +1,9 @@
 import { logger } from '../../../shared'
 import errors from './errors'
 import config from './config'
-import { QueryPayload, StringKeyMap } from './types'
+import { StringKeyMap } from './types'
 import { Pool } from 'pg'
+import { QueryPayload } from '@spec.dev/qb'
 import QueryStream from 'pg-query-stream'
 
 // Create connection pool.

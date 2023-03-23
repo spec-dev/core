@@ -362,6 +362,8 @@ export const removeAcronymFromCamel = (val: string): string => {
     return formattedVal
 }
 
+export const camelizeKeys = (any) => humps.camelizeKeys(any)
+
 export const camelToSnake = (val: string): string => {
     return humps.decamelize(removeAcronymFromCamel(val))
 }

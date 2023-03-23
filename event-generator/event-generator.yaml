@@ -49,4 +49,6 @@ spec:
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FORCE_COLOR
-          value: "1"
+          value: "1" 
+        - name: EVENT_GEN_RESPONSE_TIMEOUT
+          value: "600000"

@@ -10,6 +10,7 @@ import initLatestInteractions from './services/initLatestInteractions'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
+import { resolveNewTokenContracts } from '../../services/contractServices'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
     sleep,
@@ -50,6 +51,10 @@ import {
     stripLeadingAndTrailingUnderscores,
     toNamespacedVersion,
     chainIds,
+    Erc20Token,
+    NftCollection,
+    Erc20Transfer,
+    NftTransfer,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -64,6 +69,7 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
+import initTokenTransfers from '../../services/initTokenTransfers'
 
 const web3js = new Web3()
 
@@ -186,7 +192,7 @@ class EthereumIndexer extends AbstractIndexer {
         traces = traces.length && (numAbis || numFunctionSigs) 
             ? this._decodeTraces(traces, abis, functionSignatures) 
             : traces
-        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
+        logs = logs.length ? this._decodeLogs(logs, abis) : logs
         
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
@@ -195,14 +201,47 @@ class EthereumIndexer extends AbstractIndexer {
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // Format transactions & traces as latest interactions between addresses.
-        const latestInteractions = this.chainId === chainIds.ETHEREUM
-            ? await initLatestInteractions(transactions, traces, contracts)
-            : []
+        // New tokens and latest interactions.
+        const [newTokens, latestInteractions] = await Promise.all([
+            resolveNewTokenContracts(contracts, this.chainId),
+            (() => this.chainId === chainIds.ETHEREUM
+                ? initLatestInteractions(transactions, traces, contracts)
+                : [])(),
+        ])
+        const [erc20Tokens, nftCollections] = newTokens
+
+        erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
+        nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
+
+        const txSuccess = {}
+        for (const tx of transactions) {
+            txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
+        }
+        this.successfulLogs = logs
+            .filter(log => txSuccess[log.transactionHash])
+            .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
+        )
+
+        // Token transfers.
+        const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = await initTokenTransfers(
+            erc20Tokens,
+            nftCollections,
+            this.successfulLogs,
+            this.chainId,
+        )
+
+        erc20Transfers.length && this._info(`${erc20Transfers.length} ERC-20 transfers.`)
+        nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
 
         // One more uncle check before taking action.
         if (await this._wasUncled()) {
             this._warn('Current block was uncled mid-indexing. Stopping.')
+            return
+        }
+
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
             return
         }
 
@@ -215,21 +254,28 @@ class EthereumIndexer extends AbstractIndexer {
                 traces,
                 contracts,
                 latestInteractions,
+                erc20Tokens,
+                erc20Transfers,
+                nftCollections,
+                nftTransfers,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
 
-        // One last check before saving primitives / publishing events.
-        if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
-            return
-        }
-
         // Save primitives to shared tables.
-        await this._savePrimitives(block, transactions, logs, traces, contracts, latestInteractions)
-
-        // Curate list of logs from transactions that succeeded.
-        this._curateSuccessfulLogs()
+        await this._savePrimitives(
+            block, 
+            transactions, 
+            logs,
+            traces,
+            contracts,
+            latestInteractions,
+            erc20Tokens,
+            erc20Transfers,
+            nftCollections,
+            nftTransfers,
+            erc20TotalSupplyUpdates,
+        )
 
         // Create and publish Spec events to the event relay.
         try {
@@ -264,7 +310,12 @@ class EthereumIndexer extends AbstractIndexer {
         logs: EthLog[],
         traces: EthTrace[],
         contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[]
+        latestInteractions: EthLatestInteraction[],
+        erc20Tokens: Erc20Token[],
+        erc20Transfers: Erc20Transfer[],
+        nftCollections: NftCollection[],
+        nftTransfers: NftTransfer[],
+        erc20TotalSupplyUpdates: StringKeyMap[],
     ) {
         this._info('Saving primitives...')
 
@@ -275,9 +326,17 @@ class EthereumIndexer extends AbstractIndexer {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertLatestInteractions(latestInteractions, tx),
+                this._upsertErc20Tokens(erc20Tokens, tx),
+                this._upsertErc20Transfers(erc20Transfers, tx),
+                this._upsertNftCollections(nftCollections, tx),
+                this._upsertNftTransfers(nftTransfers, tx),
             ])
+            erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
+                erc20TotalSupplyUpdates,
+                this.block.timestamp.toISOString(),
+            )
         })
-        await this._upsertLatestInteractions(latestInteractions)
     }
 
     async _createAndPublishEvents() {
@@ -313,6 +372,13 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Decoded contract events.
         const contractEventSpecs = await this._getDetectedContractEventSpecs()
+
+        // Get all Transfer events
+        // - get all erc20 transfers (Log.address)
+        // - get new totalSupply for each unique erc20 contract a transfer occurred on
+        // - get current token prices for each erc20 transfer event
+        // - build erc20 transfer records for entry into its own table
+        // - save these and create event specs to report
 
         // Publish to Spec's event network.
         await this._reportBlockEvents([
@@ -913,6 +979,7 @@ class EthereumIndexer extends AbstractIndexer {
 
     async _upsertLatestInteractions(
         latestInteractions: EthLatestInteraction[],
+        tx: any,
         attempt: number = 1
     ) {
         if (!latestInteractions.length) return
@@ -920,33 +987,30 @@ class EthereumIndexer extends AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         latestInteractions = uniqueByKeys(latestInteractions, conflictCols) as EthLatestInteraction[]
         try {
-            await SharedTables.manager.transaction(async (tx) => {
-                this.latestInteractions = (
-                    await (tx as any)
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthLatestInteraction)
-                        .values(
-                            latestInteractions.map((li) => ({
-                                ...li,
-                                timestamp: () => blockTimestamp,
-                            }))
-                        )
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
-                ).generatedMaps
-            })
+            this.latestInteractions = (
+                await (tx as any)
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthLatestInteraction)
+                    .values(
+                        latestInteractions.map((li) => ({
+                            ...li,
+                            timestamp: () => blockTimestamp,
+                        }))
+                    )
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps
         } catch (err) {
             this._error(err)
             const message = err.message || err.toString() || ''
             this.latestInteractions = []
-
             // Wait and try again if deadlocked.
             if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
                 this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
                 await sleep(randomIntegerInRange(50, 150))
-                await this._upsertLatestInteractions(latestInteractions, attempt + 1)
+                await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
             }
         }
     }

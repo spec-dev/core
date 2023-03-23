@@ -119,6 +119,8 @@ async function generateEventsForNamespace(
             tablesApiTokens[lovTableSchema] = newTablesApiToken(lovTableSchema)
         }
 
+        if (lovId == 158) continue
+
         let generatedEvents = await generateLiveObjectEventsWithProtection(
             lovId,
             lovUrl,
@@ -549,7 +551,7 @@ function getUniqueEventVersionComps(originEvents: StringKeyMap[]): StringKeyMap[
 }
 
 function newTablesApiToken(schema: string) {
-    return newTablesJWT(schema, config.EVENT_GEN_RESPONSE_TIMEOUT * 10)
+    return newTablesJWT(schema, config.EVENT_GEN_RESPONSE_TIMEOUT * 100)
 }
 
 export default perform

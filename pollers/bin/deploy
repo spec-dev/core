@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# --- Create and deploy K8S pollers job --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+pollers_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env="$1"
+job_name="$2"
+deployment_name="$3"
+
+# ======== VALIDATE ARGS ======== #
+
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
+$shared_bin_dir/validate_arg "job_name" "$job_name"
+$shared_bin_dir/validate_arg "deployment_name" "$deployment_name"
+
+# ======== SET KEY VARS ======== #
+
+cmc_api_key=$( $shared_bin_dir/env_reader "$env" "CMC_API_KEY" )
+
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "CMC_API_KEY" "$cmc_api_key"
+
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
+
+# ======== GET LATEST IMAGE ======== #
+
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "POLLERS_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
+
+# ======== CREATE & APPLY TEMPLATE ======== #
+
+template_path="$pollers_dir/poller.yaml"
+
+# Create the config template.
+template=$( cat "$template_path" | \
+    sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{JOB_NAME}}|$job_name|g" | \
+    sed "s|{{DEPLOYMENT_NAME}}|$deployment_name|g" | \
+    sed "s|{{CMC_API_KEY}}|$cmc_api_key|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
+
+echo "Creating $job_name pollers job..."
+
+# Apply the template.
+echo "$template" | kubectl apply -f -

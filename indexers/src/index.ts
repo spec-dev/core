@@ -5,8 +5,8 @@ import {
     IndexerDB,
     SharedTables,
     CoreDB,
-    upsertContractCaches,
     abiRedis,
+    coreRedis,
 } from '../../shared'
 import { getWorker } from './workers'
 
@@ -18,6 +18,7 @@ async function run() {
         CoreDB.initialize(),
         indexerRedis.connect(),
         abiRedis.connect(),
+        coreRedis.connect(),
     ])
 
     logger.info(

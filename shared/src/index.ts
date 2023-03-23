@@ -22,6 +22,23 @@ export {
     fullLatestInteractionUpsertConfig,
     EthLatestInteractionAddressCategory,
 } from './lib/shared-tables/db/entities/EthLatestInteraction'
+export { TokenPrice } from './lib/shared-tables/db/entities/TokenPrice'
+export { Erc20Token, fullErc20TokenUpsertConfig } from './lib/shared-tables/db/entities/Erc20Token'
+export {
+    Erc20Transfer,
+    fullErc20TransferUpsertConfig,
+} from './lib/shared-tables/db/entities/Erc20Transfer'
+export { Erc20, fullErc20UpsertConfig } from './lib/shared-tables/db/entities/Erc20'
+export {
+    NftCollection,
+    NftStandard,
+    fullNftCollectionUpsertConfig,
+} from './lib/shared-tables/db/entities/NftCollection'
+export {
+    NftTransfer,
+    fullNftTransferUpsertConfig,
+} from './lib/shared-tables/db/entities/NftTransfer'
+export { Nft, fullNftUpsertConfig } from './lib/shared-tables/db/entities/Nft'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,
@@ -151,6 +168,8 @@ export {
     addLog,
     tailLogs,
     getLastXLogs,
+    getLatestTokenPrices,
+    setLatestTokenPrices,
 } from './lib/core/redis'
 export {
     createContract,
@@ -213,6 +232,7 @@ export {
 
 export * from './lib/abi/types'
 export * from './lib/utils/general'
+export * from './lib/utils/tokenMappings'
 
 export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'
 

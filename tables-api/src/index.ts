@@ -9,6 +9,7 @@ import { getQueryPayload, getTxPayload } from './lib/payload'
 import { performQuery, performTx, createQueryStream, loadSchemaRoles } from './lib/db'
 import { streamQuery, cleanupStream } from './lib/stream'
 import { authRequest } from './lib/auth'
+import { QueryPayload } from '@spec.dev/qb'
 
 // Create Express app.
 const app = express()
@@ -25,14 +26,14 @@ app.get(paths.HEALTH_CHECK, (_, res) => res.sendStatus(200))
  */
 app.post(paths.QUERY, async (req, res) => {
     // Auth the JWT to get RBAC role.
-    const role = authRequest(req)
+    const claims = authRequest(req)
+    const role = claims?.role
     if (!role) {
         logger.error(errors.UNAUTHORIZED)
         return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
     }
 
-    // Parse sql and bindings from payload.
-    const [query, isValid] = getQueryPayload(req.body)
+    const [query, isValid] = getQueryPayload(req.body, claims || {})
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
@@ -41,7 +42,7 @@ app.post(paths.QUERY, async (req, res) => {
     // Run query and return JSON array of results.
     let records = []
     try {
-        records = await performQuery(query, role)
+        records = await performQuery(query as QueryPayload, role)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
@@ -53,14 +54,15 @@ app.post(paths.QUERY, async (req, res) => {
  */
 app.post(paths.TRANSACTION, async (req, res) => {
     // Auth the JWT to get RBAC role.
-    const role = authRequest(req)
+    const claims = authRequest(req)
+    const role = claims?.role
     if (!role) {
         logger.error(errors.UNAUTHORIZED)
         return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
     }
 
     // Get list of queries to run inside a transaction.
-    const [queries, isValid] = getTxPayload(req.body)
+    const [queries, isValid] = getTxPayload(req.body, claims || {})
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, queries)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
@@ -69,7 +71,7 @@ app.post(paths.TRANSACTION, async (req, res) => {
     // Perform all given queries in a single transaction & return JSON array of results.
     let resp = []
     try {
-        resp = await performTx(queries, role)
+        resp = await performTx(queries as QueryPayload[], role)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
@@ -81,14 +83,15 @@ app.post(paths.TRANSACTION, async (req, res) => {
  */
 app.post(paths.STREAM_QUERY, async (req, res) => {
     // Auth the JWT to get RBAC role.
-    const role = authRequest(req)
+    const claims = authRequest(req)
+    const role = claims?.role
     if (!role) {
         logger.error(errors.UNAUTHORIZED)
         return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
     }
 
     // Parse sql and bindings from payload.
-    const [query, isValid] = getQueryPayload(req.body)
+    const [query, isValid] = getQueryPayload(req.body, claims)
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
@@ -97,7 +100,7 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     // Create a query stream and stream the response.
     let stream, conn, keepAliveTimer
     try {
-        ;([stream, conn] = await createQueryStream(query))
+        ;([stream, conn] = await createQueryStream(query as QueryPayload))
         keepAliveTimer = streamQuery(stream, conn, res)
     } catch (error) {
         logger.error(error)
