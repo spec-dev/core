@@ -46,7 +46,7 @@ spec:
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: FLIP
-          value: tails
+          value: heads
         readinessProbe:
           httpGet:
             path: /health-check
