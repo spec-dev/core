@@ -90,6 +90,7 @@ class DecodeLogWorker {
         // Get logs for this block range.
         let logs = await this._getLogsForBlocks(numbers)
         const numLogsForBlockRange = logs.length
+        console.log('numLogsForBlockRange', numLogsForBlockRange)
         if (!numLogsForBlockRange) return
 
         // Get all abis for addresses needed to decode logs.
@@ -98,6 +99,7 @@ class DecodeLogWorker {
 
         // Use abis to decode logs and report progress.
         logs = this._decodeLogs(logs, abis)
+        console.log('Decoded', logs.length)
         if (!logs.length) return
         const pct = ((logs.length / numLogsForBlockRange) * 100).toFixed(2)
         logger.info(`    Decoded ${logs.length} / ${numLogsForBlockRange} (${pct}%)\n`)
