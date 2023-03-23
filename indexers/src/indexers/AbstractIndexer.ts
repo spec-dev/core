@@ -17,6 +17,7 @@ import {
     Erc20Transfer,
     NftTransfer,
     snakeToCamel,
+    toChunks,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -141,17 +142,23 @@ class AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         erc20Transfers = uniqueByKeys(erc20Transfers, conflictCols.map(snakeToCamel)) as Erc20Transfer[]
         this.erc20Transfers = (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(Erc20Transfer)
-                .values(erc20Transfers.map((c) => ({ ...c, 
-                    blockTimestamp: () => blockTimestamp,
-                })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps
+            await Promise.all(
+                toChunks(erc20Transfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(Erc20Transfer)
+                        .values(chunk.map((c) => ({ ...c, 
+                            blockTimestamp: () => blockTimestamp,
+                        })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
     }
     
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
@@ -180,17 +187,23 @@ class AbstractIndexer {
         const blockTimestamp = this.pgBlockTimestamp
         nftTransfers = uniqueByKeys(nftTransfers, conflictCols.map(snakeToCamel)) as NftTransfer[]
         this.nftTransfers = (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(NftTransfer)
-                .values(nftTransfers.map((c) => ({ ...c, 
-                    blockTimestamp: () => blockTimestamp,
-                })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps
+            await Promise.all(
+                toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(NftTransfer)
+                        .values(chunk.map((c) => ({ ...c, 
+                            blockTimestamp: () => blockTimestamp,
+                        })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
     }
 
     async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
