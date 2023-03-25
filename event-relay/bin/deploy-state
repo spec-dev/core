@@ -26,16 +26,12 @@ $shared_bin_dir/assert_env "SCC_STATE_SERVER_PORT" "$state_server_port"
 
 # ======== CREATE & APPLY TEMPLATES ======== #
 
-deployment_template_path="$event_relay_dir/scc/scc-state-deployment.yaml"
-service_template_path="$event_relay_dir/scc/scc-state-service.yaml"
+template_path="$event_relay_dir/scc-state.yaml"
 
 echo "Creating SCC state server resources..."
 
-deployment_template=$( cat "$deployment_template_path" | \
-    sed "s|{{SCC_STATE_SERVER_PORT}}|$state_server_port|g" )
-
-service_template=$( cat "$service_template_path" | \
+template=$( cat "$template_path" | \
     sed "s|{{SCC_STATE_SERVER_PORT}}|$state_server_port|g" )
 
 echo "$deployment_template" | kubectl apply -f -
-echo "$service_template" | kubectl apply -f -
+echo "$template" | kubectl apply -f -

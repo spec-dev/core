@@ -26,16 +26,11 @@ $shared_bin_dir/assert_env "SCC_BROKER_PORT" "$broker_port"
 
 # ======== CREATE & APPLY TEMPLATES ======== #
 
-deployment_template_path="$event_relay_dir/scc/scc-broker-deployment.yaml"
-service_template_path="$event_relay_dir/scc/scc-broker-service.yaml"
+template_path="$event_relay_dir/scc-broker.yaml"
 
 echo "Creating SCC broker resources..."
 
-deployment_template=$( cat "$deployment_template_path" | \
+template=$( cat "$template_path" | \
     sed "s|{{SCC_BROKER_PORT}}|$broker_port|g" )
 
-service_template=$( cat "$service_template_path" | \
-    sed "s|{{SCC_BROKER_PORT}}|$broker_port|g" )
-
-echo "$deployment_template" | kubectl apply -f -
-echo "$service_template" | kubectl apply -f -
+echo "$template" | kubectl apply -f -
