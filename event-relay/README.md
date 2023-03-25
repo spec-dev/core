@@ -105,3 +105,33 @@ bin/deploy-broker <env>
 ```bash
 bin/deploy-state <env>
 ```
+
+# Steps to deploying an update to the event-relay (worker).
+
+1) Update some code
+
+2) Commit that code
+
+3) Build a new image for event-relay
+
+```bash
+$ bin/build <env>
+```
+
+4) Push that new image
+
+```bash
+$ bin/push <env>
+```
+
+If you get an auth error, cd out (`cd ..`) into the core directory, source those envs from `.env`, and run `bin/auth_docker`.
+
+^The *tag* for the image will be the sha of the commit you just made.
+
+5) Set the image version you want to deploy as `image_version=` inside `bin/deploy`. By default, the image version used `image_version=$( $shared_bin_dir/latest_sha )` will just be that last commit sha that you made. But if you need to set it to something else more fixed, you can.
+
+6) Deploy
+
+```bash
+bin/deploy <env>
+```
