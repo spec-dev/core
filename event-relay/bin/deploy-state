@@ -33,5 +33,4 @@ echo "Creating SCC state server resources..."
 template=$( cat "$template_path" | \
     sed "s|{{SCC_STATE_SERVER_PORT}}|$state_server_port|g" )
 
-echo "$deployment_template" | kubectl apply -f -
 echo "$template" | kubectl apply -f -

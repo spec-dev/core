@@ -20,7 +20,7 @@ spec:
           containerPort: {{SCC_BROKER_PORT}}
         env:
         - name: SCC_STATE_SERVER_HOST
-          value: scc-state
+          value: event-relay-scc-state
         - name: SCC_INSTANCE_IP
           valueFrom:
             fieldRef:

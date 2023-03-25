@@ -26,7 +26,7 @@ spec:
         - name: USE_SCC_CLUSTER
           value: "{{USE_SCC_CLUSTER}}"
         - name: SCC_STATE_SERVER_HOST
-          value: scc-state
+          value: event-relay-scc-state
         - name: SCC_STATE_SERVER_PORT
           value: "{{SCC_STATE_SERVER_PORT}}"
         - name: SCC_INSTANCE_IP
