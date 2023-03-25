@@ -43,6 +43,8 @@ spec:
           value: "100"
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: V0_PAYLOAD_WHITELIST
+          value: {{V0_PAYLOAD_WHITELIST}}
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: FLIP
@@ -107,6 +109,8 @@ spec:
           value: "100"
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: V0_PAYLOAD_WHITELIST
+          value: {{V0_PAYLOAD_WHITELIST}}
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: FLIP
