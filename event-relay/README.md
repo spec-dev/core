@@ -79,3 +79,29 @@ client.on('my.channel@0.0.1', event) => {
     console.log(event)
 })
 ```
+
+# Deploying to K8S
+
+### Ingress Nginx
+
+```bash
+bin/deploy-ingress-nginx <env>
+```
+
+### Event Relay (SCC Worker)
+
+```bash
+bin/deploy <env>
+```
+
+### SCC Broker
+
+```bash
+bin/deploy-broker <env>
+```
+
+### SCC State Server
+
+```bash
+bin/deploy-state <env>
+```
