@@ -41,7 +41,7 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
             }
         }
 
-        // Secure who can publish.
+        // Secure who can publish - Currently only the event-generator microservice.
         if (action.type === action.PUBLISH_IN) {
             const authToken = action.socket.authToken
             if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
@@ -72,6 +72,7 @@ expressApp.get('/health-check', (_, res) => res.sendStatus(200))
     }
 })()
 
+// Helper function to publish to all listeners on a channel.
 const pub = async (channel, data) => await agServer.exchange.invokePublish(channel, data)
 
 // SocketCluster/WebSocket connection handling loop.
@@ -100,6 +101,7 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
     }
 })()
 
+// Event-relay/SCC-worker port.
 httpServer.listen(config.SOCKETCLUSTER_PORT)
 
 // Log errors.
@@ -122,7 +124,7 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
     })()
 }
 
-// Setup broker client to connect to SCC.
+// Setup the broker client to run in cluster mode.
 if (config.SCC_STATE_SERVER_HOST && config.USE_SCC_CLUSTER) {
     logger.info(`Running in cluster mode.`) 
 
