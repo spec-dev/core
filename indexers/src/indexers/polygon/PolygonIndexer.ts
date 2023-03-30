@@ -426,7 +426,7 @@ class PolygonIndexer extends AbstractIndexer {
                     outputs,
                     outputArgs,
                 } = this._formatTraceAsSpecCall(
-                    decodedTrace, 
+                    decodedTrace,
                     contractInstanceName,
                 )
                 callSpecs.push({
