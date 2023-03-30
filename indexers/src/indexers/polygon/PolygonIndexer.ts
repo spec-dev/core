@@ -419,6 +419,10 @@ class PolygonIndexer extends AbstractIndexer {
             if (!contractData.length) continue
 
             for (const { nsp, contractInstanceName } of contractData) {
+                const splitNsp = nsp.split('.')
+                splitNsp.splice(1, 1) // remove "contracts", as it's redundant.
+                const callNsp = splitNsp.join('.')
+
                 const { 
                     callOrigin,
                     inputs,
@@ -429,9 +433,10 @@ class PolygonIndexer extends AbstractIndexer {
                     decodedTrace, 
                     contractInstanceName,
                 )
+
                 callSpecs.push({
                     origin: callOrigin,
-                    name: [nsp, functionName].join('.'),
+                    name: [callNsp, functionName].join('.'),
                     inputs,
                     inputArgs,
                     outputs,
