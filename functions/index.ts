@@ -104,8 +104,9 @@ serve(async (req: Request) => {
 
         // Handle the event and auto-save.
         try {
-            await liveObject.handleEvent(inputEvent)
-            await liveObject.save()
+            if (await liveObject.handleEvent(inputEvent)) {
+                await liveObject.save()
+            }
         } catch (err) {
             console.error(err)
             return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
