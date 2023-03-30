@@ -1,6 +1,6 @@
-import { logger, sleep, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, getSkippedBlocks, markNamespaceAsFailing, newTablesJWT, getFailingNamespaces } from '../../shared'
+import { logger, sleep, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, deleteBlockCalls, getSkippedBlocks, newTablesJWT, getFailingNamespaces, getBlockCalls } from '../../shared'
 import config from './config'
-import { publishEvents } from './relay'
+import { publishEvents, publishCalls, getDBTimestamp } from './relay'
 import { camelizeKeys } from 'humps'
 import fetch from 'cross-fetch'
 
@@ -9,24 +9,30 @@ async function perform(data: StringKeyMap) {
     const skipped = data.skipped || false
     const replay = data.replay || false
 
-    logger.info(`\nGenerating events for block ${blockNumber}...`)
+    logger.info(`\nGenerating calls & events for block ${blockNumber}...`)
 
-    // Get the events for this block number from redis.
-    let blockEvents = await getBlockEvents(config.CHAIN_ID, blockNumber)
-    if (!blockEvents?.length) {
-        logger.warn(`No block events found for block ${blockNumber}`)
+    // Get the calls & events for this block number from redis.
+    let [blockCalls, blockEvents] = await Promise.all([
+        getBlockCalls(config.CHAIN_ID, blockNumber),
+        getBlockEvents(config.CHAIN_ID, blockNumber),
+    ])
+    if (!blockCalls?.length && !blockEvents?.length) {
+        logger.warn(`No calls or events originated in block ${blockNumber}.`)
         return
     }
 
-    // Separate our custom origin events out from the actual contract events.
-    // Contract events also get sorted by transactionIndex->logIndex here as well.
-    const { customOriginEvents, contractEvents } = splitOriginEvents(blockEvents, skipped, replay)
+    // Format/sort the calls & events.
+    const contractCalls = formatContractCalls(blockCalls, skipped, replay)
+    const originEvents = formatOriginEvents(blockEvents, skipped, replay)
 
-    // Go ahead and publish all origin events up-front.
-    await publishOriginEvents(blockNumber, customOriginEvents, contractEvents)
+    // Go ahead and publish all calls & origin events up-front.
+    const hasContractCalls = contractCalls.length > 0
+    const hasOriginEvents = originEvents.length > 0
+    const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
+    hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)
+    hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
 
     // Map event versions to the live object versions that depend on them.
-    const originEvents = [ ...customOriginEvents, ...contractEvents ]
     const uniqueEventVersionComps = getUniqueEventVersionComps(originEvents)
     const {
         inputEventVersionsToLovs,
@@ -59,20 +65,20 @@ async function perform(data: StringKeyMap) {
     }
     await Promise.all(promises)
 
-    // If any blocks have been skipped, keep the block events in redis. 
+    // If any blocks have been skipped, keep the block calls & events in redis. 
     // Otherwise, they can safely be removed.
     const skippedBlocks = await getSkippedBlocks(config.CHAIN_ID)
     if (skippedBlocks?.length) return
-    await deleteBlockEvents(config.CHAIN_ID, blockNumber)
+    await Promise.all([
+        deleteBlockCalls(config.CHAIN_ID, blockNumber),
+        deleteBlockEvents(config.CHAIN_ID, blockNumber),
+    ])
 }
 
-function splitOriginEvents(blockEvents: StringKeyMap[], skipped: boolean, replay: boolean): {
-    customOriginEvents: StringKeyMap[]
-    contractEvents: StringKeyMap[]
-} {
+function formatOriginEvents(blockEvents: StringKeyMap[], skipped: boolean, replay: boolean): StringKeyMap[] {
     const customOriginEvents = []
     const contractEvents = []
-    for (const event of blockEvents) {
+    for (const event of (blockEvents || [])) {
         if (skipped) {
             event.origin.skipped = skipped
         }
@@ -85,21 +91,47 @@ function splitOriginEvents(blockEvents: StringKeyMap[], skipped: boolean, replay
         )
         isContractEvent ? contractEvents.push(event) : customOriginEvents.push(event)
     }
-    return { 
-        customOriginEvents, 
-        contractEvents: sortContractEvents(contractEvents),
+    return [
+        ...customOriginEvents, 
+        ...sortContractEvents(contractEvents),
+    ]
+}
+
+function formatContractCalls(blockCalls: StringKeyMap[], skipped: boolean, replay: boolean): StringKeyMap[] {
+    const contractCalls = []
+    for (const call of (blockCalls || [])) {
+        if (skipped) {
+            call.origin.skipped = skipped
+        }
+        if (replay) {
+            call.origin.replay = replay
+        }
+        contractCalls.push(call)
     }
+    return sortContractCalls(contractCalls)
 }
 
 async function publishOriginEvents(
+    entries: StringKeyMap[],
     blockNumber: number,
-    customOriginEvents: StringKeyMap[], 
-    contractEvents: StringKeyMap[],
+    eventTimestamp: string,
 ) {
     try {
-        await publishEvents([ ...customOriginEvents, ...contractEvents ])
+        await publishEvents(entries, false, eventTimestamp)
     } catch (err) {
         throw `Failed to publish origin events for block ${blockNumber}: ${err}`
+    }
+}
+
+async function publishContractCalls(
+    entries: StringKeyMap[],
+    blockNumber: number,
+    eventTimestamp: string,
+) {
+    try {
+        await publishCalls(entries, eventTimestamp)
+    } catch (err) {
+        throw `Failed to publish contract calls for block ${blockNumber}: ${err}`
     }
 }
 
@@ -118,8 +150,6 @@ async function generateEventsForNamespace(
         if (!tablesApiTokens[lovTableSchema]) {
             tablesApiTokens[lovTableSchema] = newTablesApiToken(lovTableSchema)
         }
-
-        if (lovId == 158) continue
 
         let generatedEvents = await generateLiveObjectEventsWithProtection(
             lovId,
@@ -537,9 +567,16 @@ where live_object_versions.id in (${placeholders.join(', ')}) and live_event_ver
 }
 
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {
-    return contractEvents.sort((a, b) => (
+    return (contractEvents || []).sort((a, b) => (
         (a.transactionIndex - b.transactionIndex) || 
         (Number(a.logIndex) - Number(b.logIndex))
+    ))
+}
+
+function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
+    return (contractCalls || []).sort((a, b) => (
+        (a.transactionIndex - b.transactionIndex) || 
+        (Number(a.traceIndex) - Number(b.traceIndex))
     ))
 }
 

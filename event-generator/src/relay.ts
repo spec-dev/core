@@ -1,4 +1,3 @@
-import { SpecEvent } from '@spec.types/spec'
 import { StringKeyMap, logger, storePublishedEvent, CoreDB, nowAsUTCDateString } from '../../shared'
 import { createEventClient } from '@spec.dev/event-client'
 import config from './config'
@@ -26,7 +25,25 @@ const formatSpecEvent = (eventSpec: StringKeyMap, eventTimestamp: string): Strin
     }
 }
 
-async function getDBTimestamp(): Promise<string> {
+const formatSpecCall = (callSpec: StringKeyMap, eventTimestamp: string): StringKeyMap => {
+    const { name, origin, inputs, inputArgs, outputs, outputArgs } = callSpec
+    delete origin.transactionIndex
+    delete origin.traceIndex
+    return {
+        id: short.generate(),
+        name,
+        origin: {
+            ...origin,
+            eventTimestamp,
+        },
+        inputs,
+        inputArgs,
+        outputs,
+        outputArgs,
+    }
+}
+
+export async function getDBTimestamp(): Promise<string> {
     try {
         const result = await CoreDB.query(`select timezone('UTC', now())`)
         return new Date(result[0].timezone.toUTCString()).toISOString()    
@@ -35,11 +52,15 @@ async function getDBTimestamp(): Promise<string> {
     }
 }
 
-export async function publishEvents(eventSpecs: StringKeyMap[], generated?: boolean) {
+export async function publishEvents(
+    eventSpecs: StringKeyMap[],
+    generated: boolean,
+    eventTimestamp?: string
+) {
     if (!eventSpecs?.length) return
     
     // Format event specs as spec events.
-    const eventTimestamp = await getDBTimestamp()
+    eventTimestamp = eventTimestamp || await getDBTimestamp()
     const events = eventSpecs.map(es => formatSpecEvent(es, eventTimestamp))
 
     // Save each event to its redis stream, adding its nonce into its payload once saved.
@@ -60,8 +81,21 @@ export async function publishEvents(eventSpecs: StringKeyMap[], generated?: bool
     }
 }
 
-export async function emit(event: SpecEvent, generated?: boolean) {
-    const log = `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
-    generated && logger.info(chalk.cyanBright(log))
+export async function publishCalls(callSpecs: StringKeyMap[], eventTimestamp: string) {
+    if (!callSpecs?.length) return
+    
+    const calls = callSpecs.map(cs => formatSpecCall(cs, eventTimestamp))
+    const { chainId, blockNumber } = calls[0].origin
+    logger.info(`[${chainId}:${blockNumber}] Publishing ${calls.length} contract calls...`)
+
+    for (const call of calls) {
+        await emit(call)
+    }
+}
+
+export async function emit(event: StringKeyMap, generated?: boolean) {
+    generated && logger.info(chalk.cyanBright(
+        `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
+    ))
     await eventClient.socket.transmitPublish(event.name, event)
 }
