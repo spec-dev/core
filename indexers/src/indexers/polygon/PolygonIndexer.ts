@@ -97,7 +97,6 @@ class PolygonIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
-
         if (await this._alreadyIndexedBlock()) {
             this._warn('Current block was already indexed. Stopping.')
             return
@@ -217,6 +216,12 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
+        // One last check before saving primitives / publishing events.
+        if (await this._alreadyIndexedBlock()) {
+            this._warn('Current block was already indexed. Stopping.')
+            return
+        }
+        
         // Return early with the indexed primitives if in range mode.
         if (config.IS_RANGE_MODE) {
             return {
@@ -229,12 +234,6 @@ class PolygonIndexer extends AbstractIndexer {
                 nftCollections,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
-        }
-
-        // One last check before saving primitives / publishing events.
-        if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
-            return
         }
 
         // Save primitives to shared tables.
