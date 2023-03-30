@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.31'
+import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.62'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -100,7 +100,7 @@ serve(async (req: Request) => {
         // Create the live object with a single event queue instance to capture published events.
         const publishedEventQueue = new PublishEventQueue()
         const liveObject = new LiveObject(publishedEventQueue)
-        liveObject.tablesApiToken = tablesApiToken
+        liveObject._tablesApiToken = tablesApiToken
 
         // Handle the event and auto-save.
         try {
@@ -110,7 +110,7 @@ serve(async (req: Request) => {
             console.error(err)
             return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
         }
-        allPublishedEvents.push(liveObject.publishedEvents)
+        allPublishedEvents.push(liveObject._publishedEvents)
     }
 
     // Return all generated events to be published.
