@@ -27,6 +27,7 @@ const config: StringKeyMap = {
     DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'delayed-jobs'),
 
     BLOCK_EVENTS_PREFIX: ev('BLOCK_EVENTS_PREFIX', 'block-events'),
+    BLOCK_CALLS_PREFIX: ev('BLOCK_CALLS_PREFIX', 'block-calls'),
     BLOCK_EVENTS_QUEUE_PREFIX: ev('BLOCK_EVENTS_QUEUE_KEY', 'block-events-queue'),
     SORT_BLOCK_EVENTS_JOB_NAME: ev('SORT_BLOCK_EVENTS_JOB_NAME', 'sort-block-events'),
 

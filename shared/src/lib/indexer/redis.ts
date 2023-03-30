@@ -407,6 +407,38 @@ export async function deleteBlockEvents(chainId: string, blockNumber: number) {
     return true
 }
 
+export async function saveBlockCalls(chainId: string, blockNumber: number, calls: StringKeyMap[]) {
+    const key = [config.BLOCK_CALLS_PREFIX, chainId].join('-')
+    try {
+        await redis?.hSet(key, [blockNumber.toString(), JSON.stringify(calls)])
+    } catch (err) {
+        throw `Error saving block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function getBlockCalls(chainId: string, blockNumber: number): Promise<StringKeyMap[]> {
+    const key = [config.BLOCK_CALLS_PREFIX, chainId].join('-')
+    try {
+        const results = (await redis?.hmGet(key, blockNumber.toString())) || []
+        return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap[]
+    } catch (err) {
+        throw `Error getting block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function deleteBlockCalls(chainId: string, blockNumber: number) {
+    const key = [config.BLOCK_CALLS_PREFIX, chainId].join('-')
+    try {
+        await redis?.hDel(key, blockNumber.toString())
+    } catch (err) {
+        logger.error(
+            `Error deleting block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        )
+        return false
+    }
+    return true
+}
+
 export async function getBlockEventsSeriesNumber(chainId: string): Promise<number | null> {
     const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
     try {

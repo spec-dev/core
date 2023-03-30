@@ -7,6 +7,7 @@ import {
     StringKeyMap,
     contractNamespaceForChainId,
     saveBlockEvents,
+    saveBlockCalls,
     Erc20Token,
     fullErc20TokenUpsertConfig,
     NftCollection,
@@ -95,8 +96,11 @@ class AbstractIndexer {
         }
     }
 
-    async _reportBlockEvents(eventSpecs: StringKeyMap[]) {
-        await saveBlockEvents(this.chainId, this.blockNumber, eventSpecs)
+    async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
+        await Promise.all([
+            saveBlockEvents(this.chainId, this.blockNumber, eventSpecs),
+            saveBlockCalls(this.chainId, this.blockNumber, callSpecs),
+        ])
         await reportBlockEvents(this.blockNumber)
     }
 

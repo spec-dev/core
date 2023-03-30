@@ -101,11 +101,6 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        if (this.blockNumber == 40925470) {
-            await this._reportBlockEvents([])
-            return
-        }
-        
         // Get blocks (+transactions), receipts (+logs), and traces.
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
@@ -319,12 +314,12 @@ class PolygonIndexer extends AbstractIndexer {
         )).filter(v => !!v)
 
         // Publish to Spec's event network.
-        await this._reportBlockEvents([
+        await this._kickBlockDownstream([
             ...contractEventSpecs,
             ...newSmartWalletEventSpecs,
             ...erc20EventSpecs,
             ...nftEventSpecs,
-        ])
+        ], [])
     }
     
     async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {

@@ -55,6 +55,8 @@ import {
     NftCollection,
     Erc20Transfer,
     NftTransfer,
+    EthTraceStatus,
+    EthTraceType,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -160,7 +162,7 @@ class EthereumIndexer extends AbstractIndexer {
             : []
         let logs = receipts?.length ? initLogs(block, receipts) : []
 
-        // Wait for traces to resolve and ensure there's not block hash mismatch.
+        // Wait for traces to resolve and ensure there's not a block hash mismatch.
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
             this._warn(
@@ -370,8 +372,36 @@ class EthereumIndexer extends AbstractIndexer {
             originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
         )
 
-        // Decoded contract events.
-        const contractEventSpecs = await this._getDetectedContractEventSpecs()
+        // Decode contract events and function calls.
+        const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
+        const logContractAddresses = new Set(decodedLogs.map(l => l.address))
+        const decodedTraceCalls = this.traces.filter(t => (
+            t.status !== EthTraceStatus.Failure && !!t.functionName && !!t.to && t.traceType === EthTraceType.Call
+        ))
+        const traceToAddresses = new Set(decodedTraceCalls.map(t => t.to))
+        const referencedContractInstances = await this._getContractInstancesForAddresses(
+            unique([...Array.from(logContractAddresses), ...Array.from(traceToAddresses)])
+        )
+        const eventContractInstances = []
+        const callContractInstances = []
+        for (const contractInstance of referencedContractInstances) {
+            if (logContractAddresses.has(contractInstance.address)) {
+                eventContractInstances.push(contractInstance)
+            }
+            if (traceToAddresses.has(contractInstance.address)) {
+                callContractInstances.push(contractInstance)
+            }
+        }
+        const [contractEventSpecs, contractCallSpecs] = await Promise.all([
+            this._getDetectedContractEventSpecs(
+                decodedLogs,
+                eventContractInstances,
+            ),
+            this._getDetectedContractCallSpecs(
+                decodedTraceCalls,
+                callContractInstances,
+            ),
+        ])
 
         // Get all Transfer events
         // - get all erc20 transfers (Log.address)
@@ -380,21 +410,14 @@ class EthereumIndexer extends AbstractIndexer {
         // - build erc20 transfer records for entry into its own table
         // - save these and create event specs to report
 
-        // Publish to Spec's event network.
-        await this._reportBlockEvents([
-            ...contractEventSpecs,
-            ...originEventSpecs,
-        ])
+        const allEventSpecs = [...contractEventSpecs, ...originEventSpecs]
+        await this._kickBlockDownstream(allEventSpecs, contractCallSpecs)
     }
 
-    async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
-        const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
-        if (!decodedLogs.length) return []
-
-        const addresses = unique(decodedLogs.map(log => log.address))
-        const contractInstances = await this._getContractInstancesForAddresses(addresses)
-        if (!contractInstances.length) return []
-
+    async _getDetectedContractEventSpecs(
+        decodedLogs: EthLog[], 
+        contractInstances: ContractInstance[],
+    ): Promise<StringKeyMap[]> {
         const contractDataByAddress = {}
         for (const contractInstance of contractInstances) {
             const nsp = contractInstance.contract?.namespace?.name
@@ -424,11 +447,60 @@ class EthereumIndexer extends AbstractIndexer {
                 eventSpecs.push({
                     origin: eventOrigin,
                     name: toNamespacedVersion(nsp, eventName, '0.0.1'),
-                    data: data,
+                    data,
                 })    
             }
         }
         return eventSpecs
+    }
+
+    async _getDetectedContractCallSpecs(
+        decodedTraceCalls: EthTrace[], 
+        contractInstances: ContractInstance[],
+    ): Promise<StringKeyMap[]> {
+        const contractDataByAddress = {}
+        for (const contractInstance of contractInstances) {
+            const nsp = contractInstance.contract?.namespace?.name
+            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
+
+            if (!contractDataByAddress.hasOwnProperty(contractInstance.address)) {
+                contractDataByAddress[contractInstance.address] = []
+            }
+            contractDataByAddress[contractInstance.address].push({
+                nsp,
+                contractInstanceName: contractInstance.name,
+            })
+        }
+        if (!Object.keys(contractDataByAddress)) return []
+
+        const callSpecs = []
+        for (const decodedTrace of decodedTraceCalls) {
+            const { functionName, to } = decodedTrace
+            const contractData = contractDataByAddress[to] || []
+            if (!contractData.length) continue
+
+            for (const { nsp, contractInstanceName } of contractData) {
+                const { 
+                    callOrigin,
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                } = this._formatTraceAsSpecCall(
+                    decodedTrace, 
+                    contractInstanceName,
+                )
+                callSpecs.push({
+                    origin: callOrigin,
+                    name: [nsp, functionName].join('.'),
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                })
+            }
+        }
+        return callSpecs
     }
 
     async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
@@ -764,17 +836,44 @@ class EthereumIndexer extends AbstractIndexer {
         return { data, eventOrigin }
     }
 
-    _curateSuccessfulLogs() {
-        const txSuccess = {}
-        for (const tx of this.transactions) {
-            txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
+    _formatTraceAsSpecCall(trace: EthTrace, contractInstanceName: string): StringKeyMap {
+        const callOrigin = {
+            contractAddress: trace.to,
+            contractName: contractInstanceName,
+            transactionHash: trace.transactionHash,
+            transactionIndex: trace.transactionIndex,
+            traceIndex: trace.traceIndex,
+            blockHash: trace.blockHash,
+            blockNumber: Number(trace.blockNumber),
+            blockTimestamp: trace.blockTimestamp.toISOString(),
+            chainId: this.chainId,
+        }
+        
+        const inputs = {}
+        const inputArgs = []
+        for (const arg of (trace.functionArgs || []) as StringKeyMap[]) {
+            if (arg.name) {
+                inputs[arg.name] = arg.value
+            }
+            inputArgs.push(arg.value)
         }
 
-        // TODO: transactionIndex is unnecessary here.
-        this.successfulLogs = this.logs
-            .filter(log => txSuccess[log.transactionHash])
-            .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
-        )
+        const outputs = {}
+        const outputArgs = []
+        for (const output of (trace.functionOutputs || []) as StringKeyMap[]) {
+            if (output.name) {
+                outputs[output.name] = output.value
+            }
+            outputArgs.push(output.value)
+        }
+
+        return {
+            callOrigin,
+            inputs,
+            inputArgs,
+            outputs,
+            outputArgs,
+        }
     }
 
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
