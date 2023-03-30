@@ -95,6 +95,11 @@ class PolygonIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
+        if (this.blockNumber == 40925470) {
+            await this._reportBlockEvents([])
+            return
+        }
+
         if (await this._alreadyIndexedBlock()) {
             this._warn('Current block was already indexed. Stopping.')
             return
