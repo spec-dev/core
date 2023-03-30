@@ -45,6 +45,8 @@ import {
     PolygonContract,
     Erc20Token,
     NftCollection,
+    PolygonTraceStatus,
+    PolygonTraceType,
 } from '../../../../shared'
 import extractTransfersFromLogs from '../../services/extractTransfersFromLogs'
 import resolveContracts from './services/resolveContracts'
@@ -287,8 +289,36 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _createAndPublishEvents() {
-        // Decoded contract events.
-        const contractEventSpecs = await this._getDetectedContractEventSpecs()
+        // Decode contract events and function calls.
+        const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
+        const logContractAddresses = new Set(decodedLogs.map(l => l.address))
+        const decodedTraceCalls = this.traces.filter(t => (
+            t.status !== PolygonTraceStatus.Failure && !!t.functionName && !!t.to && t.traceType === PolygonTraceType.Call
+        ))
+        const traceToAddresses = new Set(decodedTraceCalls.map(t => t.to))
+        const referencedContractInstances = await this._getContractInstancesForAddresses(
+            unique([...Array.from(logContractAddresses), ...Array.from(traceToAddresses)])
+        )
+        const eventContractInstances = []
+        const callContractInstances = []
+        for (const contractInstance of referencedContractInstances) {
+            if (logContractAddresses.has(contractInstance.address)) {
+                eventContractInstances.push(contractInstance)
+            }
+            if (traceToAddresses.has(contractInstance.address)) {
+                callContractInstances.push(contractInstance)
+            }
+        }
+        const [contractEventSpecs, contractCallSpecs] = await Promise.all([
+            this._getDetectedContractEventSpecs(
+                decodedLogs,
+                eventContractInstances,
+            ),
+            this._getDetectedContractCallSpecs(
+                decodedTraceCalls,
+                callContractInstances,
+            ),
+        ])
 
         // New Ivy Smart Wallet events.
         const ivySmartWalletInitializerWalletCreatedEventSpecs = contractEventSpecs.filter(es => (
@@ -314,22 +344,19 @@ class PolygonIndexer extends AbstractIndexer {
         )).filter(v => !!v)
 
         // Publish to Spec's event network.
-        await this._kickBlockDownstream([
+        const allEventSpecs = [
             ...contractEventSpecs,
             ...newSmartWalletEventSpecs,
             ...erc20EventSpecs,
             ...nftEventSpecs,
-        ], [])
+        ]
+        await this._kickBlockDownstream(allEventSpecs, contractCallSpecs)
     }
     
-    async _getDetectedContractEventSpecs(): Promise<StringKeyMap[]> {
-        const decodedLogs = this.successfulLogs.filter(log => !!log.eventName)
-        if (!decodedLogs.length) return []
-
-        const addresses = unique(decodedLogs.map(log => log.address))
-        const contractInstances = await this._getContractInstancesForAddresses(addresses)
-        if (!contractInstances.length) return []
-
+    async _getDetectedContractEventSpecs(
+        decodedLogs: PolygonLog[], 
+        contractInstances: ContractInstance[],
+    ): Promise<StringKeyMap[]> {
         const contractDataByAddress = {}
         for (const contractInstance of contractInstances) {
             const nsp = contractInstance.contract?.namespace?.name
@@ -364,6 +391,55 @@ class PolygonIndexer extends AbstractIndexer {
             }
         }
         return eventSpecs
+    }
+
+    async _getDetectedContractCallSpecs(
+        decodedTraceCalls: PolygonTrace[], 
+        contractInstances: ContractInstance[],
+    ): Promise<StringKeyMap[]> {
+        const contractDataByAddress = {}
+        for (const contractInstance of contractInstances) {
+            const nsp = contractInstance.contract?.namespace?.name
+            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
+
+            if (!contractDataByAddress.hasOwnProperty(contractInstance.address)) {
+                contractDataByAddress[contractInstance.address] = []
+            }
+            contractDataByAddress[contractInstance.address].push({
+                nsp,
+                contractInstanceName: contractInstance.name,
+            })
+        }
+        if (!Object.keys(contractDataByAddress)) return []
+
+        const callSpecs = []
+        for (const decodedTrace of decodedTraceCalls) {
+            const { functionName, to } = decodedTrace
+            const contractData = contractDataByAddress[to] || []
+            if (!contractData.length) continue
+
+            for (const { nsp, contractInstanceName } of contractData) {
+                const { 
+                    callOrigin,
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                } = this._formatTraceAsSpecCall(
+                    decodedTrace, 
+                    contractInstanceName,
+                )
+                callSpecs.push({
+                    origin: callOrigin,
+                    name: [nsp, functionName].join('.'),
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                })
+            }
+        }
+        return callSpecs
     }
 
     async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
@@ -933,6 +1009,46 @@ class PolygonIndexer extends AbstractIndexer {
         }
 
         return { data, eventOrigin }
+    }
+
+    _formatTraceAsSpecCall(trace: PolygonTrace, contractInstanceName: string): StringKeyMap {
+        const callOrigin = {
+            contractAddress: trace.to,
+            contractName: contractInstanceName,
+            transactionHash: trace.transactionHash,
+            transactionIndex: trace.transactionIndex,
+            traceIndex: trace.traceIndex,
+            blockHash: trace.blockHash,
+            blockNumber: Number(trace.blockNumber),
+            blockTimestamp: trace.blockTimestamp.toISOString(),
+            chainId: this.chainId,
+        }
+        
+        const inputs = {}
+        const inputArgs = []
+        for (const arg of (trace.functionArgs || []) as StringKeyMap[]) {
+            if (arg.name) {
+                inputs[arg.name] = arg.value
+            }
+            inputArgs.push(arg.value)
+        }
+
+        const outputs = {}
+        const outputArgs = []
+        for (const output of (trace.functionOutputs || []) as StringKeyMap[]) {
+            if (output.name) {
+                outputs[output.name] = output.value
+            }
+            outputArgs.push(output.value)
+        }
+
+        return {
+            callOrigin,
+            inputs,
+            inputArgs,
+            outputs,
+            outputArgs,
+        }
     }
 
     _curateSuccessfulLogs() {

@@ -403,13 +403,6 @@ class EthereumIndexer extends AbstractIndexer {
             ),
         ])
 
-        // Get all Transfer events
-        // - get all erc20 transfers (Log.address)
-        // - get new totalSupply for each unique erc20 contract a transfer occurred on
-        // - get current token prices for each erc20 transfer event
-        // - build erc20 transfer records for entry into its own table
-        // - save these and create event specs to report
-
         const allEventSpecs = [...contractEventSpecs, ...originEventSpecs]
         await this._kickBlockDownstream(allEventSpecs, contractCallSpecs)
     }
