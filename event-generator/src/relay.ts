@@ -83,11 +83,9 @@ export async function publishEvents(
 
 export async function publishCalls(callSpecs: StringKeyMap[], eventTimestamp: string) {
     if (!callSpecs?.length) return
-    
     const calls = callSpecs.map(cs => formatSpecCall(cs, eventTimestamp))
     const { chainId, blockNumber } = calls[0].origin
     logger.info(`[${chainId}:${blockNumber}] Publishing ${calls.length} contract calls...`)
-
     for (const call of calls) {
         await emit(call)
     }
