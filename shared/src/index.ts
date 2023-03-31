@@ -146,6 +146,7 @@ export { OrgUser, OrgUserRole } from './lib/core/db/entities/OrgUser'
 export { Project } from './lib/core/db/entities/Project'
 export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
+export { LiveCallHandler } from './lib/core/db/entities/LiveCallHandler'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -220,6 +221,11 @@ export {
     createLiveEdgeFunctionVersion,
     createLiveEdgeFunctionVersionWithTx,
 } from './lib/core/db/services/liveEdgeFunctionVersionServices'
+export {
+    createLiveCallHandler,
+    createLiveCallHandlersWithTx,
+} from './lib/core/db/services/liveCallHandlerServices'
+
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {

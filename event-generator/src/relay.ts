@@ -95,5 +95,5 @@ export async function emit(event: StringKeyMap, generated?: boolean) {
     generated && logger.info(chalk.cyanBright(
         `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
     ))
-    await eventClient.socket.transmitPublish(event.name, event)
+    // await eventClient.socket.transmitPublish(event.name, event)
 }

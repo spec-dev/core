@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.72'
+import { PublishEventQueue, StringKeyMap } from 'https://esm.sh/@spec.dev/core@0.0.72'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -63,19 +63,19 @@ function authRequest(req: any): StringKeyMap {
     return { isAuthed: true, tablesApiToken }
 }
 
-async function parseEventsFromPayload(req: any): Promise<SpecEvent[]> {
-    let events
+async function parseInputsFromPayload(req: any): Promise<StringKeyMap[]> {
+    let inputs
     try {
-        events = (await req.json()) || []
+        inputs = (await req.json()) || []
     } catch (err) {
         return null
     }
-    for (const event of events) {
-        if (!event.name || !event.data || !event.origin) {
+    for (const input of inputs) {
+        if (!input.name || !input.origin) {
             return null
         }
     }
-    return events as SpecEvent[]
+    return inputs as StringKeyMap[]
 }
 
 serve(async (req: Request) => {
@@ -85,30 +85,30 @@ serve(async (req: Request) => {
         return resp({ error: errors.UNAUTHORIZED }, codes.UNAUTHORIZED)
     }
 
-    // The request payload should just be the input events.
-    const inputEvents = await parseEventsFromPayload(req)
-    if (inputEvents === null) {
+    // The request payload is just the input calls or events.
+    const inputs = await parseInputsFromPayload(req)
+    if (inputs === null) {
         return resp({ error: errors.INVALID_PAYLOAD }, codes.BAD_REQUEST)
     }
-    if (!inputEvents.length) {
+    if (!inputs.length) {
         return resp([])
     }
 
-    // Process input events in series.
+    // Process input calls/events in series.
     const allPublishedEvents = []
-    for (const inputEvent of inputEvents) {
+    for (const input of inputs) {
         // Create the live object with a single event queue instance to capture published events.
         const publishedEventQueue = new PublishEventQueue()
         const liveObject = new LiveObject(publishedEventQueue)
         liveObject._tablesApiToken = tablesApiToken
 
-        // Check whether input event is actually an event or a call.
-        const isContractCall = inputEvent?.hasOwnProperty('inputs')
+        // Check whether the input is an event or a call.
+        const isContractCall = input?.hasOwnProperty('inputs')
         const handlerType = isContractCall ? 'handleCall' : 'handleEvent'
 
         // Handle the event and auto-save.
         try {
-            if (await liveObject[handlerType](inputEvent)) {
+            if (await liveObject[handlerType](input)) {
                 await liveObject.save()
             }
         } catch (err) {

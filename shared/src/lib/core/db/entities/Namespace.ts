@@ -3,6 +3,7 @@ import { EdgeFunction } from './EdgeFunction'
 import { Contract } from './Contract'
 import { Event } from './Event'
 import { LiveObject } from './LiveObject'
+import { LiveCallHandler } from './LiveCallHandler'
 
 /**
  * A globally unique namespace for functions, contracts, events, live objects, etc.
@@ -44,4 +45,7 @@ export class Namespace {
 
     @OneToMany(() => LiveObject, (liveObject) => liveObject.namespace)
     liveObjects: LiveObject[]
+
+    @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.namespace)
+    liveCallHandlers: LiveCallHandler[]
 }

@@ -4,6 +4,9 @@ import { publishEvents, publishCalls, getDBTimestamp } from './relay'
 import { camelizeKeys } from 'humps'
 import fetch from 'cross-fetch'
 
+/**
+ *  TODO: Consolidate logic between contract calls and events.
+ */
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
     const skipped = data.skipped || false
@@ -25,40 +28,61 @@ async function perform(data: StringKeyMap) {
     const contractCalls = formatContractCalls(blockCalls, skipped, replay)
     const originEvents = formatOriginEvents(blockEvents, skipped, replay)
 
-    // Go ahead and publish all calls & origin events up-front.
+    // Publish all calls & origin events up-front.
     const hasContractCalls = contractCalls.length > 0
     const hasOriginEvents = originEvents.length > 0
     const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
     hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)
     hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
 
-    // Map event versions to the live object versions that depend on them.
+    // Get the unique contract call names and unique event names for this batch.
+    const uniqueContractCallComps = getUniqueContractCallComps(contractCalls)
     const uniqueEventVersionComps = getUniqueEventVersionComps(originEvents)
-    const {
-        inputEventVersionsToLovs,
-        generatedEventVersionsWhitelist,
-    } = await getLiveObjectVersionToEventVersionMappings(
-        uniqueEventVersionComps,
-        blockNumber,
-    )
 
-    // Get failing namespaces to avoid generating events for.
+    // Map the contract calls and event versions to the 
+    // live object versions that depend on them as inputs.
+    const [inputContractCallsToLovs, evMappingData] = await Promise.all([
+        getLiveObjectVersionToContractCallMappings(uniqueContractCallComps, blockNumber),
+        getLiveObjectVersionToEventVersionMappings(uniqueEventVersionComps, blockNumber),
+    ])
+    const { inputEventVersionsToLovs, generatedEventVersionsWhitelist } = evMappingData
+
+    // Get the failing namespaces to avoid generating Spec events for.
     const failingNamespaces = new Set(await getFailingNamespaces(config.CHAIN_ID))
 
     // Group origin events by live object version namespace. Then within each namespace, 
     // group the events even further if their adjacent events share the same live object version.
+    const callGroups = groupCallsByLovNamespace(
+        contractCalls,
+        inputContractCallsToLovs,
+        failingNamespaces,
+    )
     const eventGroups = groupEventsByLovNamespace(
         originEvents,
         inputEventVersionsToLovs,
         failingNamespaces,
     )
 
-    // Generate events for each namespace group in parallel.
-    const promises = []
+    // Merge call groups and event groups by live object version namespace.
+    const seenLovNsps = new Set<string>()
+    const inputGroups = {}
     for (const lovNsp in eventGroups) {
-        promises.push(generateEventsForNamespace(
+        const eventEntries = eventGroups[lovNsp] || []
+        const callEntries = callGroups[lovNsp] || []
+        inputGroups[lovNsp] = [...callEntries, ...eventEntries]
+        seenLovNsps.add(lovNsp)
+    }
+    for (const lovNsp in callGroups) {
+        if (seenLovNsps.has(lovNsp)) continue
+        inputGroups[lovNsp] = callGroups[lovNsp] || []
+    }
+
+    // Generate Live Object events for each namespace group in parallel.
+    const promises = []
+    for (const lovNsp in inputGroups) {
+        promises.push(generateLiveObjectEventsForNamespace(
             lovNsp,
-            eventGroups[lovNsp], 
+            inputGroups[lovNsp],
             generatedEventVersionsWhitelist,
             blockNumber,
         ))
@@ -135,16 +159,17 @@ async function publishContractCalls(
     }
 }
 
-async function generateEventsForNamespace(
+async function generateLiveObjectEventsForNamespace(
     nsp: string,
-    eventGroups: StringKeyMap[],
+    inputGroups: StringKeyMap[],
     generatedEventVersionsWhitelist: StringKeyMap,
     blockNumber: number,
 ) {
     const tablesApiTokens = {}
 
-    for (const eventGroup of eventGroups) {
-        const { lovId, lovUrl, lovTableSchema, events } = eventGroup
+    for (const inputGroup of inputGroups) {
+        const { lovId, lovUrl, lovTableSchema, events, calls } = inputGroup
+        const inputs = calls || events
 
         // Create JWT for event generator to use when querying our tables api.
         if (!tablesApiTokens[lovTableSchema]) {
@@ -155,16 +180,16 @@ async function generateEventsForNamespace(
             lovId,
             lovUrl,
             generatedEventVersionsWhitelist[lovId],
-            events,
+            inputs,
             tablesApiTokens[lovTableSchema],
             blockNumber,
         )
-        if (generatedEvents === null && events?.length > 1) {
-            generatedEvents = (await Promise.all(events.map(event => generateLiveObjectEventsWithProtection(
+        if (generatedEvents === null && inputs?.length > 1) {
+            generatedEvents = (await Promise.all(inputs.map(input => generateLiveObjectEventsWithProtection(
                 lovId,
                 lovUrl,
                 generatedEventVersionsWhitelist[lovId],
-                [event],
+                [input],
                 tablesApiTokens[lovTableSchema],
                 blockNumber,
             )))).filter(v => v !== null).flat()
@@ -184,7 +209,7 @@ async function generateLiveObjectEventsWithProtection(
     lovId: string,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
-    inputEvents: StringKeyMap[],
+    inputs: StringKeyMap[],
     tablesApiToken: string,
     blockNumber: number,
 ): Promise<StringKeyMap[] | null> {
@@ -194,25 +219,23 @@ async function generateLiveObjectEventsWithProtection(
             lovId,
             lovUrl,
             acceptedOutputEvents,
-            inputEvents,
+            inputs,
             tablesApiToken,
             blockNumber,
         )
     } catch (err) {
-        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for input events: ${JSON.stringify(inputEvents, null, 4)}`)
+        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for inputs: ${JSON.stringify(inputs, null, 4)}`)
         return null
     }
 
     const liveObjectEvents = data?.liveObjectEvents || []
-    const retryInputEvents = data?.retryInputEvents || []
-    if (!retryInputEvents.length) {
-        return liveObjectEvents
-    }
+    const retryInputs = data?.retryInputs || []
+    if (!retryInputs.length) return liveObjectEvents
 
     await sleep(1000)
     const eventsReceivedOnRetry = []
 
-    for (const { inputEvent, pendingEvents } of retryInputEvents) {
+    for (const { input, pendingEvents } of retryInputs) {
         const originalPendingEvents = pendingEvents || []
         let attempt = 0
         let success = false
@@ -223,12 +246,12 @@ async function generateLiveObjectEventsWithProtection(
                     lovId,
                     lovUrl,
                     acceptedOutputEvents,
-                    [inputEvent],
+                    [input],
                     tablesApiToken,
                     blockNumber,
                 )
             } catch (err) {
-                logger.error(`[${blockNumber}] Retrying event-generation failed (lovId=${lovId}). Input event: ${JSON.stringify(inputEvent, null, 4)}`)
+                logger.error(`[${blockNumber}] Retrying event-generation failed (lovId=${lovId}). Input: ${JSON.stringify(input, null, 4)}`)
             }
             const events = retryData?.liveObjectEvents || []
             if (events.length) {
@@ -245,7 +268,7 @@ async function generateLiveObjectEventsWithProtection(
         }
 
         if (!success) {
-            logger.error(`[${blockNumber}] Not able to recover all empty data events for input event ${JSON.stringify(inputEvent, null, 4)}`)
+            logger.error(`[${blockNumber}] Not able to recover all empty data events for input ${JSON.stringify(input, null, 4)}`)
         }
     }
 
@@ -257,7 +280,7 @@ async function generateLiveObjectEvents(
     lovId: string,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
-    inputEvents: StringKeyMap[],
+    inputs: StringKeyMap[],
     tablesApiToken: string,
     blockNumber: number,
     attempts: number = 0,
@@ -279,7 +302,7 @@ async function generateLiveObjectEvents(
         resp = await fetch(lovUrl, {
             method: 'POST',
             headers,
-            body: JSON.stringify(inputEvents),
+            body: JSON.stringify(inputs),
             signal: abortController.signal,
         })
     } catch (err) {
@@ -292,7 +315,7 @@ async function generateLiveObjectEvents(
                 lovId,
                 lovUrl,
                 acceptedOutputEvents,
-                inputEvents,
+                inputs,
                 tablesApiToken,
                 blockNumber,
                 attempts + 1,
@@ -308,7 +331,7 @@ async function generateLiveObjectEvents(
     try {
         generatedEventGroups = (await resp?.json()) || []
     } catch (err) {
-        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - inputEvents: ${JSON.stringify(inputEvents, null, 4)}`)
+        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - inputs: ${JSON.stringify(inputs, null, 4)}`)
     }
     if (resp?.status !== 200) {
         const msg = `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || [])}.`
@@ -319,7 +342,7 @@ async function generateLiveObjectEvents(
                 lovId,
                 lovUrl,
                 acceptedOutputEvents,
-                inputEvents,
+                inputs,
                 tablesApiToken,
                 blockNumber,
                 attempts + 1,
@@ -329,15 +352,15 @@ async function generateLiveObjectEvents(
         }
     }
     if (!generatedEventGroups?.length) {
-        return { liveObjectEvents: [], retryInputEvents: [] }
+        return { liveObjectEvents: [], retryInputs: [] }
     }
 
     // Filter generated events by those that are allowed to be created / registered with Spec.
     const liveObjectEvents = []
-    const retryInputEvents = []
+    const retryInputs = []
     let i = 0
     for (const generatedEvents of generatedEventGroups) {
-        const inputEvent = inputEvents[i]
+        const input = inputs[i]
         const receivedEmptyGeneratedEvent = !!generatedEvents.find(e => e?.data && !Object.keys(e.data).length)
         const pendingEvents = []
         
@@ -348,13 +371,13 @@ async function generateLiveObjectEvents(
             }
 
             if (!Object.keys(event.data || {}).length) {
-                logger.error(`[${blockNumber}] Received empty generated event for input event ${JSON.stringify(inputEvent, null, 4)}`)
+                logger.error(`[${blockNumber}] Received empty generated event for input ${JSON.stringify(input, null, 4)}`)
                 continue
             }
 
             const liveObjectEvent = {
                 ...event,
-                origin: inputEvent.origin,
+                origin: input.origin,
             }
 
             receivedEmptyGeneratedEvent 
@@ -363,20 +386,91 @@ async function generateLiveObjectEvents(
         }
         
         if (receivedEmptyGeneratedEvent) {
-            console.log('generatedEvents', generatedEvents)
-            retryInputEvents.push({ inputEvent, pendingEvents })
+            retryInputs.push({ input, pendingEvents })
         }
         i++
     }
 
-    return { liveObjectEvents, retryInputEvents }
+    return { liveObjectEvents, retryInputs }
+}
+
+function groupCallsByLovNamespace(
+    calls: StringKeyMap[], 
+    inputContractCallsToLovs: StringKeyMap,
+    failingNamespaces: Set<string>,
+): StringKeyMap {
+    const callsByLovNsp = {}
+    for (const call of calls) {
+        const lovsDependentOnCall = inputContractCallsToLovs[call.name]
+        if (!lovsDependentOnCall?.length) continue
+
+        for (const { lovNsp, lovId, lovUrl, lovTableSchema } of lovsDependentOnCall) {
+            if (failingNamespaces.has(lovNsp)) continue
+            if (!callsByLovNsp.hasOwnProperty(lovNsp)) {
+                callsByLovNsp[lovNsp] = []
+            }
+            callsByLovNsp[lovNsp].push({ 
+                lovNsp,
+                lovId,
+                lovUrl,
+                lovTableSchema,
+                call,
+            })
+        }
+    }
+
+    const callsByNamespaceAndLov = {}
+    for (const nsp in callsByLovNsp) {
+        const groupedByLov = []
+        let adjacentCallsWithSameLov = []
+        let prevLovId = null
+        let lovId, prevLovUrl, prevLovTableSchema
+
+        for (const entry of callsByLovNsp[nsp]) {
+            const { call } = entry
+            lovId = entry.lovId
+
+            if (prevLovId === null) {
+                adjacentCallsWithSameLov = [call]
+                prevLovId = lovId
+                prevLovUrl = entry.lovUrl
+                prevLovTableSchema = entry.lovTableSchema    
+                continue
+            }
+
+            if (lovId !== prevLovId) {
+                groupedByLov.push({
+                    lovId: prevLovId,
+                    lovUrl: prevLovUrl,
+                    lovTableSchema: prevLovTableSchema,
+                    events: adjacentCallsWithSameLov,
+                })
+                adjacentCallsWithSameLov = [call]
+                prevLovId = lovId
+                prevLovUrl = entry.lovUrl
+                prevLovTableSchema = entry.lovTableSchema
+                continue
+            }
+
+            adjacentCallsWithSameLov.push(call)
+        }
+        adjacentCallsWithSameLov.length && groupedByLov.push({
+            lovId: prevLovId,
+            lovUrl: prevLovUrl,
+            lovTableSchema: prevLovTableSchema,
+            calls: adjacentCallsWithSameLov,
+        })
+        callsByNamespaceAndLov[nsp] = groupedByLov
+    }
+
+    return callsByNamespaceAndLov
 }
 
 function groupEventsByLovNamespace(
     events: StringKeyMap[], 
     inputEventVersionsToLovs: StringKeyMap,
     failingNamespaces: Set<string>,
-) {
+): StringKeyMap {
     const eventsByLovNsp = {}
     for (const event of events) {
         const lovsDependentOnEventVersion = inputEventVersionsToLovs[event.name]
@@ -444,6 +538,36 @@ function groupEventsByLovNamespace(
     return eventsByNamespaceAndLov
 }
 
+async function getLiveObjectVersionToContractCallMappings(
+    contractCallComps: StringKeyMap[],
+    blockNumber: number,
+): Promise<StringKeyMap> {
+    const lovResults = await getLiveObjectVersionsThroughLiveCallHandlers(
+        contractCallComps,
+        blockNumber,
+    )
+
+    // Map contract calls to the live object versions that depend on them.
+    const inputContractCallsToLovs = {}
+    const lovIds = new Set<number>()
+    for (const result of lovResults) {
+        const { nsp, functionName, lovNsp, lovId, lovUrl, lovTablePath } = result
+        const callName = [nsp, functionName].join('.')
+        if (!inputContractCallsToLovs.hasOwnProperty(callName)) {
+            inputContractCallsToLovs[callName] = []
+        }
+        const numericLovId = Number(lovId)
+        lovIds.add(numericLovId)
+        inputContractCallsToLovs[callName].push({
+            lovNsp,
+            lovId: numericLovId,
+            lovUrl,
+            lovTableSchema: lovTablePath.split('.')[0],
+        })
+    }
+    return inputContractCallsToLovs
+}
+
 async function getLiveObjectVersionToEventVersionMappings(
     eventVersionComps: StringKeyMap[],
     blockNumber: number,
@@ -497,6 +621,7 @@ async function getLiveObjectVersionsFromInputLiveEventVersions(
     eventVersionComps: StringKeyMap[],
     blockNumber: number,
 ): Promise<StringKeyMap[]> {
+    if (!eventVersionComps.length) return []
     const andClauses = []
     const bindings = []
 
@@ -527,6 +652,45 @@ and live_object_versions.status = 1`
         results = (await CoreDB.query(sql, bindings)) || []
     } catch (err) {
         throw `[${blockNumber}] Error finding live object versions with event versions: ${err}`
+    }
+
+    return camelizeKeys(results)
+}
+
+async function getLiveObjectVersionsThroughLiveCallHandlers(
+    contractCallComps: StringKeyMap[],
+    blockNumber: number,
+): Promise<StringKeyMap[]> {
+    if (!contractCallComps.length) return []
+    const andClauses = []
+    const bindings = []
+
+    let i = 1
+    for (const { nsp, functionName } of contractCallComps) {
+        andClauses.push(`(namespaces.name = $${i} and live_call_handlers.function_name = $${i + 1})`)
+        bindings.push(...[nsp, functionName])
+        i += 2
+    }
+
+    const sql = `select
+namespaces.name as nsp,
+live_call_handlers.function_name as function_name,
+live_object_versions.nsp as lov_nsp,
+live_object_versions.id as lov_id,
+live_object_versions.url as lov_url,
+live_object_versions.config -> 'table' as lov_table_path
+from live_call_handlers
+join namespaces on live_call_handlers.namespace_id = namespaces.id
+join live_object_versions on live_call_handlers.live_object_version_id = live_object_versions.id
+where (${andClauses.join(' or ')})
+and live_object_versions.url is not null
+and live_object_versions.status = 1`
+
+    let results = []
+    try {
+        results = (await CoreDB.query(sql, bindings)) || []
+    } catch (err) {
+        throw `[${blockNumber}] Error finding live object versions through live call handlers: ${err}`
     }
 
     return camelizeKeys(results)
@@ -582,8 +746,21 @@ function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
 
 function getUniqueEventVersionComps(originEvents: StringKeyMap[]): StringKeyMap[] {
     return uniqueByKeys(
-        originEvents.map(e => fromNamespacedVersion(e.name)).filter(e => !!e.nsp && !!e.name && !!e.version),
+        originEvents
+            .map(e => fromNamespacedVersion(e.name))
+            .filter(e => !!e.nsp && !!e.name && !!e.version),
         ['nsp', 'name', 'version']
+    )
+}
+
+function getUniqueContractCallComps(contractCalls: StringKeyMap[]): StringKeyMap[] {
+    return uniqueByKeys(
+        contractCalls.map(call => {
+            const splitCallName = call.name.split('.')
+            const functionName = splitCallName.pop()
+            return { nsp: splitCallName.join('.'), functionName }
+        }),
+        ['nsp', 'functionName']
     )
 }
 

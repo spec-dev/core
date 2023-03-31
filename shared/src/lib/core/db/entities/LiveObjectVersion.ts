@@ -12,6 +12,7 @@ import { LiveEventVersion } from './LiveEventVersion'
 import { LiveEdgeFunctionVersion } from './LiveEdgeFunctionVersion'
 import { LiveObject } from './LiveObject'
 import { StringKeyMap } from '../../../types'
+import { LiveCallHandler } from './LiveCallHandler'
 
 export interface LiveObjectVersionProperty {
     name: string
@@ -101,4 +102,7 @@ export class LiveObjectVersion {
         (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.liveObjectVersion
     )
     liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
+
+    @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.liveObjectVersion)
+    liveCallHandlers: LiveCallHandler[]
 }
