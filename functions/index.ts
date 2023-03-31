@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.62'
+import { PublishEventQueue, StringKeyMap, SpecEvent } from 'https://esm.sh/@spec.dev/core@0.0.72'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -102,9 +102,13 @@ serve(async (req: Request) => {
         const liveObject = new LiveObject(publishedEventQueue)
         liveObject._tablesApiToken = tablesApiToken
 
+        // Check whether input event is actually an event or a call.
+        const isContractCall = inputEvent?.hasOwnProperty('inputs')
+        const handlerType = isContractCall ? 'handleCall' : 'handleEvent'
+
         // Handle the event and auto-save.
         try {
-            if (await liveObject.handleEvent(inputEvent)) {
+            if (await liveObject[handlerType](inputEvent)) {
                 await liveObject.save()
             }
         } catch (err) {
