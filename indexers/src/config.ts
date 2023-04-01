@@ -40,6 +40,7 @@ const indexerConfig: StringKeyMap = {
     EXPO_BACKOFF_FACTOR: 1.5,
     MAX_BINDINGS_SIZE: 2000,
     ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
+    INDEX_JOB_MAX_DURATION: Number(ev('INDEX_JOB_MAX_DURATION', 60000)),
 }
 
 export default indexerConfig

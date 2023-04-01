@@ -30,8 +30,13 @@ export function getHeadWorker(): Worker {
                 throw `No indexer exists for chainId: ${head.chainId}`
             }
 
+            const jobTimeout = setTimeout(() => {
+                throw `[${head.chainId}:${head.blockNumber}] Index job hit max duration time.`
+            }, config.INDEX_JOB_MAX_DURATION)
+
             // Index block.
             await indexer.perform()
+            clearTimeout(jobTimeout)
             await jobStatusUpdatePromise
         },
         {
