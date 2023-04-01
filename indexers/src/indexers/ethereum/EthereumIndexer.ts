@@ -226,12 +226,14 @@ class EthereumIndexer extends AbstractIndexer {
         )
 
         // Token transfers.
-        const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = await initTokenTransfers(
-            erc20Tokens,
-            nftCollections,
-            this.successfulLogs,
-            this.chainId,
-        )
+        const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
+            ? [[], [], []] 
+            : await initTokenTransfers(
+                erc20Tokens,
+                nftCollections,
+                this.successfulLogs,
+                this.chainId,
+            )
 
         erc20Transfers.length && this._info(`${erc20Transfers.length} ERC-20 transfers.`)
         nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)

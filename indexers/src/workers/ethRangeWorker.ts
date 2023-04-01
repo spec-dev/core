@@ -1,13 +1,9 @@
 import config from '../config'
 import { getIndexer } from '../indexers'
 import {
-    insertIndexedBlocks,
-    setIndexedBlocksToSucceeded,
     logger,
     NewReportedHead,
-    IndexedBlockStatus,
     IndexedBlock,
-    getBlocksInNumberRange,
     range,
     StringKeyMap,
     EthBlock,
@@ -25,10 +21,14 @@ import {
     uniqueByKeys,
     EthLatestInteraction,
     toChunks,
+    Erc20Token,
+    NftCollection,
+    fullErc20TokenUpsertConfig,
+    fullNftCollectionUpsertConfig,
+    snakeToCamel,
     sleep,
 } from '../../../shared'
 import { exit } from 'process'
-import fs from 'fs'
 
 const latestInteractionsRepo = () => SharedTables.getRepository(EthLatestInteraction)
 
@@ -122,18 +122,6 @@ class EthRangeWorker {
         return result as StringKeyMap
     }
 
-    async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
-        try {
-            return await getBlocksInNumberRange(config.CHAIN_ID, blockNumbers)
-        } catch (err) {
-            logger.error(
-                `Error getting indexed_blocks from DB for block range: ${blockNumbers}`,
-                err
-            )
-            return null
-        }
-    }
-
     _atNumber(blockNumber: number): NewReportedHead {
         return {
             id: 0,
@@ -152,6 +140,8 @@ class EthRangeWorker {
         let traces = []
         let contracts = []
         let latestInteractions = []
+        let erc20Tokens = [] 
+        let nftCollections = []
 
         for (const result of results) {
             if (!result) continue
@@ -183,6 +173,20 @@ class EthRangeWorker {
                     timestamp: () => result.pgBlockTimestamp,
                 }))
             )
+            erc20Tokens.push(
+                ...result.erc20Tokens.map((e) => ({
+                    ...e,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                    lastUpdated: () => result.pgBlockTimestamp,
+                }))
+            )
+            nftCollections.push(
+                ...result.nftCollections.map((n) => ({
+                    ...n,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                    lastUpdated: () => result.pgBlockTimestamp,
+                }))
+            )
         }
 
         if (!this.upsertConstraints.block && blocks.length) {
@@ -204,6 +208,12 @@ class EthRangeWorker {
             this.upsertConstraints.latestInteraction = fullLatestInteractionUpsertConfig(
                 latestInteractions[0]
             )
+        }
+        if (!this.upsertConstraints.erc20Token && erc20Tokens.length) {
+            this.upsertConstraints.erc20Token = fullErc20TokenUpsertConfig()
+        }
+        if (!this.upsertConstraints.nftCollection && nftCollections.length) {
+            this.upsertConstraints.nftCollection = fullNftCollectionUpsertConfig()
         }
 
         blocks = this.upsertConstraints.block
@@ -229,6 +239,14 @@ class EthRangeWorker {
             ? uniqueByKeys(latestInteractions, this.upsertConstraints.latestInteraction[1])
             : latestInteractions
 
+        erc20Tokens = this.upsertConstraints.erc20Token
+            ? uniqueByKeys(erc20Tokens, this.upsertConstraints.erc20Token[1].map(snakeToCamel))
+            : erc20Tokens
+
+        nftCollections = this.upsertConstraints.nftCollection
+            ? uniqueByKeys(nftCollections, this.upsertConstraints.nftCollection[1].map(snakeToCamel))
+            : nftCollections
+
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
                 this._upsertBlocks(blocks, tx),
@@ -236,14 +254,11 @@ class EthRangeWorker {
                 this._upsertLogs(logs, tx),
                 this._upsertTraces(traces, tx),
                 this._upsertContracts(contracts, tx),
+                this._upsertLatestInteractions(latestInteractions, tx),
+                this._upsertErc20Tokens(erc20Tokens, tx),
+                this._upsertNftCollections(nftCollections, tx),
             ])
         })
-
-        if (latestInteractions.length) {
-            await SharedTables.manager.transaction(async (tx) => {
-                await this._upsertLatestInteractions(latestInteractions, tx)
-            })
-        }
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
@@ -371,17 +386,38 @@ class EthRangeWorker {
             }
     
         }
-        // const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
-        // await Promise.all(
-                // return tx
-                //     .createQueryBuilder()
-                //     .insert()
-                //     .into(EthLatestInteraction)
-                //     .values(chunk)
-                //     .orUpdate(updateCols, conflictCols)
-                //     .execute()
-            // })
-        // )
+    }
+
+    async _upsertErc20Tokens(erc20Tokens: StringKeyMap[], tx: any) {
+        if (!erc20Tokens.length) return
+        logger.info(`Saving ${erc20Tokens.length} erc20_tokens...`)
+        await Promise.all(
+            toChunks(erc20Tokens, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(Erc20Token)
+                    .values(chunk)
+                    .orIgnore()
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertNftCollections(nftCollections: StringKeyMap[], tx: any) {
+        if (!nftCollections.length) return
+        logger.info(`Saving ${nftCollections.length} nft_collections...`)
+        await Promise.all(
+            toChunks(nftCollections, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(NftCollection)
+                    .values(chunk)
+                    .orIgnore()
+                    .execute()
+            })
+        )
     }
 }
 

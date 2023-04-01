@@ -253,6 +253,7 @@ class PolygonRangeWorker {
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
         if (!blocks.length) return
+        logger.info(`Saving ${blocks.length} blocks...`)
         const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
         await tx
             .createQueryBuilder()
@@ -265,6 +266,7 @@ class PolygonRangeWorker {
 
     async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
         if (!transactions.length) return
+        logger.info(`Saving ${transactions.length} transactions...`)
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
@@ -281,6 +283,7 @@ class PolygonRangeWorker {
 
     async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
         if (!logs.length) return []
+        logger.info(`Saving ${logs.length} logs...`)
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         return (
             await Promise.all(
@@ -335,7 +338,6 @@ class PolygonRangeWorker {
     async _upsertErc20Tokens(erc20Tokens: StringKeyMap[], tx: any) {
         if (!erc20Tokens.length) return
         logger.info(`Saving ${erc20Tokens.length} erc20_tokens...`)
-        const [updateCols, conflictCols] = this.upsertConstraints.erc20Token
         await Promise.all(
             toChunks(erc20Tokens, this.chunkSize).map((chunk) => {
                 return tx
@@ -343,7 +345,7 @@ class PolygonRangeWorker {
                     .insert()
                     .into(Erc20Token)
                     .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
+                    .orIgnore()
                     .execute()
             })
         )
@@ -352,7 +354,6 @@ class PolygonRangeWorker {
     async _upsertNftCollections(nftCollections: StringKeyMap[], tx: any) {
         if (!nftCollections.length) return
         logger.info(`Saving ${nftCollections.length} nft_collections...`)
-        const [updateCols, conflictCols] = this.upsertConstraints.nftCollection
         await Promise.all(
             toChunks(nftCollections, this.chunkSize).map((chunk) => {
                 return tx
@@ -360,7 +361,7 @@ class PolygonRangeWorker {
                     .insert()
                     .into(NftCollection)
                     .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
+                    .orIgnore()
                     .execute()
             })
         )
