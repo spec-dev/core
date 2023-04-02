@@ -4,6 +4,8 @@ import { getHeadWorker } from './headWorker'
 import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
+import { getPullBlocksWorker } from './pullBlocksWorker'
+import { getPullTransactionsWorker } from './pullTransactionsWorker'
 import { getPullLogsWorker } from './pullLogsWorker'
 import { getPullTracesWorker } from './pullTracesWorker'
 import { getPullContractsWorker } from './pullContractsWorker'
@@ -23,6 +25,12 @@ import { getSeedTokenContractsWorker } from './seedTokenContractsWorker'
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-blocks') {
+        return getPullBlocksWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-transactions') {
+        return getPullTransactionsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-logs') {
         return getPullLogsWorker()
