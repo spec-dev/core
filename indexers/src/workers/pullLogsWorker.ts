@@ -3,7 +3,7 @@ import JSONStream from 'JSONStream'
 import {
     logger,
     StringKeyMap,
-    EthLog,
+    PolygonLog,
     SharedTables,
     uniqueByKeys,
     normalizeEthAddress,
@@ -114,16 +114,16 @@ class PullLogsWorker {
 
     async _saveLogs(logs: StringKeyMap[]) {
         logs = uniqueByKeys(
-            logs.map((l) => this._bigQueryLogToEthLog(l)),
+            logs.map((l) => this._bigQueryLogToPolygonLog(l)),
             ['logIndex', 'transactionHash']
         )
 
         await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder().insert().into(EthLog).values(logs).orIgnore().execute()
+            await tx.createQueryBuilder().insert().into(PolygonLog).values(logs).orIgnore().execute()
         })
     }
 
-    _bigQueryLogToEthLog(bqLog: StringKeyMap): StringKeyMap {
+    _bigQueryLogToPolygonLog(bqLog: StringKeyMap): StringKeyMap {
         const topics = bqLog.topics || []
         const topic0 = topics[0] || null
         const topic1 = topics[1] || null
@@ -148,7 +148,7 @@ class PullLogsWorker {
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/logs/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/polygon-logs/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
