@@ -343,13 +343,14 @@ async function saveDataModels(
             // Input call handlers.
             inputCallNamespaceIds.length && await createLiveCallHandlersWithTx(payload.inputCalls.map((callName, i) => {
                 const callNamespaceId = inputCallNamespaceIds[i]
+                if (!callNamespaceId) return null
                 const functionName = callName.split('.').pop()
                 return {
                     functionName,
                     liveObjectVersionId,
                     namespaceId: callNamespaceId,
                 }
-            }), tx)
+            }).filter(v => !!v), tx)
         })
     } catch (err) {
         logger.error(
@@ -370,17 +371,10 @@ function deleteDir(dir: string) {
 
 async function resolveEventVersions(namespacedVersions: string[]): Promise<EventVersion[] | null> {
     if (!namespacedVersions?.length) return []
-
-    const eventVersions = await getEventVersionsByNamespacedVersions(namespacedVersions)
-    if (eventVersions.length !== namespacedVersions.length) {
-        logger.error(`Failed to resolve all event versions: ${namespacedVersions.join(', ')}`)
-        return null
-    }
-
-    return eventVersions
+    return await getEventVersionsByNamespacedVersions(namespacedVersions)
 }
 
-async function resolveInputCallNamespaceIds(inputCalls: string[]): Promise<number[]> {
+export async function resolveInputCallNamespaceIds(inputCalls: string[]): Promise<number[]> {
     if (!inputCalls.length) return []
     const uniqueNsps = new Set<string>()
     const nspNameByIndex = {}
