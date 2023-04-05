@@ -21,7 +21,7 @@ class PullLogsWorker {
 
     cursor: number
 
-    saveBatchSize: number = 2000
+    saveBatchSize: number = 200
 
     jsonStream: JSONStream
 
@@ -39,6 +39,7 @@ class PullLogsWorker {
         while (this.cursor <= this.to) {
             logger.info(`Slice ${this.cursor} / ${this.to}`)
             await this._pullLogsForSlice(this.cursor)
+            await sleep(1000)
             this.cursor++
         }
         logger.info('DONE')
@@ -121,7 +122,7 @@ class PullLogsWorker {
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder().insert().into(PolygonLog).values(logs).orIgnore().execute()
         })
-        await sleep(1000)
+        await sleep(100)
     }
 
     _bigQueryLogToPolygonLog(bqLog: StringKeyMap): StringKeyMap {
