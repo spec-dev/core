@@ -2,6 +2,7 @@ import { Namespace } from '../entities/Namespace'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
+import { In } from 'typeorm'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
 
@@ -25,6 +26,15 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
         return await namespaces().findOneBy({ name })
     } catch (err) {
         logger.error(`Error while querying for Namespace by name ${name}: ${err}`)
+        return null
+    }
+}
+
+export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
+    try {
+        return await namespaces().find({ where: { name: In(names) } })
+    } catch (err) {
+        logger.error(`Error getting Namespaces by names ${names.join(', ')}: ${err}`)
         return null
     }
 }

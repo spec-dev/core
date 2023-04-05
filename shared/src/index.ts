@@ -151,6 +151,7 @@ export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
     getNamespace,
+    getNamespaces,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
@@ -290,3 +291,9 @@ export {
     CHAIN_ID_COL,
     fixedEventViewPropertyNames,
 } from './lib/utils/liveObjects'
+
+export {
+    getLovInputGenerator,
+    getGroupedInputGeneratorQueriesForLovs,
+    getLovInputGeneratorQueries,
+} from './lib/services/generateLovInputs'

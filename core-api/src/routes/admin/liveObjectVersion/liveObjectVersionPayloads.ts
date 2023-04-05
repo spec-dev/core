@@ -1,5 +1,10 @@
 import { ValidatedPayload, StringKeyMap, PublishLiveObjectVersionPayload } from '../../../types'
-import { isValidVersionFormat, keys } from '../../../../../shared'
+import { isValidVersionFormat } from '../../../../../shared'
+
+interface IndexLiveObjectVersionsPayload {
+    lovIds: number[],
+    startTimestamp?: string
+}
 
 export function parsePublishLiveObjectVersionPayload(
     data: StringKeyMap
@@ -9,7 +14,8 @@ export function parsePublishLiveObjectVersionPayload(
     const displayName = data?.displayName
     const version = data?.version
     const description = data?.description
-    const events = data?.events || {}
+    const inputEvents = data?.events || []
+    const inputCalls = data?.calls || []
     const config = data?.config
     const properties = data?.properties || []
     const additionalEventAssociations = data?.additionalEventAssociations || []
@@ -97,10 +103,27 @@ export function parsePublishLiveObjectVersionPayload(
             displayName,
             version,
             description,
-            events,
+            inputEvents,
+            inputCalls,
             config,
             properties,
             additionalEventAssociations,
         } as PublishLiveObjectVersionPayload,
+    }
+}
+
+export function parseIndexLiveObjectVersionsPayload(
+    data: StringKeyMap
+): ValidatedPayload<IndexLiveObjectVersionsPayload> {
+    const lovIds = data?.lovIds || []
+    const startTimestamp = data?.startTimestamp || null
+
+    if (!lovIds.length) {
+        return { isValid: false, error: '"lovIds" was missing or empty' }
+    }
+
+    return {
+        isValid: true,
+        payload: { lovIds, startTimestamp }
     }
 }

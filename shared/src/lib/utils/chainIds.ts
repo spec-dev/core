@@ -64,6 +64,13 @@ export const chainIdLiveObjectVersionPropertyOptions = [
     type: 'string',
 }))
 
+export const avgBlockTimesForChainId = {
+    [chainIds.ETHEREUM]: 12,
+    [chainIds.GOERLI]: 12,
+    [chainIds.POLYGON]: 2,
+    [chainIds.MUMBAI]: 2,
+}
+
 export const contractNamespaceForChainId = (chainId: string): string | null => {
     const nsp = namespaceForChainId[chainId]
     if (!nsp) return null

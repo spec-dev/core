@@ -25,8 +25,12 @@ import {
     supportedChainIds,
     INT8,
     guessColTypeFromPropertyType,
+    upsertEventsWithTx,
     attemptToParseNumber,
+    upsertEventVersionsWithTx,
     unique,
+    getNamespaces,
+    createLiveCallHandlersWithTx,
 } from '../../../shared'
 import os from 'os'
 import path from 'path'
@@ -66,6 +70,13 @@ export async function publishLiveObjectVersion(
         logger.error(`Namespace "${namespace.name}" has no remote git repository.`)
         return
     }
+
+    // Resolve input event versions.
+    const inputEventVersions = await resolveEventVersions(payload.inputEvents)
+    if (inputEventVersions === null) return
+    
+    // Resolve the namespaces for any input calls.
+    const inputCallNamespaceIds = await resolveInputCallNamespaceIds(payload.inputCalls || [])
 
     // Get any event versions explicitly requested.
     const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
@@ -109,6 +120,8 @@ export async function publishLiveObjectVersion(
         liveObjectId,
         example,
         namespacedLiveObjectVersion,
+        inputEventVersions,
+        inputCallNamespaceIds,
         additionalEventVersions,
     )
     if (!saved) return
@@ -269,6 +282,8 @@ async function saveDataModels(
     liveObjectId: number,
     example: StringKeyMap | null,
     namespacedLiveObjectVersion: string,
+    inputEventVersions: EventVersion[],
+    inputCallNamespaceIds: number[],
     additionalEventVersions: EventVersion[],
 ): Promise<boolean> {
     try {
@@ -285,12 +300,56 @@ async function saveDataModels(
                 tx,
             )
 
-            // Create any additional live event versions that were explicitly specified.
-            additionalEventVersions.length && await createLiveEventVersions(
+            // LiveObjectUpserted event.
+            const event = (await upsertEventsWithTx([{
+                namespaceId: namespace.id,
+                name: `${payload.name}Upserted`,
+            }], tx))[0]
+
+            // LiveObjectUpserted event version
+            const eventVersion = (await upsertEventVersionsWithTx([{
+                eventId: event.id,
+                nsp: namespace.name,
+                name: event.name,
+                version: payload.version,
+            }], tx))[0]
+
+            // LiveObjectUpserted live event version.
+            if (eventVersion) {
+                await createLiveEventVersionsWithTx([{
+                    liveObjectVersionId,
+                    eventVersionId: eventVersion.id,
+                    isInput: false,
+                }], tx)
+            }
+
+            // Input live event versions.
+            inputEventVersions.length && await createLiveEventVersionsWithTx(inputEventVersions.map(ev => ({
                 liveObjectVersionId,
-                unique(additionalEventVersions.map(ev => ev.id)),
+                eventVersionId: ev.id,
+                isInput: true,
+            })), tx)
+
+            // Create any additional live event versions that were explicitly specified.
+            additionalEventVersions.length && await createLiveEventVersionsWithTx(
+                unique(additionalEventVersions.map(ev => ev.id)).map(eventVersionId => ({
+                    liveObjectVersionId,
+                    eventVersionId,
+                    isInput: false,
+                })), 
                 tx,
             )
+            
+            // Input call handlers.
+            inputCallNamespaceIds.length && await createLiveCallHandlersWithTx(payload.inputCalls.map((callName, i) => {
+                const callNamespaceId = inputCallNamespaceIds[i]
+                const functionName = callName.split('.').pop()
+                return {
+                    functionName,
+                    liveObjectVersionId,
+                    namespaceId: callNamespaceId,
+                }
+            }), tx)
         })
     } catch (err) {
         logger.error(
@@ -319,6 +378,34 @@ async function resolveEventVersions(namespacedVersions: string[]): Promise<Event
     }
 
     return eventVersions
+}
+
+async function resolveInputCallNamespaceIds(inputCalls: string[]): Promise<number[]> {
+    if (!inputCalls.length) return []
+    const uniqueNsps = new Set<string>()
+    const nspNameByIndex = {}
+    for (let i = 0; i < inputCalls.length; i++) {
+        const splitInputCallName = inputCalls[i].split('.')
+        splitInputCallName.pop()
+        const inputCallNsp = splitInputCallName.join('.')
+        uniqueNsps.add(inputCallNsp)
+        nspNameByIndex[i] = inputCallNsp
+    }
+
+    const namespaces = await getNamespaces(Array.from(uniqueNsps))
+    const nspNameToId = {}
+    for (const namespace of namespaces) {
+        nspNameToId[namespace.name] = namespace.id
+    }
+
+    const namespaceIds = []
+    for (let j = 0; j < inputCalls.length; j++) {
+        const nspName = nspNameByIndex[j]
+        const namespaceId = nspNameToId[nspName]
+        namespaceIds.push(namespaceId)
+    }
+
+    return namespaceIds
 }
 
 async function createLiveObject(
@@ -354,61 +441,6 @@ async function createLiveObjectVersion(
         liveObjectId,
     }, tx)
     return liveObjectVersion.id
-}
-
-async function createEdgeFunction(
-    namespaceId: number, 
-    payload: PublishLiveObjectVersionPayload,
-    tx: any,
-): Promise<number> {
-    const edgeFunction = await upsertEdgeFunction({
-        name: payload.name,
-        desc: `Get ${payload.displayName}`,
-        namespaceId: namespaceId,
-    }, tx)
-    return edgeFunction.id
-}
-
-async function createEdgeFunctionVersion(
-    nsp: string, 
-    edgeFunctionId: number,
-    url: string,
-    payload: PublishLiveObjectVersionPayload,
-    tx: any,
-): Promise<number> {
-    const edgeFunctionVersion = await createEdgeFunctionVersionWithTx({
-        nsp,
-        name: lowerCaseCamel(payload.name) + 's',
-        version: payload.version,
-        edgeFunctionId,
-        url,
-    }, tx)
-    return edgeFunctionVersion.id
-}
-
-async function createLiveEdgeFunctionVersion(
-    liveObjectVersionId: number,
-    edgeFunctionVersionId: number,
-    tx: any,
-): Promise<number> {
-    const liveEdgeFunctionVersion = await createLiveEdgeFunctionVersionWithTx({
-        role: LiveEdgeFunctionVersionRole.GetMany,
-        liveObjectVersionId,
-        edgeFunctionVersionId,
-    }, tx)
-    return liveEdgeFunctionVersion.id
-}
-
-async function createLiveEventVersions(
-    liveObjectVersionId: number,
-    eventVersionIds: number[],
-    tx: any,
-) {
-    const insertData = eventVersionIds.map(eventVersionId => ({
-        liveObjectVersionId,
-        eventVersionId,
-    }))
-    await createLiveEventVersionsWithTx(insertData, tx)
 }
 
 export default function job(params: StringKeyMap) {

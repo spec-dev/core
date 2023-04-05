@@ -1,11 +1,13 @@
 import { DelayedJobSpec } from '../../../shared'
 import decodeContractInteractions from './decodeContractInteractions'
+import indexLiveObjectVersions from './indexLiveObjectVersions'
 import publishLiveObjectVersion from './publishLiveObjectVersion'
 import registerContractInstances from './registerContractInstances'
 import upsertAbis from './upsertAbis'
 
 const jobs = {
     decodeContractInteractions,
+    indexLiveObjectVersions,
     publishLiveObjectVersion,
     registerContractInstances,
     upsertAbis,

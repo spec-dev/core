@@ -11,6 +11,9 @@ const delayedJobsConfig: StringKeyMap = {
     MUMBAISCAN_API_KEY: ev('MUMBAISCAN_API_KEY'),
     POLYGON_ALCHEMY_REST_URL: ev('POLYGON_ALCHEMY_REST_URL'),
     MUMBAI_ALCHEMY_REST_URL: ev('MUMBAI_ALCHEMY_REST_URL'),
+    EVENT_GEN_AUTH_HEADER_NAME: 'Spec-Auth-Token',
+    EVENT_GENERATORS_JWT: ev('EVENT_GENERATORS_JWT'),
+    TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
 }
 
 export default delayedJobsConfig

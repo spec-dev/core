@@ -4,6 +4,7 @@ import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
+import { In } from 'typeorm'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -126,11 +127,21 @@ export async function createLiveObjectVersionWithTx(
     )
 }
 
-export async function updateLiveObjectVersionStatus(id: number, status: LiveObjectVersionStatus) {
+export async function updateLiveObjectVersionStatus(
+    ids: number | number[],
+    status: LiveObjectVersionStatus
+) {
+    ids = Array.isArray(ids) ? ids : [ids]
     try {
-        await liveObjectVersions().createQueryBuilder().update({ status }).where({ id }).execute()
+        await liveObjectVersions()
+            .createQueryBuilder()
+            .update({ status })
+            .where({ id: In(ids) })
+            .execute()
     } catch (err) {
-        logger.error(`Error setting LiveObjectVersion(id=${id}) status to ${status}: ${err}`)
+        logger.error(
+            `Error setting LiveObjectVersion(id=${ids.join(',')}) status to ${status}: ${err}`
+        )
         return false
     }
     return true
