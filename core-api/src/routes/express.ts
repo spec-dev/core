@@ -8,7 +8,7 @@ import fileUpload from 'express-fileupload'
 // Create Express app.
 export const app = express()
 app.use(fileUpload())
-app.use(express.json())
+app.use(express.json({ limit: '50mb' }))
 if (config.ENV !== specEnvs.PROD) {
     app.use(morgan('dev'))
 }

@@ -165,7 +165,8 @@ async function sendInputsToLov(
     try {
         respData = (await resp?.json()) || []
     } catch (err) {
-        logger.error(`Failed to parse JSON response (lovId=${id}): ${err}`)
+        logger.error(`Failed to parse JSON response (lovId=${id}): ${err}`
+        )
     }
     if (resp?.status !== 200) {
         const msg = `Request to ${url} (lovId=${id}) failed with status ${resp?.status}: ${

@@ -327,6 +327,7 @@ data:
     }
   proxy-real-ip-cidr: {{VPC_CIDR}}
   use-forwarded-headers: "true"
+  lb-method: "round_robin"
 kind: ConfigMap
 metadata:
   labels:
