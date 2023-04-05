@@ -301,18 +301,18 @@ async function saveDataModels(
             )
 
             // LiveObjectUpserted event.
-            const event = (await upsertEventsWithTx([{
+            const event = ((await upsertEventsWithTx([{
                 namespaceId: namespace.id,
                 name: `${payload.name}Upserted`,
-            }], tx))[0]
+            }], tx)) || {})[0]
 
             // LiveObjectUpserted event version
-            const eventVersion = (await upsertEventVersionsWithTx([{
+            const eventVersion = ((await upsertEventVersionsWithTx([{
                 eventId: event.id,
                 nsp: namespace.name,
                 name: event.name,
                 version: payload.version,
-            }], tx))[0]
+            }], tx)) || {})[0]
 
             // LiveObjectUpserted live event version.
             if (eventVersion) {

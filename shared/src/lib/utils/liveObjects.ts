@@ -131,7 +131,8 @@ export function buildContractEventAsLiveObjectVersionPayload(
             ],
             table: viewPath,
         },
-        events: {},
+        inputEvents: [],
+        inputCalls: [],
         additionalEventAssociations: [namespacedEventVersion],
     }
 }

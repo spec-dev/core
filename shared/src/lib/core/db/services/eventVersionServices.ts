@@ -69,12 +69,14 @@ export async function getEventVersionsByNamespacedVersions(
 
 export async function upsertEventVersionsWithTx(data: StringKeyMap[], tx: any) {
     const entries = data.map((d) => ({ ...d, uid: uuid4() }))
-    await tx
-        .createQueryBuilder()
-        .insert()
-        .into(EventVersion)
-        .values(entries)
-        .orIgnore()
-        .returning('*')
-        .execute()
+    return (
+        await tx
+            .createQueryBuilder()
+            .insert()
+            .into(EventVersion)
+            .values(entries)
+            .orIgnore()
+            .returning('*')
+            .execute()
+    ).generatedMaps
 }
