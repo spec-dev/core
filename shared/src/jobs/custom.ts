@@ -19,7 +19,7 @@ async function perform() {
 
     console.log('Draining...')
 
-    await queue.drain()
+    await queue.obliterate()
     exit(0)
 }
 
