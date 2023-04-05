@@ -8,7 +8,7 @@ import { unique, uniqueByKeys } from '../utils/formatters'
 import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
 import { schemaForChainId } from '../utils/chainIds'
-import { addSeconds } from '../utils/date'
+import { addSeconds, nowAsUTCDateString } from '../utils/date'
 import { avgBlockTimesForChainId } from '../utils/chainIds'
 import { camelizeKeys } from 'humps'
 import {
@@ -16,6 +16,7 @@ import {
     snakeToCamel,
     stripLeadingAndTrailingUnderscores,
 } from '../utils/formatters'
+import { EthTraceStatus } from '../shared-tables/db/entities/EthTrace'
 
 const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -141,15 +142,20 @@ export async function getLovInputGenerator(
         await Promise.all(promises)
 
         const inputs = chainInputs.flat()
+        const successfulInputs = []
         for (const input of inputs) {
             const chainId = input._chainId
             const txHash = input.transaction_hash
             if (!successfulTxHashes[chainId] || !successfulTxHashes[chainId].has(txHash)) {
                 continue
             }
+            if (input._inputType === 'call' && input.status === EthTraceStatus.Failure) {
+                continue
+            }
+            successfulInputs.push(input)
         }
 
-        const sortedInputs = inputs.sort(
+        const sortedInputs = successfulInputs.sort(
             (a, b) =>
                 a.block_timestamp - b.block_timestamp ||
                 Number(a._chainId) - Number(b._chainId) ||
@@ -167,7 +173,7 @@ export async function getLovInputGenerator(
 
             if (_inputType === 'event') {
                 const associatedContractInstances =
-                    groupContractInstanceData[[_chainId, record.address].join(':')] || []
+                    groupContractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
                 for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
                     const { data, eventOrigin } = formatLogAsSpecEvent(
                         record,
@@ -182,7 +188,7 @@ export async function getLovInputGenerator(
                 }
             } else {
                 const associatedContractInstances =
-                    groupContractInstanceData[[_chainId, record.to].join(':')] || []
+                    groupContractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
                 for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
                     const { callOrigin, inputs, inputArgs, outputs, outputArgs } =
                         formatTraceAsSpecCall(record, contractInstanceName, _chainId)
@@ -198,7 +204,8 @@ export async function getLovInputGenerator(
             }
         }
 
-        const isLastBatch = endBlockDate > new Date()
+        const currentDate = new Date(nowAsUTCDateString())
+        const isLastBatch = endBlockDate > currentDate
         return {
             inputs: inputSpecs,
             nextStartDate: isLastBatch ? null : endBlockDate,
@@ -328,7 +335,7 @@ export async function getLovInputGeneratorQueries(
     const eventContractInstancesByNamespaceId = {}
     const contractInstanceData = {}
     for (const contractInstance of eventContractInstances) {
-        const ciKey = [contractInstance.chainId, contractInstance.address].join(':')
+        const ciKey = [contractInstance.chainId, contractInstance.address, 'event'].join(':')
         contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
         contractInstanceData[ciKey].push({
             name: contractInstance.name,
@@ -374,6 +381,7 @@ export async function getLovInputGeneratorQueries(
             return contract.contractInstances.map((contractInstance) => ({
                 chainId: contractInstance.chainId,
                 contractAddress: contractInstance.address,
+                contractInstanceName: contractInstance.name,
                 functionName: call.functionName,
                 nsp: call.namespace.name,
             }))
@@ -381,10 +389,19 @@ export async function getLovInputGeneratorQueries(
         .flat() as StringKeyMap[]
 
     for (const inputContractFunction of inputContractFunctions) {
-        const { chainId, contractAddress, functionName, nsp } = inputContractFunction
+        const { chainId, contractAddress, contractInstanceName, functionName, nsp } =
+            inputContractFunction
+
         chainInputs[chainId] = chainInputs[chainId] || {}
         chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
         chainInputs[chainId].inputFunctionData.push({ contractAddress, functionName, nsp })
+
+        const ciKey = [chainId, contractAddress, 'call'].join(':')
+        contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
+        contractInstanceData[ciKey].push({
+            name: contractInstanceName,
+            nsp,
+        })
     }
 
     const queryCursors = {}
