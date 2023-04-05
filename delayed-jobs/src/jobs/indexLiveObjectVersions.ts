@@ -18,6 +18,8 @@ export async function indexLiveObjectVersions(
     startTimestamp: string | null = null,
     maxJobTime: number = DEFAULT_MAX_JOB_TIME
 ) {
+    logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
+
     let timer = setTimeout(() => {
         timer = null
     }, maxJobTime)
@@ -42,8 +44,10 @@ export async function indexLiveObjectVersions(
             if (!cursor || timer === null) break
         }
     } catch (err) {
+        clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
+        return
     }
 
     // All done -> set to "live".
@@ -52,6 +56,8 @@ export async function indexLiveObjectVersions(
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         return
     }
+
+    logger.info(`Enqueueing next indexer interation.`)
 
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
@@ -67,6 +73,7 @@ async function processInputs(
     liveObjectVersions: StringKeyMap,
 ) {
     if (!inputs.length) return
+    logger.info(`Processing ${inputs.length} live object version inputs...`)
     const groupedInputs = createGroupInputs(inputs, inputIdsToLovIdsMap)
     for (const batchInputs of groupedInputs) {
         const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
