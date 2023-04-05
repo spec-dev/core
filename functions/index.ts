@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap } from 'https://esm.sh/@spec.dev/core@0.0.72'
+import { PublishEventQueue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.78'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -96,7 +96,10 @@ serve(async (req: Request) => {
 
     // Process input calls/events in series.
     const allPublishedEvents = []
-    for (const input of inputs) {
+    for (let i = 0; i < inputs.length; i++) {
+        const input = inputs[i]
+        input.origin.blockNumber = BigInt.from(input.origin.blockNumber)
+
         // Create the live object with a single event queue instance to capture published events.
         const publishedEventQueue = new PublishEventQueue()
         const liveObject = new LiveObject(publishedEventQueue)
@@ -113,7 +116,11 @@ serve(async (req: Request) => {
             }
         } catch (err) {
             console.error(err)
-            return resp({ error: err?.message || err }, codes.INTERNAL_SERVER_ERROR)
+            return resp({ 
+                error: err?.message || err, 
+                index: i, 
+                publishedEvents: allPublishedEvents,
+            }, codes.INTERNAL_SERVER_ERROR)
         }
         allPublishedEvents.push(liveObject._publishedEvents)
     }
