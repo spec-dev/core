@@ -83,6 +83,6 @@ spec:
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FLIP
-          value: heads
+          value: tails
         - name: INDEX_JOB_MAX_DURATION
-          value: "120000"
+          value: "480000"

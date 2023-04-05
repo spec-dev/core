@@ -121,6 +121,7 @@ class PullLogsWorker {
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder().insert().into(PolygonLog).values(logs).orIgnore().execute()
         })
+        await sleep(1000)
     }
 
     _bigQueryLogToPolygonLog(bqLog: StringKeyMap): StringKeyMap {
