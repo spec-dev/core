@@ -13,6 +13,7 @@
         "moduleResolution": "Node",
         "forceConsistentCasingInFileNames": true,
         "stripInternal": true,
+        "strict": false,
         "allowSyntheticDefaultImports": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
