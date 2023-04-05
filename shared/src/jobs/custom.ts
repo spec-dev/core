@@ -1,6 +1,5 @@
-import { redis } from '../lib/core/redis'
 import { exit } from 'process'
-import { Queue, QueueScheduler } from 'bullmq'
+import { Queue } from 'bullmq'
 import config from '../lib/config'
 
 async function perform() {
@@ -17,6 +16,8 @@ async function perform() {
             },
         },
     })
+
+    console.log('Draining...')
 
     await queue.drain()
     exit(0)
