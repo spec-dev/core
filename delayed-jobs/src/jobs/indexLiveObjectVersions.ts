@@ -41,7 +41,7 @@ export async function indexLiveObjectVersions(
         while (true) {
             const results = await generator(cursor)
             const inputs = results.inputs || []
-            await processInputs(inputs, inputIdsToLovIdsMap, liveObjectVersions)
+            await processInputs(inputs, inputIdsToLovIdsMap, liveObjectVersions, cursor)
             cursor = results.nextStartDate
             if (!cursor || timer === null) break
         }
@@ -64,7 +64,7 @@ export async function indexLiveObjectVersions(
         return
     }
 
-    logger.info(`Enqueueing next indexer interation.`)
+    logger.info(`Enqueueing next indexer interation ${iteration}.`)
 
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
@@ -80,9 +80,10 @@ async function processInputs(
     inputs: StringKeyMap[],
     inputIdsToLovIdsMap: StringKeyMap,
     liveObjectVersions: StringKeyMap,
+    cursor: Date,
 ) {
     if (!inputs.length) return
-    logger.info(`Processing ${inputs.length} live object version inputs...`)
+    logger.info(`[${cursor?.toISOString()}] Processing ${inputs.length} live object version inputs...`)
     const groupedInputs = createGroupInputs(inputs, inputIdsToLovIdsMap)
     for (const batchInputs of groupedInputs) {
         const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
@@ -154,7 +155,7 @@ async function sendInputsToLov(
         logger.error(`Request error to ${url} (lovId=${id}): ${err}`)
         if (attempts <= 10) {
             await sleep(2000)
-            sendInputsToLov(inputs, liveObjectVersion, attempts + 1)
+            return sendInputsToLov(inputs, liveObjectVersion, attempts + 1)
         } else {
             throw err
         }
@@ -168,12 +169,16 @@ async function sendInputsToLov(
     }
     if (resp?.status !== 200) {
         const msg = `Request to ${url} (lovId=${id}) failed with status ${resp?.status}: ${
-            JSON.stringify(respData || [])
+            JSON.stringify(respData || {})
         }.`
         logger.error(msg)
         if (attempts <= 10) {
             await sleep(2000)
-            sendInputsToLov(inputs, liveObjectVersion, attempts + 1)
+            let retryInputs = inputs
+            if (resp.status == 500 && respData && respData.hasOwnProperty('index')) {
+                retryInputs = retryInputs.slice(Number(respData.index))
+            }
+            return sendInputsToLov(retryInputs, liveObjectVersion, attempts + 1)
         } else {
             throw msg
         }
