@@ -16,7 +16,9 @@ const DEFAULT_MAX_JOB_TIME = 60000
 export async function indexLiveObjectVersions(
     lovIds: number[],
     startTimestamp: string | null = null,
-    maxJobTime: number = DEFAULT_MAX_JOB_TIME
+    iteration: number = 1,
+    maxIterations: number | null = null,
+    maxJobTime: number = DEFAULT_MAX_JOB_TIME,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
 
@@ -57,12 +59,19 @@ export async function indexLiveObjectVersions(
         return
     }
 
+    if (maxIterations && iteration >= maxIterations) {
+        logger.info(`Completed all ${maxIterations} iterations.`)
+        return
+    }
+
     logger.info(`Enqueueing next indexer interation.`)
 
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds,
         startTimestamp: cursor.toISOString(),
+        iteration: iteration + 1,
+        maxIterations,
         maxJobTime,
     })
 }
@@ -174,8 +183,17 @@ async function sendInputsToLov(
 export default function job(params: StringKeyMap) {
     const lovIds = params.lovIds || {}
     const startTimestamp = params.startTimestamp
+    const iteration = params.iteration || 1
+    const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
+
     return {
-        perform: async () => indexLiveObjectVersions(lovIds, startTimestamp, maxJobTime)
+        perform: async () => indexLiveObjectVersions(
+            lovIds, 
+            startTimestamp, 
+            iteration,
+            maxIterations,
+            maxJobTime,
+        )
     }
 }

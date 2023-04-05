@@ -4,6 +4,7 @@ import { isValidVersionFormat } from '../../../../../shared'
 interface IndexLiveObjectVersionsPayload {
     lovIds: number[],
     startTimestamp?: string
+    maxIterations?: number
 }
 
 export function parsePublishLiveObjectVersionPayload(
@@ -117,6 +118,7 @@ export function parseIndexLiveObjectVersionsPayload(
 ): ValidatedPayload<IndexLiveObjectVersionsPayload> {
     const lovIds = data?.lovIds || []
     const startTimestamp = data?.startTimestamp || null
+    const maxIterations = data?.maxIterations || null
 
     if (!lovIds.length) {
         return { isValid: false, error: '"lovIds" was missing or empty' }
@@ -124,6 +126,6 @@ export function parseIndexLiveObjectVersionsPayload(
 
     return {
         isValid: true,
-        payload: { lovIds, startTimestamp }
+        payload: { lovIds, startTimestamp, maxIterations }
     }
 }
