@@ -14,8 +14,8 @@ export function parsePublishLiveObjectVersionPayload(
     const displayName = data?.displayName
     const version = data?.version
     const description = data?.description
-    const inputEvents = data?.events || []
-    const inputCalls = data?.calls || []
+    const inputEvents = data?.inputEvents || []
+    const inputCalls = data?.inputCalls || []
     const config = data?.config
     const properties = data?.properties || []
     const additionalEventAssociations = data?.additionalEventAssociations || []
