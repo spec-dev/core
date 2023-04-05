@@ -36,10 +36,10 @@ export function getTxPayload(payload: StringKeyMap[], claims: StringKeyMap): [St
     if (!payload.length) {
         return [payload, false]
     }
-    if (payload.length > MAX_TX_ENTRIES) {
-        logger.info(`Tx got more than max allowed entries`, payload.length)
-        return [payload, false]
-    }
+    // if (payload.length > MAX_TX_ENTRIES) {
+    //     logger.info(`Tx got more than max allowed entries`, payload.length)
+    //     return [payload, false]
+    // }
 
     const queries = []
     for (const entry of payload) {
