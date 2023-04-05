@@ -177,6 +177,7 @@ async function generateLiveObjectEventsForNamespace(
         }
 
         const generatedEvents = await generateLiveObjectEventsWithProtection(
+            nsp,
             lovId,
             lovUrl,
             generatedEventVersionsWhitelist[lovId],
@@ -196,6 +197,7 @@ async function generateLiveObjectEventsForNamespace(
 }
 
 async function generateLiveObjectEventsWithProtection(
+    lovNsp: string,
     lovId: string,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
@@ -206,6 +208,7 @@ async function generateLiveObjectEventsWithProtection(
     try {
         const eventsQueue = []
         return await generateLiveObjectEvents(
+            lovNsp,
             lovId,
             lovUrl,
             acceptedOutputEvents,
@@ -222,6 +225,7 @@ async function generateLiveObjectEventsWithProtection(
 }   
 
 async function generateLiveObjectEvents(
+    lovNsp: string,
     lovId: string,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
@@ -259,6 +263,7 @@ async function generateLiveObjectEvents(
         if (attempts <= 10) {
             await sleep(1000)
             return generateLiveObjectEvents(
+                lovNsp,
                 lovId,
                 lovUrl,
                 acceptedOutputEvents,
@@ -298,6 +303,7 @@ async function generateLiveObjectEvents(
             eventsQueue.push(...successfullyPublishedEvents)
 
             return generateLiveObjectEvents(
+                lovNsp,
                 lovId,
                 lovUrl,
                 acceptedOutputEvents,
@@ -325,7 +331,8 @@ async function generateLiveObjectEvents(
         }
         
         for (const event of generatedEvents) {
-            if (!acceptedOutputEvents.has(event.name)) {
+            const { nsp: eventNsp } = fromNamespacedVersion(event.name)
+            if (!acceptedOutputEvents.has(event.name) && eventNsp !== lovNsp) {
                 logger.error(`[${blockNumber}] Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
                 continue
             }
