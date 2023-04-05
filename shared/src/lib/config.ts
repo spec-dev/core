@@ -24,7 +24,7 @@ const config: StringKeyMap = {
     INDEX_BLOCK_JOB_NAME: ev('INDEX_BLOCK_JOB_NAME', 'index-block'),
 
     // Delayed job redis queue
-    DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'delayed-jobs'),
+    DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'djq'),
 
     BLOCK_EVENTS_PREFIX: ev('BLOCK_EVENTS_PREFIX', 'block-events'),
     BLOCK_CALLS_PREFIX: ev('BLOCK_CALLS_PREFIX', 'block-calls'),
