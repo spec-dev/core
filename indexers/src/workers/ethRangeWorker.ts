@@ -515,13 +515,13 @@ class EthRangeWorker {
         if (this.saveBatchIndex === this.saveBatchMultiple) {
             this.saveBatchIndex = 0
             const batchResults = [...this.batchResults]
+            this.batchResults = []
             try {
                 await this._saveBatchResults(batchResults)
             } catch (err) {
                 logger.error(`Error saving batch: ${err}`)
                 return
             }
-            this.batchResults = []
         }
     }
 
@@ -664,17 +664,42 @@ class EthRangeWorker {
             : nftCollections
 
         await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertBlocks(blocks, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
-                this._upsertLatestInteractions(latestInteractions, tx),
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertNftCollections(nftCollections, tx),
-            ])
+            await this._upsertBlocks(blocks, tx)
         })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertTransactions(transactions, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertLogs(logs, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertTraces(traces, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertContracts(contracts, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertLatestInteractions(latestInteractions, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertErc20Tokens(erc20Tokens, tx)
+        })
+        await SharedTables.manager.transaction(async (tx) => {
+            await this._upsertNftCollections(nftCollections, tx)
+        })
+
+        // await SharedTables.manager.transaction(async (tx) => {
+        //     await Promise.all([
+        //         this._upsertBlocks(blocks, tx),
+        //         this._upsertTransactions(transactions, tx),
+        //         this._upsertLogs(logs, tx),
+        //         this._upsertTraces(traces, tx),
+        //         this._upsertContracts(contracts, tx),
+        //         this._upsertLatestInteractions(latestInteractions, tx),
+        //         this._upsertErc20Tokens(erc20Tokens, tx),
+        //         this._upsertNftCollections(nftCollections, tx),
+        //     ])
+        // })
     }
 
     async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
