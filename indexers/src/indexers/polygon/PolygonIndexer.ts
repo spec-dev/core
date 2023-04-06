@@ -197,7 +197,7 @@ class PolygonIndexer extends AbstractIndexer {
             ? this._decodeTraces(traces, abis, functionSignatures) 
             : traces
         logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
-                
+
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
