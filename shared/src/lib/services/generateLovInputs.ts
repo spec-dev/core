@@ -99,6 +99,7 @@ export async function getLovInputGenerator(
         }
 
         let chainInputs = await Promise.all(chainInputPromises)
+
         const uniqueTxHashes = {}
         for (let i = 0; i < chainInputs.length; i++) {
             const chainId = chainIdsToQueryForInputs[Math.floor(i / 2)]
@@ -146,6 +147,12 @@ export async function getLovInputGenerator(
         for (const input of inputs) {
             const chainId = input._chainId
             const txHash = input.transaction_hash
+
+            // Empty transaction hashes (polygon).
+            if (input._inputType === 'call' && !txHash && input.status !== EthTraceStatus.Failure) {
+                successfulInputs.push(input)
+                continue
+            }
             if (!successfulTxHashes[chainId] || !successfulTxHashes[chainId].has(txHash)) {
                 continue
             }
