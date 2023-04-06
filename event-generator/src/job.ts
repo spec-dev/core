@@ -219,7 +219,7 @@ async function generateLiveObjectEventsWithProtection(
             inputs,
         )
     } catch (err) {
-        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for inputs: ${JSON.stringify(inputs, null, 4)}`)
+        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for inputs: ${JSON.stringify(inputs, null, 4)}`, err)
         return null
     }
 }   
@@ -328,6 +328,7 @@ async function generateLiveObjectEvents(
         const input = allInputs[i]
         if (!input) {
             logger.error(`[${blockNumber}] Failed to match input against generated events for index ${i} (lovId=${lovId})`)
+            continue
         }
         
         for (const event of generatedEvents) {
