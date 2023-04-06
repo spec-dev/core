@@ -1,4 +1,4 @@
-import { logger, sleep, CoreDB, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, deleteBlockCalls, getSkippedBlocks, newTablesJWT, getFailingNamespaces, getBlockCalls } from '../../shared'
+import { logger, sleep, CoreDB, unique, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, deleteBlockCalls, getSkippedBlocks, newTablesJWT, getFailingNamespaces, getBlockCalls } from '../../shared'
 import config from './config'
 import { publishEvents, publishCalls, getDBTimestamp } from './relay'
 import { camelizeKeys } from 'humps'
@@ -41,11 +41,32 @@ async function perform(data: StringKeyMap) {
 
     // Map the contract calls and event versions to the 
     // live object versions that depend on them as inputs.
-    const [inputContractCallsToLovs, evMappingData] = await Promise.all([
+    const [inputContractCallsToLovs, inputEventVersionsToLovs] = await Promise.all([
         getLiveObjectVersionToContractCallMappings(uniqueContractCallComps, blockNumber),
         getLiveObjectVersionToEventVersionMappings(uniqueEventVersionComps, blockNumber),
     ])
-    const { inputEventVersionsToLovs, generatedEventVersionsWhitelist } = evMappingData
+
+    const pluckLovIds = (toLovsMap: StringKeyMap) => Object.values(toLovsMap)
+        .map(entries => (entries || []).map(entry => entry.lovId).filter(v => !!v)).flat()
+
+    const uniqueLovIds = unique([
+        ...pluckLovIds(inputContractCallsToLovs),
+        ...pluckLovIds(inputEventVersionsToLovs),
+    ])
+
+    // Map live object versions to the event versions they are allowed to generate (i.e. outputs).
+    const generatedEventVersionResults = await getGeneratedEventVersionsForLovs(
+        uniqueLovIds,
+        blockNumber,
+    )
+    const generatedEventVersionsWhitelist = {}
+    for (const { nsp, name, version, lovId } of generatedEventVersionResults) {
+        const numericLovId = Number(lovId)
+        if (!generatedEventVersionsWhitelist.hasOwnProperty(numericLovId)) {
+            generatedEventVersionsWhitelist[numericLovId] = new Set()
+        }
+        generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
+    }
 
     // Get the failing namespaces to avoid generating Spec events for.
     const failingNamespaces = new Set(await getFailingNamespaces(config.CHAIN_ID))
@@ -196,9 +217,9 @@ async function generateLiveObjectEventsForNamespace(
     }
 }
 
-async function generateLiveObjectEventsWithProtection(
+export async function generateLiveObjectEventsWithProtection(
     lovNsp: string,
-    lovId: string,
+    lovId: number,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
     inputs: StringKeyMap[],
@@ -226,7 +247,7 @@ async function generateLiveObjectEventsWithProtection(
 
 async function generateLiveObjectEvents(
     lovNsp: string,
-    lovId: string,
+    lovId: number,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
     inputs: StringKeyMap[],
@@ -322,6 +343,7 @@ async function generateLiveObjectEvents(
     generatedEventGroups = [...eventsQueue, ...generatedEventGroups]
 
     // Filter generated events by those that are allowed to be created / registered with Spec.
+    acceptedOutputEvents = acceptedOutputEvents || new Set()
     const liveObjectEvents = []
     let i = 0
     for (const generatedEvents of generatedEventGroups) {
@@ -510,18 +532,15 @@ async function getLiveObjectVersionToContractCallMappings(
 
     // Map contract calls to the live object versions that depend on them.
     const inputContractCallsToLovs = {}
-    const lovIds = new Set<number>()
     for (const result of lovResults) {
         const { nsp, functionName, lovNsp, lovId, lovUrl, lovTablePath } = result
         const callName = [nsp, functionName].join('.')
         if (!inputContractCallsToLovs.hasOwnProperty(callName)) {
             inputContractCallsToLovs[callName] = []
         }
-        const numericLovId = Number(lovId)
-        lovIds.add(numericLovId)
         inputContractCallsToLovs[callName].push({
             lovNsp,
-            lovId: numericLovId,
+            lovId: Number(lovId),
             lovUrl,
             lovTableSchema: lovTablePath.split('.')[0],
         })
@@ -540,42 +559,20 @@ async function getLiveObjectVersionToEventVersionMappings(
 
     // Map event versions to the live object versions that depend on them.
     const inputEventVersionsToLovs = {}
-    const lovIds = new Set<number>()
     for (const result of lovResults) {
         const { nsp, name, version, lovNsp, lovId, lovUrl, lovTablePath } = result
         const eventVersion = toNamespacedVersion(nsp, name, version)
         if (!inputEventVersionsToLovs.hasOwnProperty(eventVersion)) {
             inputEventVersionsToLovs[eventVersion] = []
         }
-        const numericLovId = Number(lovId)
-        lovIds.add(numericLovId)
         inputEventVersionsToLovs[eventVersion].push({
             lovNsp,
-            lovId: numericLovId,
+            lovId: Number(lovId),
             lovUrl,
             lovTableSchema: lovTablePath.split('.')[0],
         })
     }
-
-    const generatedEventVersionResults = await getGeneratedEventVersionsForLovs(
-        Array.from(lovIds),
-        blockNumber,
-    )
-
-    // Map live object versions to the event versions they are allowed to generate (i.e. outputs).
-    const generatedEventVersionsWhitelist = {}
-    for (const { nsp, name, version, lovId } of generatedEventVersionResults) {
-        const numericLovId = Number(lovId)
-        if (!generatedEventVersionsWhitelist.hasOwnProperty(numericLovId)) {
-            generatedEventVersionsWhitelist[numericLovId] = new Set()
-        }
-        generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
-    }
-
-    return {
-        inputEventVersionsToLovs,
-        generatedEventVersionsWhitelist,
-    }
+    return inputEventVersionsToLovs
 }
 
 async function getLiveObjectVersionsFromInputLiveEventVersions(
