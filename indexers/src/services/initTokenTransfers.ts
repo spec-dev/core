@@ -182,8 +182,9 @@ async function initTokenTransfers(
         }
     }
 
-    // Only price token transfers when on mainnets.
-    if (![chainIds.ETHEREUM, chainIds.POLYGON].includes(chainId)) {
+    // Only price token transfers when on mainnets and not in range mode.
+    const onMainnet = [chainIds.ETHEREUM, chainIds.POLYGON].includes(chainId)
+    if (!onMainnet || config.IS_RANGE_MODE) {
         return [erc20Transfers, nftTransfers, erc20TokenTotalSupplyUpdates]
     }
 
