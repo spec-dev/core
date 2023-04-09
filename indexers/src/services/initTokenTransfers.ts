@@ -1,4 +1,4 @@
-import { In, polygonToEthereumTokenMappings, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, Erc20Transfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20 } from '../../../shared'
+import { In, polygonToEthereumTokenMappings, Erc20TransferSource, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, Erc20Transfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20 } from '../../../shared'
 import { 
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
@@ -7,7 +7,6 @@ import {
 import config from '../config'
 import { getERC20TotalSupply } from './contractServices'
 import { BigNumber, FixedNumber, utils } from 'ethers'
-import { Erc20TransferSource } from '../../../shared/src/lib/shared-tables/db/entities/Erc20Transfer'
 
 const erc20TokensRepo = () => SharedTables.getRepository(Erc20Token)
 const nftCollectionsRepo = () => SharedTables.getRepository(NftCollection)
