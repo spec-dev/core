@@ -114,9 +114,10 @@ image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
-# image_version="cdc2faa" # Eth prev
+# image_version="c2edec0" # Eth prev
 # image_version="3ea931c" # Polygon current
-image_version="c2edec0" # Eth current
+# image_version="c2edec0" # Eth current
+image_version="c039aeb"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

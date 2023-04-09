@@ -42,7 +42,7 @@ export class Erc20Transfer {
     @Column({ name: 'is_mint' })
     isMint: boolean
 
-    @Column('varchar', { name: 'source', length: 20, nullable: true })
+    @Column('varchar', { name: 'source', length: 20 })
     source: Erc20TransferSource
 
     @Column('varchar')

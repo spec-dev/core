@@ -18,7 +18,8 @@ async function initTokenTransfers(
     traces: StringKeyMap[],
     chainId: string,
 ): Promise<[Erc20Transfer[], NftTransfer[], StringKeyMap[]]> {
-    const erc20Transfers = initNativeTokenTransfers(traces, chainId)
+    const erc20Transfers = []
+    // const erc20Transfers = initNativeTokenTransfers(traces, chainId)
     const transferLogs = []
     const erc1155TransferLogs = []
     const potentialTokenAddressSet = new Set<string>()
@@ -70,26 +71,26 @@ async function initTokenTransfers(
             nftTransferLogs.push({ log, nftCollection })
             continue
         }
-        const erc20Token = erc20TokensMap[log.address]
-        if (erc20Token) {
-            const eventArgs = log.eventArgs || []
-            const fromAddress = eventArgs[0]?.value
-            const toAddress = eventArgs[1]?.value
-            const value = eventArgs[2]?.value || null
-            if (value === null) continue
-            const transfer = newErc20Transfer(
-                hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
-                fromAddress, 
-                toAddress,
-                value,
-                log,
-                Erc20TransferSource.Log,
-                erc20Token, 
-                chainId,
-            )
-            erc20Transfers.push(transfer)
-            continue
-        }
+        // const erc20Token = erc20TokensMap[log.address]
+        // if (erc20Token) {
+        //     const eventArgs = log.eventArgs || []
+        //     const fromAddress = eventArgs[0]?.value
+        //     const toAddress = eventArgs[1]?.value
+        //     const value = eventArgs[2]?.value || null
+        //     if (value === null) continue
+        //     const transfer = newErc20Transfer(
+        //         hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
+        //         fromAddress, 
+        //         toAddress,
+        //         value,
+        //         log,
+        //         Erc20TransferSource.Log,
+        //         erc20Token, 
+        //         chainId,
+        //     )
+        //     erc20Transfers.push(transfer)
+        //     continue
+        // }
     }    
 
     const nftTransfers = []
