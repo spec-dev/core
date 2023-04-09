@@ -78,10 +78,6 @@ export class Erc20Transfer {
 
 export const fullErc20TransferUpsertConfig = (transfer: Erc20Transfer): string[][] => {
     const conflictCols = ['transfer_id']
-    const ignoreKeys = ['id']
-    const updateCols = Object.keys(transfer)
-        .filter((key) => !ignoreKeys.includes(key))
-        .map(decamelize)
-        .filter((col) => !conflictCols.includes(col))
+    const updateCols = ['source'] // Hack
     return [updateCols, conflictCols]
 }

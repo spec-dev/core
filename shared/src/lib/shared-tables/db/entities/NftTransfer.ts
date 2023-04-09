@@ -68,8 +68,6 @@ export class NftTransfer {
 
 export const fullNftTransferUpsertConfig = (transfer: NftTransfer): string[][] => {
     const conflictCols = ['transaction_hash', 'log_index', 'transfer_index', 'chain_id']
-    const updateCols = Object.keys(transfer)
-        .map(decamelize)
-        .filter((col) => !conflictCols.includes(col))
+    const updateCols = ['token_name'] // Hack
     return [updateCols, conflictCols]
 }

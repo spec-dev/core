@@ -12,6 +12,7 @@ import {
     snakeToCamel,
     NftTransfer,
     Erc20Transfer,
+    EthTraceStatus,
 } from '../../../shared'
 import { ident } from 'pg-format'
 import { exit } from 'process'
@@ -81,7 +82,7 @@ class BackfillTransfersWorker {
         this.erc20Transfers.push(...erc20Transfers)
         this.nftTransfers.push(...nftTransfers)
 
-        if (this.erc20Transfers.length >= 2000) {
+        if (this.erc20Transfers.length >= 5000) {
             logger.info(`Saving ${this.erc20Transfers.length} ERC-20 transfers...`)
             const erc20Transfers = [...this.erc20Transfers]
             await SharedTables.manager.transaction(async (tx) => {
@@ -90,7 +91,7 @@ class BackfillTransfersWorker {
             this.erc20Transfers = []
         }
 
-        if (this.nftTransfers.length >= 2000) {
+        if (this.nftTransfers.length >= 5000) {
             logger.info(`Saving ${this.nftTransfers.length} NFT transfers...`)
             const nftTransfers = [...this.nftTransfers]
             await SharedTables.manager.transaction(async (tx) => {
@@ -133,15 +134,15 @@ class BackfillTransfersWorker {
     }
 
     async _getTokenTransfersInRange(start: number, end: number): Promise<[Erc20Transfer[], NftTransfer[]]> {
-        const transferLogs = await this._getTransferLogsInBlockRange(start, end)
-        if (!transferLogs.length) return [[], []]
-
-        const successfulTransferLogs = await this._filterTransferLogsForSuccess(transferLogs)
-        if (!successfulTransferLogs.length) return [[], []]
-
+        const [transferLogs, successfulTraces] = await Promise.all([
+            this._getTransferLogsInBlockRange(start, end),
+            this._getTracesInBlockRange(start, end),
+        ])
+        const successfulTransferLogs = await this._filterTransferLogsForSuccess(transferLogs || [])
+        if (!successfulTransferLogs.length && !successfulTraces.length) return [[], []]
         const [erc20Transfers, nftTransfers, _] = await initTokenTransfers([], [],
             successfulTransferLogs,
-            [],
+            successfulTraces,
             config.CHAIN_ID,
         )
         return [erc20Transfers, nftTransfers]
@@ -160,6 +161,22 @@ class BackfillTransfersWorker {
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
             logger.error(`Error getting transfer logs`, err)
+            return []
+        }
+    }
+
+    async _getTracesInBlockRange(start: number, end: number): Promise<StringKeyMap[]> {
+        const schema = schemaForChainId[config.CHAIN_ID]
+        const table = [ident(schema), ident('traces')].join('.')
+        const numberClause = 'block_number >= $1 and block_number <= $2'
+        try {
+            const results = ((await SharedTables.query(
+                `select * from ${table} where ${numberClause}`,
+                [start, end]
+            )) || []).filter(t => t.status !== EthTraceStatus.Failure)
+            return camelizeKeys(results) as StringKeyMap[]
+        } catch (err) {
+            logger.error(`Error getting traces:`, err)
             return []
         }
     }
