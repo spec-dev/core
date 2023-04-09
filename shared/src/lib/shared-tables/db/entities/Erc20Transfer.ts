@@ -1,19 +1,29 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm'
 import { decamelize } from 'humps'
 
+export enum Erc20TransferSource {
+    Log = 'log',
+    Trace = 'trace',
+}
+
 /**
  * An ERC-20 token transfer event.
  */
 @Entity('erc20_transfers', { schema: 'tokens' })
 @Index(['transactionHash', 'logIndex', 'chainId'], { unique: true })
+// @Index(['transferId'], { unique: true })
 export class Erc20Transfer {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column('varchar', { name: 'transaction_hash', length: 70 })
+    @Column('varchar', { name: 'transfer_id', length: 70, nullable: true })
+    transferId: string
+
+    @Column('varchar', { name: 'transaction_hash', length: 70, nullable: true })
     transactionHash: string
 
-    @Column('int8', { name: 'log_index' })
+    // TODO: remove
+    @Column('int8', { name: 'log_index', nullable: true })
     logIndex: number
 
     @Column('varchar', { name: 'token_address', length: 50 })
@@ -36,6 +46,9 @@ export class Erc20Transfer {
 
     @Column({ name: 'is_mint' })
     isMint: boolean
+
+    @Column('varchar', { name: 'source', length: 20, nullable: true })
+    source: Erc20TransferSource
 
     @Column('varchar')
     value: string
@@ -69,8 +82,11 @@ export class Erc20Transfer {
 }
 
 export const fullErc20TransferUpsertConfig = (transfer: Erc20Transfer): string[][] => {
+    // const conflictCols = ['transfer_id']
     const conflictCols = ['transaction_hash', 'log_index', 'chain_id']
+    const ignoreKeys = ['id']
     const updateCols = Object.keys(transfer)
+        .filter((key) => !ignoreKeys.includes(key))
         .map(decamelize)
         .filter((col) => !conflictCols.includes(col))
     return [updateCols, conflictCols]

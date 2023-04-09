@@ -141,6 +141,7 @@ class BackfillTransfersWorker {
 
         const [erc20Transfers, nftTransfers, _] = await initTokenTransfers([], [],
             successfulTransferLogs,
+            [],
             config.CHAIN_ID,
         )
         return [erc20Transfers, nftTransfers]

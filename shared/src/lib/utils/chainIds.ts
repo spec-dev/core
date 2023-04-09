@@ -1,4 +1,5 @@
-import { invert } from './formatters'
+import { Erc20Token } from '../shared-tables/db/entities/Erc20Token'
+import { invert, NULL_ADDRESS } from './formatters'
 
 const chainIds: { [key: string]: string } = {
     ETHEREUM: '1',
@@ -35,6 +36,13 @@ export const fullNameForChainId = {
     [chainIds.GOERLI]: 'Goerli',
     [chainIds.POLYGON]: 'Polygon mainnet',
     [chainIds.MUMBAI]: 'Mumbai',
+}
+
+export const nativeTokenSymbolForChainId = {
+    [chainIds.ETHEREUM]: 'ETH',
+    [chainIds.GOERLI]: 'ETH',
+    [chainIds.POLYGON]: 'MATIC',
+    [chainIds.MUMBAI]: 'MATIC',
 }
 
 export const chainIdForSchema = {
@@ -84,6 +92,17 @@ export const isContractNamespace = (nsp: string): boolean => {
         }
     }
     return false
+}
+
+export const getNativeTokenForChain = (chainId: string): Erc20Token | null => {
+    const symbol = nativeTokenSymbolForChainId[chainId]
+    if (!symbol) return null
+    const nativeToken = new Erc20Token()
+    nativeToken.name = symbol
+    nativeToken.symbol = symbol
+    nativeToken.address = NULL_ADDRESS
+    nativeToken.decimals = 18
+    return nativeToken
 }
 
 export default chainIds

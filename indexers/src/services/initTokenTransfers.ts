@@ -1,4 +1,4 @@
-import { In, polygonToEthereumTokenMappings, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, Erc20Transfer, NftTransfer, StringKeyMap, logger, unique, mapByKey } from '../../../shared'
+import { In, polygonToEthereumTokenMappings, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, Erc20Transfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20 } from '../../../shared'
 import { 
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
@@ -7,6 +7,7 @@ import {
 import config from '../config'
 import { getERC20TotalSupply } from './contractServices'
 import { BigNumber, FixedNumber, utils } from 'ethers'
+import { Erc20TransferSource } from '../../../shared/src/lib/shared-tables/db/entities/Erc20Transfer'
 
 const erc20TokensRepo = () => SharedTables.getRepository(Erc20Token)
 const nftCollectionsRepo = () => SharedTables.getRepository(NftCollection)
@@ -15,9 +16,11 @@ async function initTokenTransfers(
     newErc20Tokens: Erc20Token[],
     newNftCollections: NftCollection[],
     logs: StringKeyMap[],
+    traces: StringKeyMap[],
     chainId: string,
 ): Promise<[Erc20Transfer[], NftTransfer[], StringKeyMap[]]> {
-    if (!logs.length) return [[], [], []]
+    // const erc20Transfers = initNativeTokenTransfers(traces, chainId)
+    const erc20Transfers = []
     const transferLogs = []
     const erc1155TransferLogs = []
     const potentialTokenAddressSet = new Set<string>()
@@ -63,7 +66,6 @@ async function initTokenTransfers(
         nftTransferLogs.push({ log, nftCollection })
     }
 
-    const erc20Transfers = []
     for (const log of transferLogs) {
         const nftCollection = nftCollectionsMap[log.address]
         if (nftCollection) {
@@ -77,14 +79,18 @@ async function initTokenTransfers(
             const toAddress = eventArgs[1]?.value
             const value = eventArgs[2]?.value || null
             if (value === null) continue
-            erc20Transfers.push(newErc20Transfer(
+            const transfer = newErc20Transfer(
+                hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
                 fromAddress, 
                 toAddress,
                 value,
                 log,
+                Erc20TransferSource.Log,
                 erc20Token, 
                 chainId,
-            ))
+            )
+            transfer.logIndex = log.logIndex
+            erc20Transfers.push(transfer)
             continue
         }
     }    
@@ -208,12 +214,28 @@ async function initTokenTransfers(
         const decimals = Number(transfer.tokenDecimals || 18)
         const { priceUsd, priceEth, priceMatic } = tokenPrice
 
-        erc20Transfers[i].valueUsd = calculateTokenPrice(value, decimals, priceUsd)
-        erc20Transfers[i].valueEth = calculateTokenPrice(value, decimals, priceEth)
-        erc20Transfers[i].valueMatic = calculateTokenPrice(value, decimals, priceMatic)
+        erc20Transfers[i].valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any
+        erc20Transfers[i].valueEth = calculateTokenPrice(value, decimals, priceEth) as any
+        erc20Transfers[i].valueMatic = calculateTokenPrice(value, decimals, priceMatic) as any
     }
 
     return [erc20Transfers, nftTransfers, erc20TokenTotalSupplyUpdates]
+}
+
+function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): Erc20Transfer[] {
+    const nativeToken = getNativeTokenForChain(chainId)!
+    return traces.filter(({ value }) => (
+        value !== null && value.toString() !== '0'
+    )).map(trace => newErc20Transfer(
+        hashSync([chainId, trace.id].join(':')),
+        trace.from,
+        trace.to,
+        trace.value,
+        trace,
+        Erc20TransferSource.Trace,
+        nativeToken,
+        chainId,
+    ))
 }
 
 function getTokenPriceCacheKeys(chainId: string, address: string): string[] {
@@ -248,30 +270,33 @@ export function calculateTokenPrice(value: string, decimals: number, pricePerTok
 }
 
 function newErc20Transfer(
+    transferId: string,
     fromAddress: string, 
     toAddress: string,
     value: any,
-    log: StringKeyMap,
+    sourceModel: StringKeyMap,
+    sourceType: Erc20TransferSource,
     erc20Token: Erc20Token,
     chainId: string,
 ): Erc20Transfer {
     const erc20Transfer = new Erc20Transfer()
-    erc20Transfer.transactionHash = log.transactionHash
-    erc20Transfer.logIndex = log.logIndex
+    erc20Transfer.transactionHash = sourceModel.transactionHash
+    erc20Transfer.transferId = transferId
     erc20Transfer.tokenAddress = erc20Token.address
     erc20Transfer.tokenName = erc20Token.name
     erc20Transfer.tokenSymbol = erc20Token.symbol
     erc20Transfer.tokenDecimals = erc20Token.decimals
     erc20Transfer.fromAddress = fromAddress || NULL_ADDRESS
     erc20Transfer.toAddress = toAddress || NULL_ADDRESS
-    erc20Transfer.isMint = erc20Transfer.fromAddress === NULL_ADDRESS
+    erc20Transfer.isMint = sourceType === Erc20TransferSource.Log && erc20Transfer.fromAddress === NULL_ADDRESS
+    erc20Transfer.source = sourceType
     erc20Transfer.value = value.toString()
     erc20Transfer.valueUsd = null
     erc20Transfer.valueEth = null
     erc20Transfer.valueMatic = null
-    erc20Transfer.blockHash = log.blockHash
-    erc20Transfer.blockNumber = log.blockNumber
-    erc20Transfer.blockTimestamp = log.blockTimestamp
+    erc20Transfer.blockHash = sourceModel.blockHash
+    erc20Transfer.blockNumber = sourceModel.blockNumber
+    erc20Transfer.blockTimestamp = sourceModel.blockTimestamp
     erc20Transfer.chainId = chainId
     return erc20Transfer
 }

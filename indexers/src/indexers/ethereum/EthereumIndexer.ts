@@ -225,6 +225,8 @@ class EthereumIndexer extends AbstractIndexer {
             .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
         )
 
+        const successfulTraces = traces.filter(t => t.status !== EthTraceStatus.Failure)
+
         // Token transfers.
         const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
             ? [[], [], []] 
@@ -232,6 +234,7 @@ class EthereumIndexer extends AbstractIndexer {
                 erc20Tokens,
                 nftCollections,
                 this.successfulLogs,
+                successfulTraces,
                 this.chainId,
             )
 

@@ -3,6 +3,7 @@ import config from '../config'
 import randToken from 'rand-token'
 import bcrypt from 'bcrypt'
 import uuid4 from 'uuid4'
+import { createHash } from 'node:crypto'
 
 export enum ClaimRole {
     EventPublisher = 'event-publisher',
@@ -50,6 +51,10 @@ export async function hash(...args: any[]): Promise<string> {
 
 export async function verifyHash(hash: string, plainText: string): Promise<boolean> {
     return await bcrypt.compare(plainText, hash)
+}
+
+export function hashSync(value: string): string {
+    return createHash('sha256').update(value).digest('hex')
 }
 
 export function serializeToken(idComp: any, secretComp: string): string {
