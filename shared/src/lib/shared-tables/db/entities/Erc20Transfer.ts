@@ -10,21 +10,16 @@ export enum Erc20TransferSource {
  * An ERC-20 token transfer event.
  */
 @Entity('erc20_transfers', { schema: 'tokens' })
-@Index(['transactionHash', 'logIndex', 'chainId'], { unique: true })
-// @Index(['transferId'], { unique: true })
+@Index(['transferId'], { unique: true })
 export class Erc20Transfer {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column('varchar', { name: 'transfer_id', length: 70, nullable: true })
+    @Column('varchar', { name: 'transfer_id', length: 70 })
     transferId: string
 
     @Column('varchar', { name: 'transaction_hash', length: 70, nullable: true })
     transactionHash: string
-
-    // TODO: remove
-    @Column('int8', { name: 'log_index', nullable: true })
-    logIndex: number
 
     @Column('varchar', { name: 'token_address', length: 50 })
     tokenAddress: string
@@ -82,8 +77,7 @@ export class Erc20Transfer {
 }
 
 export const fullErc20TransferUpsertConfig = (transfer: Erc20Transfer): string[][] => {
-    // const conflictCols = ['transfer_id']
-    const conflictCols = ['transaction_hash', 'log_index', 'chain_id']
+    const conflictCols = ['transfer_id']
     const ignoreKeys = ['id']
     const updateCols = Object.keys(transfer)
         .filter((key) => !ignoreKeys.includes(key))

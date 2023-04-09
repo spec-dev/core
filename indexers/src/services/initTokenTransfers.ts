@@ -18,8 +18,7 @@ async function initTokenTransfers(
     traces: StringKeyMap[],
     chainId: string,
 ): Promise<[Erc20Transfer[], NftTransfer[], StringKeyMap[]]> {
-    // const erc20Transfers = initNativeTokenTransfers(traces, chainId)
-    const erc20Transfers = []
+    const erc20Transfers = initNativeTokenTransfers(traces, chainId)
     const transferLogs = []
     const erc1155TransferLogs = []
     const potentialTokenAddressSet = new Set<string>()
@@ -88,7 +87,6 @@ async function initTokenTransfers(
                 erc20Token, 
                 chainId,
             )
-            transfer.logIndex = log.logIndex
             erc20Transfers.push(transfer)
             continue
         }
@@ -222,6 +220,7 @@ async function initTokenTransfers(
 }
 
 function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): Erc20Transfer[] {
+    if (!traces.length) return []
     const nativeToken = getNativeTokenForChain(chainId)!
     return traces.filter(({ value }) => (
         value !== null && value.toString() !== '0'
