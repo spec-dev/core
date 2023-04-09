@@ -20,7 +20,7 @@ import {
     TRANSFER_EVENT_NAME,
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
-} from '../../src/utils/standardAbis'
+} from '../utils/standardAbis'
 
 class BackfillTransfersWorker {
 
