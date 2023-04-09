@@ -117,7 +117,7 @@ image_version=$( $shared_bin_dir/latest_sha )
 # image_version="c2edec0" # Eth prev
 # image_version="3ea931c" # Polygon current
 # image_version="c2edec0" # Eth current
-image_version="c039aeb"
+image_version="2f6790f"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
