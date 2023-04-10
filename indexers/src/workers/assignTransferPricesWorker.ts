@@ -175,7 +175,7 @@ export class AssignTransferPricesWorker {
             transfer.valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any
             transfer.valueEth = calculateTokenPrice(value, decimals, priceEth) as any
             transfer.valueMatic = calculateTokenPrice(value, decimals, priceMatic) as any
-            
+
             transfersToSave.push(transfer)
         }
         if (!transfersToSave.length) return
@@ -184,7 +184,7 @@ export class AssignTransferPricesWorker {
 
         this.transfersToSave.push(...transfersToSave)
 
-        if (this.transfersToSave.length >= 5000) {
+        if (this.transfersToSave.length >= 2000) {
             const toSave = [...this.transfersToSave]
             await this._updateTransfers(toSave)
             this.transfersToSave = []
