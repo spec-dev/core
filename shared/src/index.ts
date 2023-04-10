@@ -85,7 +85,7 @@ export {
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
-export { sleep } from './lib/utils/time'
+export { sleep, blockTimestampToTokenPriceTimestamp, formatPgDateString } from './lib/utils/time'
 export {
     getlastSeenBlock,
     getBlockAtNumber,

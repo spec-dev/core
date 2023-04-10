@@ -7,3 +7,9 @@ export const addSeconds = (date: Date, seconds: number): Date => {
     futureDate.setSeconds(date.getSeconds() + seconds)
     return futureDate
 }
+
+export const subtractHours = (date: Date, hours: number): Date => {
+    const prevDate = new Date(date)
+    prevDate.setHours(date.getHours() - hours)
+    return prevDate
+}

@@ -394,3 +394,8 @@ export const invert = (obj1: object): object => {
 
 export const stripLeadingAndTrailingUnderscores = (val: string): string =>
     (val || '').replace(/^[_]+/g, '').replace(/[_]+$/g, '')
+
+export const padDateNumber = (value: number): string => {
+    const asString = value.toString()
+    return asString.length < 2 ? `0${asString}` : asString
+}
