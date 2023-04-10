@@ -78,28 +78,29 @@ export class AssignTransferPricesWorker {
         const transfers = await this._getTransfersForBlocks(numbers)
         if (!transfers.length) return
 
+        logger.info(`Got ${transfers.length} unpriced transfers.`)
+
         // Group transfers by token and find their unique block timestamps.
         const transfersByToken = {}
         const tokenTimestampsSeen = new Set()
         for (const transfer of transfers) {
             const { chainId, tokenAddress, blockTimestamp } = transfer
-            const key = [chainId, tokenAddress].join(':')
+            const tokenKey = [chainId, tokenAddress].join(':')
 
-            transfersByToken[key] = transfersByToken[key] || {
+            transfersByToken[tokenKey] = transfersByToken[tokenKey] || {
                 chainId,
                 tokenAddress,
-                transfers: [],
                 uniqueBlockTimestamps: [],
             }
 
-            transfersByToken[key].transfers.push(transfer)
-
-            const tsKey = [key, blockTimestamp.toISOString()].join(':')
+            const tsKey = [tokenKey, blockTimestamp.toISOString()].join(':')
             if (tokenTimestampsSeen.has(tsKey)) continue
 
-            transfersByToken[key].uniqueBlockTimestamps.push(blockTimestamp)
+            transfersByToken[tokenKey].uniqueBlockTimestamps.push(blockTimestamp)
             tokenTimestampsSeen.add(tsKey)
         }
+
+        logger.info(`Got ${Object.keys(transfersByToken).length} unique tokens.`)
 
         // Build query utilizing block timestamp --> token price timestamp conversion.
         const clauses = []
@@ -130,8 +131,11 @@ export class AssignTransferPricesWorker {
         }
 
         const tokenPrices = await this._getTokenPrices(clauses)
-        if (!tokenPrices.length) return
-
+        if (!tokenPrices.length) {
+            logger.info(`No token prices found this batch.`)
+            return
+        }
+        
         const tokenPricesMap = {}
         for (const tokenPrice of tokenPrices) {
             const { chainId, tokenAddress, timestamp } = tokenPrice
@@ -160,22 +164,22 @@ export class AssignTransferPricesWorker {
                     tokenPrice = tokenPricesMap[otherChainPriceKey]    
                 }
             }
-            if (!tokenPrice) {
-                logger.warn(
-                    `No token price (chainId=${chainId}, tokenAddress=${tokenAddress}, timestamp=${tokenPriceTimestamp})`
-                )
-                continue
-            }
+            if (!tokenPrice) continue
 
             const value = transfer.value
             const decimals = Number(transfer.tokenDecimals || 18)
-            const { priceUsd, priceEth, priceMatic } = tokenPrice
-    
+            const priceUsd = tokenPrice.priceUsd ? Number(tokenPrice.priceUsd) : tokenPrice.priceUsd
+            const priceEth = tokenPrice.priceEth ? Number(tokenPrice.priceEth) : tokenPrice.priceEth
+            const priceMatic = tokenPrice.priceMatic ? Number(tokenPrice.priceMatic) : tokenPrice.priceMatic
+
             transfer.valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any
             transfer.valueEth = calculateTokenPrice(value, decimals, priceEth) as any
             transfer.valueMatic = calculateTokenPrice(value, decimals, priceMatic) as any
             transfersToSave.push(transfer)
         }
+        if (!transfersToSave.length) return
+
+        logger.info(`${transfersToSave.length} newly priced transfers.`)
 
         this.transfersToSave.push(...transfersToSave)
 

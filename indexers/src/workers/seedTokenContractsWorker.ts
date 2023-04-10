@@ -42,7 +42,7 @@ class SeedTokenContractsWorker {
     }
 
     async run() {
-        while (this.cursor < this.to) {
+        while (this.cursor <= this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
             await this._indexGroup(start, end)
@@ -81,14 +81,14 @@ class SeedTokenContractsWorker {
         this.erc20Tokens.push(...erc20Tokens)
         this.nftCollections.push(...nftCollections)
 
-        if (this.erc20Tokens.length >= 2000) {
+        if (this.erc20Tokens.length >= 4000) {
             logger.info('Saving tokens...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertErc20Tokens([...this.erc20Tokens], tx)
             })
             this.erc20Tokens = []
         }
-        if (this.nftCollections.length >= 2000) {
+        if (this.nftCollections.length >= 4000) {
             logger.info('Saving collections...')
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertNftCollections([...this.nftCollections], tx)

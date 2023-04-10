@@ -6,7 +6,7 @@ import { subtractHours } from './date'
     BEFORE this -> we have 5 min granularity of token prices
     AFTER this -> we have 1 min granularity of token prices
 */
-const TOKEN_PRICE_INTERVAL_SWITCHPOINT = new Date('2023-03-19T18:29:00.000Z')
+const TOKEN_PRICE_INTERVAL_SWITCHPOINT = new Date('2023-03-21T03:03:00.000Z')
 
 // Exact minute value at which token prices are timestamped.
 const tokenPriceMinuteValues = [59, 54, 49, 44, 39, 34, 29, 24, 19, 14, 9, 4]
