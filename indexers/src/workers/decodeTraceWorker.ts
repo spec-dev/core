@@ -50,10 +50,6 @@ export class DecodeTraceWorker {
             password : config.SHARED_TABLES_DB_PASSWORD,
             database : config.SHARED_TABLES_DB_NAME,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
-            idleTimeoutMillis: 0,
-            query_timeout: 0,
-            connectionTimeoutMillis: 0,
-            statement_timeout: 0,
         })
         this.pool.on('error', err => logger.error('PG client error', err))
     }
