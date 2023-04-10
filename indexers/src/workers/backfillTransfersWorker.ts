@@ -7,11 +7,11 @@ import {
     camelizeKeys,
     schemaForChainId,
     toChunks,
-    fullErc20TransferUpsertConfig,
+    fullTokenTransferUpsertConfig,
     fullNftTransferUpsertConfig,
     snakeToCamel,
     NftTransfer,
-    Erc20Transfer,
+    TokenTransfer,
     EthTraceStatus,
 } from '../../../shared'
 import { ident } from 'pg-format'
@@ -33,7 +33,7 @@ class BackfillTransfersWorker {
 
     cursor: number
 
-    erc20Transfers: Erc20Transfer[]
+    tokenTransfers: TokenTransfer[]
 
     nftTransfers: NftTransfer[]
 
@@ -42,7 +42,7 @@ class BackfillTransfersWorker {
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
-        this.erc20Transfers = []
+        this.tokenTransfers = []
         this.nftTransfers = []
     }
 
@@ -54,10 +54,10 @@ class BackfillTransfersWorker {
             this.cursor = this.cursor + this.groupSize
         }
 
-        if (this.erc20Transfers.length) {
-            logger.info(`Saving ${this.erc20Transfers.length} ERC-20 transfers...`)
+        if (this.tokenTransfers.length) {
+            logger.info(`Saving ${this.tokenTransfers.length} token transfers...`)
             await SharedTables.manager.transaction(async (tx) => {
-                await this._upsertErc20Transfers(this.erc20Transfers, tx)
+                await this._upsertTokenTransfers(this.tokenTransfers, tx)
             })
         }
 
@@ -76,19 +76,19 @@ class BackfillTransfersWorker {
         logger.info(`Indexing ${start} --> ${end}...`)
 
         // Get contracts for this block range.
-        const [erc20Transfers, nftTransfers] = await this._getTokenTransfersInRange(start, end)
-        if (!erc20Transfers.length && !nftTransfers.length) return
+        const [tokenTransfers, nftTransfers] = await this._getTokenTransfersInRange(start, end)
+        if (!tokenTransfers.length && !nftTransfers.length) return
         
-        this.erc20Transfers.push(...erc20Transfers)
+        this.tokenTransfers.push(...tokenTransfers)
         this.nftTransfers.push(...nftTransfers)
 
-        if (this.erc20Transfers.length >= 3000) {
-            logger.info(`Saving ${this.erc20Transfers.length} ERC-20 transfers...`)
-            const erc20Transfers = [...this.erc20Transfers]
+        if (this.tokenTransfers.length >= 3000) {
+            logger.info(`Saving ${this.tokenTransfers.length} token transfers...`)
+            const tokenTransfers = [...this.tokenTransfers]
             await SharedTables.manager.transaction(async (tx) => {
-                await this._upsertErc20Transfers(erc20Transfers, tx)
+                await this._upsertTokenTransfers(tokenTransfers, tx)
             })
-            this.erc20Transfers = []
+            this.tokenTransfers = []
         }
 
         if (this.nftTransfers.length >= 3000) {
@@ -101,15 +101,15 @@ class BackfillTransfersWorker {
         }
     }
 
-    async _upsertErc20Transfers(erc20Transfers: Erc20Transfer[], tx: any) {
-        const [updateCols, conflictCols] = fullErc20TransferUpsertConfig(erc20Transfers[0])
-        erc20Transfers = uniqueByKeys(erc20Transfers, conflictCols.map(snakeToCamel)) as Erc20Transfer[]
+    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
+        const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
+        tokenTransfers = uniqueByKeys(tokenTransfers, conflictCols.map(snakeToCamel)) as TokenTransfer[]
         await Promise.all(
-            toChunks(erc20Transfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+            toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
                 return tx
                     .createQueryBuilder()
                     .insert()
-                    .into(Erc20Transfer)
+                    .into(TokenTransfer)
                     .values(chunk)
                     .orUpdate(updateCols, conflictCols)
                     .execute()
@@ -133,19 +133,19 @@ class BackfillTransfersWorker {
         )
     }
 
-    async _getTokenTransfersInRange(start: number, end: number): Promise<[Erc20Transfer[], NftTransfer[]]> {
+    async _getTokenTransfersInRange(start: number, end: number): Promise<[TokenTransfer[], NftTransfer[]]> {
         const [transferLogs, successfulTraces] = await Promise.all([
             this._getTransferLogsInBlockRange(start, end),
             this._getTracesInBlockRange(start, end),
         ])
         const successfulTransferLogs = await this._filterTransferLogsForSuccess(transferLogs || [])
         if (!successfulTransferLogs.length && !successfulTraces.length) return [[], []]
-        const [erc20Transfers, nftTransfers, _] = await initTokenTransfers([], [],
+        const [tokenTransfers, nftTransfers, _] = await initTokenTransfers([], [],
             successfulTransferLogs,
             successfulTraces,
             config.CHAIN_ID,
         )
-        return [erc20Transfers, nftTransfers]
+        return [tokenTransfers, nftTransfers]
     }
 
     async _getTransferLogsInBlockRange(start: number, end: number): Promise<StringKeyMap[]> {

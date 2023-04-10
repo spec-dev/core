@@ -6,7 +6,7 @@ import {
     In,
     StringKeyMap,   
     unique,
-    Erc20Transfer,
+    TokenTransfer,
     blockTimestampToTokenPriceTimestamp,
     TokenPrice,
     chainIds,
@@ -19,7 +19,7 @@ import { exit } from 'process'
 import { Pool } from 'pg'
 import short from 'short-uuid'
 
-const erc20TransfersRepo = () => SharedTables.getRepository(Erc20Transfer)
+const tokenTransfersRepo = () => SharedTables.getRepository(TokenTransfer)
 const tokenPricesRepo = () => SharedTables.getRepository(TokenPrice)
 
 export class AssignTransferPricesWorker {
@@ -34,7 +34,7 @@ export class AssignTransferPricesWorker {
 
     pool: Pool
 
-    transfersToSave: Erc20Transfer[]
+    transfersToSave: TokenTransfer[]
 
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
@@ -191,7 +191,7 @@ export class AssignTransferPricesWorker {
         }
     }
 
-    async _updateTransfers(transfers: Erc20Transfer[]) {
+    async _updateTransfers(transfers: TokenTransfer[]) {
         logger.info(`Saving ${transfers.length} priced transfers...`)
         const tempTableName = `tx_${short.generate()}`
         const insertPlaceholders = []
@@ -237,9 +237,9 @@ export class AssignTransferPricesWorker {
         }
     }
 
-    async _getTransfersForBlocks(numbers: number[]): Promise<Erc20Transfer[]> {
+    async _getTransfersForBlocks(numbers: number[]): Promise<TokenTransfer[]> {
         try {
-            const transfers = await erc20TransfersRepo().find({
+            const transfers = await tokenTransfersRepo().find({
                 where: {
                     blockNumber: In(numbers),
                     chainId: config.CHAIN_ID,

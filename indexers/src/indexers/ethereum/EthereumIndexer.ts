@@ -53,7 +53,7 @@ import {
     chainIds,
     Erc20Token,
     NftCollection,
-    Erc20Transfer,
+    TokenTransfer,
     NftTransfer,
     EthTraceStatus,
     EthTraceType,
@@ -228,7 +228,7 @@ class EthereumIndexer extends AbstractIndexer {
         const successfulTraces = traces.filter(t => t.status !== EthTraceStatus.Failure)
 
         // Token transfers.
-        const [erc20Transfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
+        const [tokenTransfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
             ? [[], [], []] 
             : await initTokenTransfers(
                 erc20Tokens,
@@ -238,7 +238,7 @@ class EthereumIndexer extends AbstractIndexer {
                 this.chainId,
             )
 
-        erc20Transfers.length && this._info(`${erc20Transfers.length} ERC-20 transfers.`)
+        tokenTransfers.length && this._info(`${tokenTransfers.length} ERC-20 transfers.`)
         nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
 
         // One more uncle check before taking action.
@@ -263,7 +263,7 @@ class EthereumIndexer extends AbstractIndexer {
                 contracts,
                 latestInteractions,
                 erc20Tokens,
-                erc20Transfers,
+                tokenTransfers,
                 nftCollections,
                 nftTransfers,
                 pgBlockTimestamp: this.pgBlockTimestamp,
@@ -279,7 +279,7 @@ class EthereumIndexer extends AbstractIndexer {
             contracts,
             latestInteractions,
             erc20Tokens,
-            erc20Transfers,
+            tokenTransfers,
             nftCollections,
             nftTransfers,
             erc20TotalSupplyUpdates,
@@ -320,7 +320,7 @@ class EthereumIndexer extends AbstractIndexer {
         contracts: EthContract[],
         latestInteractions: EthLatestInteraction[],
         erc20Tokens: Erc20Token[],
-        erc20Transfers: Erc20Transfer[],
+        tokenTransfers: TokenTransfer[],
         nftCollections: NftCollection[],
         nftTransfers: NftTransfer[],
         erc20TotalSupplyUpdates: StringKeyMap[],
@@ -340,7 +340,7 @@ class EthereumIndexer extends AbstractIndexer {
             await Promise.all([
                 this._upsertLatestInteractions(latestInteractions, tx),
                 this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertErc20Transfers(erc20Transfers, tx),
+                this._upsertTokenTransfers(tokenTransfers, tx),
                 this._upsertNftCollections(nftCollections, tx),
                 this._upsertNftTransfers(nftTransfers, tx),    
             ])

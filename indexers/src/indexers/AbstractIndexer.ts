@@ -12,10 +12,10 @@ import {
     fullErc20TokenUpsertConfig,
     NftCollection,
     fullNftCollectionUpsertConfig,
-    fullErc20TransferUpsertConfig,
+    fullTokenTransferUpsertConfig,
     fullNftTransferUpsertConfig,
     uniqueByKeys,
-    Erc20Transfer,
+    TokenTransfer,
     NftTransfer,
     snakeToCamel,
     toChunks,
@@ -38,7 +38,7 @@ class AbstractIndexer {
 
     erc20Tokens: Erc20Token[] = []
 
-    erc20Transfers: Erc20Transfer[] = []
+    tokenTransfers: TokenTransfer[] = []
 
     nftCollections: NftCollection[] = []
 
@@ -140,18 +140,18 @@ class AbstractIndexer {
         ).generatedMaps
     }
 
-    async _upsertErc20Transfers(erc20Transfers: Erc20Transfer[], tx: any) {
-        if (!erc20Transfers.length) return
-        const [updateCols, conflictCols] = fullErc20TransferUpsertConfig(erc20Transfers[0])
+    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
+        if (!tokenTransfers.length) return
+        const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
-        erc20Transfers = uniqueByKeys(erc20Transfers, conflictCols.map(snakeToCamel)) as Erc20Transfer[]
-        this.erc20Transfers = (
+        tokenTransfers = uniqueByKeys(tokenTransfers, conflictCols.map(snakeToCamel)) as TokenTransfer[]
+        this.tokenTransfers = (
             await Promise.all(
-                toChunks(erc20Transfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
                     return tx
                         .createQueryBuilder()
                         .insert()
-                        .into(Erc20Transfer)
+                        .into(TokenTransfer)
                         .values(chunk.map((c) => ({ ...c, 
                             blockTimestamp: () => blockTimestamp,
                         })))

@@ -25,10 +25,10 @@ export {
 export { TokenPrice } from './lib/shared-tables/db/entities/TokenPrice'
 export { Erc20Token, fullErc20TokenUpsertConfig } from './lib/shared-tables/db/entities/Erc20Token'
 export {
-    Erc20Transfer,
-    Erc20TransferSource,
-    fullErc20TransferUpsertConfig,
-} from './lib/shared-tables/db/entities/Erc20Transfer'
+    TokenTransfer,
+    TokenTransferSource,
+    fullTokenTransferUpsertConfig,
+} from './lib/shared-tables/db/entities/TokenTransfer'
 export { Erc20, fullErc20UpsertConfig } from './lib/shared-tables/db/entities/Erc20'
 export {
     NftCollection,

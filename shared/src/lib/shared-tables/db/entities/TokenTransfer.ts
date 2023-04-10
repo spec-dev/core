@@ -1,17 +1,16 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm'
-import { decamelize } from 'humps'
 
-export enum Erc20TransferSource {
+export enum TokenTransferSource {
     Log = 'log',
     Trace = 'trace',
 }
 
 /**
- * An ERC-20 token transfer event.
+ * A token transfer event (excluding NFTs).
  */
-@Entity('erc20_transfers', { schema: 'tokens' })
+@Entity('token_transfers', { schema: 'tokens' })
 @Index(['transferId'], { unique: true })
-export class Erc20Transfer {
+export class TokenTransfer {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -43,7 +42,7 @@ export class Erc20Transfer {
     isMint: boolean
 
     @Column('varchar', { name: 'source', length: 20 })
-    source: Erc20TransferSource
+    source: TokenTransferSource
 
     @Column('varchar')
     value: string
@@ -76,7 +75,7 @@ export class Erc20Transfer {
     chainId: string
 }
 
-export const fullErc20TransferUpsertConfig = (transfer: Erc20Transfer): string[][] => {
+export const fullTokenTransferUpsertConfig = (): string[][] => {
     const conflictCols = ['transfer_id']
     const updateCols = ['source'] // Hack
     return [updateCols, conflictCols]

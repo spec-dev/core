@@ -1,5 +1,5 @@
 create schema if not exists tokens;
-create table if not exists tokens.erc20_transfers (
+create table if not exists tokens.token_transfers (
     id serial primary key,
     transfer_id character varying(70) not null,
     transaction_hash character varying(70),
@@ -20,4 +20,4 @@ create table if not exists tokens.erc20_transfers (
     block_timestamp timestamp with time zone not null,
     chain_id character varying not null
 );
-create unique index "idx_er20_transfers_transfer_id" ON tokens.erc20_transfers(transfer_id);
+create unique index "idx_er20_transfers_transfer_id" ON tokens.token_transfers(transfer_id);
