@@ -82,7 +82,7 @@ class BackfillTransfersWorker {
         this.erc20Transfers.push(...erc20Transfers)
         this.nftTransfers.push(...nftTransfers)
 
-        if (this.erc20Transfers.length >= 5000) {
+        if (this.erc20Transfers.length >= 3000) {
             logger.info(`Saving ${this.erc20Transfers.length} ERC-20 transfers...`)
             const erc20Transfers = [...this.erc20Transfers]
             await SharedTables.manager.transaction(async (tx) => {
@@ -91,7 +91,7 @@ class BackfillTransfersWorker {
             this.erc20Transfers = []
         }
 
-        if (this.nftTransfers.length >= 5000) {
+        if (this.nftTransfers.length >= 3000) {
             logger.info(`Saving ${this.nftTransfers.length} NFT transfers...`)
             const nftTransfers = [...this.nftTransfers]
             await SharedTables.manager.transaction(async (tx) => {
