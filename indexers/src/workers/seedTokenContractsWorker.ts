@@ -50,14 +50,14 @@ class SeedTokenContractsWorker {
         }
 
         if (this.erc20Tokens.length) {
-            logger.info('Saving tokens...')
+            logger.info(`Saving ${this.erc20Tokens.length} tokens...`)
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertErc20Tokens(this.erc20Tokens, tx)
             })
         }
 
         if (this.nftCollections.length) {
-            logger.info('Saving collections...')
+            logger.info(`Saving ${this.nftCollections.length} collections...`)
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertNftCollections(this.nftCollections, tx)
             })
@@ -81,15 +81,15 @@ class SeedTokenContractsWorker {
         this.erc20Tokens.push(...erc20Tokens)
         this.nftCollections.push(...nftCollections)
 
-        if (this.erc20Tokens.length >= 4000) {
-            logger.info('Saving tokens...')
+        if (this.erc20Tokens.length >= 3000) {
+            logger.info(`Saving ${this.erc20Tokens.length} tokens...`)
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertErc20Tokens([...this.erc20Tokens], tx)
             })
             this.erc20Tokens = []
         }
-        if (this.nftCollections.length >= 4000) {
-            logger.info('Saving collections...')
+        if (this.nftCollections.length >= 3000) {
+            logger.info(`Saving ${this.nftCollections.length} collections...`)
             await SharedTables.manager.transaction(async (tx) => {
                 await this._upsertNftCollections([...this.nftCollections], tx)
             })
