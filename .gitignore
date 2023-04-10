@@ -19,6 +19,7 @@ typings/
 scrap.js
 scrap.ts
 scrap/
+scrapCopy.ts
 
 # Runtime data
 pids

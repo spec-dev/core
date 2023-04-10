@@ -39,7 +39,7 @@ async function initTokenTransfers(
                 break
         }
     }
-
+ 
     const potentialTokenAddresses = Array.from(potentialTokenAddressSet)
     let potentialNftCollectionAddresses = Array.from(potentialNftCollectionAddressSet)
     potentialNftCollectionAddresses.push(...potentialTokenAddresses)
@@ -65,32 +65,32 @@ async function initTokenTransfers(
     }
 
     for (const log of transferLogs) {
+        // NFT Transfers
         const nftCollection = nftCollectionsMap[log.address]
         if (nftCollection) {
             nftTransferLogs.push({ log, nftCollection })
             continue
         }
+
+        // Token Transfers
+        const eventArgs = log.eventArgs || []
+        const fromAddress = eventArgs[0]?.value
+        const toAddress = eventArgs[1]?.value
+        const value = eventArgs[2]?.value || null
+        if (value === null) continue
+
         const erc20Token = erc20TokensMap[log.address]
-        if (erc20Token) {
-            const eventArgs = log.eventArgs || []
-            const fromAddress = eventArgs[0]?.value
-            const toAddress = eventArgs[1]?.value
-            const value = eventArgs[2]?.value || null
-            if (value === null) continue
-            const transfer = newErc20Transfer(
-                hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
-                fromAddress, 
-                toAddress,
-                value,
-                log,
-                Erc20TransferSource.Log,
-                erc20Token, 
-                chainId,
-            )
-            erc20Transfers.push(transfer)
-            continue
-        }
-    }    
+        erc20Transfers.push(newErc20Transfer(
+            hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
+            fromAddress, 
+            toAddress,
+            value,
+            log,
+            Erc20TransferSource.Log,
+            erc20Token || { address: log.address }, 
+            chainId,
+        ))
+    }
 
     const nftTransfers = []
     for (const nftTransferLog of nftTransferLogs) {
@@ -165,7 +165,7 @@ async function initTokenTransfers(
     // Refetch the latest totalSupply on existing token contracts that were used to mint.
     const newErc20TokenAddresses = new Set(newErc20Tokens.map(t => t.address))
     const erc20TokenAddressesToRefetchTotalSupply = unique(
-        erc20Transfers.filter(t => t.isMint).map(t => t.tokenAddress)
+        erc20Transfers.filter(t => t.isMint && !!erc20TokensMap[t.tokenAddress]).map(t => t.tokenAddress)
     ).filter(address => !newErc20TokenAddresses.has(address))
 
     const refetchTotalSupplyAddressBatches = config.IS_RANGE_MODE 
@@ -274,7 +274,7 @@ function newErc20Transfer(
     value: any,
     sourceModel: StringKeyMap,
     sourceType: Erc20TransferSource,
-    erc20Token: Erc20Token,
+    erc20Token: StringKeyMap,
     chainId: string,
 ): Erc20Transfer {
     const erc20Transfer = new Erc20Transfer()
