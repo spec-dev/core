@@ -175,6 +175,7 @@ export class AssignTransferPricesWorker {
             transfer.valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any
             transfer.valueEth = calculateTokenPrice(value, decimals, priceEth) as any
             transfer.valueMatic = calculateTokenPrice(value, decimals, priceMatic) as any
+            
             transfersToSave.push(transfer)
         }
         if (!transfersToSave.length) return
