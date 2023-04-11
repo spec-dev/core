@@ -107,11 +107,16 @@ async function newNFTCollection(contract: StringKeyMap, chainId: string): Promis
     return collection
 }
 
-export function getContractInterface(address: string, abi: any): StringKeyMap {
+export function getContractInterface(address: string, abi: any): StringKeyMap | null {
     const web3 = getSocketWeb3()
     if (!web3) return {}
-    const contract = new web3.eth.Contract(abi, address)
-    return contract.methods
+    try {
+        const contract = new web3.eth.Contract(abi, address)
+        return contract.methods    
+    } catch (err) {
+        logger.error(`Error gettingContractInterface for ${address}`, err)
+        return null
+    }
 }
 
 export function isContractERC20(bytecode?: string, functionSignatures?: string[]): boolean {
@@ -166,6 +171,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     if (!abiItems.length) return {}
 
     let methods = getContractInterface(contract.address, abiItems)
+    if (!methods) return {}
     let usingBytesAbi = false
 
     let numAttempts = 0
@@ -221,6 +227,7 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     if (!abiItems.length) return {}
 
     let methods = getContractInterface(contract.address, abiItems)
+    if (!methods) return {}
     let usingBytesAbi = false
 
     let numAttempts = 0
@@ -270,6 +277,7 @@ export async function getERC20TokenBalance(
     formatWithDecimals: boolean = true,
 ): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
+    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < 5) {
         numAttempts++
@@ -291,6 +299,7 @@ export async function getERC20TokenBalance(
 
 export async function getERC20TotalSupply(tokenAddress: string): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC20_TOTAL_SUPPLY_ITEM])
+    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < 5) {
         numAttempts++
@@ -307,12 +316,32 @@ export async function getERC20TotalSupply(tokenAddress: string): Promise<string 
     }
 }
 
+export async function getDecimals(tokenAddress: string): Promise<string | null> {
+    const methods = getContractInterface(tokenAddress, [ERC20_DECIMALS_ITEM])
+    if (!methods) return null
+    let numAttempts = 0
+    while (numAttempts < 5) {
+        numAttempts++
+        try {
+            return await methods.decimals().call()
+        } catch (err) {
+            if (numAttempts < 5) {
+                await sleep((1.5 ** numAttempts) * 10)
+                continue
+            }
+            logger.error(`Error calling decimals() on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+            return null
+        }
+    }
+}
+
 export async function getERC1155TokenBalance(
     tokenAddress: string,
     tokenId: string,
     ownerAddress: string, 
 ): Promise<string | null> {
     const methods = getContractInterface(tokenAddress, [ERC1155_BALANCE_OF_ITEM])
+    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < 5) {
         numAttempts++
