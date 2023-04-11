@@ -48,31 +48,32 @@ async function pollTokenPrices() {
     
     // Filter tokens by those that have changed.
     const pricedTokensThatChanged = diffTokenPrices(pricedTokens, prevPrices)
+    if (!pricedTokensThatChanged.length) {
+        logger.info('No token price changes.')
+        return
+    }
+
     logger.info(`Prices changed for ${pricedTokensThatChanged.length}/${pricedTokens.length} tokens.`)
 
     // Save latest token prices to shared tables.
-    if (!(await saveTokenPrices(pricedTokens, latestTimestamp))) return
+    if (!(await saveTokenPrices(pricedTokensThatChanged, latestTimestamp))) return
 
     // Cache latest prices in redis.
-    pricedTokensThatChanged.length && await cacheLatestPrices(pricedTokensThatChanged)
+    await cacheLatestPrices(pricedTokensThatChanged)
 
     logger.info('Token prices up to date.')
 }
 
 async function saveTokenPrices(pricedTokens: StringKeyMap[], latestTimestamp: Date): Promise<boolean> {
-    pricedTokens.forEach(token => {
-        if (new Date(token.timestamp) < latestTimestamp) {
-            token.timestamp = latestTimestamp.toISOString()
-        }
-    })
-    logger.info(`Saving ${pricedTokens.length} token prices...`)
+    const recordsToSave = pricedTokens.filter(t => new Date(t.timestamp) >= latestTimestamp)
+    logger.info(`Saving ${recordsToSave.length} token prices...`)
     try {
         await SharedTables.manager.transaction(async (tx) => {
             await tx
                 .createQueryBuilder()
                 .insert()
                 .into(TokenPrice)
-                .values(pricedTokens)
+                .values(recordsToSave)
                 .execute()
         })
         return true
