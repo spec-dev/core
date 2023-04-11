@@ -37,7 +37,11 @@ async function pollTokenPrices() {
     }
 
     // Format all tokens and assign 'priceUsd', 'priceEth', 'priceMatic'.
-    const pricedTokens = buildPricedTokens(Object.values(quotes), ethToUsd, maticToUsd)
+    const [pricedTokens, latestTimestamp] = buildPricedTokens(
+        Object.values(quotes), 
+        ethToUsd, 
+        maticToUsd,
+    )
 
     // Get previous prices from redis.
     const prevPrices = await getLatestTokenPrices()
@@ -52,7 +56,7 @@ async function pollTokenPrices() {
     logger.info(`Prices changed for ${pricedTokensThatChanged.length}/${pricedTokens.length} tokens.`)
 
     // Save latest token prices to shared tables.
-    if (!(await saveTokenPrices(pricedTokensThatChanged))) return
+    if (!(await saveTokenPrices(pricedTokensThatChanged, latestTimestamp))) return
 
     // Cache latest prices in redis.
     await cacheLatestPrices(pricedTokensThatChanged)
@@ -60,15 +64,16 @@ async function pollTokenPrices() {
     logger.info('Token prices up to date.')
 }
 
-async function saveTokenPrices(pricedTokens: StringKeyMap[]): Promise<boolean> {
-    logger.info(`Saving ${pricedTokens.length} token prices...`)
+async function saveTokenPrices(pricedTokens: StringKeyMap[], latestTimestamp: Date): Promise<boolean> {
+    const recordsToSave = pricedTokens.filter(t => new Date(t.timestamp) >= latestTimestamp)
+    logger.info(`Saving ${recordsToSave.length} token prices...`)
     try {
         await SharedTables.manager.transaction(async (tx) => {
             await tx
                 .createQueryBuilder()
                 .insert()
                 .into(TokenPrice)
-                .values(pricedTokens)
+                .values(recordsToSave)
                 .execute()
         })
         return true
@@ -118,9 +123,10 @@ function buildPricedTokens(
     tokenPrices: StringKeyMap[],
     ethToUsd: number,
     maticToUsd: number,
-): StringKeyMap[] {
+): [StringKeyMap[], Date] {
     const pricedTokens = []
 
+    let maxDate = null
     for (const tokenData of tokenPrices) {
         let chainId, tokenAddress
         if (tokenData.id === ETHEREUM_CMC_ID) {
@@ -162,9 +168,14 @@ function buildPricedTokens(
             timestamp: tokenData.last_updated,
             chainId,
         })
+
+        const lastUpdatedDate = new Date(tokenData.last_updated)
+        if (maxDate === null || lastUpdatedDate > maxDate) {
+            maxDate = lastUpdatedDate
+        }
     }
 
-    return pricedTokens
+    return [pricedTokens, maxDate]
 }
 
 async function fetchTokenPrices(): Promise<StringKeyMap> {
