@@ -382,6 +382,10 @@ class EthereumIndexer extends AbstractIndexer {
             originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
         )
 
+        this.tokenTransfers?.length && originEventSpecs.push(
+            originEvents.tokens.NewTokenTransfers(this.tokenTransfers, eventOrigin)
+        )
+
         // Decode contract events and function calls.
         const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
         const logContractAddresses = new Set(decodedLogs.map(l => l.address))
