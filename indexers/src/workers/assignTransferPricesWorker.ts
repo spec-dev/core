@@ -252,7 +252,7 @@ export class AssignTransferPricesWorker {
 
         this.transfersToSave.push(...transfersToSave)
 
-        if (this.transfersToSave.length >= 2000) {
+        if (this.transfersToSave.length >= 3000) {
             const toSave = [...this.transfersToSave]
             await this._updateTransfers(toSave)
             this.transfersToSave = []
@@ -285,7 +285,7 @@ export class AssignTransferPricesWorker {
 
             // Merge the temp table updates into the target table ("bulk update").
             await client.query(
-                `UPDATE tokens.erc20_transfers SET value_usd = ${tempTableName}.value_usd, value_eth = ${tempTableName}.value_eth, value_matic = ${tempTableName}.value_matic FROM ${tempTableName} WHERE tokens.erc20_transfers.id = ${tempTableName}.id`
+                `UPDATE tokens.token_transfers SET value_usd = ${tempTableName}.value_usd, value_eth = ${tempTableName}.value_eth, value_matic = ${tempTableName}.value_matic FROM ${tempTableName} WHERE tokens.token_transfers.id = ${tempTableName}.id`
             )
             await client.query('COMMIT')
         } catch (e) {
