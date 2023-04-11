@@ -117,7 +117,7 @@ export { config }
 import logger from './lib/logger'
 export { logger }
 export * from './lib/types'
-export { unixTimestampToDate, nowAsUTCDateString } from './lib/utils/date'
+export * from './lib/utils/date'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
 export { Namespace } from './lib/core/db/entities/Namespace'

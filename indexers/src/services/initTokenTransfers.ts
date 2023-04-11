@@ -205,10 +205,10 @@ async function initTokenTransfers(
         const transfer = tokenTransfers[i]
         const [ethereumKey, polygonKey] = getTokenPriceCacheKeys(chainId, transfer.tokenAddress)
         const tokenPrice = tokenPrices[ethereumKey || ''] || tokenPrices[polygonKey || '']
-        if (!tokenPrice) continue
+        if (!tokenPrice || !transfer.tokenDecimals) continue
 
         const value = transfer.value
-        const decimals = Number(transfer.tokenDecimals || 18)
+        const decimals = Number(transfer.tokenDecimals)
         const { priceUsd, priceEth, priceMatic } = tokenPrice
 
         tokenTransfers[i].valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any

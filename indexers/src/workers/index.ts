@@ -23,6 +23,7 @@ import { getDecodeTraceWorker } from './decodeTraceWorker'
 import { getSeedTokenContractsWorker } from './seedTokenContractsWorker'
 import { getBackfillTransfersWorker } from './backfillTransfersWorker'
 import { getAssignTransferPricesWorker } from './assignTransferPricesWorker'
+import { getBackfillTokenPricesWorker } from './backfillTokenPricesWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -54,6 +55,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'assign-transfer-prices') {
         return getAssignTransferPricesWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'backfill-token-prices') {
+        return getBackfillTokenPricesWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'dlog') {
         switch (config.CHAIN_ID) {

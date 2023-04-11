@@ -18,6 +18,12 @@ import { calculateTokenPrice } from '../services/initTokenTransfers'
 import { exit } from 'process'
 import { Pool } from 'pg'
 import short from 'short-uuid'
+import pricedTokensRegistry from '../utils/pricedTokensRegistry'
+
+const pricedTokenKeys = new Set<string>()
+for (const data of Object.values(pricedTokensRegistry)) {
+    pricedTokenKeys.add([data.chainId, data.tokenAddress].join(':'))
+}
 
 const tokenTransfersRepo = () => SharedTables.getRepository(TokenTransfer)
 const tokenPricesRepo = () => SharedTables.getRepository(TokenPrice)
@@ -149,9 +155,9 @@ export class AssignTransferPricesWorker {
             const tokenPriceTimestamp = blockTimestampToTokenPriceTimestamp(blockTimestamp)
             const priceKey = [chainId, tokenAddress, tokenPriceTimestamp].join(':')
             let tokenPrice = tokenPricesMap[priceKey]
-
+            
+            let otherChainAddress, otherChainId
             if (!tokenPrice) {
-                let otherChainAddress, otherChainId
                 if (chainId === chainIds.ETHEREUM) {
                     otherChainAddress = ethereumToPolygonTokenMappings[tokenAddress]
                     otherChainId = chainIds.POLYGON
@@ -164,7 +170,19 @@ export class AssignTransferPricesWorker {
                     tokenPrice = tokenPricesMap[otherChainPriceKey]    
                 }
             }
-            if (!tokenPrice) continue
+
+            if (!tokenPrice) {
+                let pricedTokenKey = [chainId, tokenAddress].join(':')
+                if (otherChainAddress && otherChainId) {
+                    pricedTokenKey = [otherChainId, otherChainAddress].join(':')
+                }
+
+                // Is this a token we have price data for?
+                if (pricedTokenKeys.has(pricedTokenKey)) {
+                    // Find latest token price "under" the block_timestamp for this token.
+                    // Currently slow AF so fix this shit with some massive redis cache or spin up a TimeScaleDB instance.
+                }
+            }
 
             const value = transfer.value
             const decimals = Number(transfer.tokenDecimals || 18)
@@ -236,7 +254,7 @@ export class AssignTransferPricesWorker {
             return []
         }
     }
-
+    
     async _getTransfersForBlocks(numbers: number[]): Promise<TokenTransfer[]> {
         try {
             const transfers = await tokenTransfersRepo().find({

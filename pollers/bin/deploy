@@ -14,6 +14,8 @@ env="$1"
 job_name="$2"
 deployment_name="$3"
 
+# Ex: bin/deploy eth pollTokenPrices poll-token-prices
+
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"

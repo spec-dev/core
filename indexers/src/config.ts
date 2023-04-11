@@ -41,6 +41,7 @@ const indexerConfig: StringKeyMap = {
     MAX_BINDINGS_SIZE: 2000,
     ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
     INDEX_JOB_MAX_DURATION: Number(ev('INDEX_JOB_MAX_DURATION', 60000)),
+    CMC_API_KEY: ev('CMC_API_KEY'),
 }
 
 export default indexerConfig

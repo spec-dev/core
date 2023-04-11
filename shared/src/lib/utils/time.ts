@@ -9,7 +9,7 @@ import { subtractHours } from './date'
 const TOKEN_PRICE_INTERVAL_SWITCHPOINT = new Date('2023-03-21T03:03:00.000Z')
 
 // Exact minute value at which token prices are timestamped.
-const tokenPriceMinuteValues = [59, 54, 49, 44, 39, 34, 29, 24, 19, 14, 9, 4]
+const tokenPriceMinuteValues = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
 export function formatPgDateString(d: Date): string {
     const [year, month, date, hour, minutes] = [
@@ -33,14 +33,7 @@ export function blockTimestampToTokenPriceTimestamp(blockTimestamp: Date): strin
     // Find closest minute before the block timestamp from the tokenPriceMinuteValues.
     const blockTimestampMinutes = blockTimestamp.getUTCMinutes()
     const closestMinute = tokenPriceMinuteValues.find((minute) => minute <= blockTimestampMinutes)
-    if (closestMinute) {
-        blockTimestamp.setUTCMinutes(closestMinute)
-        return formatPgDateString(blockTimestamp)
-    }
-
-    // If not found, drop down an hour, and use the highest minute value.
-    blockTimestamp = subtractHours(blockTimestamp, 1)
-    blockTimestamp.setUTCMinutes(tokenPriceMinuteValues[0])
+    blockTimestamp.setUTCMinutes(closestMinute || 0)
     return formatPgDateString(blockTimestamp)
 }
 
