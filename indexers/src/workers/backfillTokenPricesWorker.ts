@@ -33,8 +33,8 @@ export class BackfillTokenPricesWorker {
     ceiling: Date
 
     constructor() {
-        this.cursor = new Date('2023-01-01T00:00:00.000Z')
-        this.ceiling = new Date('2023-03-01T00:03:00.000Z')
+        this.cursor = new Date('2023-03-03T09:25:00.000Z')
+        this.ceiling = new Date('2023-03-03T10:25:00.000Z')
     }
 
     async run() {
