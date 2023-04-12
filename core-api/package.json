@@ -20,6 +20,7 @@
         "@spec.types/spec": "^0.0.11",
         "aws-sdk": "^2.1213.0",
         "connect": "^3.6.6",
+        "cors": "^2.8.5",
         "eetase": "^4.0.0",
         "express": "^4.16.3",
         "express-fileupload": "^1.4.0",
