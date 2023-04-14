@@ -146,6 +146,7 @@ export function isContractERC1155(bytecode?: string, functionSignatures?: string
 }
 
 export function bytecodeToFunctionSignatures(bytecode: string): string[] | null {
+    if (!bytecode) return null
     let functionSignatures
     try {
         functionSignatures = selectorsFromBytecode(bytecode)
