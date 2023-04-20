@@ -15,10 +15,9 @@ export const pool = new Pool({
     database : config.SHARED_TABLES_DB_NAME,
     min: 2,
     max: config.SHARED_TABLES_MAX_POOL_SIZE,
-    idleTimeoutMillis: 0,
-    query_timeout: 0,
-    connectionTimeoutMillis: 0,
-    statement_timeout: 0,
+    connectionTimeoutMillis: 30000, // 30s
+    statement_timeout: 120000, // 2min
+    query_timeout: 125000, // slightly higher than statement_timeout
 })
 pool.on('error', err => logger.error('PG client error', err))
 
