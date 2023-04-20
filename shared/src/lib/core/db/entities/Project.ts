@@ -53,6 +53,9 @@ export class Project {
     @Column({ name: 'admin_channel', nullable: true })
     adminChannel: string
 
+    @Column('json', { nullable: true })
+    metadata: any
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',
@@ -84,6 +87,7 @@ export class Project {
             slug: this.slug,
             apiKey: this.signedApiKey,
             org: this.org?.publicView(),
+            metadata: this.metadata || {},
         }
     }
 }
