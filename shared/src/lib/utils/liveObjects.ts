@@ -17,6 +17,7 @@ import {
     snakeToCamel,
     fromNamespacedVersion,
     camelToSnake,
+    removeAcronymFromCamel,
 } from './formatters'
 
 const fixedEventViewProperties: { [key: string]: LiveObjectVersionProperty } = {
@@ -79,7 +80,7 @@ export const fixedEventViewPropertyNames = new Set(
 )
 
 const formatEventParamAsProperty = (eventParam: StringKeyMap): LiveObjectVersionProperty => ({
-    name: snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name)),
+    name: removeAcronymFromCamel(snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name))),
     type: guessPropertyTypeFromSolidityType(eventParam.type),
     desc: `The "${eventParam.name}" contract event argument.`,
 })
