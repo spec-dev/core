@@ -11,7 +11,7 @@ const TOKEN_PRICE_INTERVAL_SWITCHPOINT = new Date('2023-03-21T03:03:00.000Z')
 // Exact minute value at which token prices are timestamped.
 const tokenPriceMinuteValues = [55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]
 
-export function formatPgDateString(d: Date): string {
+export function formatPgDateString(d: Date, floorSeconds: boolean = true): string {
     const [year, month, date, hour, minutes] = [
         d.getUTCFullYear(),
         d.getUTCMonth() + 1,
@@ -19,8 +19,9 @@ export function formatPgDateString(d: Date): string {
         d.getUTCHours(),
         d.getUTCMinutes(),
     ]
+    const seconds = floorSeconds ? '00' : padDateNumber(d.getUTCSeconds())
     const dateSection = [year, padDateNumber(month), padDateNumber(date)].join('-')
-    const timeSection = [padDateNumber(hour), padDateNumber(minutes), '00'].join(':')
+    const timeSection = [padDateNumber(hour), padDateNumber(minutes), seconds].join(':')
     return `${dateSection} ${timeSection}+00`
 }
 

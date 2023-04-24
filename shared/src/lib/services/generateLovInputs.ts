@@ -17,6 +17,7 @@ import {
     stripLeadingAndTrailingUnderscores,
 } from '../utils/formatters'
 import { EthTraceStatus } from '../shared-tables/db/entities/EthTrace'
+import { formatPgDateString } from '../utils/time'
 
 const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -57,8 +58,6 @@ export async function getLovInputGenerator(
     const generator = async (startBlockDate?: Date) => {
         startBlockDate = startBlockDate || earliestStartCursor
         const endBlockDate = addSeconds(startBlockDate, batchSizeInSeconds)
-        const startBlockTimestamp = startBlockDate.toISOString()
-        const endBlockTimestamp = endBlockDate.toISOString()
 
         const chainIdsToQueryForInputs = []
         for (const chainId in groupQueryCursors) {
@@ -72,6 +71,8 @@ export async function getLovInputGenerator(
         for (const chainId of chainIdsToQueryForInputs) {
             const schema = schemaForChainId[chainId]
             const { inputEventsQueryComps, inputFunctionsQueryComps } = groupQueryCursors[chainId]
+            const startPgDateStr = formatPgDateString(startBlockDate, false)
+            const endPgDateTime = formatPgDateString(endBlockDate, false)
             chainInputPromises.push(
                 ...[
                     inputEventsQueryComps.length
@@ -80,8 +81,8 @@ export async function getLovInputGenerator(
                                   'logs'
                               )} where (${inputEventsQueryComps.join(
                                   ' or '
-                              )}) and timezone('UTC', block_timestamp) >= $1 and timezone('UTC', block_timestamp) < $2`,
-                              [startBlockTimestamp, endBlockTimestamp]
+                              )}) and block_timestamp >= $1 and block_timestamp < $2`,
+                              [startPgDateStr, endPgDateTime]
                           )
                         : [],
                     inputFunctionsQueryComps.length
@@ -90,8 +91,8 @@ export async function getLovInputGenerator(
                                   'traces'
                               )} where (${inputFunctionsQueryComps.join(
                                   ' or '
-                              )}) and timezone('UTC', block_timestamp) >= $1 and timezone('UTC', block_timestamp) < $2`,
-                              [startBlockTimestamp, endBlockTimestamp]
+                              )}) and block_timestamp >= $1 and block_timestamp < $2`,
+                              [startPgDateStr, endPgDateTime]
                           )
                         : [],
                 ]
