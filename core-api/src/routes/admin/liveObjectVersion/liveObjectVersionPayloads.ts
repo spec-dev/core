@@ -5,6 +5,7 @@ interface IndexLiveObjectVersionsPayload {
     lovIds: number[],
     startTimestamp?: string
     maxIterations?: number
+    targetBatchSize?: number
 }
 
 export function parsePublishLiveObjectVersionPayload(
@@ -119,6 +120,7 @@ export function parseIndexLiveObjectVersionsPayload(
     const lovIds = data?.lovIds || []
     const startTimestamp = data?.startTimestamp || null
     const maxIterations = data?.maxIterations || null
+    const targetBatchSize = data?.targetBatchSize || null
 
     if (!lovIds.length) {
         return { isValid: false, error: '"lovIds" was missing or empty' }
@@ -126,6 +128,6 @@ export function parseIndexLiveObjectVersionsPayload(
 
     return {
         isValid: true,
-        payload: { lovIds, startTimestamp, maxIterations }
+        payload: { lovIds, startTimestamp, maxIterations, targetBatchSize }
     }
 }

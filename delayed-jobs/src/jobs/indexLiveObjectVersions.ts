@@ -12,6 +12,7 @@ import config from '../config'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
+const DEFAULT_TARGET_BATCH_SIZE = 500
 
 export async function indexLiveObjectVersions(
     lovIds: number[],
@@ -19,6 +20,7 @@ export async function indexLiveObjectVersions(
     iteration: number = 1,
     maxIterations: number | null = null,
     maxJobTime: number = DEFAULT_MAX_JOB_TIME,
+    targetBatchSize: number = DEFAULT_TARGET_BATCH_SIZE,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
 
@@ -30,12 +32,12 @@ export async function indexLiveObjectVersions(
     try {
         // Get lov input generator.
         const { generator, inputIdsToLovIdsMap, liveObjectVersions } = (
-            await getLovInputGenerator(lovIds, startTimestamp)
+            await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
         ) || {}
         if (!generator) throw `Failed to get LOV input generator`
         
         // Set live object version statuses to indexing.
-        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
+        // await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
 
         // Index live object versions.
         while (true) {
@@ -192,6 +194,7 @@ export default function job(params: StringKeyMap) {
     const iteration = params.iteration || 1
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
+    const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BATCH_SIZE
 
     return {
         perform: async () => indexLiveObjectVersions(
@@ -200,6 +203,7 @@ export default function job(params: StringKeyMap) {
             iteration,
             maxIterations,
             maxJobTime,
+            targetBatchSize,
         )
     }
 }
