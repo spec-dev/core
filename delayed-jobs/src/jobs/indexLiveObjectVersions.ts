@@ -24,6 +24,8 @@ export async function indexLiveObjectVersions(
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
 
+    return true
+
     let timer = setTimeout(() => {
         timer = null
     }, maxJobTime)
