@@ -1,6 +1,17 @@
 import { ValidatedPayload, StringKeyMap } from '../../../types'
 import { chainIds, supportedChainIds } from '../../../../../shared'
 
+export interface GetAbiPayload {
+    chainId: string
+    address: string
+}
+
+export interface SaveAbiPayload {
+    chainId: string
+    address: string
+    abi: StringKeyMap[]
+}
+
 export interface UpsertAbisPayload {
     addresses: string[]
     chainId?: string
@@ -30,5 +41,49 @@ export function parseUpsertAbisPayload(data: StringKeyMap): ValidatedPayload<Ups
             overwriteWithStarscan,
             overwriteWithSamczsun,
         },
+    }
+}
+
+export function parseGetAbiPayload(data: StringKeyMap): ValidatedPayload<GetAbiPayload> {
+    const id = data?.id
+    if (!id) {
+        return { isValid: false, error: '"id" required' }
+    }
+    
+    const comps = id.split(':')
+    if (comps.length !== 2) {
+        return { isValid: false, error: '"id" must be in <chainId>:<address> format' }
+    }
+
+    const [chainId, address] = comps
+    if (!supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
+
+    return {
+        isValid: true,
+        payload: { chainId, address: address.toLowerCase() },
+    }
+}
+
+export function parseSaveAbiPayload(data: StringKeyMap): ValidatedPayload<SaveAbiPayload> {
+    const chainId = data?.chainId
+    if (!chainId || !supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
+    
+    const address = data?.address
+    if (!address) {
+        return { isValid: false, error: '"address" required' }
+    }
+
+    const abi = data?.abi
+    if (!abi) {
+        return { isValid: false, error: '"abi" required' }
+    }
+
+    return {
+        isValid: true,
+        payload: { chainId, address: address.toLowerCase(), abi },
     }
 }

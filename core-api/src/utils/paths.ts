@@ -23,7 +23,8 @@ const paths = {
     NEW_DEPLOYMENT: prefix.DEPLOYMENT,
 
     // ABI paths.
-    UPSERT_ABIS: prefix.ADMIN + '/abis',
+    ADMIN_ABI: prefix.ADMIN + '/abi',
+    ADMIN_ABIS: prefix.ADMIN + '/abis',
 
     // Live Object paths.
     LIVE_OBJECTS: prefix.LIVE_OBJECT + 's',

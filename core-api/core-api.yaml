@@ -51,6 +51,10 @@ spec:
           value: "{{INDEXER_REDIS_PORT}}"
         - name: CORE_API_ADMIN_TOKEN
           value: {{CORE_API_ADMIN_TOKEN}}
+        - name: ABI_REDIS_HOST
+          value: {{ABI_REDIS_HOST}}
+        - name: ABI_REDIS_PORT
+          value: "{{ABI_REDIS_PORT}}"
         - name: FLIP
           value: heads
         readinessProbe:
