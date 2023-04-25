@@ -12,7 +12,7 @@ import config from '../config'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
-const DEFAULT_TARGET_BATCH_SIZE = 500
+const DEFAULT_TARGET_BATCH_SIZE = 3
 
 export async function indexLiveObjectVersions(
     lovIds: number[],
@@ -23,6 +23,8 @@ export async function indexLiveObjectVersions(
     targetBatchSize: number = DEFAULT_TARGET_BATCH_SIZE,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
+
+    return
 
     let timer = setTimeout(() => {
         timer = null
