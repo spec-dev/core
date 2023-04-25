@@ -37,10 +37,7 @@ export async function indexLiveObjectVersions(
         if (!generator) throw `Failed to get LOV input generator`
         
         // Set live object version statuses to indexing.
-
-        // TODO: Remove hack
-        const updateStatus = lovIds[0] != 156 && lovIds[0] != 157
-        updateStatus && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
+        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
 
         // Index live object versions.
         while (true) {
@@ -78,6 +75,7 @@ export async function indexLiveObjectVersions(
         iteration: iteration + 1,
         maxIterations,
         maxJobTime,
+        targetBatchSize,
     })
 }
 
