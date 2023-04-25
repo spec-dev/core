@@ -41,6 +41,8 @@ async function perform({ blockNumber }) {
         return
     }
 
+    // Blocks less than the current series number get pushed through automatically.
+    // Need this to propertly handle re-orgs when the same number comes in again.
     await generateEventsForBlock(blockNumber, { replay: true })
 }
 
