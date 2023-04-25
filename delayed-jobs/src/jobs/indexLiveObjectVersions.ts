@@ -198,7 +198,7 @@ export default function job(params: StringKeyMap) {
     const iteration = params.iteration || 1
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
-    const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BATCH_SIZE
+    const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BLOCK_BATCH_SIZE
 
     return {
         perform: async () => indexLiveObjectVersions(
