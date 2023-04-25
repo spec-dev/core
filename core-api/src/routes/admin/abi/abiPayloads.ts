@@ -77,11 +77,17 @@ export function parseSaveAbiPayload(data: StringKeyMap): ValidatedPayload<SaveAb
         return { isValid: false, error: '"address" required' }
     }
 
-    const abi = data?.abi
+    let abi = data?.abi
     if (!abi) {
         return { isValid: false, error: '"abi" required' }
     }
 
+    try {
+        abi = JSON.stringify(abi)
+    } catch (err) {
+        return { isValid: false, error: `Error stringifying abi: ${err}` }
+    }
+    
     return {
         isValid: true,
         payload: { chainId, address: address.toLowerCase(), abi },
