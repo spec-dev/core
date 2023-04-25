@@ -23,7 +23,7 @@ const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
-const DEFAULT_TARGET_BLOCK_BATCH_SIZE = 500
+export const DEFAULT_TARGET_BLOCK_BATCH_SIZE = 3
 
 export async function getLovInputGenerator(
     lovIds: number[],

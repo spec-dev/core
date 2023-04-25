@@ -7,12 +7,12 @@ import {
     newTablesJWT,
     sleep,
     enqueueDelayedJob,
+    DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 } from '../../../shared'
 import config from '../config'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
-const DEFAULT_TARGET_BATCH_SIZE = 3
 
 export async function indexLiveObjectVersions(
     lovIds: number[],
@@ -20,11 +20,9 @@ export async function indexLiveObjectVersions(
     iteration: number = 1,
     maxIterations: number | null = null,
     maxJobTime: number = DEFAULT_MAX_JOB_TIME,
-    targetBatchSize: number = DEFAULT_TARGET_BATCH_SIZE,
+    targetBatchSize: number = DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
-
-    return
 
     let timer = setTimeout(() => {
         timer = null
@@ -39,7 +37,10 @@ export async function indexLiveObjectVersions(
         if (!generator) throw `Failed to get LOV input generator`
         
         // Set live object version statuses to indexing.
-        // await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
+
+        // TODO: Remove hack
+        const updateStatus = lovIds[0] != 156 && lovIds[0] != 157
+        updateStatus && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
 
         // Index live object versions.
         while (true) {

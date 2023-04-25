@@ -298,4 +298,5 @@ export {
     getLovInputGenerator,
     getGroupedInputGeneratorQueriesForLovs,
     getLovInputGeneratorQueries,
+    DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 } from './lib/services/generateLovInputs'
