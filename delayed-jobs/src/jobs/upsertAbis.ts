@@ -55,6 +55,7 @@ async function upsertAbis(
     overwriteWithStarscan?: boolean,
     overwriteWithSamczsun?: boolean,
 ) {
+    return true // HACK
     logger.info(`Processing ${addresses.length} addresses to pull ABIs for....`)
 
     const addressesAlreadyWithAbis = new Set(Object.keys(await getAbis(addresses, chainId)))

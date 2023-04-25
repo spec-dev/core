@@ -43,7 +43,7 @@ export async function indexLiveObjectVersions(
         while (true) {
             const results = await generator(cursor)
             const inputs = results.inputs || []
-            await processInputs(inputs, inputIdsToLovIdsMap, liveObjectVersions, cursor)
+            await processInputs(lovIds, inputs, inputIdsToLovIdsMap, liveObjectVersions, cursor)
             cursor = results.nextStartDate
             if (!cursor || timer === null) break
         }
@@ -62,11 +62,11 @@ export async function indexLiveObjectVersions(
     }
 
     if (maxIterations && iteration >= maxIterations) {
-        logger.info(`Completed all ${maxIterations} iterations.`)
+        logger.info(`[${lovIds.join(', ')}] Completed all ${maxIterations} iterations.`)
         return
     }
 
-    logger.info(`Enqueueing next indexer interation ${iteration}.`)
+    logger.info(`[${lovIds.join(', ')}] Enqueueing next indexer interation ${iteration}.`)
 
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
@@ -79,13 +79,14 @@ export async function indexLiveObjectVersions(
 }
 
 async function processInputs(
+    lovIds: number[],
     inputs: StringKeyMap[],
     inputIdsToLovIdsMap: StringKeyMap,
     liveObjectVersions: StringKeyMap,
     cursor: Date,
 ) {
     if (!inputs.length) return
-    logger.info(`[${cursor?.toISOString()}] Processing ${inputs.length} live object version inputs...`)
+    logger.info(`[${lovIds.join(', ')} - ${cursor?.toISOString()}] Processing ${inputs.length} inputs...`)
     const groupedInputs = createGroupInputs(inputs, inputIdsToLovIdsMap)
     for (const batchInputs of groupedInputs) {
         const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
