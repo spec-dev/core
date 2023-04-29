@@ -46,7 +46,6 @@ async function decodeContractInteractions(
     finalEndBlock: number,
 ) {
     logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
-    return
     
     // Get map of contract abis.
     const abisMap = await getAbisForContracts(contractAddresses, chainId)
