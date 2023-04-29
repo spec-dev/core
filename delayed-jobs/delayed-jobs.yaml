@@ -5,7 +5,7 @@ metadata:
   labels:
     app: delayed-jobs
 spec:
-  replicas: 5
+  replicas: 2
   selector:
     matchLabels:
       app: delayed-jobs
@@ -68,3 +68,5 @@ spec:
           value: {{POLYGON_ALCHEMY_REST_URL}}
         - name: MUMBAI_ALCHEMY_REST_URL
           value: {{MUMBAI_ALCHEMY_REST_URL}}
+        - name: FLIP
+          value: TAILS

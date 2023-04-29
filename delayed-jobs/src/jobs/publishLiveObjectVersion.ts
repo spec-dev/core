@@ -36,7 +36,7 @@ import os from 'os'
 import path from 'path'
 import fs from 'fs'
 import rimraf from 'rimraf'
-import git from 'nodegit'
+// import git from 'nodegit'
 import { MAIN_FUNCTION } from '../templates/deno'
 import { deployToDeno } from '../cmds/deno'
 import uuid4 from 'uuid4'
@@ -226,7 +226,7 @@ async function cloneRepo(url: string, uid: string): Promise<string | null> {
 
     // Clone repo.
     try {
-        await git.Clone(url, dst)
+        // await git.Clone(url, dst)
     } catch (err) {
         logger.error(`Error cloning ${url} into ${dst}: ${err}`)
         return null
