@@ -99,23 +99,26 @@ async function registerContractInstances(
         }
     }
 
-    // TODO: Debug issues with the below job not immediately getting picked up and run.
+    // Get current head of this chain.
+    const currentHead = await getCurrentHead(chainId)
+    if (!currentHead) return
 
-    // // Get current head of this chain.
-    // const currentHead = await getCurrentHead(chainId)
-    // if (!currentHead) return
-
-    // // Kick off job to back-decode all interactions with these contracts.
-    // const djParams: StringKeyMap = {
-    //     chainId, 
-    //     contractAddresses: allContractAddresses,
-    //     finalEndBlock: currentHead + 2,
-    // }
-    // if ([chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)) {
-    //     djParams.queryRangeSize = 10
-    //     djParams.jobRangeSize = 100
-    // }
-    // await enqueueDelayedJob('decodeContractInteractions', djParams)
+    // Kick off job to back-decode all interactions with these contracts.
+    // Enqueue jobs for individual contracts for DB-index reasons.
+    const baseJobParams: StringKeyMap = {
+        chainId, 
+        finalEndBlock: currentHead + 2,
+    }
+    if ([chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)) {
+        baseJobParams.queryRangeSize = 10
+        baseJobParams.jobRangeSize = 100
+    }
+    for (const contractAddress of allContractAddresses) {
+        await enqueueDelayedJob('decodeContractInteractions', {
+            ...baseJobParams,
+            contractAddresses: [contractAddress],
+        })
+    }
 }
 
 async function upsertVerifiedAbis(
