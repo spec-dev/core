@@ -35,7 +35,7 @@ import {
 import os from 'os'
 import path from 'path'
 import fs from 'fs'
-import rimraf from 'rimraf'
+// import rimraf from 'rimraf'
 // import git from 'nodegit'
 import { MAIN_FUNCTION } from '../templates/deno'
 import { deployToDeno } from '../cmds/deno'
@@ -363,7 +363,7 @@ async function saveDataModels(
 
 function deleteDir(dir: string) {
     try {
-        rimraf.sync(dir)
+        // rimraf.sync(dir)
     } catch (err) {
         logger.error(`Failed to delete cloned git repo at ${dir}: ${err}`)
     }
