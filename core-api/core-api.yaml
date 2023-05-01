@@ -55,6 +55,20 @@ spec:
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT
           value: "{{ABI_REDIS_PORT}}"
+        - name: SHARED_TABLES_DB_NAME
+          value: {{SHARED_TABLES_DB_NAME}}
+        - name: SHARED_TABLES_DB_HOST
+          value: {{SHARED_TABLES_READER_HOST}}
+        - name: SHARED_TABLES_DB_PORT
+          value: "{{SHARED_TABLES_DB_PORT}}"
+        - name: SHARED_TABLES_DB_USERNAME
+          value: {{SHARED_TABLES_DB_USERNAME}}
+        - name: SHARED_TABLES_DB_PASSWORD
+          value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_DEFAULT_ROLE
+          value: {{SHARED_TABLES_DEFAULT_ROLE}}
+        - name: SHARED_TABLES_MAX_POOL_SIZE
+          value: "25"
         - name: FLIP
           value: heads
         readinessProbe:

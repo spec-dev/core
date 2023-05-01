@@ -42,6 +42,14 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
 abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
 
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DEFAULT_ROLE" )
+shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
@@ -67,6 +75,14 @@ $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 # ABI Redis
 $shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
 $shared_bin_dir/assert_env "ABI_REDIS_PORT" "$abi_redis_port"
+
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_role"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -99,6 +115,12 @@ template=$( cat "$template_path" | \
     sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
     sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
     sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DEFAULT_ROLE}}|$shared_tables_default_role|g" | \
+    sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" )
 

@@ -13,7 +13,6 @@ import {
 } from '../../../shared'
 import { ident, literal } from 'pg-format'
 import config from '../config'
-import chalk from 'chalk'
 import uuid4 from 'uuid4'
 
 async function generateInputRangeData(
@@ -41,11 +40,6 @@ async function generateInputRangeData(
 
     const events = payload.inputs.events || []
     const calls = payload.inputs.calls || []
-
-    // const blockRangeSize = Math.max(
-    //     config.TEST_DATA_BLOCK_RANGE_SIZE / (events.length + calls.length),
-    //     500,
-    // )
     
     let timer, inputGen
     let cursor = from
@@ -66,8 +60,6 @@ async function generateInputRangeData(
     
         const generateFrom = genInfo.generator
         inputGen = genInfo.inputGen        
-        const t0 = performance.now()
-
         while (true) {
             const results = await generateFrom(cursor)
             let inputs = results.inputs || []
@@ -85,11 +77,6 @@ async function generateInputRangeData(
             batchInputs.push(...inputs)
             if (shouldBreak) break
         }
-
-        const tf = performance.now()
-        logger.info(chalk.cyanBright(
-            `Got batch of ${batchInputs.length.toLocaleString()} in ${Number(((tf - t0) / 1000).toFixed(2))}s`
-        ))
     } catch (err) {
         clearTimeout(timer)
         const error = `Failed to generate test input data starting at ${cursor}: ${err}`
