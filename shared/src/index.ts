@@ -64,6 +64,7 @@ export {
     deleteBlockCalls,
     getBlockEventsSeriesNumber,
     setBlockEventsSeriesNumber,
+    freezeBlockOperationsAbove,
     getEagerBlocks,
     addEagerBlock,
     deleteEagerBlocks,
@@ -82,16 +83,18 @@ export {
     cacheLatestBlockAndTransactions,
     getCachedBlockByHash,
     getCachedTransactionByHash,
+    getCachedLiveObjectTablesByChainId,
+    registerLiveObjectTablesForChainId,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
 export { sleep, blockTimestampToTokenPriceTimestamp, formatPgDateString } from './lib/utils/time'
 export {
-    getlastSeenBlock,
+    getHighestBlock,
     getBlockAtNumber,
     getBlocksInNumberRange,
     createIndexedBlock,
-    uncleBlock,
+    uncleBlocks,
     setIndexedBlockStatus,
     setIndexedBlockToFailed,
     insertIndexedBlocks,
@@ -111,6 +114,8 @@ export {
     isContractNamespace,
     namespaceForChainId,
     getNativeTokenForChain,
+    avgBlockTimesForChainId,
+    primitivesForChainId,
 } from './lib/utils/chainIds'
 import config from './lib/config'
 export { config }
@@ -177,6 +182,9 @@ export {
     getLastXLogs,
     getLatestTokenPrices,
     setLatestTokenPrices,
+    setCachedInputGenForStreamId,
+    getCachedInputGenForStreamId,
+    deleteCachedInputGenForStreamId,
 } from './lib/core/redis'
 export {
     createContract,
@@ -298,5 +306,9 @@ export {
     getLovInputGenerator,
     getGroupedInputGeneratorQueriesForLovs,
     getLovInputGeneratorQueries,
+    generateLovInputsForEventsAndCalls,
     DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 } from './lib/services/generateLovInputs'
+
+import resolveLiveObjectTablesForChainId from './lib/services/resolveLiveObjectTablesForChainId'
+export { resolveLiveObjectTablesForChainId }

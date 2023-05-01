@@ -1,13 +1,13 @@
 import { IndexedBlock, IndexedBlockStatus } from '../entities/IndexedBlock'
 import { IndexerDB } from '../dataSource'
 import logger from '../../../logger'
-import { registerBlockHashAsUncled } from '../../redis'
+import { registerBlockAsUncled } from '../../redis'
 import { In } from 'typeorm'
 import { StringKeyMap } from '../../../types'
 
 const indexedBlocks = () => IndexerDB.getRepository(IndexedBlock)
 
-export async function getlastSeenBlock(chainId: string): Promise<IndexedBlock | null> {
+export async function getHighestBlock(chainId: string): Promise<IndexedBlock | null> {
     let block
     try {
         block = await indexedBlocks().findOne({
@@ -98,21 +98,31 @@ export async function insertIndexedBlocks(records: StringKeyMap[]): Promise<Stri
     }
 }
 
-export async function uncleBlock(indexedBlock: IndexedBlock) {
+export async function uncleBlocks(entries: IndexedBlock[]) {
+    if (!entries.length) return
     try {
         await indexedBlocks()
             .createQueryBuilder()
             .update({ uncled: true })
-            .where({ id: indexedBlock.id })
+            .where({ id: In(entries.map((b) => b.id)) })
             .execute()
     } catch (err) {
-        logger.error(`Error marking indexed block (id=${indexedBlock.id}) as uncled: ${err}`)
+        logger.error(`Error marking indexed blocks as uncled (${JSON.stringify(entries)}): ${err}`)
         throw err
     }
 
     // Add block hash to uncled redis set.
-    indexedBlock.hash &&
-        (await registerBlockHashAsUncled(indexedBlock.chainId.toString(), indexedBlock.hash))
+    // await Promise.all(
+    //     entries
+    //         .filter((b) => !!b.hash)
+    //         .map((indexedBlock) =>
+    //             registerBlockAsUncled(
+    //                 indexedBlock.chainId.toString(),
+    //                 indexedBlock.number,
+    //                 indexedBlock.hash
+    //             )
+    //         )
+    // )
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {

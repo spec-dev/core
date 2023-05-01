@@ -399,3 +399,10 @@ export const padDateNumber = (value: number): string => {
     const asString = value.toString()
     return asString.length < 2 ? `0${asString}` : asString
 }
+
+export const sum = (arr: number[]): number => arr.reduce((a, b) => a + b, 0)
+
+export const toNumber = (val: any): number | null => {
+    const num = parseInt(val)
+    return Number.isNaN(num) ? null : num
+}

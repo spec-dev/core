@@ -25,3 +25,21 @@ export const subtractHours = (date: Date, hours: number): Date => {
     prevDate.setHours(date.getHours() - hours)
     return prevDate
 }
+
+export const addDays = (date: Date, days: number): Date => {
+    const newDate = new Date(date)
+    newDate.setDate(date.getUTCDate() + days)
+    return newDate
+}
+
+export const subtractDays = (date: Date, days: number): Date => {
+    const newDate = new Date(date)
+    newDate.setDate(date.getUTCDate() - days)
+    return newDate
+}
+
+export const toDate = (val: any): Date | null => {
+    const date = new Date(val)
+    const invalid = date.toString().toLowerCase() === 'invalid date'
+    return invalid ? null : date
+}

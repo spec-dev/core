@@ -28,3 +28,16 @@ export interface LatestLiveObject {
     isContractEvent: boolean
     latestVersion: LatestLiveObjectVersion
 }
+
+export interface GenerateTestInputsPayload {
+    inputs: StringKeyMap
+    cursor: string | null
+    chainIds: string[]
+    from: string | null
+    fromBlock: number | null
+    to: string | null,
+    toBlock: number | null,
+    recent: boolean
+    allTime: boolean
+    streamId: string | null
+}

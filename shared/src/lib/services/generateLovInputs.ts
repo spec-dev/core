@@ -4,8 +4,8 @@ import { LiveObjectVersion } from '../core/db/entities/LiveObjectVersion'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
-import { unique, uniqueByKeys } from '../utils/formatters'
-import { In } from 'typeorm'
+import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
+import { In, SimpleConsoleLogger } from 'typeorm'
 import { literal, ident } from 'pg-format'
 import { schemaForChainId } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
@@ -23,7 +23,7 @@ const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
-export const DEFAULT_TARGET_BLOCK_BATCH_SIZE = 3
+export const DEFAULT_TARGET_BLOCK_BATCH_SIZE = 5
 
 export async function getLovInputGenerator(
     lovIds: number[],
@@ -33,17 +33,58 @@ export async function getLovInputGenerator(
     const inputGen = await getGroupedInputGeneratorQueriesForLovs(lovIds, startTimestamp)
     if (!inputGen) return null
     const {
-        groupQueryCursors,
-        groupContractInstanceData,
+        groupQueryCursors: queryCursors,
+        groupContractInstanceData: contractInstanceData,
         inputIdsToLovIdsMap,
         liveObjectVersions,
     } = inputGen
-    if (!Object.keys(groupQueryCursors).length) return null
+    if (!Object.keys(queryCursors).length) return null
 
+    const [earliestStartCursor, shortestBlockTime] =
+        getSmallestStartCursorAndBlockTime(queryCursors)
+
+    const generator = buildGenerator(
+        earliestStartCursor,
+        targetBatchSize * shortestBlockTime,
+        queryCursors,
+        contractInstanceData
+    )
+
+    return { generator, inputIdsToLovIdsMap, liveObjectVersions }
+}
+
+export async function generateLovInputsForEventsAndCalls(
+    events: string[],
+    calls: string[],
+    startTimestamp: string | null = null,
+    targetBatchSize: number,
+    inputGen: StringKeyMap | null = null
+) {
+    inputGen =
+        inputGen || (await getInputGeneratorQueriesForEventsAndCalls(events, calls, startTimestamp))
+    if (!inputGen) return null
+
+    const { queryCursors, contractInstanceData } = inputGen
+    if (!Object.keys(queryCursors).length) return null
+
+    const [earliestStartCursor, shortestBlockTime] =
+        getSmallestStartCursorAndBlockTime(queryCursors)
+
+    const generator = buildGenerator(
+        earliestStartCursor,
+        targetBatchSize * shortestBlockTime,
+        queryCursors,
+        contractInstanceData
+    )
+
+    return { generator, inputGen }
+}
+
+function getSmallestStartCursorAndBlockTime(queryCursors: StringKeyMap): [Date, number] {
     let earliestStartCursor = null
     let shortestBlockTime = null
-    for (const chainId in groupQueryCursors) {
-        const timestampCursor = groupQueryCursors[chainId].timestampCursor
+    for (const chainId in queryCursors) {
+        const timestampCursor = queryCursors[chainId].timestampCursor
         if (earliestStartCursor === null || timestampCursor < earliestStartCursor) {
             earliestStartCursor = timestampCursor
         }
@@ -52,16 +93,22 @@ export async function getLovInputGenerator(
             shortestBlockTime = chainBlockTime
         }
     }
+    return [earliestStartCursor, shortestBlockTime]
+}
 
-    const batchSizeInSeconds = targetBatchSize * shortestBlockTime
-
+function buildGenerator(
+    earliestStartCursor: Date,
+    batchSizeInSeconds: number,
+    queryCursors: StringKeyMap,
+    contractInstanceData: StringKeyMap
+): Function {
     const generator = async (startBlockDate?: Date) => {
         startBlockDate = startBlockDate || earliestStartCursor
         const endBlockDate = addSeconds(startBlockDate, batchSizeInSeconds)
 
         const chainIdsToQueryForInputs = []
-        for (const chainId in groupQueryCursors) {
-            const timestampCursor = groupQueryCursors[chainId].timestampCursor
+        for (const chainId in queryCursors) {
+            const timestampCursor = queryCursors[chainId].timestampCursor
             if (timestampCursor < endBlockDate) {
                 chainIdsToQueryForInputs.push(chainId)
             }
@@ -70,7 +117,7 @@ export async function getLovInputGenerator(
         const chainInputPromises = []
         for (const chainId of chainIdsToQueryForInputs) {
             const schema = schemaForChainId[chainId]
-            const { inputEventsQueryComps, inputFunctionsQueryComps } = groupQueryCursors[chainId]
+            const { inputEventsQueryComps, inputFunctionsQueryComps } = queryCursors[chainId]
             const startPgDateStr = formatPgDateString(startBlockDate, false)
             const endPgDateTime = formatPgDateString(endBlockDate, false)
             chainInputPromises.push(
@@ -181,7 +228,7 @@ export async function getLovInputGenerator(
 
             if (_inputType === 'event') {
                 const associatedContractInstances =
-                    groupContractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
+                    contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
                 for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
                     const { data, eventOrigin } = formatLogAsSpecEvent(
                         record,
@@ -196,7 +243,7 @@ export async function getLovInputGenerator(
                 }
             } else {
                 const associatedContractInstances =
-                    groupContractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
+                    contractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
                 for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
                     const { callOrigin, inputs, inputArgs, outputs, outputArgs } =
                         formatTraceAsSpecCall(record, contractInstanceName, _chainId)
@@ -214,13 +261,162 @@ export async function getLovInputGenerator(
 
         const currentDate = new Date(nowAsUTCDateString())
         const isLastBatch = endBlockDate > currentDate
+
         return {
             inputs: inputSpecs,
             nextStartDate: isLastBatch ? null : endBlockDate,
         }
     }
 
-    return { generator, inputIdsToLovIdsMap, liveObjectVersions }
+    return generator
+}
+
+/*
+Example return structure:
+{
+    queryCursors: {
+        "137": {
+            "inputEventsQueryComps": [
+                "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and event_name in ('DefaultProfileSet', 'DispatcherSet'))"
+            ],
+            "inputFunctionsQueryComps": [],
+            "timestampCursor": "2022-10-10T05:00:00.000Z"
+        }
+    }
+    // Data about the contract instances associated with all inputS.
+    contractInstanceData: {
+        "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
+            {
+                "name": "LensHubProxy",
+                "nsp": "polygon.contracts.lens.LensHubProxy"
+            }
+        ]
+    }
+}
+*/
+export async function getInputGeneratorQueriesForEventsAndCalls(
+    eventIds: string[],
+    callIds: string[],
+    startTimestamp: string | null = null
+) {
+    // Get unique list of nsps across all events and calls.
+    const eventNsps = unique(
+        eventIds.map((id) => fromNamespacedVersion(id).nsp).filter((nsp) => !!nsp)
+    )
+    const callNsps = unique(
+        callIds
+            .map((id) => {
+                const split = id.split('.')
+                split.pop() // pop off function name
+                return split.join('.')
+            })
+            .filter((nsp) => !!nsp)
+    )
+    const eventNspSet = new Set(eventNsps)
+    const callNspSet = new Set(callNsps)
+    const allInputNsps = unique([...eventNsps, ...callNsps])
+
+    // Get contract instances for these namespaces.
+    let contractInstances
+    try {
+        contractInstances = await contractInstancesRepo().find({
+            relations: { contract: { namespace: true } },
+            where: { contract: { namespace: { name: In(allInputNsps) } } },
+        })
+    } catch (err) {
+        logger.error(
+            `Error finding ContractInstances with namespaces in ${allInputNsps.join(', ')}`,
+            err
+        )
+        return null
+    }
+
+    const eventContractInstancesByNamespace = {}
+    const callContractInstancesByNamespace = {}
+    const contractInstanceData = {}
+    for (const contractInstance of contractInstances) {
+        const nsp = contractInstance.contract.namespace.name
+        const isUsedByEvent = eventNspSet.has(nsp)
+        const isUsedByCall = callNspSet.has(nsp)
+
+        if (isUsedByEvent) {
+            const ciKey = [contractInstance.chainId, contractInstance.address, 'event'].join(':')
+            contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
+            contractInstanceData[ciKey].push({
+                name: contractInstance.name,
+                nsp,
+            })
+            if (!eventContractInstancesByNamespace.hasOwnProperty(nsp)) {
+                eventContractInstancesByNamespace[nsp] = []
+            }
+            eventContractInstancesByNamespace[nsp].push({
+                chainId: contractInstance.chainId,
+                contractAddress: contractInstance.address,
+            })
+        }
+        if (isUsedByCall) {
+            const ciKey = [contractInstance.chainId, contractInstance.address, 'call'].join(':')
+            contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
+            contractInstanceData[ciKey].push({
+                name: contractInstance.name,
+                nsp,
+            })
+            if (!callContractInstancesByNamespace.hasOwnProperty(nsp)) {
+                callContractInstancesByNamespace[nsp] = []
+            }
+            callContractInstancesByNamespace[nsp].push({
+                chainId: contractInstance.chainId,
+                contractAddress: contractInstance.address,
+            })
+        }
+    }
+
+    const chainInputs = {}
+    for (const eventId of eventIds) {
+        const { nsp } = fromNamespacedVersion(eventId)
+        if (!nsp) continue
+
+        const eventContractInstance = eventContractInstancesByNamespace[nsp] || []
+        if (!eventContractInstance.length) continue
+
+        eventContractInstance.forEach(({ chainId, contractAddress }) => {
+            chainInputs[chainId] = chainInputs[chainId] || {}
+            chainInputs[chainId].inputEventData = chainInputs[chainId].inputEventData || {}
+            if (!chainInputs[chainId].inputEventData[eventId]) {
+                chainInputs[chainId].inputEventData[eventId] = {
+                    eventId,
+                    contractAddresses: [],
+                }
+            }
+            chainInputs[chainId].inputEventData[eventId].contractAddresses.push(contractAddress)
+        })
+    }
+
+    const inputContractFunctions = callIds
+        .map((id) => {
+            const split = id.split('.')
+            const functionName = split.pop()
+            const nsp = split.join('.')
+            const contractInstancesInfo = callContractInstancesByNamespace[nsp] || []
+            return contractInstancesInfo.map((ci) => ({
+                chainId: ci.chainId,
+                contractAddress: ci.contractAddress,
+                functionName: functionName,
+                nsp: nsp,
+            }))
+        })
+        .flat() as StringKeyMap[]
+
+    for (const inputContractFunction of inputContractFunctions) {
+        const { chainId, contractAddress, functionName, nsp } = inputContractFunction
+        chainInputs[chainId] = chainInputs[chainId] || {}
+        chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
+        chainInputs[chainId].inputFunctionData.push({ contractAddress, functionName, nsp })
+    }
+
+    const queryCursors = await buildQueryCursors(chainInputs, startTimestamp)
+
+    return { queryCursors, contractInstanceData }
 }
 
 export async function getGroupedInputGeneratorQueriesForLovs(
@@ -300,7 +496,7 @@ export async function getGroupedInputGeneratorQueriesForLovs(
 export async function getLovInputGeneratorQueries(
     lovId: number,
     startTimestamp?: string
-): Promise<any> {
+): Promise<StringKeyMap> {
     let liveObjectVersion
     try {
         liveObjectVersion = await lovRepo().findOne({
@@ -412,6 +608,15 @@ export async function getLovInputGeneratorQueries(
         })
     }
 
+    const queryCursors = await buildQueryCursors(chainInputs, startTimestamp)
+
+    return { queryCursors, contractInstanceData, liveObjectVersion }
+}
+
+async function buildQueryCursors(
+    chainInputs: StringKeyMap,
+    startTimestamp?: string
+): Promise<StringKeyMap> {
     const queryCursors = {}
     for (const chainId in chainInputs) {
         const inputEvents = Object.values(
@@ -422,26 +627,31 @@ export async function getLovInputGeneratorQueries(
         // Turn input events into a combined *.logs query.
         const uniqueEventContractAddresses = new Set()
         let inputEventsQueryComps = []
-        for (const { eventVersion, contractAddresses } of inputEvents) {
+        for (const { eventVersion, eventId, contractAddresses } of inputEvents) {
             if (!contractAddresses.length) continue
 
             inputEventIds.add(
-                toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
+                eventId ||
+                    toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
             )
 
             contractAddresses.forEach((a) => {
                 uniqueEventContractAddresses.add(a)
             })
 
+            const eventName = eventId ? fromNamespacedVersion(eventId).name : eventVersion.name
+
             inputEventsQueryComps.push(
-                `(event_name = ${literal(eventVersion.name)} and address in (${contractAddresses
+                `(event_name = ${literal(eventName)} and address in (${contractAddresses
                     .map(literal)
                     .join(', ')}))`
             )
         }
         if (uniqueEventContractAddresses.size === 1) {
             const address = Array.from(uniqueEventContractAddresses)[0]
-            const eventNames = inputEvents.map(({ eventVersion }) => eventVersion.name)
+            const eventNames = inputEvents.map(({ eventVersion, eventId }) =>
+                eventId ? fromNamespacedVersion(eventId).name : eventVersion.name
+            )
             inputEventsQueryComps = [
                 `(address = ${literal(address)} and event_name in (${eventNames
                     .map(literal)
@@ -492,7 +702,7 @@ export async function getLovInputGeneratorQueries(
         }
     }
 
-    return { queryCursors, contractInstanceData, liveObjectVersion }
+    return queryCursors
 }
 
 async function findStartBlockTimestamp(
@@ -615,11 +825,4 @@ function formatTraceAsSpecCall(
         outputs,
         outputArgs,
     }
-}
-
-// NOTE: This can be used in a cross-LOV way
-export function generateLovInputsByCallsAndEvents(calls: string[], events: string[]) {
-    // #1
-    // Turn calls into chainId > contract-addresses + function names
-    // Turn events into chainId > event versions + contract addresses
 }

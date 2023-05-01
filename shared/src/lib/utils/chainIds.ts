@@ -79,6 +79,59 @@ export const avgBlockTimesForChainId = {
     [chainIds.MUMBAI]: 2,
 }
 
+const basePrimitives = [
+    { table: 'blocks', appendOnly: true, crossChain: false },
+    { table: 'transactions', appendOnly: true, crossChain: false },
+    { table: 'traces', appendOnly: true, crossChain: false },
+    { table: 'logs', appendOnly: true, crossChain: false },
+    { table: 'contracts', appendOnly: true, crossChain: false },
+]
+
+const tokenPrimitives = [
+    { table: 'tokens.erc20_tokens', appendOnly: false, crossChain: true },
+    { table: 'tokens.erc20s', appendOnly: false, crossChain: true },
+    { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
+    { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
+    { table: 'tokens.nfts', appendOnly: false, crossChain: true },
+    { table: 'tokens.nft_transfers', appendOnly: true, crossChain: true },
+]
+
+export const primitivesForChainId = {
+    [chainIds.ETHEREUM]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.ETHEREUM], p.table].join('.'),
+        })),
+        {
+            table: [schemaForChainId[chainIds.ETHEREUM], 'latest_interactions'].join('.'),
+            appendOnly: false,
+            crossChain: false,
+        },
+        ...tokenPrimitives,
+    ],
+    [chainIds.GOERLI]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.GOERLI], p.table].join('.'),
+        })),
+        ...tokenPrimitives,
+    ],
+    [chainIds.POLYGON]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.POLYGON], p.table].join('.'),
+        })),
+        ...tokenPrimitives,
+    ],
+    [chainIds.MUMBAI]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.MUMBAI], p.table].join('.'),
+        })),
+        ...tokenPrimitives,
+    ],
+}
+
 export const contractNamespaceForChainId = (chainId: string): string | null => {
     const nsp = namespaceForChainId[chainId]
     if (!nsp) return null

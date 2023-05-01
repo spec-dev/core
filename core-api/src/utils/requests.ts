@@ -1,4 +1,4 @@
-import { User, deserializeToken, getSession } from '../../../shared'
+import { User, deserializeToken, getSession, verifyJWT } from '../../../shared'
 import config from '../config'
 
 export const errors = {
@@ -60,6 +60,16 @@ export async function authorizeAdminRequest(req, res): Promise<boolean> {
         headers[config.ADMIN_AUTH_HEADER_NAME] ||
         headers[config.ADMIN_AUTH_HEADER_NAME.toLowerCase()]
     if (!adminHeader || adminHeader !== config.CORE_API_ADMIN_TOKEN) {
+        res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+        return false
+    }
+    return true
+}
+
+export async function authorizeRequestWithProjectApiKey(req, res): Promise<boolean> {
+    const headers = req.headers || {}
+    const jwt = headers[config.AUTH_HEADER_NAME] || headers[config.AUTH_HEADER_NAME.toLowerCase()]
+    if (!jwt || !verifyJWT(jwt)) {
         res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
         return false
     }

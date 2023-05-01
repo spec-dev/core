@@ -26,6 +26,7 @@ redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 const keys = {
     EDGE_FUNCTION_URLS: 'edge-function-urls',
     LATEST_TOKEN_PRICES: 'latest-token-prices',
+    TEST_STREAM_INPUT_GEN: 'test-stream-input-gen',
 }
 
 export const formatEdgeFunctionVersionStr = (nsp: string, name: string, version?: string | null) =>
@@ -138,6 +139,41 @@ export async function setLatestTokenPrices(map: StringKeyMap): Promise<boolean> 
         return true
     } catch (err) {
         logger.error(`Error setting latest token prices in redis: ${JSON.stringify(err)}.`)
+        return false
+    }
+}
+
+export async function setCachedInputGenForStreamId(
+    streamId: string,
+    inputGen: StringKeyMap
+): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.TEST_STREAM_INPUT_GEN, [streamId, JSON.stringify(inputGen)])
+        return true
+    } catch (err) {
+        logger.error(
+            `Error setting cached input gen for streamId=${streamId}: ${JSON.stringify(err)}.`
+        )
+        return false
+    }
+}
+
+export async function getCachedInputGenForStreamId(streamId: string): Promise<StringKeyMap | null> {
+    try {
+        const results = (await redis?.hmGet(keys.TEST_STREAM_INPUT_GEN, streamId)) || []
+        return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap
+    } catch (err) {
+        logger.error(`Error getting cached input gen for streamId=${streamId}: ${err}`)
+        return null
+    }
+}
+
+export async function deleteCachedInputGenForStreamId(streamId: string): Promise<boolean> {
+    try {
+        await redis?.hDel(keys.TEST_STREAM_INPUT_GEN, streamId)
+        return true
+    } catch (err) {
+        logger.error(`Error deleting cached input gen for streamId=${streamId}: ${err}`)
         return false
     }
 }

@@ -31,17 +31,17 @@ export async function indexLiveObjectVersions(
     let cursor = null
     try {
         // Get lov input generator.
-        const { generator, inputIdsToLovIdsMap, liveObjectVersions } = (
+        const { generator: generateFrom, inputIdsToLovIdsMap, liveObjectVersions } = (
             await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
         ) || {}
-        if (!generator) throw `Failed to get LOV input generator`
+        if (!generateFrom) throw `Failed to get LOV input generator`
         
         // Set live object version statuses to indexing.
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
 
         // Index live object versions.
         while (true) {
-            const results = await generator(cursor)
+            const results = await generateFrom(cursor)
             const inputs = results.inputs || []
             await processInputs(lovIds, inputs, inputIdsToLovIdsMap, liveObjectVersions, cursor)
             cursor = results.nextStartDate

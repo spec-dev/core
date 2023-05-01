@@ -27,6 +27,7 @@ const coreApiConfig: StringKeyMap = {
     SCC_BROKER_RETRY_DELAY: Number(ev('CORE_SCC_BROKER_RETRY_DELAY')),
 
     // Auth
+    AUTH_HEADER_NAME: 'Spec-Auth-Token',
     USER_AUTH_HEADER_NAME: 'Spec-User-Auth-Token',
     ADMIN_AUTH_HEADER_NAME: 'Spec-Admin-Auth-Token',
     CORE_API_ADMIN_TOKEN: ev('CORE_API_ADMIN_TOKEN'),
@@ -38,6 +39,10 @@ const coreApiConfig: StringKeyMap = {
     S3_REGION: ev('S3_REGION'),
 
     TRAILING_LOGS_BATCH_SIZE: 20,
+
+    TEST_DATA_BATCH_MAX_TIME: 5000, // ms
+    TEST_DATA_BATCH_SIZE_SOFT_LIMIT: 10000, // records
+    TEST_DATA_BLOCK_RANGE_SIZE: 1500, // blocks
 }
 
 export default coreApiConfig

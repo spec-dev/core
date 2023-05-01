@@ -46,6 +46,7 @@ const keys = {
     BLOCK_LOGS_INDEXED: 'block-logs-indexed',
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
+    FREEZE_ABOVE_BLOCK_PREFIX: 'freeze-above-block',
     BLOCK_EVENTS_SERIES_NUMBER_PREFIX: 'block-events-series',
     BLOCK_EVENTS_EAGER_BLOCKS_PREFIX: 'block-events-eager-blocks',
     BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX: 'block-events-skipped-blocks',
@@ -56,6 +57,7 @@ const keys = {
     LATEST_BLOCK_NUMBERS: 'latest-block-numbers',
     LATEST_TRANSACTIONS: 'latest-transactions',
     TRANSACTION_HASHES_FOR_BLOCK_HASH: 'block-transactions',
+    LIVE_OBJECT_TABLES: 'live-object-tables',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -69,10 +71,14 @@ const polygonContractsKeyForChainId = (chainId: string): string | null => {
     }
 }
 
-const formatUncledBlockValue = (chainId: string, blockHash: string) => `${chainId}:${blockHash}`
+const formatUncledBlockValue = (...args) => args.join(':')
 
-export async function registerBlockHashAsUncled(chainId: string, blockHash: string) {
-    const value = formatUncledBlockValue(chainId, blockHash)
+export async function registerBlockAsUncled(
+    chainId: string,
+    blockNumber: number,
+    blockHash: string
+) {
+    const value = formatUncledBlockValue(chainId, blockNumber, blockHash)
     try {
         await redis?.sAdd(keys.UNCLED_BLOCKS, value)
     } catch (err) {
@@ -80,9 +86,13 @@ export async function registerBlockHashAsUncled(chainId: string, blockHash: stri
     }
 }
 
-export async function quickUncleCheck(chainId: string, blockHash: string): Promise<boolean> {
+export async function quickUncleCheck(
+    chainId: string,
+    blockNumber: number,
+    blockHash: string
+): Promise<boolean> {
     if (!blockHash) return false
-    const value = formatUncledBlockValue(chainId, blockHash)
+    const value = formatUncledBlockValue(chainId, blockNumber, blockHash)
     try {
         return (await redis?.sIsMember(keys.UNCLED_BLOCKS, value)) || false
     } catch (err) {
@@ -458,6 +468,19 @@ export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: n
     }
 }
 
+export async function freezeBlockOperationsAbove(chainId: string, blockNumber: number | null) {
+    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
+    try {
+        if (blockNumber) {
+            await redis?.set(key, Number(blockNumber))
+        } else {
+            await redis?.del(key)
+        }
+    } catch (err) {
+        throw `Error freezing block operations above number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
 export async function getEagerBlocks(chainId: string): Promise<number[]> {
     const key = [keys.BLOCK_EVENTS_EAGER_BLOCKS_PREFIX, chainId].join('-')
     try {
@@ -764,5 +787,27 @@ export async function getCachedTransactionByHash(
         return results.length ? JSON.parse(results[0]) : null
     } catch (err) {
         throw `Error getting cached transaction (hash=${hash}, chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getCachedLiveObjectTablesByChainId(
+    chainId: string
+): Promise<string[] | null> {
+    try {
+        return (await redis?.sMembers([keys.LIVE_OBJECT_TABLES, chainId].join(':'))) || []
+    } catch (err) {
+        logger.error(`Error getting cached live object tables for chainId ${chainId}: ${err}`)
+        return null
+    }
+}
+
+export async function registerLiveObjectTablesForChainId(
+    chainId: string,
+    liveObjectTables: string[]
+) {
+    try {
+        return await redis?.sAdd([keys.LIVE_OBJECT_TABLES, chainId].join(':'), liveObjectTables)
+    } catch (err) {
+        logger.error(`Error setting cached live object tables for chainId ${chainId}: ${err}`)
     }
 }
