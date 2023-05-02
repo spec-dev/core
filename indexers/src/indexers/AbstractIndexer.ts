@@ -91,7 +91,7 @@ class AbstractIndexer {
             )
 
         if (this.head.replace) {
-            this._info(chalk.yellow(`REORG: Replacing block ${this.blockNumber} (${this.blockHash})...`))
+            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} (${this.blockHash})...`))
         }
     }
 
