@@ -1,7 +1,6 @@
 import {
     NewReportedHead,
     logger,
-    quickUncleCheck,
     numberToHex,
     SharedTables,
     StringKeyMap,
@@ -24,6 +23,7 @@ import config from '../config'
 import short from 'short-uuid'
 import { Pool } from 'pg'
 import { reportBlockEvents } from '../events'
+import chalk from 'chalk'
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -91,8 +91,7 @@ class AbstractIndexer {
             )
 
         if (this.head.replace) {
-            this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
-            await this._deleteRecordsWithBlockNumber()
+            this._info(chalk.yellow(`REORG: Replacing block ${this.blockNumber} (${this.blockHash})...`))
         }
     }
 
@@ -140,7 +139,7 @@ class AbstractIndexer {
         ).generatedMaps
     }
 
-    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
+    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[]) {
         if (!tokenTransfers.length) return
         const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
@@ -148,7 +147,7 @@ class AbstractIndexer {
         this.tokenTransfers = (
             await Promise.all(
                 toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
+                    return SharedTables
                         .createQueryBuilder()
                         .insert()
                         .into(TokenTransfer)
@@ -162,7 +161,7 @@ class AbstractIndexer {
             )
         )
             .map((result) => result.generatedMaps)
-            .flat()
+            .flat() as TokenTransfer[]
     }
     
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
@@ -185,7 +184,7 @@ class AbstractIndexer {
         ).generatedMaps
     }
 
-    async _upsertNftTransfers(nftTransfers: NftTransfer[], tx: any) {
+    async _upsertNftTransfers(nftTransfers: NftTransfer[]) {
         if (!nftTransfers.length) return
         const [updateCols, conflictCols] = fullNftTransferUpsertConfig(nftTransfers[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -193,7 +192,7 @@ class AbstractIndexer {
         this.nftTransfers = (
             await Promise.all(
                 toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
+                    return SharedTables
                         .createQueryBuilder()
                         .insert()
                         .into(NftTransfer)
@@ -207,7 +206,7 @@ class AbstractIndexer {
             )
         )
             .map((result) => result.generatedMaps)
-            .flat()
+            .flat() as NftTransfer[]
     }
 
     async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
@@ -246,14 +245,8 @@ class AbstractIndexer {
         }
     }
 
-    async _deleteRecordsWithBlockNumber() {
-        throw 'must implement in child class'
-    }
-
     async _wasUncled(): Promise<boolean> {
         return false // HACK - experiment
-        if (config.IS_RANGE_MODE) return false
-        return await quickUncleCheck(this.chainId, this.blockHash)
     }
 
     async _info(msg: any, ...args: any[]) {

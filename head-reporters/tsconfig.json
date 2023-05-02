@@ -15,7 +15,7 @@
         "stripInternal": true,
         "allowSyntheticDefaultImports": true,
         "emitDecoratorMetadata": true,
-        "experimentalDecorators": true,
+        "experimentalDecorators": true
     },
     "references": [
         { "path": "../shared" }

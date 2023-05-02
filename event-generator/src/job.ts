@@ -28,6 +28,9 @@ async function perform(data: StringKeyMap) {
     const contractCalls = formatContractCalls(blockCalls, skipped, replay)
     const originEvents = formatOriginEvents(blockEvents, skipped, replay)
 
+    console.log(`[${blockNumber}]: Events (${originEvents.length}) | Calls (${contractCalls.length})`)
+    return
+
     // Publish all calls & origin events up-front.
     const hasContractCalls = contractCalls.length > 0
     const hasOriginEvents = originEvents.length > 0

@@ -4,6 +4,8 @@ DECLARE
     rec_before JSON;
     rec_after JSON;
     block_number BIGINT;
+    pk_names_array TEXT[] := ARRAY[]::TEXT[];
+    pk_names TEXT := '';
     pk_values_array TEXT[] := ARRAY[]::TEXT[];
     pk_values TEXT := '';
     ops_table_name TEXT;
@@ -48,8 +50,10 @@ BEGIN
         EXECUTE format('SELECT to_json($1.%I)', pk_column_name)
         INTO pk_column_value
         USING rec;
+        pk_names_array := array_append(pk_names_array, pk_column_name::TEXT);
         pk_values_array := array_append(pk_values_array, pk_column_value::TEXT);
     END LOOP;
+    pk_names := array_to_string(pk_names_array, ',');
     pk_values := array_to_string(pk_values_array, ',');
 
     -- Table's associated "ops" table.
@@ -57,11 +61,11 @@ BEGIN
 
     -- Build and perform the ops table insert.
     insert_stmt := format(
-        'INSERT INTO %I.%I ("pk_values", "before", "after", "block_number") VALUES ($1, $2, $3, $4)', 
+        'INSERT INTO %I.%I ("pk_names", "pk_values", "before", "after", "block_number") VALUES ($1, $2, $3, $4, $5)', 
         TG_TABLE_SCHEMA,
         ops_table_name
     );
-    EXECUTE insert_stmt USING pk_values, rec_before, rec_after, block_number;
+    EXECUTE insert_stmt USING pk_names, pk_values, rec_before, rec_after, block_number;
     RETURN rec;
 END;
 $$ LANGUAGE plpgsql;

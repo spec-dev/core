@@ -13,9 +13,9 @@ async function resolveLiveObjectTablesForChainId(chainId: string): Promise<strin
     const cachedResults = (await getCachedLiveObjectTablesByChainId(chainId)) || []
     if (cachedResults.length) return cachedResults
 
-    let lovConfigs = []
+    let lovs = []
     try {
-        lovConfigs = await lovsRepo().find({
+        lovs = await lovsRepo().find({
             // @ts-ignore
             select: { config: true },
         })
@@ -25,9 +25,9 @@ async function resolveLiveObjectTablesForChainId(chainId: string): Promise<strin
     }
 
     const liveObjectTables = unique(
-        lovConfigs
-            .filter((config) => {
-                const tablePathComps = config.table?.split('.') || []
+        lovs
+            .filter((lov) => {
+                const tablePathComps = lov.config?.table?.split('.') || []
                 const schema = tablePathComps[0]
 
                 // Exclude any primitive tables or views in those schemas.
@@ -35,10 +35,10 @@ async function resolveLiveObjectTablesForChainId(chainId: string): Promise<strin
                     return false
                 }
 
-                const chains = config.chains || {}
+                const chains = lov.config.chains || {}
                 return chains.hasOwnProperty(chainId)
             })
-            .map((config) => config.table)
+            .map((lov) => lov.config.table)
     )
 
     if (!liveObjectTables.length) return []

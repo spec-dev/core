@@ -274,13 +274,18 @@ class PolygonIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
+        // Append-only (no tx).
+        await Promise.all([
+            this._upsertBlock(block),
+            this._upsertTransactions(transactions),
+            this._upsertLogs(logs),
+            this._upsertTraces(traces),
+            this._upsertContracts(contracts),
+        ])
+
+        // Can be updated in place (tx).
         await SharedTables.manager.transaction(async (tx) => {
             await Promise.all([
-                this._upsertBlock(block, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
                 this._upsertErc20Tokens(erc20Tokens, tx),
                 this._upsertNftCollections(nftCollections, tx),
             ])
@@ -1172,29 +1177,28 @@ class PolygonIndexer extends AbstractIndexer {
         }
     }
 
-    async _upsertBlock(block: PolygonBlock, tx: any) {
+    async _upsertBlock(block: PolygonBlock) {
         const [updateCols, conflictCols] = fullPolygonBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        this.block =
-            (
-                await tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(PolygonBlock)
-                    .values({ ...block, timestamp: () => blockTimestamp })
-                    .orUpdate(updateCols, conflictCols)
-                    .returning('*')
-                    .execute()
-            ).generatedMaps[0] || null
+        this.block = ((
+            await SharedTables
+                .createQueryBuilder()
+                .insert()
+                .into(PolygonBlock)
+                .values({ ...block, timestamp: () => blockTimestamp })
+                .orUpdate(updateCols, conflictCols)
+                .returning('*')
+                .execute()
+        ).generatedMaps[0] as PolygonBlock) || null
     }
 
-    async _upsertTransactions(transactions: PolygonTransaction[], tx: any) {
+    async _upsertTransactions(transactions: PolygonTransaction[]) {
         if (!transactions.length) return
         const [updateCols, conflictCols] = fullPolygonTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         transactions = uniqueByKeys(transactions, conflictCols) as PolygonTransaction[]
         this.transactions = (
-            await tx
+            await SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonTransaction)
@@ -1202,10 +1206,10 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        ).generatedMaps as PolygonTransaction[]
     }
 
-    async _upsertLogs(logs: PolygonLog[], tx: any) {
+    async _upsertLogs(logs: PolygonLog[]) {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullPolygonLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1213,7 +1217,7 @@ class PolygonIndexer extends AbstractIndexer {
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
+                    return SharedTables
                         .createQueryBuilder()
                         .insert()
                         .into(PolygonLog)
@@ -1225,10 +1229,10 @@ class PolygonIndexer extends AbstractIndexer {
             )
         )
             .map((result) => result.generatedMaps)
-            .flat()
+            .flat() as PolygonLog[]
     }
 
-    async _upsertTraces(traces: PolygonTrace[], tx: any) {
+    async _upsertTraces(traces: PolygonTrace[]) {
         if (!traces.length) return
         const [updateCols, conflictCols] = fullPolygonTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1236,7 +1240,7 @@ class PolygonIndexer extends AbstractIndexer {
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
+                    return SharedTables
                         .createQueryBuilder()
                         .insert()
                         .into(PolygonTrace)
@@ -1248,16 +1252,16 @@ class PolygonIndexer extends AbstractIndexer {
             )
         )
             .map((result) => result.generatedMaps)
-            .flat()
+            .flat() as PolygonTrace[]
     }
 
-    async _upsertContracts(contracts: PolygonContract[], tx: any) {
+    async _upsertContracts(contracts: PolygonContract[]) {
         if (!contracts.length) return
         const [updateCols, conflictCols] = fullPolygonContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
         contracts = uniqueByKeys(contracts, conflictCols) as PolygonContract[]
         this.contracts = (
-            await tx
+            await SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonContract)
@@ -1265,47 +1269,7 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
-    }
-
-    async _deleteRecordsWithBlockNumber(attempt: number = 1) {
-        try {
-            await SharedTables.manager.transaction(async (tx) => {
-                const deleteBlock = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonBlock)
-                    .where('number = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteTransactions = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonTransaction)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteLogs = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonLog)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                await Promise.all([
-                    deleteBlock,
-                    deleteTransactions,
-                    deleteLogs,
-                ])
-            })
-        } catch (err) {
-            this._error(err)
-            const message = err.message || err.toString() || ''
-            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(randomIntegerInRange(50, 150))
-                await this._deleteRecordsWithBlockNumber(attempt + 1)
-            } else {
-                throw err
-            }
-        }
+        ).generatedMaps as PolygonContract[]
     }
 }
 
