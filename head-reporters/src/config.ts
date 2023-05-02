@@ -20,6 +20,8 @@ const hrConfig: StringKeyMap = {
     MAX_REORG_SIZE: 100,
     ROLLBACK_TABLE_PARALLEL_FACTOR: 10, 
     MAX_ATTEMPTS_DUE_TO_DEADLOCK: 10,
+    UNCLE_PAUSE_TIME: 30000,
+    UNCLE_PAUSE_TIME_IN_BLOCKS: 10,
 }
 
 export default hrConfig

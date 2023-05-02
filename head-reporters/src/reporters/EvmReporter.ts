@@ -49,11 +49,9 @@ class EvmReporter {
     constructor(chainId: string) {
         this.chainId = chainId
         this.web3 = createAlchemyWeb3(config.ALCHEMY_SUBSCRIPTION_URL)
-
-        // Either 10 blocks or 50 seconds, whichever is smaller (polygon is 20s).
         this.unclePauseTime = Math.min(
-            avgBlockTimesForChainId[this.chainId] * 1000 * 10,
-            50000,
+            avgBlockTimesForChainId[this.chainId] * 1000 * config.UNCLE_PAUSE_TIME_IN_BLOCKS,
+            config.UNCLE_PAUSE_TIME,
         )
     }
 
