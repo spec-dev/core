@@ -9,7 +9,7 @@ import {
     StringKeyMap,
     toChunks,
     avgBlockTimesForChainId,
-    freezeBlockOperationsAbove,
+    freezeBlockOperationsAtOrAbove,
     IndexedBlock,
 } from '../../../shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
@@ -198,7 +198,7 @@ class EvmReporter {
 
         // Freeze all operations downstream in the data pipeline using
         // any numbers greater than or equal to the smallest uncle block.
-        await freezeBlockOperationsAbove(this.chainId, fromNumber)
+        await freezeBlockOperationsAtOrAbove(this.chainId, fromNumber)
     
         // Get all blocks in the range that are not uncled yet.
         const blocksInRangeNotUncledYet = (
@@ -306,7 +306,7 @@ class EvmReporter {
         // Raise freeze block threshold by 1 and let this reorg block through.
         if (replace) {
             const nextNumber = blockSpecs[i + 1]?.number || null
-            await freezeBlockOperationsAbove(this.chainId, nextNumber)
+            await freezeBlockOperationsAtOrAbove(this.chainId, nextNumber)
         }
 
         // Enqueue block to be processed.
