@@ -9,7 +9,7 @@ import {
     SharedTables, 
     StringKeyMap, 
     randomIntegerInRange, 
-    sleep, 
+    sleep,
     resolveLiveObjectTablesForChainId,
     sum,
     range,
@@ -26,11 +26,11 @@ async function rollbackTables(chainId: string, block: BlockHeader) {
     // Split primitive tables into 2 buckets, those that are "append-only" & those that can be updated in-place.
     const { appendOnlyPrimitives, updatablePrimitives } = getPrimitivesByType(chainId)
 
-    // Delete from append-only primitive tables greater than block number.
+    // Delete from append-only primitive tables >= blockNumber
     await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber)
 
-    // Get all live object tables and merge that with the updatable primitives. 
-    // These are all tables that are being tracked for operations.
+    // Get all live object tables, then merge that with the updatable primitives. 
+    // The result is a grouping of all tables that are being tracked for operations.
     const liveObjectTables = (await resolveLiveObjectTablesForChainId(chainId)).map(table => ({ 
         table,
         appendOnly: false,
@@ -38,7 +38,7 @@ async function rollbackTables(chainId: string, block: BlockHeader) {
     }))
     const opTables = [...updatablePrimitives, ...liveObjectTables]
 
-    // Get snapshots of records to rollback to.
+    // Get snapshots of records that need to be rolled back.
     const recordSnapshotOps = await getTargetRecordSnapshotOps(opTables, chainId, blockNumber)
     const numRecordsAffected = sum(Object.values(recordSnapshotOps).map(records => records.length))
     if (!numRecordsAffected) {
@@ -47,10 +47,11 @@ async function rollbackTables(chainId: string, block: BlockHeader) {
     }
 
     logger.info(chalk.magenta(
-        `Rolling back ${numRecordsAffected} records across ${opTables.length} tables.`
+        `Rolling back ${numRecordsAffected} records across ${Object.keys(recordSnapshotOps).length} tables.`
     ))
 
-    // Toggle op-tracking and perform the rollback.
+    // Toggle op-tracking and perform the rollback, resetting records to a 
+    // previous snapshot AND deleting the ops that kept track of this.
     await toggleOpTracking(opTables, chainId, false)
     await performRollback(recordSnapshotOps, chainId, blockNumber)
     await toggleOpTracking(opTables, chainId, true)
@@ -228,10 +229,13 @@ async function rollbackTableRecords(
         }
     }
 
+    const upsertGroups = toChunks(upserts, 2000)
+    const deleteGroups = toChunks(deletes, 2000)
+
     try {
         await Promise.all([
-            upsertRecordsToPreviousStates(tablePath, upserts, chainId, blockNumber),
-            rollbackRecordsWithDeletion(tablePath, deletes, chainId, blockNumber),
+            ...upsertGroups.map(upserts => upsertRecordsToPreviousStates(tablePath, upserts, chainId, blockNumber)),
+            ...deleteGroups.map(deletes => rollbackRecordsWithDeletion(tablePath, deletes, chainId, blockNumber)),
         ])    
     } catch (err) {
         logger.error(`[${chainId}:${blockNumber}] Failed to rollback ops for ${tablePath}:`, err)
@@ -339,7 +343,7 @@ async function upsertRecordsToPreviousStates(
             config.MAX_ROLLBACK_QUERY_TIME,
         ))
     }
-    
+
     await Promise.all(removeOpRecordPromises)
 }
 
@@ -434,7 +438,6 @@ async function runQueryWithDeadlockProtection(
     maxTime: number,
     attempt: number = 0
 ): Promise<boolean> {
-    logger.info(`Running rollback query`, query, bindings)
     let timer = null
     try {
         timer = setTimeout(() => { throw 'maybe deadlock' }, maxTime)
