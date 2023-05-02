@@ -27,31 +27,3 @@ Installing Rust with `rustup`:
 ```bash
 $ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-
-## Setup
-
-Create spec user:
-
-```bash
-$ createuser spec
-```
-
-Create databases:
-
-```bash
-$ createdb core
-$ createdb indexer
-$ createdb shared-tables
-```
-
-Run initial migrations:
-
-```
-$ cd shared
-$ bin/migrate core
-$ bin/migrate indexer
-$ psql -d shared-tables -f bin/create-ethereum-primitives.sql
-$ psql -d shared-tables -f bin/create-goerli-primitives.sql
-$ psql -d shared-tables -f bin/create-polygon-primitives.sql
-$ psql -d shared-tables -f bin/create-mumbai-primitives.sql
-```
