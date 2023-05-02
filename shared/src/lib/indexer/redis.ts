@@ -468,7 +468,7 @@ export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: n
     }
 }
 
-export async function freezeBlockOperationsAbove(chainId: string, blockNumber: number | null) {
+export async function freezeBlockOperationsAtOrAbove(chainId: string, blockNumber: number | null) {
     const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
     try {
         if (blockNumber) {
@@ -478,6 +478,17 @@ export async function freezeBlockOperationsAbove(chainId: string, blockNumber: n
         }
     } catch (err) {
         throw `Error freezing block operations above number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function canBlockBeOperatedOn(chainId: string, blockNumber: number): Promise<boolean> {
+    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
+    try {
+        const currentBlockOpsCeiling = (await redis?.get(key)) || null
+        if (currentBlockOpsCeiling === null) return true
+        return blockNumber < Number(currentBlockOpsCeiling)
+    } catch (err) {
+        throw `[${chainId}] Error checking if block operations can proceed for block ${blockNumber}: ${err}`
     }
 }
 

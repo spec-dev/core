@@ -31,8 +31,6 @@ import {
     StringKeyMap,
     EthLatestInteraction,
     toChunks,
-    enqueueDelayedJob,
-    getMissingAbiAddresses,
     getAbis,
     getFunctionSignatures,
     Abi,
@@ -57,7 +55,6 @@ import {
     NftTransfer,
     EthTraceStatus,
     EthTraceType,
-    namespaceForChainId,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -119,9 +116,9 @@ class EthereumIndexer extends AbstractIndexer {
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Quick re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping.')
             return
         }
 
@@ -151,9 +148,9 @@ class EthereumIndexer extends AbstractIndexer {
             this._info('No transactions this block.')
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Another re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping post-fetch.')
             return
         }
 
@@ -241,15 +238,15 @@ class EthereumIndexer extends AbstractIndexer {
         tokenTransfers.length && this._info(`${tokenTransfers.length} ERC-20 transfers.`)
         nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
 
-        // One more uncle check before taking action.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // One last check before saving.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping pre-save.')
             return
         }
 
         // One last check before saving primitives / publishing events.
         if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
+            this._warn('Current block was already indexed. Stopping pre-save.')
             return
         }
 
@@ -291,25 +288,13 @@ class EthereumIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
-
-        // Kick off delayed job to fetch abis for new contracts.
-        contracts.length && (await this._fetchAbisForNewContracts(contracts))
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        if (this.head.force) return false
-        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ethereum()))
-    }
-
-    async _fetchAbisForNewContracts(contracts: EthContract[]) {
-        // For new contracts that could possibly already have ABIs on etherscan/samczsun, 
-        // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
-        // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
-        const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
-        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { 
-            addresses: missingAddresses,
-            chainId: this.chainId
-        })
+        return !config.IS_RANGE_MODE 
+            && !this.head.force 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.ethereum()))
     }
 
     async _savePrimitives(

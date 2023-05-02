@@ -18,6 +18,7 @@ import {
     NftTransfer,
     snakeToCamel,
     toChunks,
+    canBlockBeOperatedOn,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -96,10 +97,16 @@ class AbstractIndexer {
     }
 
     async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping inside _kickBlockDownstream.')
+            return
+        }
+
         await Promise.all([
             saveBlockEvents(this.chainId, this.blockNumber, eventSpecs),
             saveBlockCalls(this.chainId, this.blockNumber, callSpecs),
         ])
+
         await reportBlockEvents(this.blockNumber)
     }
 
@@ -245,8 +252,13 @@ class AbstractIndexer {
         }
     }
 
-    async _wasUncled(): Promise<boolean> {
-        return false // HACK - experiment
+    /**
+     * Checks to see if this service should continue or if there was a re-org 
+     * back to a previous block number -- in which case everything should stop.
+     */
+    async _shouldContinue(): Promise<boolean> {
+        if (config.IS_RANGE_MODE || this.head.force) return true
+        return await canBlockBeOperatedOn(this.chainId, this.blockNumber)
     }
 
     async _info(msg: any, ...args: any[]) {
@@ -254,11 +266,11 @@ class AbstractIndexer {
     }
 
     async _warn(msg: any, ...args: any[]) {
-        logger.warn(`${this.logPrefix} ${msg}`, ...args)
+        logger.warn(`${this.logPrefix} ${chalk.yellow(msg)}`, ...args)
     }
 
     async _error(msg: any, ...args: any[]) {
-        logger.error(`${this.logPrefix} ${msg}`, ...args)
+        logger.error(`${this.logPrefix} ${chalk.red(msg)}`, ...args)
     }
 }
 

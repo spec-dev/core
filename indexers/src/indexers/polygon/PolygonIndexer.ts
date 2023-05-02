@@ -120,9 +120,9 @@ class PolygonIndexer extends AbstractIndexer {
             tracesPromise = this._getTraces()
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Quick re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping.')
             return
         }
 
@@ -152,12 +152,11 @@ class PolygonIndexer extends AbstractIndexer {
             this._info('No transactions this block.')
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Another re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping post-fetch.')
             return
         }
-
         // Initialize our internal models for both transactions and logs.
         let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
@@ -210,9 +209,9 @@ class PolygonIndexer extends AbstractIndexer {
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
-        // One more uncle check before taking action.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // One last check before saving.
+        if (!(await this._shouldContinue())) {
+            this._warn('Reorg was detected mid-indexing. Stopping pre-save.')
             return
         }
 
