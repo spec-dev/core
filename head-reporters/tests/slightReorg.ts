@@ -23,10 +23,10 @@ function newFakeBlockHeader(number: number): BlockHeader {
 } 
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 40000000
+    let number = 17171912
     let lastReorgAt = number
     setInterval(async() => {
-        if (number - lastReorgAt === 30) {
+        if (number - lastReorgAt === 10) {
             lastReorgAt = number
             for (const n of range(number - 3, number)) {
                 reporter._onNewBlockHeader(newFakeBlockHeader(n))
@@ -36,7 +36,7 @@ async function fakeNewHeads(reporter: EvmReporter) {
             number++
             reporter._onNewBlockHeader(newFakeBlockHeader(number))
         }
-    }, randomIntegerInRange(1500, 2000))
+    }, randomIntegerInRange(12000, 13000))
 }
 
 async function listen() {

@@ -23,16 +23,16 @@ function newFakeBlockHeader(number: number): BlockHeader {
 }
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 42205199
+    let number = 17171876
     let lastReorgAt = number
     setInterval(() => {
-        if (number - lastReorgAt === 20) {
+        if (number - lastReorgAt === 12) {
             lastReorgAt = number
         } else {
             number++
         }
         reporter._onNewBlockHeader(newFakeBlockHeader(number))
-    }, randomIntegerInRange(1500, 2000))
+    }, randomIntegerInRange(11000, 12000))
 }
 
 async function listen() {
