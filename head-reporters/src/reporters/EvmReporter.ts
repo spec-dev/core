@@ -242,6 +242,8 @@ class EvmReporter {
         await rollbackTables(this.chainId, fromBlock)
         logger.info(chalk.green(`Rollback to ${fromBlock.number} complete.`))
 
+        await sleep(60000)
+
         // Refetch hashes for block numbers.
         const currentHashes = await this._getBlockHashesForNumbers(uncleRange, {})
 

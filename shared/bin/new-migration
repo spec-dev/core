@@ -3,4 +3,4 @@
 db="$1"
 name="$2"
 
-npm run typeorm migration:generate ./src/lib/$db/db/migrations/$name -- -d ./src/lib/$db/db/dataSource.ts
+npm run typeorm migration:generate ./src/migrations/$name -- -d ./src/lib/$db/db/dataSource.ts

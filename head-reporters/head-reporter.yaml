@@ -56,4 +56,8 @@ spec:
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "100"
+        - name: SHARED_TABLES_OPTIONS
+          value: "-c statement_timeout=120000ms"
+        - name: FORCE_COLOR
+          value: "1"
 

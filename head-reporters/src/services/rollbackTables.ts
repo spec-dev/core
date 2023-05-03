@@ -102,7 +102,6 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
         op.bindings,
         chainId,
         blockNumber,
-        config.MAX_PRIMITIVE_ROLLBACK_QUERY_TIME,
     )))
 }
 
@@ -115,6 +114,7 @@ async function toggleOpTracking(opTables: StringKeyMap[], chainId: string, enabl
         bindings.push(...[table, chainId, enabled])
         i += 3
     }
+    
     try {
         await SharedTables.query(
             `insert into op_tracking (table_path, chain_id, is_enabled) values ${placeholders.join(', ')} on conflict (table_path, chain_id) do update set is_enabled = $${i}`,
@@ -234,8 +234,8 @@ async function rollbackTableRecords(
 
     try {
         await Promise.all([
-            ...upsertGroups.map(upserts => upsertRecordsToPreviousStates(tablePath, upserts, chainId, blockNumber)),
-            ...deleteGroups.map(deletes => rollbackRecordsWithDeletion(tablePath, deletes, chainId, blockNumber)),
+            ...upsertGroups.map(records => upsertRecordsToPreviousStates(tablePath, records, chainId, blockNumber)),
+            ...deleteGroups.map(records => rollbackRecordsWithDeletion(tablePath, records, chainId, blockNumber)),
         ])    
     } catch (err) {
         logger.error(`[${chainId}:${blockNumber}] Failed to rollback ops for ${tablePath}:`, err)
@@ -313,7 +313,6 @@ async function upsertRecordsToPreviousStates(
             bindings,
             chainId,
             blockNumber,
-            config.MAX_ROLLBACK_QUERY_TIME,
         ))
     }
 
@@ -340,7 +339,6 @@ async function upsertRecordsToPreviousStates(
             pks,
             chainId,
             blockNumber,
-            config.MAX_ROLLBACK_QUERY_TIME,
         ))
     }
 
@@ -381,7 +379,6 @@ async function rollbackRecordsWithDeletion(
         bindings,
         chainId,
         blockNumber,
-        config.MAX_ROLLBACK_QUERY_TIME,
     )
 
     const opsTablePath = `${tablePath}_ops`
@@ -435,15 +432,15 @@ async function runQueryWithDeadlockProtection(
     bindings: any[],
     chainId: string,
     blockNumber: number,
-    maxTime: number,
     attempt: number = 0
 ): Promise<boolean> {
-    let timer = null
+    // if (query.startsWith('insert')) {
+    console.log(blockNumber, query)
+    console.log(bindings)
+    // }
     try {
-        timer = setTimeout(() => { throw 'maybe deadlock' }, maxTime)
         await SharedTables.query(query, bindings)
     } catch (err) {
-        timer && clearTimeout(timer)
         logger.error(`Error rolling back ${table} >= ${blockNumber}`, query, bindings, err)
         const message = err.message || err.toString() || ''
 
@@ -452,23 +449,19 @@ async function runQueryWithDeadlockProtection(
             this._error(
                 `[${chainId}:${blockNumber} - Rolling back ${table} - Attempt ${attempt}] Got deadlock, trying again...`
             )
-
             await sleep(randomIntegerInRange(50, 500))
-
             return await runQueryWithDeadlockProtection(
                 table, 
-                query, 
+                query,
                 bindings, 
                 chainId, 
                 blockNumber, 
-                maxTime, 
                 attempt + 1,
             )
         }
         logger.error(chalk.red(`[${chainId}:${blockNumber}] Rolling back ${table} failed.`))
         return false
     }
-    timer && clearTimeout(timer)
     return true
 }
 

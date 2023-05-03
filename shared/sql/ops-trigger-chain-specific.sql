@@ -10,7 +10,7 @@ DECLARE
     pk_values TEXT := '';
     ops_table_name TEXT;
     pk_column_name TEXT;
-    pk_column_value JSONB;
+    pk_column_value TEXT;
     insert_stmt TEXT;
     table_path TEXT;
     is_op_tracking_enabled BOOLEAN; 
@@ -47,7 +47,7 @@ BEGIN
 
     -- Curate a comma-delimited string of primary key values for the record.
     FOREACH pk_column_name IN ARRAY TG_ARGV LOOP
-        EXECUTE format('SELECT to_json($1.%I)', pk_column_name)
+        EXECUTE format('SELECT ($1.%I)::TEXT', pk_column_name)
         INTO pk_column_value
         USING rec;
         pk_names_array := array_append(pk_names_array, pk_column_name::TEXT);

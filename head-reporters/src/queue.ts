@@ -61,6 +61,10 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     series = data.blockNumber
 
     for (const head of heads) {
+
+        // REMOVE
+        head.blockHash = null
+
         logger.info(chalk.cyanBright(
             `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
         ))

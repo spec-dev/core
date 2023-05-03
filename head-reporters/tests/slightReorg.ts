@@ -23,10 +23,12 @@ function newFakeBlockHeader(number: number): BlockHeader {
 } 
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 17171912
+    let number = 17177738
     let lastReorgAt = number
+    let hasFlipped = false
     setInterval(async() => {
-        if (number - lastReorgAt === 10) {
+        if (!hasFlipped && number - lastReorgAt === 5) {
+            hasFlipped = true
             lastReorgAt = number
             for (const n of range(number - 3, number)) {
                 reporter._onNewBlockHeader(newFakeBlockHeader(n))
