@@ -51,4 +51,4 @@ spec:
         - name: FORCE_COLOR
           value: "1" 
         - name: EVENT_GEN_RESPONSE_TIMEOUT
-          value: "600000"
+          value: "60000"

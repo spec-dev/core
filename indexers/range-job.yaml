@@ -95,4 +95,6 @@ spec:
           value: "50"
         - name: SAVE_BATCH_MULTIPLE
           value: "1"
+        - name: FORCE_COLOR
+          value: "1" 
       restartPolicy: Never

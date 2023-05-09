@@ -1,4 +1,4 @@
-import { In, polygonToEthereumTokenMappings, TokenTransferSource, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, TokenTransfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20 } from '../../../shared'
+import { In, polygonToEthereumTokenMappings, TokenTransferSource, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, TokenTransfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20, buildContractEventAsLiveObjectVersionPayload } from '../../../shared'
 import { 
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
@@ -7,9 +7,22 @@ import {
 import config from '../config'
 import { getERC20TotalSupply } from './contractServices'
 import { BigNumber, FixedNumber, utils } from 'ethers'
+import { getSocketWeb3 } from '../providers'
 
 const erc20TokensRepo = () => SharedTables.getRepository(Erc20Token)
 const nftCollectionsRepo = () => SharedTables.getRepository(NftCollection)
+
+export async function getEthBalance(address: string) {
+    const web3 = getSocketWeb3()
+    if (!web3) return null
+    try {
+        const balance = await web3.eth.getBalance(address)
+        return utils.formatEther(balance)
+    } catch (err) {
+        logger.error(`Error getting balance for ${address}`, err)
+        return null
+    }
+}
 
 async function initTokenTransfers(
     newErc20Tokens: Erc20Token[],
@@ -19,6 +32,20 @@ async function initTokenTransfers(
     chainId: string,
 ): Promise<[TokenTransfer[], NftTransfer[], StringKeyMap[]]> {
     const tokenTransfers = initNativeTokenTransfers(traces, chainId)
+    // const uniqueOwnerAddresses = unique(tokenTransfers.map(t => ([t.fromAddress, t.toAddress])).flat())
+    // const t0 = performance.now()
+    // console.log(`${uniqueOwnerAddresses.length} unique owners`)
+
+    // const chunks = toChunks(uniqueOwnerAddresses, 100)
+    // const balances = []
+    // for (const chunk of chunks) {
+    //     balances.push(...(await Promise.all(chunk.map(getEthBalance))))
+    // }
+    // console.log(`${balances.length} balances`)
+    // const tf = performance.now()
+    // const seconds = Number(((tf - t0) / 1000).toFixed(2))
+    // console.log(`${seconds}s`)
+
     const transferLogs = []
     const erc1155TransferLogs = []
     const potentialTokenAddressSet = new Set<string>()
@@ -224,7 +251,7 @@ function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): Toke
     const nativeToken = getNativeTokenForChain(chainId)!
     return traces.filter(({ value }) => (
         value !== null && value.toString() !== '0'
-    )).map(trace => newTokenTransfer(
+    )).map(trace => newTokenTransfer( 
         hashSync([chainId, trace.id].join(':')),
         trace.from,
         trace.to,

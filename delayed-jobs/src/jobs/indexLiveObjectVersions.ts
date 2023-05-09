@@ -8,19 +8,33 @@ import {
     sleep,
     enqueueDelayedJob,
     DEFAULT_TARGET_BLOCK_BATCH_SIZE,
+    CoreDB,
+    LiveObjectVersion,
+    In,
+    unique,
+    SharedTables,
+    range,
 } from '../../../shared'
 import config from '../config'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
 
+const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
+
 export async function indexLiveObjectVersions(
     lovIds: number[],
+    lovTables: string[],
     startTimestamp: string | null = null,
     iteration: number = 1,
     maxIterations: number | null = null,
     maxJobTime: number = DEFAULT_MAX_JOB_TIME,
     targetBatchSize: number = DEFAULT_TARGET_BLOCK_BATCH_SIZE,
+    shouldGenerateEvents: boolean,
+    disableOpTrackingBefore: boolean,
+    enableOpTrackingAfter: boolean,
+    setLovToIndexingBefore: boolean,
+    setLovToLiveAfter: boolean,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
 
@@ -30,14 +44,29 @@ export async function indexLiveObjectVersions(
 
     let cursor = null
     try {
+        // Resolve the tables backing each live object if not done yet.
+        lovTables = lovTables.length ? lovTables : await getTablesForLovs(lovIds)
+
         // Get lov input generator.
         const { generator: generateFrom, inputIdsToLovIdsMap, liveObjectVersions } = (
             await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
         ) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
         
-        // Set live object version statuses to indexing.
-        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
+        // First iteration - before logic.
+        if (iteration === 1) {
+            // Set live object version statuses to indexing.
+            setLovToIndexingBefore && await updateLiveObjectVersionStatus(
+                lovIds, 
+                LiveObjectVersionStatus.Indexing,
+            )
+            
+            // Slight break for race conditions with lovs potentially being saved elsewhere.
+            await sleep(1000)
+
+            // Disable all op_tracking entries (across all chains) associated with each lov table.
+            disableOpTrackingBefore && await toggleOpTracking(lovTables, false)
+        }
 
         // Index live object versions.
         while (true) {
@@ -56,8 +85,9 @@ export async function indexLiveObjectVersions(
 
     // All done -> set to "live".
     if (!cursor) {
+        enableOpTrackingAfter && await toggleOpTracking(lovTables, true)
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
-        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
+        setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         return
     }
 
@@ -71,12 +101,43 @@ export async function indexLiveObjectVersions(
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds,
+        lovTables,
         startTimestamp: cursor.toISOString(),
         iteration: iteration + 1,
         maxIterations,
         maxJobTime,
         targetBatchSize,
+        shouldGenerateEvents,
+        disableOpTrackingBefore,
+        enableOpTrackingAfter,
+        setLovToIndexingBefore,
+        setLovToLiveAfter,
     })
+}
+
+async function getTablesForLovs(lovIds: number[]): Promise<string[]> {
+    try {
+        return unique((await lovsRepo().find({
+            where: {
+                id: In(lovIds)
+            }
+        })).map(lov => lov.config?.table))
+    } catch (err) {
+        throw `Failed to get tables for lov ids ${lovIds.join(', ')}: ${err}`
+    }
+}
+
+async function toggleOpTracking(tables: string[], enabled: boolean) {
+    if (!tables.length) return
+    const phs = range(2, tables.length + 1).map(i => `$${i}`)
+    try {
+        await SharedTables.query(
+            `update op_tracking set is_enabled = $1 where table_path in (${phs.join(', ')})`,
+            [enabled, ...tables],
+        )    
+    } catch (err) {
+        throw `Failed to toggle op tracking to ${enabled} for ${tables.join(', ')}: ${err}`
+    }
 }
 
 async function processInputs(
@@ -191,21 +252,39 @@ async function sendInputsToLov(
 }
 
 export default function job(params: StringKeyMap) {
-    const lovIds = params.lovIds || {}
+    const lovIds = params.lovIds || []
+    const lovTables = params.lovTables || []
     const startTimestamp = params.startTimestamp
     const iteration = params.iteration || 1
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
     const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BLOCK_BATCH_SIZE
 
+    // Default false.
+    const shouldGenerateEvents = params.shouldGenerateEvents === true
+
+    // Default true for both - explicitly set to false if want to turn off.
+    const disableOpTrackingBefore = params.disableOpTrackingBefore !== false
+    const enableOpTrackingAfter = params.enableOpTrackingAfter !== false
+
+    // TODO: Whether to flip status of lov to indexing/live
+    const setLovToIndexingBefore = params.setLovToIndexingBefore !== false
+    const setLovToLiveAfter = params.setLovToLiveAfter !== false
+
     return {
         perform: async () => indexLiveObjectVersions(
-            lovIds, 
+            lovIds,
+            lovTables,
             startTimestamp, 
             iteration,
             maxIterations,
             maxJobTime,
             targetBatchSize,
+            shouldGenerateEvents,
+            disableOpTrackingBefore,
+            enableOpTrackingAfter,
+            setLovToIndexingBefore,
+            setLovToLiveAfter,
         )
     }
 }

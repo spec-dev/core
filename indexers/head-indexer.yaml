@@ -76,6 +76,8 @@ spec:
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "100"
+        - name: SHARED_TABLES_OPTIONS
+          value: "-c statement_timeout=60000ms"
         - name: ABI_REDIS_HOST
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT
@@ -84,5 +86,5 @@ spec:
           value: {{BUGSNAG_API_KEY}}
         - name: FLIP
           value: tails
-        - name: INDEX_JOB_MAX_DURATION
-          value: "480000"
+        - name: FORCE_COLOR
+          value: "1"         

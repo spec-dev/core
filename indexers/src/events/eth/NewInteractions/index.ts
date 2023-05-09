@@ -8,7 +8,6 @@ function NewInteractions(latestInteractions: EthLatestInteraction[], eventOrigin
         blockNumber: Number(li.blockNumber),
         timestamp: li.timestamp.toISOString(),
     }))
-
     return {
         name: eventName,
         data: eventData,

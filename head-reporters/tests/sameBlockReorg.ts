@@ -6,7 +6,7 @@ import { BlockHeader } from 'web3-eth'
 function newFakeBlockHeader(number: number): BlockHeader {
     return {
         number: number,
-        hash: `0xhash${number}`,
+        hash: null,
         parentHash: '',
         nonce: '',
         sha3Uncles: '',
@@ -23,16 +23,16 @@ function newFakeBlockHeader(number: number): BlockHeader {
 }
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 17171876
+    let number = 42354378
     let lastReorgAt = number
     setInterval(() => {
-        if (number - lastReorgAt === 12) {
+        if (number - lastReorgAt === 10) {
             lastReorgAt = number
         } else {
             number++
         }
         reporter._onNewBlockHeader(newFakeBlockHeader(number))
-    }, randomIntegerInRange(11000, 12000))
+    }, randomIntegerInRange(2900, 3000))
 }
 
 async function listen() {

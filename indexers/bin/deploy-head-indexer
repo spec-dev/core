@@ -113,12 +113,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
-# image_version="3ea931c" # Polygon current
-# image_version="53bfb3b" # Eth current
-# image_version="0680a98"
+# image_version=$( $shared_bin_dir/latest_sha )
 image_version="dee550e"
-# image_version="0e3ca87"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

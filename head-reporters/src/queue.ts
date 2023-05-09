@@ -1,4 +1,4 @@
-import { Queue, QueueScheduler } from 'bullmq'
+import { Queue } from 'bullmq'
 import config from './config'
 import { IndexedBlock, logger, NewReportedHead, sleep, range, createIndexedBlock } from '../../shared'
 import chalk from 'chalk'
@@ -11,18 +11,13 @@ const queue = new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
     },
     defaultJobOptions: {
         attempts: config.INDEX_JOB_MAX_ATTEMPTS,
+        removeOnComplete: true,
+        removeOnFail: 50,
         backoff: {
             type: 'fixed',
-            delay: 2000,
+            delay: config.JOB_DELAY_ON_FAILURE,
         },
     },
-})
-
-const queueScheduler = new QueueScheduler(config.HEAD_REPORTER_QUEUE_KEY, {
-    connection: {
-        host: config.INDEXER_REDIS_HOST,
-        port: config.INDEXER_REDIS_PORT,
-    }
 })
 
 let series = null
@@ -61,18 +56,12 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     series = data.blockNumber
 
     for (const head of heads) {
-
-        // REMOVE
-        head.blockHash = null
-
         logger.info(chalk.cyanBright(
             `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
         ))
         await sleep(10)
         await queue.add(config.INDEX_BLOCK_JOB_NAME, head, {
             priority: head.blockNumber,
-            removeOnComplete: true,
-            removeOnFail: 10,
         })
     }
 }

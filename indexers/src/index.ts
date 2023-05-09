@@ -24,7 +24,7 @@ async function run() {
     logger.info(
         config.IS_RANGE_MODE
             ? `Indexing block range ${config.FROM} -> ${config.TO}...`
-            : `Listening for new block heads...`
+            : `Listening for new block heads on chain ${config.CHAIN_ID}...`
     )
 
     const worker = await getWorker()

@@ -10,6 +10,8 @@ import initLatestInteractions from './services/initLatestInteractions'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
+import chalk from 'chalk'
+import { ident } from 'pg-format'
 import { resolveNewTokenContracts } from '../../services/contractServices'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
@@ -42,7 +44,6 @@ import {
     groupAbiInputsWithValues,
     formatAbiValueWithType,
     schemas,
-    randomIntegerInRange,
     uniqueByKeys,
     unique,
     snakeToCamel,
@@ -118,39 +119,38 @@ class EthereumIndexer extends AbstractIndexer {
 
         // Quick re-org check.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping.')
+            this._warn('Job stopped mid-indexing.')
             return
-        }
-
-        // Ensure there's not a block hash mismatch between block and receipts.
-        // This can happen when fetching by block number around chain re-orgs.
-        if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
-            )
-            receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
         // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(
             (t) => t as unknown as ExternalEthTransaction
         )
-
-        // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
-            this._warn('Transactions exist but no receipts were found -- trying again.')
-            await sleep(1000)
-            receipts = await this._getBlockReceiptsWithLogs()
-            if (!receipts.length) {
-                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
-            }
-        } else if (!externalTransactions.length) {
+        const hasTxs = !!externalTransactions.length
+        if (!hasTxs) {
             this._info('No transactions this block.')
         }
 
+        // Ensure there's not a block hash mismatch between block and receipts 
+        // and that there are no missing logs.
+        const isHashMismatch = receipts.length && receipts[0].blockHash !== block.hash
+        const hasMissingLogs = hasTxs && !receipts.length
+        if (isHashMismatch || hasMissingLogs) {
+            this._warn(
+                isHashMismatch
+                    ? `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+                    : `Transactions exist but no receipts were found -- retrying`
+            )
+            receipts = await this._waitAndRefetchReceipts(block.hash, hasTxs)
+            if (hasTxs && !receipts.length) {
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+            }
+        }
+        
         // Another re-org check.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping post-fetch.')
+            this._warn('Job stopped mid-indexing, post-fetch.')
             return
         }
 
@@ -240,7 +240,7 @@ class EthereumIndexer extends AbstractIndexer {
 
         // One last check before saving.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping pre-save.')
+            this._warn('Job stopped mid-indexing, pre-save.')
             return
         }
 
@@ -288,6 +288,8 @@ class EthereumIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
+
+        this._info(chalk.cyanBright(`Successfully indexed block ${this.blockNumber}.`))
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
@@ -312,25 +314,18 @@ class EthereumIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
-        // Append-only (no tx).
         await Promise.all([
             this._upsertBlock(block),
             this._upsertTransactions(transactions),
             this._upsertLogs(logs),
             this._upsertTraces(traces),
             this._upsertContracts(contracts),
-            this._upsertNftTransfers(nftTransfers),    
+            this._upsertNftTransfers(nftTransfers),
             this._upsertTokenTransfers(tokenTransfers),
+            this._upsertLatestInteractions(latestInteractions),
+            this._upsertErc20Tokens(erc20Tokens),
+            this._upsertNftCollections(nftCollections),
         ])
-
-        // Can be updated in place (tx).
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertLatestInteractions(latestInteractions, tx),
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertNftCollections(nftCollections, tx),
-            ])
-        })
 
         erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
             erc20TotalSupplyUpdates,
@@ -369,6 +364,7 @@ class EthereumIndexer extends AbstractIndexer {
             originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
         )
 
+        // tokens.NewTokenTransfers
         this.tokenTransfers?.length && originEventSpecs.push(
             originEvents.tokens.NewTokenTransfers(this.tokenTransfers, eventOrigin)
         )
@@ -873,7 +869,6 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
         return resolveBlock(
             this.web3,
-            this.blockHash || this.blockNumber,
             this.blockNumber,
             this.chainId
         )
@@ -882,7 +877,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockReceiptsWithLogs(): Promise<ExternalEthReceipt[]> {
         return getBlockReceipts(
             this.web3,
-            this.blockHash ? { blockHash: this.blockHash } : { blockNumber: this.hexBlockNumber },
+            { blockNumber: this.hexBlockNumber },
             this.blockNumber,
             this.chainId
         )
@@ -896,7 +891,7 @@ class EthereumIndexer extends AbstractIndexer {
         }
     }
 
-    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
+    async _waitAndRefetchReceipts(blockHash: string, hasTxs: boolean): Promise<ExternalEthReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
                 this.web3,
@@ -904,9 +899,16 @@ class EthereumIndexer extends AbstractIndexer {
                 this.blockNumber,
                 this.chainId
             )
+            // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== blockHash) {
                 return null
-            } else {
+            }
+            // Missing logs.
+            else if (!receipts.length && hasTxs) {
+                return null
+            }
+            // All good.
+            else {
                 return receipts
             }
         }
@@ -954,7 +956,7 @@ class EthereumIndexer extends AbstractIndexer {
         receipts: ExternalEthReceipt[],
         traces: EthTrace[]
     ) {
-        const hash = this.head.blockHash || block.hash
+        const hash = this.blockHash
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
@@ -977,8 +979,8 @@ class EthereumIndexer extends AbstractIndexer {
     async _upsertBlock(block: EthBlock) {
         const [updateCols, conflictCols] = fullBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        this.block = ((
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(EthBlock)
@@ -986,6 +988,9 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.block = ((
+            await this._withDeadlockProtection(run, 'blocks')
         ).generatedMaps[0] as EthBlock) || null
     }
 
@@ -994,8 +999,8 @@ class EthereumIndexer extends AbstractIndexer {
         const [updateCols, conflictCols] = fullTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         transactions = uniqueByKeys(transactions, conflictCols) as EthTransaction[]
-        this.transactions = (
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(EthTransaction)
@@ -1003,6 +1008,9 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.transactions = (
+            await this._withDeadlockProtection(run, 'transactions')
         ).generatedMaps as EthTransaction[]
     }
 
@@ -1014,14 +1022,17 @@ class EthereumIndexer extends AbstractIndexer {
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthLog)
-                        .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(EthLog)
+                            .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'logs')
                 })
             )
         )
@@ -1037,14 +1048,17 @@ class EthereumIndexer extends AbstractIndexer {
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(EthTrace)
-                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(EthTrace)
+                            .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'traces')
                 })
             )
         )
@@ -1057,8 +1071,8 @@ class EthereumIndexer extends AbstractIndexer {
         const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
         contracts = uniqueByKeys(contracts, conflictCols) as EthContract[]
-        this.contracts = (
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(EthContract)
@@ -1066,45 +1080,42 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.contracts = (
+            await this._withDeadlockProtection(run, 'contracts')
         ).generatedMaps as EthContract[]
     }
 
-    async _upsertLatestInteractions(
-        latestInteractions: EthLatestInteraction[],
-        tx: any,
-        attempt: number = 1
-    ) {
+    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[]) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `${schemas.ethereum()}.latest_interactions.block_number < excluded.block_number`
         const blockTimestamp = this.pgBlockTimestamp
         latestInteractions = uniqueByKeys(latestInteractions, conflictCols) as EthLatestInteraction[]
-        try {
-            this.latestInteractions = (
-                await (tx as any)
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLatestInteraction)
-                    .values(
-                        latestInteractions.map((li) => ({
-                            ...li,
-                            timestamp: () => blockTimestamp,
-                        }))
-                    )
-                    .orUpdate(updateCols, conflictCols)
-                    .returning('*')
-                    .execute()
-            ).generatedMaps
-        } catch (err) {
-            this._error(err)
-            const message = err.message || err.toString() || ''
-            this.latestInteractions = []
-            // Wait and try again if deadlocked.
-            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(randomIntegerInRange(50, 150))
-                await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
-            }
-        }
+        this.latestInteractions = (
+            await Promise.all(
+                toChunks(latestInteractions, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(EthLatestInteraction)
+                            .values(chunk.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
+                            .onConflict(
+                                `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                            )
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'latest_interactions')
+                })
+            )
+        )
+            .map((result) => result.generatedMaps)
+            .flat()
+            .filter(li => li && !!Object.keys(li).length) as EthLatestInteraction[]
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {

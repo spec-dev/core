@@ -1,3 +1,19 @@
 #!/bin/bash
 
+echo del block-events-eager-blocks-1 | redis-cli
+echo del block-events-skipped-blocks-1 | redis-cli
+echo del block-events-series-1 | redis-cli
+
+echo del block-events-eager-blocks-137 | redis-cli
+echo del block-events-skipped-blocks-137 | redis-cli
+echo del block-events-series-137 | redis-cli
+
+echo del block-events-eager-blocks-5 | redis-cli
+echo del block-events-skipped-blocks-5 | redis-cli
+echo del block-events-series-5 | redis-cli
+
+echo del block-events-eager-blocks-80001 | redis-cli
+echo del block-events-skipped-blocks-80001 | redis-cli
+echo del block-events-series-80001 | redis-cli
+
 npm run dev

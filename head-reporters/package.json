@@ -18,7 +18,7 @@
     },
     "dependencies": {
         "@alch/alchemy-web3": "^1.4.4",
-        "bullmq": "^1.86.4",
+        "bullmq": "^3.12.0",
         "chalk": "4.1.0",
         "pg-format": "^1.0.4"
     },

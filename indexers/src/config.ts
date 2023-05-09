@@ -31,7 +31,7 @@ const indexerConfig: StringKeyMap = {
     RANGE_WORKER_TYPE: ev('RANGE_WORKER_TYPE') || 'range',
     RANGE_GROUP_SIZE: Number(ev('RANGE_GROUP_SIZE', 10)),
     SPECIFIC_INDEX_NUMBERS: specificIndexNumbers,
-    HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 3)),
+    HEAD_JOB_CONCURRENCY_LIMIT: Number(ev('HEAD_JOB_CONCURRENCY_LIMIT', 1)),
     SAVE_BATCH_MULTIPLE: Number(ev('SAVE_BATCH_MULTIPLE', 15)),
     NOT_READY_DELAY: 300,
     MAX_ATTEMPTS: 100,
@@ -40,8 +40,10 @@ const indexerConfig: StringKeyMap = {
     EXPO_BACKOFF_FACTOR: 1.5,
     MAX_BINDINGS_SIZE: 2000,
     ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
-    INDEX_JOB_MAX_DURATION: Number(ev('INDEX_JOB_MAX_DURATION', 60000)),
+    MAX_TABLE_SAVE_TIME: Number(ev('MAX_TABLE_SAVE_TIME', 30000)),
     CMC_API_KEY: ev('CMC_API_KEY'),
+    JOB_TIMEOUT_ERROR: 'job-timeout',
+    RPC_POOL_ENDPOINTS: ev('RPC_POOL_ENDPOINTS')
 }
 
 export default indexerConfig

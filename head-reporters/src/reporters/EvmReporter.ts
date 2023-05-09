@@ -11,13 +11,18 @@ import {
     avgBlockTimesForChainId,
     freezeBlockOperationsAtOrAbove,
     IndexedBlock,
+    deleteBlockCalls,
+    deleteBlockEvents,
+    getBlockOpsCeiling,
+    setProcessNewHeads,
+    shouldProcessNewHeads,
 } from '../../../shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import config from '../config'
 import { BlockHeader } from 'web3-eth'
 import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
-import rollbackTables from '../services/rollbackTables'
+import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
 
 class EvmReporter {
@@ -46,6 +51,8 @@ class EvmReporter {
 
     ignoreOnceDueToReorg: Set<number> = new Set()
 
+    isFailing: boolean = false
+
     constructor(chainId: string) {
         this.chainId = chainId
         this.web3 = createAlchemyWeb3(config.ALCHEMY_SUBSCRIPTION_URL)
@@ -56,6 +63,11 @@ class EvmReporter {
     }
 
     async listen() {
+        if (!(await shouldProcessNewHeads(this.chainId))) {
+            logger.warn(chalk.yellow(`Won't process new heads -- master switch is off.`))
+            return
+        }
+
         logger.info(`Listening for new heads on chain ${this.chainId}...`)
         this.web3.eth
             .subscribe('newBlockHeaders')
@@ -64,6 +76,8 @@ class EvmReporter {
     }
 
     _onNewBlockHeader(data: BlockHeader) {
+        if (this.isFailing) return
+
         const blockNumber = Number(data.number)
         logger.info(chalk.gray(`\n> Got ${blockNumber}`))
 
@@ -108,6 +122,7 @@ class EvmReporter {
     }
 
     async _processBuffer() {
+        if (this.isFailing) return
         this.processing = true
         
         const head = this._pluckSmallestBlockFromBuffer()
@@ -116,7 +131,13 @@ class EvmReporter {
             return
         }
 
-        await this._processNewHead(head)
+        try {
+            await this._processNewHead(head)
+        } catch (err) {
+            logger.error(chalk.redBright(`Processing head failed at ${head.number}`), err)
+            await this._stop(head.number)
+            return
+        }
         
         if (Object.keys(this.buffer).length) {
             await this._processBuffer()
@@ -165,17 +186,12 @@ class EvmReporter {
             // [GAP] If the given block number is greater than the 
             // highest one seen by MORE THAN 1, fill in the gaps.
             if (givenBlock.number - highestBlockNumber > 1) {
-                const numberToHash = await this._getBlockHashesForNumbers(
-                    range(highestBlockNumber + 1, givenBlock.number),
-                    {},
-                )
-
                 newBlockSpecs = []
                 for (let i = highestBlockNumber + 1; i < givenBlock.number + 1; i++) {
                     if (i === givenBlock.number) {
                         newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
                     } else {
-                        newBlockSpecs.push({ hash: numberToHash[i.toString()] || null, number: i })
+                        newBlockSpecs.push({ hash: null, number: i })
                     }
                 }
 
@@ -194,12 +210,30 @@ class EvmReporter {
 
     async _uncleBlocks(fromBlock: BlockHeader, to: number, pauseTime: number) {
         const fromNumber = Number(fromBlock.number)
-        const uncleRange = range(fromNumber, to)
+        const uncleRange: number[] = range(fromNumber, to)
+
+        // If a block can't be uncled, it's because there's an even LOWER
+        // block number that failed indexing and the entire chain has been stopped.
+        const currentBlockCeiling = await getBlockOpsCeiling(this.chainId)
+        if (currentBlockCeiling && currentBlockCeiling < fromNumber) {
+            logger.error(
+                `Uncle on range ${fromNumber} -> ${to} stopped. Chain ${this.chainId} currently 
+                has a ceiling of ${currentBlockCeiling}, which is less than the uncle floor.`
+            )
+            this._stop(fromNumber)
+            return
+        }
 
         // Freeze all operations downstream in the data pipeline using
         // any numbers greater than or equal to the smallest uncle block.
-        await freezeBlockOperationsAtOrAbove(this.chainId, fromNumber)
-    
+        // Also delete any cached block events/calls from redis that 
+        // would have been piped downstream.
+        await Promise.all([
+            freezeBlockOperationsAtOrAbove(this.chainId, fromNumber),
+            deleteBlockEvents(this.chainId, uncleRange),
+            deleteBlockCalls(this.chainId, uncleRange),
+        ])
+            
         // Get all blocks in the range that are not uncled yet.
         const blocksInRangeNotUncledYet = (
             await getBlocksInNumberRange(this.chainId, uncleRange)
@@ -222,7 +256,7 @@ class EvmReporter {
             mappedBlocksNotUncledYet[key] = mappedBlocksNotUncledYet[key] || []
             mappedBlocksNotUncledYet[key].push(indexedBlock)
         }
-                
+
         // Wait for RPC provider to get their shit together and 
         // for the rest of our downstream data pipeline to clear out.
         await sleep(pauseTime)
@@ -238,11 +272,15 @@ class EvmReporter {
         }
         
         // Perform all record rollbacks.
-        logger.info(`> Rolling back to ${fromBlock.number}`)
-        await rollbackTables(this.chainId, fromBlock)
-        logger.info(chalk.green(`Rollback to ${fromBlock.number} complete.`))
-
-        await sleep(60000)
+        logger.info(`> Rolling back to ${fromNumber}`)
+        try {
+            await rollbackTables(this.chainId, fromBlock)
+        } catch (err) {
+            logger.error(`[${fromNumber}] ${chalk.redBright('Rollback failed')}:`, err)
+            await this._stop(fromNumber)
+            return
+        }
+        logger.info(chalk.green(`Rollback to ${fromNumber} complete.`))
 
         // Refetch hashes for block numbers.
         const currentHashes = await this._getBlockHashesForNumbers(uncleRange, {})
@@ -270,7 +308,7 @@ class EvmReporter {
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
                 await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
-                return    
+                return
             }
         }
 
@@ -294,7 +332,8 @@ class EvmReporter {
     async _handleNewBlocks(
         blockSpecs: NewBlockSpec[],
         i: number = 0,
-        replace = false
+        replace = false,
+        delayInBetween: number = 75,
     ) {
         const { number, hash } = blockSpecs[i]
     
@@ -316,8 +355,8 @@ class EvmReporter {
 
         // Recurse.
         if (i < blockSpecs.length - 1) {
-            await sleep(10)
-            await this._handleNewBlocks(blockSpecs, i + 1, replace)
+            await sleep(delayInBetween)
+            await this._handleNewBlocks(blockSpecs, i + 1, replace, delayInBetween)
         }
     }
 
@@ -416,6 +455,12 @@ class EvmReporter {
         const head = this.buffer[smallest]
         delete this.buffer[smallest]
         return head
+    }
+
+    async _stop(blockNumber: number) {
+        logger.error(chalk.redBright(`Stopping head reporter at ${blockNumber}.`))
+        this.isFailing = true
+        await setProcessNewHeads(this.chainId, false)
     }
 }
 

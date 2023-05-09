@@ -1,6 +1,7 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
 import { StringKeyMap } from '../types'
 import humps from 'humps'
+import { ident } from 'pg-format'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -8,6 +9,12 @@ export const NULL_32_BYTE_HASH =
 export const NULL_BYTE_DATE = '0x'
 
 const ABI_INPUT_PLACEHOLDER_PREFIX = '___ph-'
+
+export const identPath = (value: string): string =>
+    value
+        .split('.')
+        .map((v) => ident(v))
+        .join('.')
 
 export const mapByKey = (iterable: object[], key: string): { [key: string]: any } => {
     let m = {}

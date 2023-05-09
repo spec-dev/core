@@ -18,7 +18,6 @@ $shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
-head_buffer=$( $shared_bin_dir/env_reader "$env" "HEAD_BUFFER" )
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
@@ -35,9 +34,22 @@ indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
 indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
 indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
+# Core DB
+core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
+core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
+core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
+core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
+core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "HEAD_BUFFER" "$head_buffer"
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
@@ -53,6 +65,20 @@ $shared_bin_dir/assert_env "INDEXER_DB_HOST" "$indexer_db_host"
 $shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
 $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
+
+# Core DB
+$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
+$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
+$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
+$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
+$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
+
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -74,7 +100,6 @@ template_path="$hr_dir/head-reporter.yaml"
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
-    sed "s|{{HEAD_BUFFER}}|$head_buffer|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
     sed "s|{{HEAD_REPORTER_QUEUE_KEY}}|$head_reporter_queue_key|g" | \
@@ -84,7 +109,17 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_HOST}}|$indexer_db_host|g" | \
     sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
-    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" )
+    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
+    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
+    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
+    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
+    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
+    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
 
 echo "Creating head reporter job resources..."
 

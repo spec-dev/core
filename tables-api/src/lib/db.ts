@@ -1,4 +1,4 @@
-import { logger } from '../../../shared'
+import { logger, sleep, randomIntegerInRange } from '../../../shared'
 import errors from './errors'
 import config from './config'
 import { StringKeyMap } from './types'
@@ -8,16 +8,15 @@ import QueryStream from 'pg-query-stream'
 
 // Create connection pool.
 export const pool = new Pool({
-    host : config.SHARED_TABLES_DB_HOST,
-    port : config.SHARED_TABLES_DB_PORT,
-    user : config.SHARED_TABLES_DB_USERNAME,
-    password : config.SHARED_TABLES_DB_PASSWORD,
-    database : config.SHARED_TABLES_DB_NAME,
+    host: config.SHARED_TABLES_DB_HOST,
+    port: config.SHARED_TABLES_DB_PORT,
+    user: config.SHARED_TABLES_DB_USERNAME,
+    password: config.SHARED_TABLES_DB_PASSWORD,
+    database: config.SHARED_TABLES_DB_NAME,
     min: 2,
     max: config.SHARED_TABLES_MAX_POOL_SIZE,
     connectionTimeoutMillis: 30000, // 30s
     statement_timeout: config.IS_READ_ONLY ? 300000 : 120000,
-    // query_timeout: 125000, // slightly higher than statement_timeout
 })
 pool.on('error', err => logger.error('PG client error', err))
 
@@ -68,7 +67,11 @@ async function getPoolConnection(query: QueryPayload | QueryPayload[]) {
     return conn
 }
 
-export async function performQuery(query: QueryPayload, role: string): Promise<StringKeyMap[]> {
+export async function performQuery(
+    query: QueryPayload, 
+    role: string,
+    attempt: number = 1,
+): Promise<StringKeyMap[]> {
     const { sql, bindings } = query
     const conn = await getPoolConnection(query)
     role = resolveRole(role)
@@ -84,11 +87,20 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
         await conn.query('COMMIT')
     } catch (err) {
         await conn.query('ROLLBACK')
+        conn.release()
+
+        // Wait and try again if deadlocked.
+        const message = err.message || err.toString() || ''
+        if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+            logger.error(`Got deadlock, trying again... (${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+            await sleep(randomIntegerInRange(50, 500))
+            return await performQuery(query, role, attempt + 1)
+        }
+
         logger.error(errors.QUERY_FAILED, JSON.stringify(query), err)
         throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
-    } finally {
-        conn.release()
     }
+    conn.release()
 
     if (!result) {
         logger.error(errors.EMPTY_QUERY_RESULT, query)
@@ -98,7 +110,11 @@ export async function performQuery(query: QueryPayload, role: string): Promise<S
     return result.rows || []
 }
 
-export async function performTx(queries: QueryPayload[], role: string) {
+export async function performTx(
+    queries: QueryPayload[], 
+    role: string,
+    attempt: number = 1,
+): Promise<StringKeyMap[][]> {
     const conn = await getPoolConnection(queries)
     role = resolveRole(role)
 
@@ -114,12 +130,21 @@ export async function performTx(queries: QueryPayload[], role: string) {
         await conn.query('COMMIT')
     } catch (err) {
         await conn.query('ROLLBACK')
+        conn.release()
+
+        // Wait and try again if deadlocked.
+        const message = err.message || err.toString() || ''
+        if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+            logger.error(`Got deadlock, trying again... (${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+            await sleep(randomIntegerInRange(50, 500))
+            return await performTx(queries, role, attempt + 1)
+        }
+
         logger.error(errors.QUERY_FAILED, JSON.stringify(queries), err)
         throw `${errors.QUERY_FAILED}: ${err?.message || err}`    
-    } finally {
-        conn.release()
     }
-
+    conn.release()
+    
     const responses = []
     for (let i = 0; i < results.length; i++) {
         const result = results[i]

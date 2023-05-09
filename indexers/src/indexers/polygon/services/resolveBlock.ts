@@ -6,7 +6,6 @@ import config from '../../../config'
 
 export async function resolveBlock(
     web3: AlchemyWeb3,
-    blockNumberOrHash: number | string,
     blockNumber: number,
     chainId: string,
 ): Promise<[ExternalPolygonBlock, PolygonBlock]> {
@@ -14,7 +13,7 @@ export async function resolveBlock(
     let numAttempts = 0
     try {
         while (externalBlock === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-            externalBlock = await fetchBlock(web3, blockNumberOrHash)
+            externalBlock = await fetchBlock(web3, blockNumber)
             if (externalBlock === null) {
                 await sleep(
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
@@ -23,7 +22,7 @@ export async function resolveBlock(
             numAttempts += 1
         }
     } catch (err) {
-        throw `Error fetching block ${blockNumberOrHash}: ${err}`
+        throw `Error fetching block ${blockNumber}: ${err}`
     }
 
     if (externalBlock === null) {
@@ -37,13 +36,13 @@ export async function resolveBlock(
 
 export async function fetchBlock(
     web3: AlchemyWeb3,
-    blockNumberOrHash: number | string
+    blockNumber: number,
 ): Promise<ExternalPolygonBlock | null> {
     let externalBlock: ExternalPolygonBlock
     let error
     try {
         externalBlock = (await web3.eth.getBlock(
-            blockNumberOrHash,
+            blockNumber,
             true
         )) as unknown as ExternalPolygonBlock
     } catch (err) {
@@ -51,7 +50,7 @@ export async function fetchBlock(
     }
     if (error) {
         config.IS_RANGE_MODE ||
-            logger.error(`Error fetching block ${blockNumberOrHash}: ${error}. Will retry.`)
+            logger.error(`Error fetching block ${blockNumber}: ${error}. Will retry.`)
         return null
     }
 

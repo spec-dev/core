@@ -65,6 +65,7 @@ export {
     getBlockEventsSeriesNumber,
     setBlockEventsSeriesNumber,
     freezeBlockOperationsAtOrAbove,
+    getBlockOpsCeiling,
     canBlockBeOperatedOn,
     getEagerBlocks,
     addEagerBlock,
@@ -86,6 +87,27 @@ export {
     getCachedTransactionByHash,
     getCachedLiveObjectTablesByChainId,
     registerLiveObjectTablesForChainId,
+    switchOffTableForChainId,
+    switchOnTableForChainId,
+    getFailingTables,
+    setProcessNewHeads,
+    shouldProcessNewHeads,
+    setProcessIndexJobs,
+    shouldProcessIndexJobs,
+    setProcessEventSorterJobs,
+    shouldProcessEventSorterJobs,
+    setProcessEventGenJobs,
+    shouldProcessEventGenJobs,
+    setProcessJobs,
+    getProcessNewHeads,
+    getProcessIndexJobs,
+    getProcessEventSorterJobs,
+    getProcessEventGenJobs,
+    getProcessJobs,
+    getLovFailure,
+    markLovFailure,
+    removeLovFailure,
+    keys as indexerRedisKeys,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -310,6 +332,3 @@ export {
     generateLovInputsForEventsAndCalls,
     DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 } from './lib/services/generateLovInputs'
-
-import resolveLiveObjectTablesForChainId from './lib/services/resolveLiveObjectTablesForChainId'
-export { resolveLiveObjectTablesForChainId }

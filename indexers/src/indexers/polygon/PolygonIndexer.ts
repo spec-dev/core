@@ -8,6 +8,7 @@ import initLogs from './services/initLogs'
 import config from '../../config'
 import { resolveNewTokenContracts } from '../../services/contractServices'
 import { originEvents } from '../../events'
+import chalk from 'chalk'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
     sleep,
@@ -66,6 +67,7 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
+import { logger } from 'ethers'
 
 const web3js = new Web3()
 
@@ -122,39 +124,38 @@ class PolygonIndexer extends AbstractIndexer {
 
         // Quick re-org check.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping.')
+            this._warn('Job stopped mid-indexing.')
             return
-        }
-
-        // Ensure there's not a block hash mismatch between block  and receipts.
-        // This can happen when fetching by block number around chain re-orgs.
-        if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
-            )
-            receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
         // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(
             (t) => t as unknown as ExternalPolygonTransaction
         )
-
-        // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
-            this._warn('Transactions exist but no receipts were found -- trying again.')
-            await sleep(1000)
-            receipts = await this._getBlockReceiptsWithLogs()
-            if (!receipts.length) {
-                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
-            }
-        } else if (!externalTransactions.length) {
+        const hasTxs = !!externalTransactions.length
+        if (!hasTxs) {
             this._info('No transactions this block.')
         }
 
+        // Ensure there's not a block hash mismatch between block and receipts 
+        // and that there are no missing logs.
+        const isHashMismatch = receipts.length && receipts[0].blockHash !== block.hash
+        const hasMissingLogs = hasTxs && !receipts.length
+        if (isHashMismatch || hasMissingLogs) {
+            this._warn(
+                isHashMismatch
+                    ? `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+                    : `Transactions exist but no receipts were found -- retrying`
+            )
+            receipts = await this._waitAndRefetchReceipts(block.hash, hasTxs)
+            if (hasTxs && !receipts.length) {
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+            }
+        }
+        
         // Another re-org check.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping post-fetch.')
+            this._warn('Job stopped mid-indexing, post-fetch.')
             return
         }
         // Initialize our internal models for both transactions and logs.
@@ -167,7 +168,7 @@ class PolygonIndexer extends AbstractIndexer {
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
             this._warn(
-                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
+                `Hash mismatch with traces: ${traces[0].blockHash} vs ${block.hash} -- refetching until equivalent.`
             )
             traces = await this._waitAndRefetchTraces(block.hash)
         }
@@ -211,7 +212,7 @@ class PolygonIndexer extends AbstractIndexer {
 
         // One last check before saving.
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping pre-save.')
+            this._warn('Job stopped mid-indexing, pre-save.')
             return
         }
 
@@ -255,6 +256,8 @@ class PolygonIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
+
+        this._info(chalk.cyanBright(`Successfully indexed block ${this.blockNumber}.`))
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
@@ -273,22 +276,15 @@ class PolygonIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
-        // Append-only (no tx).
         await Promise.all([
             this._upsertBlock(block),
             this._upsertTransactions(transactions),
             this._upsertLogs(logs),
             this._upsertTraces(traces),
             this._upsertContracts(contracts),
+            this._upsertErc20Tokens(erc20Tokens),
+            this._upsertNftCollections(nftCollections),
         ])
-
-        // Can be updated in place (tx).
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertNftCollections(nftCollections, tx),
-            ])
-        })
     }
 
     async _createAndPublishEvents() {
@@ -1068,7 +1064,6 @@ class PolygonIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalPolygonBlock, PolygonBlock]> {
         return resolveBlock(
             this.web3,
-            this.blockHash || this.blockNumber,
             this.blockNumber,
             this.chainId
         )
@@ -1077,13 +1072,13 @@ class PolygonIndexer extends AbstractIndexer {
     async _getBlockReceiptsWithLogs(): Promise<ExternalPolygonReceipt[]> {
         return getBlockReceipts(
             this.web3,
-            this.blockHash ? { blockHash: this.blockHash } : { blockNumber: this.hexBlockNumber },
+            { blockNumber: this.hexBlockNumber },
             this.blockNumber,
             this.chainId
         )
     }
 
-    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalPolygonReceipt[]> {
+    async _waitAndRefetchReceipts(blockHash: string, hasTxs: boolean): Promise<ExternalPolygonReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
                 this.web3,
@@ -1091,9 +1086,16 @@ class PolygonIndexer extends AbstractIndexer {
                 this.blockNumber,
                 this.chainId
             )
+            // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== blockHash) {
                 return null
-            } else {
+            }
+            // Missing logs.
+            else if (!receipts.length && hasTxs) {
+                return null
+            }
+            // All good.
+            else {
                 return receipts
             }
         }
@@ -1107,6 +1109,7 @@ class PolygonIndexer extends AbstractIndexer {
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
                 )
             }
+            console.log(numAttempts)
             numAttempts += 1
         }
         return receipts || []
@@ -1156,7 +1159,7 @@ class PolygonIndexer extends AbstractIndexer {
         receipts: ExternalPolygonReceipt[],
         traces: PolygonTrace[],
     ) {
-        const hash = this.head.blockHash || block.hash
+        const hash = this.blockHash
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
@@ -1179,8 +1182,8 @@ class PolygonIndexer extends AbstractIndexer {
     async _upsertBlock(block: PolygonBlock) {
         const [updateCols, conflictCols] = fullPolygonBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        this.block = ((
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonBlock)
@@ -1188,6 +1191,9 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.block = ((
+            await this._withDeadlockProtection(run, 'blocks')
         ).generatedMaps[0] as PolygonBlock) || null
     }
 
@@ -1196,8 +1202,8 @@ class PolygonIndexer extends AbstractIndexer {
         const [updateCols, conflictCols] = fullPolygonTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         transactions = uniqueByKeys(transactions, conflictCols) as PolygonTransaction[]
-        this.transactions = (
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonTransaction)
@@ -1205,6 +1211,9 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.transactions = (
+            await this._withDeadlockProtection(run, 'transactions')
         ).generatedMaps as PolygonTransaction[]
     }
 
@@ -1216,14 +1225,17 @@ class PolygonIndexer extends AbstractIndexer {
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(PolygonLog)
-                        .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(PolygonLog)
+                            .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'logs')
                 })
             )
         )
@@ -1239,14 +1251,17 @@ class PolygonIndexer extends AbstractIndexer {
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(PolygonTrace)
-                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(PolygonTrace)
+                            .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'traces')
                 })
             )
         )
@@ -1259,8 +1274,8 @@ class PolygonIndexer extends AbstractIndexer {
         const [updateCols, conflictCols] = fullPolygonContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
         contracts = uniqueByKeys(contracts, conflictCols) as PolygonContract[]
-        this.contracts = (
-            await SharedTables
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonContract)
@@ -1268,6 +1283,9 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
+        }
+        this.contracts = (
+            await this._withDeadlockProtection(run, 'contracts')
         ).generatedMaps as PolygonContract[]
     }
 }

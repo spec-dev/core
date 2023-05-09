@@ -1,8 +1,35 @@
-import { logger, sleep, CoreDB, unique, StringKeyMap, getBlockEvents, fromNamespacedVersion, uniqueByKeys, toNamespacedVersion, deleteBlockEvents, deleteBlockCalls, getSkippedBlocks, newTablesJWT, getFailingNamespaces, getBlockCalls } from '../../shared'
 import config from './config'
-import { publishEvents, publishCalls, getDBTimestamp } from './relay'
-import { camelizeKeys } from 'humps'
+import chalk from 'chalk'
 import fetch from 'cross-fetch'
+import { camelizeKeys } from 'humps'
+import { publishEvents, publishCalls, getDBTimestamp } from './relay'
+import { 
+    canBlockBeOperatedOn, 
+    logger, 
+    sleep, 
+    CoreDB, 
+    unique, 
+    StringKeyMap, 
+    getBlockEvents, 
+    fromNamespacedVersion, 
+    uniqueByKeys, 
+    toNamespacedVersion, 
+    deleteBlockEvents, 
+    deleteBlockCalls, 
+    getSkippedBlocks, 
+    newTablesJWT,
+    getFailingNamespaces,
+    getFailingTables,
+    getBlockCalls,
+    updateLiveObjectVersionStatus,
+    LiveObjectVersionStatus,
+    SharedTables,
+    schemaForChainId,
+    identPath,
+    toDate,
+    markLovFailure,
+    getLovFailure,
+} from '../../shared'
 
 /**
  *  TODO: Consolidate logic between contract calls and events.
@@ -11,6 +38,12 @@ async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
     const skipped = data.skipped || false
     const replay = data.replay || false
+
+    // Ensure re-org hasn't occurred that would affect progress.
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {{}
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        return
+    }
 
     logger.info(`\nGenerating calls & events for block ${blockNumber}...`)
 
@@ -28,9 +61,6 @@ async function perform(data: StringKeyMap) {
     const contractCalls = formatContractCalls(blockCalls, skipped, replay)
     const originEvents = formatOriginEvents(blockEvents, skipped, replay)
 
-    console.log(`[${blockNumber}]: Events (${originEvents.length}) | Calls (${contractCalls.length})`)
-    return
-
     // Publish all calls & origin events up-front.
     const hasContractCalls = contractCalls.length > 0
     const hasOriginEvents = originEvents.length > 0
@@ -42,11 +72,29 @@ async function perform(data: StringKeyMap) {
     const uniqueContractCallComps = getUniqueContractCallComps(contractCalls)
     const uniqueEventVersionComps = getUniqueEventVersionComps(originEvents)
 
+    // Get the failing namespaces and tables to avoid generating events for.
+    const [cachedFailingNsps, cachedFailingTables] = await Promise.all([
+        getFailingNamespaces(config.CHAIN_ID),
+        getFailingTables(config.CHAIN_ID),
+    ])
+    const failingNamespaces = new Set(cachedFailingNsps)
+    const failingTables = new Set(cachedFailingTables)
+
     // Map the contract calls and event versions to the 
     // live object versions that depend on them as inputs.
     const [inputContractCallsToLovs, inputEventVersionsToLovs] = await Promise.all([
-        getLiveObjectVersionToContractCallMappings(uniqueContractCallComps, blockNumber),
-        getLiveObjectVersionToEventVersionMappings(uniqueEventVersionComps, blockNumber),
+        getLiveObjectVersionToContractCallMappings(
+            uniqueContractCallComps,
+            failingNamespaces,
+            failingTables,
+            blockNumber,
+        ),
+        getLiveObjectVersionToEventVersionMappings(
+            uniqueEventVersionComps,
+            failingNamespaces,
+            failingTables,
+            blockNumber,
+        ),
     ])
 
     const pluckLovIds = (toLovsMap: StringKeyMap) => Object.values(toLovsMap)
@@ -71,21 +119,10 @@ async function perform(data: StringKeyMap) {
         generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
     }
 
-    // Get the failing namespaces to avoid generating Spec events for.
-    const failingNamespaces = new Set(await getFailingNamespaces(config.CHAIN_ID))
-
     // Group origin events by live object version namespace. Then within each namespace, 
     // group the events even further if their adjacent events share the same live object version.
-    const callGroups = groupCallsByLovNamespace(
-        contractCalls,
-        inputContractCallsToLovs,
-        failingNamespaces,
-    )
-    const eventGroups = groupEventsByLovNamespace(
-        originEvents,
-        inputEventVersionsToLovs,
-        failingNamespaces,
-    )
+    const callGroups = groupCallsByLovNamespace(contractCalls, inputContractCallsToLovs)
+    const eventGroups = groupEventsByLovNamespace(originEvents, inputEventVersionsToLovs )
 
     // Merge call groups and event groups by live object version namespace.
     const seenLovNsps = new Set<string>()
@@ -101,13 +138,21 @@ async function perform(data: StringKeyMap) {
         inputGroups[lovNsp] = callGroups[lovNsp] || []
     }
 
+    // One last check before event generation.
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-event-gen.`))
+        return
+    }
+
     // Generate Live Object events for each namespace group in parallel.
     const promises = []
+    const failedLovIds = new Set<number>()
     for (const lovNsp in inputGroups) {
         promises.push(generateLiveObjectEventsForNamespace(
             lovNsp,
             inputGroups[lovNsp],
             generatedEventVersionsWhitelist,
+            failedLovIds,
             blockNumber,
         ))
     }
@@ -117,6 +162,13 @@ async function perform(data: StringKeyMap) {
     // Otherwise, they can safely be removed.
     const skippedBlocks = await getSkippedBlocks(config.CHAIN_ID)
     if (skippedBlocks?.length) return
+
+    // One last check before deleting calls/events from cache.
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-cache-clear.`))
+        return
+    }    
+
     await Promise.all([
         deleteBlockCalls(config.CHAIN_ID, blockNumber),
         deleteBlockEvents(config.CHAIN_ID, blockNumber),
@@ -187,12 +239,22 @@ async function generateLiveObjectEventsForNamespace(
     nsp: string,
     inputGroups: StringKeyMap[],
     generatedEventVersionsWhitelist: StringKeyMap,
+    failedLovIds: Set<number>,
     blockNumber: number,
 ) {
     const tablesApiTokens = {}
 
+    const lovIds = []
+    const generatedEvents = []
     for (const inputGroup of inputGroups) {
         const { lovId, lovUrl, lovTableSchema, events, calls } = inputGroup
+        lovIds.push(lovId)
+
+        if (failedLovIds.has(lovId)) {
+            generatedEvents.push([])
+            continue
+        }
+
         const inputs = calls || events
 
         // Create JWT for event generator to use when querying our tables api.
@@ -200,23 +262,37 @@ async function generateLiveObjectEventsForNamespace(
             tablesApiTokens[lovTableSchema] = newTablesApiToken(lovTableSchema)
         }
 
-        const generatedEvents = await generateLiveObjectEventsWithProtection(
+        generatedEvents.push(await generateLiveObjectEventsWithProtection(
             nsp,
             lovId,
             lovUrl,
             generatedEventVersionsWhitelist[lovId],
+            failedLovIds,
             inputs,
             tablesApiTokens[lovTableSchema],
             blockNumber,
-        )
-        if (!generatedEvents?.length) continue
+        ))
+    }
 
-        // Publish generated events on-the-fly as they come back.
-        try {
-            await publishEvents(generatedEvents, true)
-        } catch (err) {
-            throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
-        }
+    const eventsToPublish = []
+    for (let i = 0; i < lovIds.length; i++) {
+        const lovId = lovIds[i]
+        if (failedLovIds.has(lovId)) continue
+        eventsToPublish.push(...generatedEvents[i])
+    }
+    if (!eventsToPublish.length) return
+
+    // Check before publishing.
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        return
+    }
+
+    // Publish generated events on-the-fly as they come back.
+    try {
+        await publishEvents(eventsToPublish, true)
+    } catch (err) {
+        throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
     }
 }
 
@@ -225,10 +301,11 @@ export async function generateLiveObjectEventsWithProtection(
     lovId: number,
     lovUrl: string,
     acceptedOutputEvents: Set<string>,
+    failedLovIds: Set<number>,
     inputs: StringKeyMap[],
     tablesApiToken: string,
     blockNumber: number,
-): Promise<StringKeyMap[] | null> {
+): Promise<StringKeyMap[]> {
     try {
         const eventsQueue = []
         return await generateLiveObjectEvents(
@@ -243,8 +320,15 @@ export async function generateLiveObjectEventsWithProtection(
             inputs,
         )
     } catch (err) {
-        logger.error(`[${blockNumber}]: Generating events failed (lovId=${lovId}) for inputs: ${JSON.stringify(inputs, null, 4)}`, err)
-        return null
+        logger.error(
+            `[${blockNumber}]: Generating events failed (lovId=${lovId}) 
+            for inputs: ${JSON.stringify(inputs, null, 4)}`, err,
+        )
+        await updateLiveObjectVersionStatus(lovId, LiveObjectVersionStatus.Failing)
+        const blockTimestamp = await getBlockTimestamp(blockNumber)
+        blockTimestamp && await markLovFailure(lovId, blockTimestamp)
+        failedLovIds.add(lovId)
+        return []
     }
 }   
 
@@ -282,9 +366,9 @@ async function generateLiveObjectEvents(
         })
     } catch (err) {
         clearTimeout(timer)
-        const error = `[${blockNumber}] Request error to ${lovUrl} (lovId=${lovId}): ${err}`
+        const error = `[${blockNumber}] Request error to ${lovUrl} (lovId=${lovId}): ${err}. Attempt ${attempts}/${10}`
         logger.error(error)
-        if (attempts <= 10) {
+        if (attempts <= 50) {
             await sleep(1000)
             return generateLiveObjectEvents(
                 lovNsp,
@@ -309,12 +393,18 @@ async function generateLiveObjectEvents(
     try {
         generatedEventGroups = (await resp?.json()) || []
     } catch (err) {
-        logger.error(`[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - inputs: ${JSON.stringify(inputs, null, 4)}`)
+        logger.error(
+            `[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - 
+            inputs: ${JSON.stringify(inputs, null, 4)}`
+        )
     }
     if (resp?.status !== 200) {
-        const msg = `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: ${JSON.stringify(generatedEventGroups || {})}.`
+        const msg = (
+            `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: 
+            ${JSON.stringify(generatedEventGroups || {})}.`
+        )
         logger.error(msg)
-        if (attempts <= 10) {
+        if (attempts <= 50) {
             await sleep(1000)
             const respData = generatedEventGroups as StringKeyMap
 
@@ -383,7 +473,6 @@ async function generateLiveObjectEvents(
 function groupCallsByLovNamespace(
     calls: StringKeyMap[], 
     inputContractCallsToLovs: StringKeyMap,
-    failingNamespaces: Set<string>,
 ): StringKeyMap {
     const callsByLovNsp = {}
     for (const call of calls) {
@@ -391,7 +480,6 @@ function groupCallsByLovNamespace(
         if (!lovsDependentOnCall?.length) continue
 
         for (const { lovNsp, lovId, lovUrl, lovTableSchema } of lovsDependentOnCall) {
-            if (failingNamespaces.has(lovNsp)) continue
             if (!callsByLovNsp.hasOwnProperty(lovNsp)) {
                 callsByLovNsp[lovNsp] = []
             }
@@ -455,7 +543,6 @@ function groupCallsByLovNamespace(
 function groupEventsByLovNamespace(
     events: StringKeyMap[], 
     inputEventVersionsToLovs: StringKeyMap,
-    failingNamespaces: Set<string>,
 ): StringKeyMap {
     const eventsByLovNsp = {}
     for (const event of events) {
@@ -463,7 +550,6 @@ function groupEventsByLovNamespace(
         if (!lovsDependentOnEventVersion?.length) continue
 
         for (const { lovNsp, lovId, lovUrl, lovTableSchema } of lovsDependentOnEventVersion) {
-            if (failingNamespaces.has(lovNsp)) continue
             if (!eventsByLovNsp.hasOwnProperty(lovNsp)) {
                 eventsByLovNsp[lovNsp] = []
             }
@@ -526,6 +612,8 @@ function groupEventsByLovNamespace(
 
 async function getLiveObjectVersionToContractCallMappings(
     contractCallComps: StringKeyMap[],
+    failingNamespaces: Set<string>,
+    failingTables: Set<string>,
     blockNumber: number,
 ): Promise<StringKeyMap> {
     const lovResults = await getLiveObjectVersionsThroughLiveCallHandlers(
@@ -537,6 +625,7 @@ async function getLiveObjectVersionToContractCallMappings(
     const inputContractCallsToLovs = {}
     for (const result of lovResults) {
         const { nsp, functionName, lovNsp, lovId, lovUrl, lovTablePath } = result
+        if (failingNamespaces.has(nsp) || failingTables.has(lovTablePath)) continue
         const callName = [nsp, functionName].join('.')
         if (!inputContractCallsToLovs.hasOwnProperty(callName)) {
             inputContractCallsToLovs[callName] = []
@@ -546,6 +635,7 @@ async function getLiveObjectVersionToContractCallMappings(
             lovId: Number(lovId),
             lovUrl,
             lovTableSchema: lovTablePath.split('.')[0],
+            lovTablePath,
         })
     }
     return inputContractCallsToLovs
@@ -553,6 +643,8 @@ async function getLiveObjectVersionToContractCallMappings(
 
 async function getLiveObjectVersionToEventVersionMappings(
     eventVersionComps: StringKeyMap[],
+    failingNamespaces: Set<string>,
+    failingTables: Set<string>,
     blockNumber: number,
 ): Promise<StringKeyMap> {
     const lovResults = await getLiveObjectVersionsFromInputLiveEventVersions(
@@ -564,6 +656,7 @@ async function getLiveObjectVersionToEventVersionMappings(
     const inputEventVersionsToLovs = {}
     for (const result of lovResults) {
         const { nsp, name, version, lovNsp, lovId, lovUrl, lovTablePath } = result
+        if (failingNamespaces.has(nsp) || failingTables.has(lovTablePath)) continue
         const eventVersion = toNamespacedVersion(nsp, name, version)
         if (!inputEventVersionsToLovs.hasOwnProperty(eventVersion)) {
             inputEventVersionsToLovs[eventVersion] = []
@@ -573,6 +666,7 @@ async function getLiveObjectVersionToEventVersionMappings(
             lovId: Number(lovId),
             lovUrl,
             lovTableSchema: lovTablePath.split('.')[0],
+            lovTablePath,
         })
     }
     return inputEventVersionsToLovs
@@ -599,23 +693,16 @@ event_versions.version as version,
 live_object_versions.nsp as lov_nsp,
 live_object_versions.id as lov_id,
 live_object_versions.url as lov_url,
+live_object_versions.status as lov_status,
 live_object_versions.config -> 'table' as lov_table_path
 from live_event_versions
 join event_versions on live_event_versions.event_version_id = event_versions.id
 join live_object_versions on live_event_versions.live_object_version_id = live_object_versions.id
 where (${andClauses.join(' or ')})
 and live_event_versions.is_input = true
-and live_object_versions.url is not null
-and live_object_versions.status = 1`
+and live_object_versions.url is not null`
 
-    let results = []
-    try {
-        results = (await CoreDB.query(sql, bindings)) || []
-    } catch (err) {
-        throw `[${blockNumber}] Error finding live object versions with event versions: ${err}`
-    }
-
-    return camelizeKeys(results)
+    return getLiveObjectVersionResults(sql, bindings, blockNumber)
 }
 
 async function getLiveObjectVersionsThroughLiveCallHandlers(
@@ -639,22 +726,15 @@ live_call_handlers.function_name as function_name,
 live_object_versions.nsp as lov_nsp,
 live_object_versions.id as lov_id,
 live_object_versions.url as lov_url,
+live_object_versions.status as lov_status,
 live_object_versions.config -> 'table' as lov_table_path
 from live_call_handlers
 join namespaces on live_call_handlers.namespace_id = namespaces.id
 join live_object_versions on live_call_handlers.live_object_version_id = live_object_versions.id
 where (${andClauses.join(' or ')})
-and live_object_versions.url is not null
-and live_object_versions.status = 1`
+and live_object_versions.url is not null`
 
-    let results = []
-    try {
-        results = (await CoreDB.query(sql, bindings)) || []
-    } catch (err) {
-        throw `[${blockNumber}] Error finding live object versions through live call handlers: ${err}`
-    }
-
-    return camelizeKeys(results)
+    return getLiveObjectVersionResults(sql, bindings, blockNumber)
 }
 
 async function getGeneratedEventVersionsForLovs(
@@ -689,6 +769,72 @@ where live_object_versions.id in (${placeholders.join(', ')}) and live_event_ver
         throw `[${blockNumber}] Error finding event versions from live object versions: ${err}`
     }
     return camelizeKeys(results)
+}
+
+async function getLiveObjectVersionResults(
+    query: string,
+    bindings: any[],
+    blockNumber: number,
+): Promise<StringKeyMap[]> {
+    let results = []
+    try {
+        results = (await CoreDB.query(query, bindings)) || []
+    } catch (err) {
+        throw `[${blockNumber}] Error finding live object versions: ${err}`
+    }
+    results = camelizeKeys(results)
+    
+    const usableResults = []
+    const failing = []
+    for (const result of results) {
+        switch (result.lovStatus?.toString()) {
+            case LiveObjectVersionStatus.Live.toString():
+                usableResults.push(result)
+                break
+            case LiveObjectVersionStatus.Indexing.toString():
+                break
+            case LiveObjectVersionStatus.Failing.toString():
+                failing.push(result)
+                break
+        }
+    }
+
+    if (!failing.length) return usableResults
+
+    logger.info(chalk.yellow(
+        `Not generating events for failing lovIds: ${failing.map(r => r.lovId).join(', ')}`
+    ))
+
+    const failedAtTimestamps = await Promise.all(failing.map(r => getLovFailure(r.lovId)))
+    const dateToGenerateEventsFor = toDate(await getBlockTimestamp(blockNumber))
+    for (let i = 0; i < failedAtTimestamps.length; i++) {
+        const failedAtTimestamp = failedAtTimestamps[i]
+        const failedAtDate = failedAtTimestamp ? toDate(failedAtTimestamp) : null
+        if (dateToGenerateEventsFor && failedAtDate && dateToGenerateEventsFor < failedAtDate) {
+            const resultThatMadeCutoff = failing[i]
+            usableResults.push(resultThatMadeCutoff)
+            logger.info(
+                `Result for lovId ${resultThatMadeCutoff.lovId} made the cutoff before 
+                failure: ${failedAtDate} vs. ${dateToGenerateEventsFor}`
+            )
+        }
+    }
+
+    return usableResults
+}
+
+async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
+    const schema = schemaForChainId[config.CHAIN_ID]
+    const tablePath = [schema, 'blocks'].join('.')
+    try {
+        return (((await SharedTables.query(
+            `select timestamp from ${identPath(tablePath)} where number = $1`, 
+            [blockNumber]
+        )) || [])[0] || {}).timestamp || null
+    } catch (err) {
+        logger.error(err)
+        return null
+    }
 }
 
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {

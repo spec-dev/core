@@ -1,36 +1,37 @@
-import { getBlockEventsSeriesNumber, getSkippedBlocks, deleteSkippedBlocks, addEagerBlock, setBlockEventsSeriesNumber, logger, markBlockAsSkipped, getEagerBlocks, deleteEagerBlocks } from '../../shared'
 import config from './config'
-import { generateEventsForBlock } from './queue'
-import { sleep } from '../../shared'
 import chalk from 'chalk'
+import { generateEventsForBlock } from './queue'
+import { 
+    logger,
+    sleep,
+    canBlockBeOperatedOn, 
+    getBlockEventsSeriesNumber,
+    setBlockEventsSeriesNumber,
+    addEagerBlock,
+    getEagerBlocks,
+    deleteEagerBlocks
+} from '../../shared'
 
 async function perform({ blockNumber }) {
     blockNumber = Number(blockNumber)
+
+    // Ensure re-org hasn't occurred that would affect progress.
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        return
+    }
     
-    let seriesNumber, skippedNumbers
-    ;([seriesNumber, skippedNumbers] = await Promise.all([
-        getBlockEventsSeriesNumber(config.CHAIN_ID),
-        getSkippedBlocks(config.CHAIN_ID)
-    ]))
+    // Get the current series number for this chain.
+    let seriesNumber = await getBlockEventsSeriesNumber(config.CHAIN_ID)
     if (seriesNumber === null) {
         seriesNumber = blockNumber
     }
 
-    // Replay from the skipped number to the current series 
-    // number when a skipped number is finally received.
-    if (skippedNumbers.includes(blockNumber)) {
-        await replayFromBlock(blockNumber, seriesNumber)
-        return
-    }
-
-    // Skip the current series number when it's too far behind.
-    if (blockNumber - seriesNumber > config.MAX_LEADING_GAP_SIZE) {
-        await skipBlock(seriesNumber, blockNumber)
-        return
-    }
-
     // Stash "eager" blocks in a holding area if they come in too early.
     if (blockNumber - seriesNumber > 0) {
+        const gap = blockNumber - seriesNumber
+        const shouldLog = (gap >= config.WARN_AT_GAP_SIZE) && (gap % 10 === 0)
+        shouldLog && logger.error(`[${config.CHAIN_ID}] Gap size significant: ${blockNumber} vs. ${seriesNumber}`)
         await addEagerBlockToHoldingZone(blockNumber)
         return
     }
@@ -41,68 +42,9 @@ async function perform({ blockNumber }) {
         return
     }
 
-    // Blocks less than the current series number get pushed through automatically.
-    // Need this to propertly handle re-orgs when the same number comes in again.
-    await generateEventsForBlock(blockNumber, { replay: true })
-}
-
-async function replayFromBlock(skippedBlockNumber: number, currentSeriesNumber: number) {
-    logger.info(chalk.yellowBright(
-        `Replaying blocks ${skippedBlockNumber.toLocaleString()} -> ${(currentSeriesNumber - 1).toLocaleString()}`
-    ))
-
-    // Remove reference to skipped block as "skipped". Do this first 
-    // before processing the block and those ahead of it so that the 
-    // event generator knows it can safely delete the cached block events.
-    await deleteSkippedBlocks(config.CHAIN_ID, [skippedBlockNumber])
-
-    let pastNumber = skippedBlockNumber
-    while (pastNumber < currentSeriesNumber) {
-        await generateEventsForBlock(pastNumber, 
-            pastNumber === skippedBlockNumber ? { skipped: true } : { replay: true }
-        )
-        pastNumber++
-    }
-}
-
-async function skipBlock(seriesNumber: number, latestBlockNumber: number) {
-    logger.error(chalk.redBright(`Skipping block ${seriesNumber.toLocaleString()}`))
-
-    const eagerNumbers = new Set(await getEagerBlocks(config.CHAIN_ID))
-    const blocksToProcess = []
-    const eagerBlocksToRemove = []
-
-    // Walk forward, processing each block ahead of the one being skipped.
-    let newSeriesNumber = seriesNumber + 1
-    while (newSeriesNumber <= latestBlockNumber) {
-        const isEager = eagerNumbers.has(newSeriesNumber)
-
-        // Process the block if it's either waiting as an 
-        // eager block or you make it to the end of the loop.
-        if (isEager || newSeriesNumber === latestBlockNumber) {
-            blocksToProcess.push(newSeriesNumber)
-            isEager && eagerBlocksToRemove.push(newSeriesNumber)
-            newSeriesNumber++
-            continue
-        }
-        break // Dip out if you hit a new gap.
-    }
-
-    // If there's still a gap between the new series number and the 
-    // latest one received, then handle the latest number as an eager block.
-    if (newSeriesNumber < latestBlockNumber) {
-        await addEagerBlockToHoldingZone(latestBlockNumber)
-    }
-
-    // Skip block first before processing blocks so they 
-    // know not to delete their cached block events.
-    await markBlockAsSkipped(config.CHAIN_ID, seriesNumber)
-    await processBlocks(blocksToProcess)
-
-    await Promise.all([
-        deleteEagerBlocks(config.CHAIN_ID, eagerBlocksToRemove),
-        setBlockEventsSeriesNumber(config.CHAIN_ID, newSeriesNumber),
-    ])
+    // Blocks less than the current series number get pushed through only in force situations.
+    logger.warn(`Got number less than series number: ${blockNumber} vs. ${seriesNumber}`)
+    await generateEventsForBlock(blockNumber, { replace: true })
 }
 
 async function addEagerBlockToHoldingZone(blockNumber: number) {

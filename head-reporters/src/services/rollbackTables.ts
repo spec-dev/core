@@ -10,51 +10,108 @@ import {
     StringKeyMap, 
     randomIntegerInRange, 
     sleep,
-    resolveLiveObjectTablesForChainId,
     sum,
-    range,
     toChunks,
+    identPath,
+    getBlockEventsSeriesNumber,
+    setBlockEventsSeriesNumber,
+    getEagerBlocks,
+    deleteEagerBlocks,
+    CoreDB,
+    markLovFailure,
+    updateLiveObjectVersionStatus,
+    LiveObjectVersionStatus,
 } from '../../../shared'
 
-const identPath = (value: string): string => (
-    value.split('.').map((v) => ident(v)).join('.')
-)
-
-async function rollbackTables(chainId: string, block: BlockHeader) {
+export async function rollbackTables(chainId: string, block: BlockHeader) {
     const blockNumber = Number(block.number)
+    const blockTimestamp = new Date(new Date(block.timestamp as number * 1000).toUTCString()).toISOString()
 
     // Split primitive tables into 2 buckets, those that are "append-only" & those that can be updated in-place.
     const { appendOnlyPrimitives, updatablePrimitives } = getPrimitivesByType(chainId)
+    const updatablePrimitiveTablePaths = new Set(updatablePrimitives.map(p => p.table))
 
-    // Delete from append-only primitive tables >= blockNumber
+    // Delete from append-only primitive tables >= blockNumber.
     await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber)
 
-    // Get all live object tables, then merge that with the updatable primitives. 
-    // The result is a grouping of all tables that are being tracked for operations.
-    const liveObjectTables = (await resolveLiveObjectTablesForChainId(chainId)).map(table => ({ 
-        table,
-        appendOnly: false,
-        crossChain: true,
-    }))
-    const opTables = [...updatablePrimitives, ...liveObjectTables]
+    // Get all tables that are being tracked for operations.
+    const opTables: StringKeyMap[] = updatablePrimitives.map(obj => ({ ...obj, isPrimitive: true }))
+    const opTrackingTablePaths = await getOpTrackingTablesForChain(chainId)
+    for (const tablePath of opTrackingTablePaths) {
+        if (updatablePrimitiveTablePaths.has(tablePath)) continue
+        opTables.push({
+            table: tablePath,
+            appendOnly: false,
+            crossChain: true,
+            isPrimitive: false,
+        })
+    }
+    const crossChainTablePaths = new Set(opTables.filter(t => t.crossChain).map(t => t.table))
 
     // Get snapshots of records that need to be rolled back.
-    const recordSnapshotOps = await getTargetRecordSnapshotOps(opTables, chainId, blockNumber)
+    const recordSnapshotOps = await getTargetRecordSnapshotOps(opTables, chainId, blockNumber, blockTimestamp)
     const numRecordsAffected = sum(Object.values(recordSnapshotOps).map(records => records.length))
     if (!numRecordsAffected) {
+        await rollbackEventSorterSeries(chainId, blockNumber)
         logger.info(chalk.magenta(`No records to roll back.`))
         return
     }
 
+    const rollbackTables = Object.keys(recordSnapshotOps)
     logger.info(chalk.magenta(
-        `Rolling back ${numRecordsAffected} records across ${Object.keys(recordSnapshotOps).length} tables.`
+        `Rolling back ${numRecordsAffected} records across ${rollbackTables.length} tables:\n` + 
+        `${rollbackTables.map(t => `- ${t}`).join('\n')}`
     ))
 
     // Toggle op-tracking and perform the rollback, resetting records to a 
     // previous snapshot AND deleting the ops that kept track of this.
     await toggleOpTracking(opTables, chainId, false)
-    await performRollback(recordSnapshotOps, chainId, blockNumber)
+    await performRollback(
+        recordSnapshotOps, 
+        crossChainTablePaths, 
+        updatablePrimitiveTablePaths, 
+        chainId, 
+        blockNumber, 
+        blockTimestamp,
+    )
     await toggleOpTracking(opTables, chainId, true)
+
+    // Rollback the event sorter.
+    await rollbackEventSorterSeries(chainId, blockNumber)
+}
+
+export async function rollbackTable(
+    table: string,
+    chainId: string, 
+    blockNumber: number,
+    blockTimestamp: string,
+) {
+    logger.info(`Rolling back "${table}" to ${blockNumber} for chain ${chainId}...`)
+    const opRecords = await findEarliestRecordSnapshotsAtOrAboveNumber(
+        table,
+        false,
+        blockNumber,
+        blockTimestamp,
+        chainId,
+    )
+    if (!opRecords.length) {
+        logger.info(`No records to rollback in "${table}" that are >= ${blockNumber} for chain ${chainId}.`)
+        return
+    }
+
+    await toggleOpTracking([{ table }], chainId, false)
+    await rollbackTableRecords(
+        table, 
+        opRecords,
+        true,
+        false,
+        chainId,
+        blockNumber,
+        blockTimestamp,
+    )
+    await toggleOpTracking([{ table }], chainId, true)
+
+    logger.info(chalk.green(`Rollback complete.`))
 }
 
 function getPrimitivesByType(chainId: string) {
@@ -105,6 +162,12 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
     )))
 }
 
+export async function getOpTrackingTablesForChain(chainId: string): Promise<string[]> {
+    return (
+        await SharedTables.query(`select table_path from op_tracking where chain_id = $1`, [chainId])
+    ).map(row => row.table_path)
+}
+
 async function toggleOpTracking(opTables: StringKeyMap[], chainId: string, enabled: boolean) {
     const placeholders = []
     const bindings = []
@@ -122,7 +185,7 @@ async function toggleOpTracking(opTables: StringKeyMap[], chainId: string, enabl
         )    
     } catch (err) {
         logger.error(opTables.map(t => t.table).join(','), err)
-        throw `Failed to toggle op tracking (${enabled}): ${err}`
+        throw `Failed to toggle op tracking to ${enabled} for ${opTables.join(', ')}: ${err}`
     }
 }
 
@@ -130,6 +193,7 @@ async function getTargetRecordSnapshotOps(
     opTables: StringKeyMap[], 
     chainId: string, 
     blockNumber: number,
+    blockTimestamp: string,
 ): Promise<StringKeyMap> {
     const tablePaths = []
     const tablePathBatches = toChunks(opTables, config.ROLLBACK_TABLE_PARALLEL_FACTOR)
@@ -138,11 +202,13 @@ async function getTargetRecordSnapshotOps(
     for (const tables of tablePathBatches) {
         const batchTablePaths = []
         const batchPromises = []
-        for (const { table, crossChain } of tables) {
+        for (const { table, crossChain, isPrimitive } of tables) {
             batchTablePaths.push(table)
             batchPromises.push(findEarliestRecordSnapshotsAtOrAboveNumber(
                 table,
+                isPrimitive,
                 blockNumber,
+                blockTimestamp,
                 crossChain ? chainId : null,
             ))
         }
@@ -162,7 +228,9 @@ async function getTargetRecordSnapshotOps(
 
 async function findEarliestRecordSnapshotsAtOrAboveNumber(
     tablePath: string, 
+    isPrimitive: boolean,
     blockNumber: number,
+    blockTimestamp: string,
     chainId?: string,
 ): Promise<OpRecord[]> {
     let whereClause = `where block_number >= ${literal(blockNumber)}`
@@ -176,17 +244,21 @@ async function findEarliestRecordSnapshotsAtOrAboveNumber(
             `select distinct on (pk_values) * from ${opTable} ${whereClause} order by pk_values, block_number, ts ASC`
         )
     } catch (err) {
-        logger.error(
-            `Error finding record snapshots >= ${blockNumber} (table_path=${opTable}, chain_id=${chainId}): ${err}`
-        )
+        const error = `Error finding record snapshots >= ${blockNumber} (table_path=${opTable}, chain_id=${chainId}): ${err}`
+        logger.error(err)
+        if (isPrimitive) throw error
+        setLiveObjectVersionsThatRelyOnTableToFailing(tablePath, chainId, blockNumber, blockTimestamp as string)
         return []
     }
 }
 
 async function performRollback(
     recordSnapshotOps: StringKeyMap,
+    crossChainTablePaths: Set<string>,
+    updatablePrimitiveTablePaths: Set<string>,
     chainId: string,
     blockNumber: number,
+    blockTimestamp: string,
 ) {
     const tablePaths = Object.keys(recordSnapshotOps)
     const tablePathBatches = toChunks(tablePaths, config.ROLLBACK_TABLE_PARALLEL_FACTOR)
@@ -194,8 +266,11 @@ async function performRollback(
         await Promise.all(batchTablePaths.map(tablePath => rollbackTableRecords(
             tablePath,
             recordSnapshotOps[tablePath],
+            crossChainTablePaths.has(tablePath),
+            updatablePrimitiveTablePaths.has(tablePath),
             chainId,
             blockNumber,
+            blockTimestamp,
         )))
     }
 }
@@ -203,8 +278,11 @@ async function performRollback(
 async function rollbackTableRecords(
     tablePath: string, 
     opRecords: OpRecord[],
+    isCrossChain: boolean,
+    isPrimitive: boolean,
     chainId: string,
     blockNumber: number,
+    blockTimestamp: string,
 ) {
     const upserts = []
     const deletes = []
@@ -232,21 +310,55 @@ async function rollbackTableRecords(
     const upsertGroups = toChunks(upserts, 2000)
     const deleteGroups = toChunks(deletes, 2000)
 
-    try {
-        await Promise.all([
-            ...upsertGroups.map(records => upsertRecordsToPreviousStates(tablePath, records, chainId, blockNumber)),
-            ...deleteGroups.map(records => rollbackRecordsWithDeletion(tablePath, records, chainId, blockNumber)),
-        ])    
-    } catch (err) {
-        logger.error(`[${chainId}:${blockNumber}] Failed to rollback ops for ${tablePath}:`, err)
+    let attempt = 1
+    while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
+        try {
+            await SharedTables.manager.transaction(async (tx) => {
+                // Rollback records.
+                await Promise.all([
+                    ...upsertGroups.map(records => upsertRecordsToPreviousStates(tablePath, records, tx)),
+                    ...deleteGroups.map(records => rollbackRecordsWithDeletion(tablePath, records, tx)),
+                ])
+
+                // Remove ops.
+                const opsTablePath = `${tablePath}_ops`
+                let removeOpsQuery = `delete from ${identPath(opsTablePath)} where "block_number" >= $1`
+                const bindings: any[] = [blockNumber]
+                if (isCrossChain) {
+                    removeOpsQuery += ` and "chain_id" = $2`
+                    bindings.push(chainId)
+                }
+                await tx.query(removeOpsQuery, bindings)     
+            })
+            break
+        } catch (err) {
+            attempt++
+            logger.error(`Error rolling back ${tablePath} >= ${blockNumber}`, err)
+            const message = err.message || err.toString() || ''
+        
+            // Wait and try again if deadlocked.
+            if (message.toLowerCase().includes('deadlock')) {
+                logger.error(
+                    `[${chainId}:${blockNumber} - Rolling back ${tablePath}] 
+                    Got deadlock on attempt ${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK}.`
+                )
+                await sleep(randomIntegerInRange(50, 500))
+                continue
+            } else {
+                const error = `[${chainId}:${blockNumber}] Failed to rollback ops for ${tablePath}: ${err}`
+                logger.error(error)
+                if (isPrimitive) throw error
+                setLiveObjectVersionsThatRelyOnTableToFailing(tablePath, chainId, blockNumber, blockTimestamp) 
+                break
+            }
+        }
     }
 }
 
 async function upsertRecordsToPreviousStates(
     tablePath: string, 
     opRecords: OpRecord[],
-    chainId: string,
-    blockNumber: number,
+    tx: any,
 ) {
     if (!opRecords.length) return
 
@@ -255,8 +367,6 @@ async function upsertRecordsToPreviousStates(
         const conflictColNames = opRecord.pk_names.split(',').map(name => name.trim())
         const conflictColNamesSet = new Set(conflictColNames)
         const conflictColValues = opRecord.pk_values.split(',').map(value => value.trim())
-
-        // TODO: Figure out if you need to JSON.parse the "before" column or not.
         const updateColNames = []
         const updateColValues = []
         const sortedRecordKeys = Object.keys(opRecord.before).sort()
@@ -278,6 +388,8 @@ async function upsertRecordsToPreviousStates(
         })
     }
 
+    const queries = []
+    const bindingGroups = []
     const promises = []
     const opRecordGroups = []
     for (const key in rollbackGroups) {
@@ -307,49 +419,26 @@ async function upsertRecordsToPreviousStates(
             query += ` on conflict (${conflictColNames.map(ident).join(', ')}) do update set ${updateClause}`
         }
 
-        promises.push(runQueryWithDeadlockProtection(
-            tablePath,
-            query,
-            bindings,
-            chainId,
-            blockNumber,
-        ))
+        queries.push(query)
+        bindingGroups.push(bindings)
+        promises.push(tx.query(query, bindings))
     }
 
-    const results = await Promise.all(promises)
-    const opsTablePath = `${tablePath}_ops`
-    const removeOpRecordPromises = []
-
-    for (let i = 0; i < results.length; i++) {
-        const success = results[i]
-        const groupOpRecords = opRecordGroups[i]
-        const pks = groupOpRecords.map(r => r.id)
-        if (!success) {
-            logger.error(chalk.yellow(
-                `Leaving op records in ${opsTablePath}: ${pks.join(',')}`
-            ))
-            continue
-        }
-
-        const placeholders = range(1, groupOpRecords.length).map(i => `$${i}`)
-        const removeOpsQuery = `delete from ${identPath(opsTablePath)} where id in (${placeholders.join(', ')})`
-        removeOpRecordPromises.push(runQueryWithDeadlockProtection(
-            opsTablePath,
-            removeOpsQuery,
-            pks,
-            chainId,
-            blockNumber,
-        ))
+    try {
+        await Promise.all(promises)
+    } catch (err) {
+        queries.forEach((query, i) => {
+            logger.info(query)
+            logger.info(bindingGroups[i])
+        })
+        throw err
     }
-
-    await Promise.all(removeOpRecordPromises)
 }
 
 async function rollbackRecordsWithDeletion(
     tablePath: string, 
     opRecords: OpRecord[],
-    chainId: string,
-    blockNumber: number,
+    tx: any,
 ) {
     if (!opRecords.length) return
 
@@ -373,34 +462,13 @@ async function rollbackRecordsWithDeletion(
     const conditions = orClauses.join(' or ')
     const query = `delete from ${identPath(tablePath)} where ${conditions}`
 
-    const success = await runQueryWithDeadlockProtection(
-        tablePath,
-        query,
-        bindings,
-        chainId,
-        blockNumber,
-    )
-
-    const opsTablePath = `${tablePath}_ops`
-    const pks = opRecords.map(r => r.id)
-
-    if (!success) {
-        logger.error(chalk.yellow(
-            `Leaving op records in ${opsTablePath}: ${pks.join(',')}`
-        ))
-        return
+    try {
+        await tx.query(query, bindings)
+    } catch (err) {
+        logger.info(query)
+        logger.info(bindings)
+        throw err
     }
-
-    const placeholders = range(1, opRecords.length).map(i => `$${i}`)
-    const removeOpsQuery = `delete from ${identPath(opsTablePath)} where id in (${placeholders.join(', ')})`
-    await runQueryWithDeadlockProtection(
-        opsTablePath,
-        removeOpsQuery,
-        pks,
-        chainId,
-        blockNumber,
-        config.MAX_ROLLBACK_QUERY_TIME,
-    )
 }
 
 function determineOpTypeFromRecord(opRecord: OpRecord): OpType {
@@ -433,11 +501,7 @@ async function runQueryWithDeadlockProtection(
     chainId: string,
     blockNumber: number,
     attempt: number = 0
-): Promise<boolean> {
-    // if (query.startsWith('insert')) {
-    console.log(blockNumber, query)
-    console.log(bindings)
-    // }
+) {
     try {
         await SharedTables.query(query, bindings)
     } catch (err) {
@@ -446,7 +510,7 @@ async function runQueryWithDeadlockProtection(
 
         // Wait and try again if deadlocked.
         if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-            this._error(
+            logger.error(
                 `[${chainId}:${blockNumber} - Rolling back ${table} - Attempt ${attempt}] Got deadlock, trying again...`
             )
             await sleep(randomIntegerInRange(50, 500))
@@ -455,14 +519,54 @@ async function runQueryWithDeadlockProtection(
                 query,
                 bindings, 
                 chainId, 
-                blockNumber, 
+                blockNumber,
                 attempt + 1,
             )
         }
-        logger.error(chalk.red(`[${chainId}:${blockNumber}] Rolling back ${table} failed.`))
-        return false
+
+        const finalErr = `[${chainId}:${blockNumber}] Rolling back ${table} failed.`
+        logger.error(chalk.red(finalErr))
+        throw finalErr
     }
-    return true
 }
 
-export default rollbackTables
+async function rollbackEventSorterSeries(chainId: string, blockNumber: number) {
+    const [currentSeriesNumber, currentEagerBlocks] = await Promise.all([
+        getBlockEventsSeriesNumber(chainId),
+        getEagerBlocks(chainId),
+    ])
+    // Never set the series number forward.
+    if (currentSeriesNumber === null || blockNumber > currentSeriesNumber) {
+        return
+    }
+    // Set series back to floor of rollback.
+    await Promise.all([
+        setBlockEventsSeriesNumber(chainId, blockNumber),
+        deleteEagerBlocks(chainId, currentEagerBlocks.filter(n => n >= blockNumber)),
+    ])
+}
+
+async function setLiveObjectVersionsThatRelyOnTableToFailing(
+    tablePath: string,
+    chainId: string,
+    blockNumber: number,
+    blockTimestamp: string,
+) {
+    const lovIds = ((await CoreDB.query(
+        `select id from live_object_versions where config->>'table' = $1`,
+        [tablePath],
+    )) || []).map(r => r.id)
+    if (!lovIds.length) {
+        logger.error(`[${chainId}:${blockNumber}:${blockTimestamp}] ${chalk.redBright(`No live object versions seem to rely on "${tablePath}".`)}`)
+        return
+    }
+    
+    logger.error(`[${chainId}:${blockNumber}:${blockTimestamp}] ${chalk.redBright(
+        `Setting live object versions that rely on "${tablePath}" to failing:`
+    )}\n${lovIds.map(id => `- ${chalk.redBright(id)}\n`)}`)
+    
+    await Promise.all([
+        updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing),
+        ...lovIds.map(lovId => markLovFailure(lovId, blockTimestamp)),
+    ])
+}

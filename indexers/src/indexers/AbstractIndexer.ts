@@ -19,15 +19,20 @@ import {
     snakeToCamel,
     toChunks,
     canBlockBeOperatedOn,
+    sleep,
+    randomIntegerInRange,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
 import { Pool } from 'pg'
 import { reportBlockEvents } from '../events'
 import chalk from 'chalk'
+import { ident } from 'pg-format'
 
 class AbstractIndexer {
     head: NewReportedHead
+
+    timedOut: boolean = false
 
     resolvedBlockHash: string | null
 
@@ -58,7 +63,7 @@ class AbstractIndexer {
     }
 
     get blockHash(): string | null {
-        return this.head.blockHash || this.resolvedBlockHash
+        return this.resolvedBlockHash || this.head.blockHash
     }
 
     get logPrefix(): string {
@@ -75,12 +80,13 @@ class AbstractIndexer {
         this.blockUnixTimestamp = null
         this.contractEventNsp = contractNamespaceForChainId(this.chainId)
         this.pool = new Pool({
-            host : config.SHARED_TABLES_DB_HOST,
-            port : config.SHARED_TABLES_DB_PORT,
-            user : config.SHARED_TABLES_DB_USERNAME,
-            password : config.SHARED_TABLES_DB_PASSWORD,
-            database : config.SHARED_TABLES_DB_NAME,
+            host: config.SHARED_TABLES_DB_HOST,
+            port: config.SHARED_TABLES_DB_PORT,
+            user: config.SHARED_TABLES_DB_USERNAME,
+            password: config.SHARED_TABLES_DB_PASSWORD,
+            database: config.SHARED_TABLES_DB_NAME,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
+            connectionTimeoutMillis: 60000,
         })
         this.pool.on('error', err => logger.error('PG client error', err))
     }
@@ -88,17 +94,17 @@ class AbstractIndexer {
     async perform(): Promise<StringKeyMap | void> {
         config.IS_RANGE_MODE ||
             logger.info(
-                `\n${this.logPrefix} Indexing block ${this.blockNumber} (${this.blockHash})...`
+                `\n${this.logPrefix} Indexing block ${this.blockNumber}...`
             )
 
         if (this.head.replace) {
-            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} (${this.blockHash})...`))
+            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
         }
     }
 
     async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
         if (!(await this._shouldContinue())) {
-            this._warn('Reorg was detected mid-indexing. Stopping inside _kickBlockDownstream.')
+            this._warn('Job stopped mid-indexing inside _kickBlockDownstream.')
             return
         }
 
@@ -112,12 +118,10 @@ class AbstractIndexer {
 
     async _blockAlreadyExists(schema: string): Promise<boolean> {
         try {
-            const colName = this.blockHash ? 'hash' : 'number'
-            const value = this.blockHash || this.blockNumber
             return (
                 await SharedTables.query(
-                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where ${colName} = $1)`,
-                    [value]
+                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where number = $1)`,
+                    [this.blockNumber]
                 )
             )[0]?.exists
         } catch (err) {
@@ -126,24 +130,33 @@ class AbstractIndexer {
         }
     }
 
-    async _upsertErc20Tokens(erc20Tokens: Erc20Token[], tx: any) {
+    async _upsertErc20Tokens(erc20Tokens: Erc20Token[]) {
         if (!erc20Tokens.length) return
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `tokens.erc20_tokens.last_updated < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
-        this.erc20Tokens = (
-            await tx
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(Erc20Token)
-                .values(erc20Tokens.map((c) => ({ ...c, 
+                .values(erc20Tokens.map((c) => ({ 
+                    ...c, 
                     blockTimestamp: () => blockTimestamp,
                     lastUpdated: () => blockTimestamp
                 })))
-                .orUpdate(updateCols, conflictCols)
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        }
+        this.erc20Tokens = ((
+            await this._withDeadlockProtection(run, 'erc20_tokens')
+        ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Token[]
     }
 
     async _upsertTokenTransfers(tokenTransfers: TokenTransfer[]) {
@@ -154,16 +167,17 @@ class AbstractIndexer {
         this.tokenTransfers = (
             await Promise.all(
                 toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(TokenTransfer)
-                        .values(chunk.map((c) => ({ ...c, 
-                            blockTimestamp: () => blockTimestamp,
-                        })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(TokenTransfer)
+                            .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'token_transfers')
                 })
             )
         )
@@ -171,13 +185,16 @@ class AbstractIndexer {
             .flat() as TokenTransfer[]
     }
     
-    async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
+    async _upsertNftCollections(nftCollections: NftCollection[]) {
         if (!nftCollections.length) return
         const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `tokens.nft_collections.last_updated < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
-        this.nftCollections = (
-            await tx
+        const run = async () => {
+            return SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(NftCollection)
@@ -185,10 +202,15 @@ class AbstractIndexer {
                     blockTimestamp: () => blockTimestamp,
                     lastUpdated: () => blockTimestamp
                 })))
-                .orUpdate(updateCols, conflictCols)
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        }
+        this.nftCollections = ((
+            await this._withDeadlockProtection(run, 'nft_collections')
+        ).generatedMaps || []).filter(n => n && !!Object.keys(n).length) as NftCollection[]
     }
 
     async _upsertNftTransfers(nftTransfers: NftTransfer[]) {
@@ -199,16 +221,17 @@ class AbstractIndexer {
         this.nftTransfers = (
             await Promise.all(
                 toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return SharedTables
-                        .createQueryBuilder()
-                        .insert()
-                        .into(NftTransfer)
-                        .values(chunk.map((c) => ({ ...c, 
-                            blockTimestamp: () => blockTimestamp,
-                        })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
+                    const run = async () => {
+                        return SharedTables
+                            .createQueryBuilder()
+                            .insert()
+                            .into(NftTransfer)
+                            .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
+                            .orUpdate(updateCols, conflictCols)
+                            .returning('*')
+                            .execute()
+                    }
+                    return this._withDeadlockProtection(run, 'nft_transfers')
                 })
             )
         )
@@ -228,27 +251,46 @@ class AbstractIndexer {
             i += 3
         }
         
-        const client = await this.pool.connect()
+        const run = async () => {
+            const client = await this.pool.connect()
+            try {
+                // Create temp table and insert updates + primary key data.
+                await client.query('BEGIN')
+                await client.query(
+                    `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
+                )
+    
+                // Bulk insert the updated records to the temp table.
+                await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
+    
+                // Merge the temp table updates into the target table ("bulk update").
+                await client.query(
+                    `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
+                )
+                await client.query('COMMIT')
+            } catch (e) {
+                await client.query('ROLLBACK')
+                this._error(`Error bulk updating ERC-20 Tokens`, updates, e)
+            } finally {
+                client.release()
+            }
+        }
+
+        await this._withDeadlockProtection(run, 'erc20_tokens')
+    }
+
+    async _withDeadlockProtection(fn: Function, table: string, attempt: number = 1) {
         try {
-            // Create temp table and insert updates + primary key data.
-            await client.query('BEGIN')
-            await client.query(
-                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
-            )
-
-            // Bulk insert the updated records to the temp table.
-            await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
-
-            // Merge the temp table updates into the target table ("bulk update").
-            await client.query(
-                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id`
-            )
-            await client.query('COMMIT')
-        } catch (e) {
-            await client.query('ROLLBACK')
-            this._error(`Error bulk updating ERC-20 Tokens`, updates, e)
-        } finally {
-            client.release()
+            return await fn()
+        } catch (err) {
+            const message = err.message || err.toString() || ''
+            if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+                this._error(`Got deadlock (${table}). Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+                await sleep(randomIntegerInRange(50, 500))
+                return await this._withDeadlockProtection(fn, table, attempt + 1)
+            } else {
+                throw err
+            }
         }
     }
 
@@ -257,6 +299,10 @@ class AbstractIndexer {
      * back to a previous block number -- in which case everything should stop.
      */
     async _shouldContinue(): Promise<boolean> {
+        if (this.timedOut) {
+            this._warn(`Job timed out.`)
+            return false
+        }
         if (config.IS_RANGE_MODE || this.head.force) return true
         return await canBlockBeOperatedOn(this.chainId, this.blockNumber)
     }

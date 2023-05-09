@@ -6,7 +6,7 @@ import { BlockHeader } from 'web3-eth'
 function newFakeBlockHeader(number: number): BlockHeader {
     return {
         number: number,
-        hash: `0xhash${number}`,
+        hash: null,
         parentHash: '',
         nonce: '',
         sha3Uncles: '',
@@ -23,33 +23,20 @@ function newFakeBlockHeader(number: number): BlockHeader {
 } 
 
 const numbers = [
-    42206170,
-    42206171,
-    42206172,
-    42206173,
-    42206174,
-    42206175,
-    42206176,
-    42206177,
-    42206178,
-    42206179,
-    42206180,
-    [42206177, 42206178, 42206179, 42206180],
-    42206181,
-    42206182,
-    42206183,
-    42206184,
-    42206185,
-    42206186,
-    42206187,
-    42206188,
-    42206189,
-    42206190,
-    42206191,
-    42206192,
-    42206193,
-    42206194,
-    42206195,
+    42317975,
+    42317976,
+    42317977,
+    42317978,
+    42317979,
+    [42317976, 42317977, 42317978, 42317979],
+    42317980,
+    42317981,
+    42317982,
+    42317983,
+    42317984,
+    42317985,
+    42317986,
+    42317987,
 ]
 
 async function fakeNewHeads(reporter: EvmReporter) {
@@ -66,7 +53,7 @@ async function fakeNewHeads(reporter: EvmReporter) {
             reporter._onNewBlockHeader(newFakeBlockHeader(entry))
         }
         i++
-    }, randomIntegerInRange(1500, 2000))
+    }, randomIntegerInRange(1800, 2200))
 }
 
 async function listen() {

@@ -4,12 +4,15 @@ import config from './lib/config'
 import codes from './lib/codes'
 import paths from './lib/paths'
 import errors from './lib/errors'
-import { specEnvs, logger } from '../../shared'
-import { getQueryPayload, getTxPayload } from './lib/payload'
+import { getQueryPayload, getTxPayload, isTableOpRestricted } from './lib/payload'
 import { performQuery, performTx, createQueryStream, loadSchemaRoles } from './lib/db'
 import { streamQuery, cleanupStream } from './lib/stream'
 import { authRequest } from './lib/auth'
 import { QueryPayload } from '@spec.dev/qb'
+import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis } from '../../shared'
+
+const indexerRedisPromise = indexerRedis.connect()
+const pipelineCache = {}
 
 // Create Express app.
 const app = express()
@@ -33,10 +36,16 @@ app.post(paths.QUERY, async (req, res) => {
         return res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
     }
 
+    // Parse sql and bindings from payload.
     const [query, isValid] = getQueryPayload(req.body, claims || {})
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
+    }
+
+    // Prevent table ops on failing tables or on block numbers that are >= ceiling.
+    if (isTableOpRestricted(req.body, query, pipelineCache)) {
+        return res.status(codes.SUCCESS).json([])
     }
 
     // Run query and return JSON array of results.
@@ -66,6 +75,11 @@ app.post(paths.TRANSACTION, async (req, res) => {
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, queries)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
+    }
+
+    // Prevent table ops on failing tables or on block numbers that are >= ceiling.
+    if (isTableOpRestricted(req.body, queries, pipelineCache)) {
+        return res.status(codes.SUCCESS).json(queries.map(_ => []))
     }
 
     // Perform all given queries in a single transaction & return JSON array of results.
@@ -117,8 +131,39 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
 
 ;(async () => {
     // Start polling shared tables for the existing schema roles.
-    await loadSchemaRoles()
+    await Promise.all([loadSchemaRoles(), indexerRedisPromise])
     setInterval(() => loadSchemaRoles(), config.LOAD_SCHEMA_ROLES_INTERVAL)
+
+    const supportedChainIdsArray = Array.from(supportedChainIds)
+    const updatePipelineCache = async () => {
+        const chainIds = []
+        const failingTablesPromises = []
+        const blockOpsCeilingPromises = []
+        for (const chainId of supportedChainIdsArray) {
+            chainIds.push(chainId)
+            failingTablesPromises.push(getFailingTables(chainId))
+            blockOpsCeilingPromises.push(getBlockOpsCeiling(chainId))
+        }
+        let updates = []
+        try {
+            updates = await Promise.all([...failingTablesPromises, ...blockOpsCeilingPromises])
+        } catch (err) {
+            logger.error(err)
+            return
+        }
+        const failingTablesGroups = updates.slice(0, supportedChainIdsArray.length)
+        const blockOpsCeilings = updates.slice(supportedChainIdsArray.length)
+        for (let i = 0; i < chainIds.length; i++) {
+            const chainId = chainIds[i]
+            const failingTables = failingTablesGroups[i] || []
+            const blockOpsCeiling = blockOpsCeilings[i] || null
+            pipelineCache[chainId] = pipelineCache[chainId] || {}
+            pipelineCache[chainId].failingTables = new Set(failingTables)
+            pipelineCache[chainId].blockOpsCeiling = blockOpsCeiling
+        }
+    }
+    await updatePipelineCache()
+    setInterval(() => updatePipelineCache(), config.UPDATE_PIPELINE_CACHE_INTERVAL)
 
     // Start express server.
     const server = app.listen(config.PORT, () => (

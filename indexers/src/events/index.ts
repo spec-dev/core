@@ -1,4 +1,4 @@
-import { Queue, QueueScheduler } from 'bullmq'
+import { Queue } from 'bullmq'
 import config from '../config'
 import eth from './eth'
 import ivy from './ivy'
@@ -20,27 +20,19 @@ const queue = new Queue(queueKey, {
     },
     defaultJobOptions: {
         attempts: 5,
+        removeOnComplete: true,
+        removeOnFail: 10,
         backoff: {
             type: 'fixed',
-            delay: 2000,
+            delay: config.JOB_DELAY_ON_FAILURE,
         },
     },
 })
 
-const queueScheduler = new QueueScheduler(queueKey, {
-    connection: {
-        host: config.INDEXER_REDIS_HOST,
-        port: config.INDEXER_REDIS_PORT,
-    }
-})
-
 export async function reportBlockEvents(blockNumber: number) {
     blockNumber = Number(blockNumber)
-    logger.info(`Reporting block events...`)
-
+    logger.info(`[${config.CHAIN_ID}:${blockNumber}] Reporting block events...`)
     await queue.add(config.SORT_BLOCK_EVENTS_JOB_NAME, { blockNumber }, {
         priority: blockNumber,
-        removeOnComplete: true,
-        removeOnFail: 10,
     })
 }

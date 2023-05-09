@@ -4,7 +4,6 @@ import { NewBlockEvent } from './types'
 import { SharedTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId } from '../../shared'
 import { Queue, QueueScheduler } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
-import { gapTolerances, checkInTolerances } from './utils/tolerances'
 
 class GapDetector {
 
@@ -47,7 +46,7 @@ class GapDetector {
             this.pgListener.notifications.on(this._chainChannel(chainId), e => this._onNewBlock(e, chainId))
         })
 
-        setInterval(() => this._monitorReenqueuedBlocks(), 20000)
+        setInterval(() => this._monitorReenqueuedBlocks(), config.MONITOR_REQUEUED_BLOCKS_INTERVAL)
 
         setTimeout(() => {
             for (const chainId of this.chains) {
@@ -96,7 +95,7 @@ class GapDetector {
         }
         this.lastSeenBlock[chainId] = Math.max(lastSeenBlock, newBlockNumber)
 
-        const gapTolerance = gapTolerances[chainId] || 5
+        const gapTolerance = config.GAP_TOLERANCE
         const numbersToReenqueue = []
         const missing = this._sortInts(Array.from(this.missingBlocks[chainId]))
         for (const number of missing) {
@@ -132,7 +131,7 @@ class GapDetector {
     }
     
     _resetCheckInTimer(chainId: string) {
-        const requiredCheckInTime = checkInTolerances[chainId] || 60000
+        const requiredCheckInTime = config.CHECK_IN_TOLERANCE
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
             logger.error(
@@ -277,7 +276,7 @@ class GapDetector {
                 `Finding gaps with series generation failed. ` + 
                 `Couldn't find largest block number for in schema ${schema}`
             )
-            await sleep(20000)
+            await sleep(config.SERIES_GEN_INTERVAL)
             this._findGapsWithSeriesGeneration(chainId)
             return
         }
@@ -291,7 +290,7 @@ class GapDetector {
                 `Finding gaps with series generation failed. ` + 
                 `Couldn't find missing block numbers in series (${from}, ${to}) for schema ${schema}`
             )
-            await sleep(20000)
+            await sleep(config.SERIES_GEN_INTERVAL)
             this._findGapsWithSeriesGeneration(chainId)
             return
         }
@@ -307,7 +306,7 @@ class GapDetector {
         )
         const missingNumbersNotAlreadyReenqueued = missingNumbers.filter(n => !chainReenqueuedBlockNumbers.has(n))
         if (!missingNumbersNotAlreadyReenqueued.length) {
-            await sleep(20000)
+            await sleep(config.SERIES_GEN_INTERVAL)
             this._findGapsWithSeriesGeneration(chainId)
             return
         }
@@ -315,7 +314,7 @@ class GapDetector {
         // Add them to a shared pending object and wait 20sec for other methods 
         // to remove these entries as the blocks appear (potentially).
         this.numbersPendingReenqueue[chainId] = new Set(missingNumbersNotAlreadyReenqueued)
-        await sleep(20000)
+        await sleep(config.SERIES_GEN_INTERVAL)
 
         // Get final group of missing numbers to reenqueue.
         const numbersToReenqueue = this._sortInts(Array.from(this.numbersPendingReenqueue[chainId]))
