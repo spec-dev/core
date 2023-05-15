@@ -32,6 +32,8 @@ spec:
           value: {{EVENT_GENERATORS_JWT}}
         - name: EVENT_RELAY_HOSTNAME
           value: {{EVENT_RELAY_HOSTNAME}}
+        - name: EVENT_RELAY_PORT
+          value: "443"
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: CORE_DB_NAME
