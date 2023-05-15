@@ -9,7 +9,6 @@ rollbackTarget = rollbackTarget !== null && !Number.isNaN(rollbackTarget) ? roll
 
 const hrConfig: StringKeyMap = {
     ...config,
-    CHAIN_ID: ev('CHAIN_ID'),
     ALCHEMY_SUBSCRIPTION_URL: ev('ALCHEMY_SUBSCRIPTION_URL'),
     FORCE_REINDEX: [true, 'true'].includes(ev('FORCE_REINDEX', '').toLowerCase()),
     FORCE_UNCLE_RANGE: forceUncleRange,
@@ -18,7 +17,7 @@ const hrConfig: StringKeyMap = {
     EXPO_BACKOFF_MAX_ATTEMPTS: 10,
     EXPO_BACKOFF_FACTOR: 1.5,
     MAX_REORG_SIZE: 100,
-    ROLLBACK_TABLE_PARALLEL_FACTOR: 10, 
+    ROLLBACK_TABLE_PARALLEL_FACTOR: 10,
     UNCLE_PAUSE_TIME: 30000,
     UNCLE_PAUSE_TIME_IN_BLOCKS: 10,
     ROLLBACK_TABLE: ev('ROLLBACK_TABLE'),

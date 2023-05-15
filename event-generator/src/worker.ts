@@ -1,6 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, setProcessEventGenJobs, shouldProcessEventGenJobs, StringKeyMap } from '../../shared'
+import { logger, setProcessEventGenJobs, shouldProcessEventGenJobs, setGeneratedEventsCursor, StringKeyMap, sleep } from '../../shared'
 import perform from './job'
 import chalk from 'chalk'
 
@@ -45,12 +45,13 @@ export function getWorker(): Worker {
             }
 
             if (!(await shouldProcessEventGenJobs(chainId))) {
-                logger.info(chalk.magenta(`[${chainId}:${blockNumber}] Pausing worker.`))
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Pausing worker.`))
                 worker.pause()
+                await sleep(5)
             }
 
             if (reEnqueue) {
-                logger.info(chalk.magenta(`[${chainId}:${blockNumber}] Re-enqueueing job to be picked up on next deployment.`))
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Re-enqueueing job to be picked up on next deployment.`))
                 await reenqueueJob(blockNumber, job.data)
             }
         },
@@ -64,13 +65,20 @@ export function getWorker(): Worker {
         }
     )
 
+    worker.on('completed', async (job) => {
+        const blockNumber = Number(job.data.blockNumber)
+        const chainId = config.CHAIN_ID
+        await setGeneratedEventsCursor(chainId, blockNumber)
+    })
+
     worker.on('failed', async (job, err) => {
         const { blockNumber } = job.data || {}
         const chainId = config.CHAIN_ID
         logger.error(`[${chainId}:${blockNumber}] ${chalk.redBright('Event generator job failed:')} ${err}`)
-        logger.error(`[${chainId}:${blockNumber}] ${chalk.magenta('Pausing worker & re-enqueueing job for next deployment.')}`)
+        logger.notify(`[${chainId}:${blockNumber}] ${chalk.magenta('Pausing worker & re-enqueueing job for next deployment.')}`)
         await setProcessEventGenJobs(chainId, false)
         worker.pause()
+        await sleep(5)
         await reenqueueJob(Number(blockNumber), job.data)
 
     })

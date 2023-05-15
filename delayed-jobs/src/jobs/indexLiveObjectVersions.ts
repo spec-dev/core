@@ -14,6 +14,7 @@ import {
     unique,
     SharedTables,
     range,
+    getGeneratedEventsCursors,
 } from '../../../shared'
 import config from '../config'
 import fetch from 'cross-fetch'
@@ -31,8 +32,7 @@ export async function indexLiveObjectVersions(
     maxJobTime: number = DEFAULT_MAX_JOB_TIME,
     targetBatchSize: number = DEFAULT_TARGET_BLOCK_BATCH_SIZE,
     shouldGenerateEvents: boolean,
-    disableOpTrackingBefore: boolean,
-    enableOpTrackingAfter: boolean,
+    updateOpTrackingFloor: boolean,
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
 ) {
@@ -44,17 +44,22 @@ export async function indexLiveObjectVersions(
 
     let cursor = null
     try {
-        // Resolve the tables backing each live object if not done yet.
-        lovTables = lovTables.length ? lovTables : await getTablesForLovs(lovIds)
-
         // Get lov input generator.
         const { generator: generateFrom, inputIdsToLovIdsMap, liveObjectVersions } = (
             await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
         ) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
-        
-        // First iteration - before logic.
+
+        // Before/setup logic.
         if (iteration === 1) {
+            // Set op-tracking floors to the head of each chain to prevent ops from 
+            // being tracked for the potentially massive # of historical records
+            // about to be indexed.
+            if (updateOpTrackingFloor) {
+                lovTables = lovTables.length ? lovTables : await getTablesForLovs(lovIds)
+                await updateOpTrackingFloors(lovTables)
+            }
+
             // Set live object version statuses to indexing.
             setLovToIndexingBefore && await updateLiveObjectVersionStatus(
                 lovIds, 
@@ -63,9 +68,6 @@ export async function indexLiveObjectVersions(
             
             // Slight break for race conditions with lovs potentially being saved elsewhere.
             await sleep(1000)
-
-            // Disable all op_tracking entries (across all chains) associated with each lov table.
-            disableOpTrackingBefore && await toggleOpTracking(lovTables, false)
         }
 
         // Index live object versions.
@@ -85,7 +87,6 @@ export async function indexLiveObjectVersions(
 
     // All done -> set to "live".
     if (!cursor) {
-        enableOpTrackingAfter && await toggleOpTracking(lovTables, true)
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         return
@@ -108,16 +109,16 @@ export async function indexLiveObjectVersions(
         maxJobTime,
         targetBatchSize,
         shouldGenerateEvents,
-        disableOpTrackingBefore,
-        enableOpTrackingAfter,
+        updateOpTrackingFloor,
         setLovToIndexingBefore,
         setLovToLiveAfter,
     })
 }
 
 async function getTablesForLovs(lovIds: number[]): Promise<string[]> {
+    let tables = []
     try {
-        return unique((await lovsRepo().find({
+        tables = unique((await lovsRepo().find({
             where: {
                 id: In(lovIds)
             }
@@ -125,18 +126,48 @@ async function getTablesForLovs(lovIds: number[]): Promise<string[]> {
     } catch (err) {
         throw `Failed to get tables for lov ids ${lovIds.join(', ')}: ${err}`
     }
+
+    if (!tables.length) {
+        throw `No tables found for lovIds: ${lovIds.join(', ')}`
+    }
+
+    return tables
 }
 
-async function toggleOpTracking(tables: string[], enabled: boolean) {
-    if (!tables.length) return
-    const phs = range(2, tables.length + 1).map(i => `$${i}`)
+async function updateOpTrackingFloors(tables: string[]) {    
+    const currentHeads = await getGeneratedEventsCursors()
+    if (!Object.keys(currentHeads).length) return
+
+    const updates = []
+    for (const table of tables) {
+        for (const chainId in currentHeads) {
+            const blockNumber = currentHeads[chainId]
+            if (blockNumber === null) continue
+
+            // Shielding against potential race conditions.
+            const opTrackingFloor = Math.max(0, Number(blockNumber) - 10)
+
+            updates.push([
+                table, 
+                chainId, 
+                opTrackingFloor,
+            ])
+        }
+    }
+
+    const queries = []
+    for (const entry of updates) {
+        const [table, chainId, opTrackingFloor] = entry
+        queries.push({
+            sql: `update op_tracking set is_enabled_above = $1 where table_path = $2 and chain_id = $3`,
+            bindings: [opTrackingFloor, table, chainId],
+        })
+    }
+
     try {
-        await SharedTables.query(
-            `update op_tracking set is_enabled = $1 where table_path in (${phs.join(', ')})`,
-            [enabled, ...tables],
-        )    
+        await Promise.all(queries.map(({ sql, bindings}) => SharedTables.query(sql, bindings)))
     } catch (err) {
-        throw `Failed to toggle op tracking to ${enabled} for ${tables.join(', ')}: ${err}`
+        throw `Failed to update op-tracking floors for ${tables.join(', ')}: ${err}`
     }
 }
 
@@ -259,13 +290,8 @@ export default function job(params: StringKeyMap) {
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
     const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BLOCK_BATCH_SIZE
-
-    // Default false.
     const shouldGenerateEvents = params.shouldGenerateEvents === true
-
-    // Default true for both - explicitly set to false if want to turn off.
-    const disableOpTrackingBefore = params.disableOpTrackingBefore !== false
-    const enableOpTrackingAfter = params.enableOpTrackingAfter !== false
+    const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
 
     // TODO: Whether to flip status of lov to indexing/live
     const setLovToIndexingBefore = params.setLovToIndexingBefore !== false
@@ -281,8 +307,7 @@ export default function job(params: StringKeyMap) {
             maxJobTime,
             targetBatchSize,
             shouldGenerateEvents,
-            disableOpTrackingBefore,
-            enableOpTrackingAfter,
+            updateOpTrackingFloor,
             setLovToIndexingBefore,
             setLovToLiveAfter,
         )

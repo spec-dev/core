@@ -22,6 +22,9 @@ chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
 head_reporter_queue_key=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_QUEUE_KEY" )
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_BUGSNAG_API_KEY" )
+publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
+event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -54,6 +57,9 @@ $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
 $shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
+$shared_bin_dir/assert_env "HEAD_REPORTER_BUGSNAG_API_KEY" "$bugsnag_api_key"
+$shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
+$shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -88,8 +94,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="1dee992"
+image_version=$( $shared_bin_dir/latest_sha )
+# image_version="1dee992"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -102,7 +108,10 @@ template=$( cat "$template_path" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
     sed "s|{{HEAD_REPORTER_QUEUE_KEY}}|$head_reporter_queue_key|g" | \
+    sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \
+    sed "s|{{EVENT_RELAY_HOSTNAME}}|$event_relay_hostname|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \

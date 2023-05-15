@@ -1,5 +1,5 @@
 create schema if not exists tokens;
-create table if not exists tokens.nfts (
+create table if not exists tokens.nft_balance (
     id serial primary key,
     token_address character varying(50) not null,
     token_name character varying,
@@ -20,4 +20,4 @@ create table if not exists tokens.nfts (
     block_timestamp timestamp with time zone not null,
     chain_id character varying not null
 );
-create unique index "tokens_nfts_primary_unique_idx" ON tokens.nfts(token_address, token_id, owner_address, chain_id);
+create unique index "tokens_nft_balance_primary_unique_idx" ON tokens.nft_balance(token_address, token_id, owner_address, chain_id);

@@ -66,7 +66,7 @@ class GapDetector {
         if (!event || !event.number || !this.chains.includes(chainId)) return
 
         if (this.checkInDidTimeout[chainId]) {
-            logger.info(`Blocks are back for chain ${chainId} - Got block ${event.number}`)
+            logger.notify(`Blocks are back for chain ${chainId} - Got block ${event.number}`)
             this.checkInDidTimeout[chainId] = false
         }
 
@@ -78,7 +78,7 @@ class GapDetector {
         }
 
         if (this.reenqueuedBlocks[chainId].hasOwnProperty(newBlockNumber)) {
-            logger.info(`[${chainId}:${new Date().toISOString()}] ${newBlockNumber} recovered successfully.`)
+            logger.notify(`[${chainId}:${new Date().toISOString()}] ${newBlockNumber} recovered successfully.`)
             delete this.reenqueuedBlocks[chainId][newBlockNumber]
         }
 
@@ -187,7 +187,7 @@ class GapDetector {
     async _enqueueBlock(indexedBlock: IndexedBlock) {
         const { id, number, hash } = indexedBlock
         const chainId = indexedBlock.chainId.toString()
-        const data: NewReportedHead = {
+        const head: NewReportedHead = {
             id,
             chainId,
             blockNumber: Number(number),
@@ -205,9 +205,8 @@ class GapDetector {
             return
         }
 
-        await queue.add(config.INDEX_BLOCK_JOB_NAME, data, {
-            removeOnComplete: true,
-            removeOnFail: 10,
+        await queue.add(config.INDEX_BLOCK_JOB_NAME, head, {
+            priority: head.blockNumber,
         })
     }
 
@@ -223,10 +222,12 @@ class GapDetector {
                 port: config.INDEXER_REDIS_PORT,
             },
             defaultJobOptions: {
-                attempts: 60,
+                attempts: config.INDEX_JOB_MAX_ATTEMPTS,
+                removeOnComplete: true,
+                removeOnFail: 50,
                 backoff: {
                     type: 'fixed',
-                    delay: 2000,
+                    delay: config.JOB_DELAY_ON_FAILURE,
                 },
             },
         })

@@ -56,7 +56,9 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     series = data.blockNumber
 
     for (const head of heads) {
-        logger.info(chalk.cyanBright(
+        const logMethod = replace ? 'notify' : 'info'
+        const logColor = replace ? 'green' : 'cyanBright'
+        logger[logMethod](chalk[logColor](
             `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
         ))
         await sleep(10)

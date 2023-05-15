@@ -1,6 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, setProcessEventSorterJobs, shouldProcessEventSorterJobs } from '../../shared'
+import { logger, setProcessEventSorterJobs, shouldProcessEventSorterJobs, sleep } from '../../shared'
 import perform from './job'
 import chalk from 'chalk'
 
@@ -45,12 +45,13 @@ export function getWorker(): Worker {
             }
 
             if (!(await shouldProcessEventSorterJobs(chainId))) {
-                logger.info(chalk.magenta(`[${chainId}:${blockNumber}] Pausing worker.`))
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Pausing worker.`))
                 worker.pause()
+                await sleep(5)
             }
 
             if (reEnqueue) {
-                logger.info(chalk.magenta(`[${chainId}:${blockNumber}] Re-enqueueing job to be picked up on next deployment.`))
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Re-enqueueing job to be picked up on next deployment.`))
                 await reenqueueJob(blockNumber)
             }
         },
@@ -68,9 +69,10 @@ export function getWorker(): Worker {
         const { blockNumber } = job.data || {}
         const chainId = config.CHAIN_ID
         logger.error(`[${chainId}:${blockNumber}] ${chalk.redBright('Event sorter job failed:')} ${err}`)
-        logger.error(`[${chainId}:${blockNumber}] ${chalk.magenta('Pausing worker & re-enqueueing job for next deployment.')}`)
+        logger.notify(`[${chainId}:${blockNumber}] ${chalk.magenta('Pausing worker & re-enqueueing job for next deployment.')}`)
         await setProcessEventSorterJobs(chainId, false)
         worker.pause()
+        await sleep(5)
         await reenqueueJob(blockNumber)
     })
 

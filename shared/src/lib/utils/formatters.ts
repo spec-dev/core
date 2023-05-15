@@ -413,3 +413,14 @@ export const toNumber = (val: any): number | null => {
     const num = parseInt(val)
     return Number.isNaN(num) ? null : num
 }
+
+export const shuffle = (arr: any[]) => {
+    let currentIndex = arr.length
+    let randomIndex: number
+    while (currentIndex != 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+        ;[arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]]
+    }
+    return arr
+}

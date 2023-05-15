@@ -97,4 +97,6 @@ spec:
           value: "1"
         - name: FORCE_COLOR
           value: "1" 
+        - name: RPC_POOL_ENDPOINTS
+          value: {{RPC_POOL_ENDPOINTS}}
       restartPolicy: Never

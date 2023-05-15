@@ -18,12 +18,12 @@ function newFakeBlockHeader(number: number): BlockHeader {
         extraData: '',
         gasLimit: 0,
         gasUsed: 0,
-        timestamp: new Date().toISOString(),
+        timestamp: Math.floor(Date.now() / 1000)
     }
 }
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 42354378
+    let number = 42627494
     let lastReorgAt = number
     setInterval(() => {
         if (number - lastReorgAt === 10) {

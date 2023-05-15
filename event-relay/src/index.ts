@@ -5,11 +5,13 @@ import morgan from 'morgan'
 import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { specEnvs, logger, ClaimRole, CoreDB, indexerRedis } from '../../shared'
-import { resolveLiveObjectVersions, getEventsAfterCursors, RPC } from './rpcs'
+import { specEnvs, logger, ClaimRole, CoreDB, indexerRedis, SharedTables, IndexerDB } from '../../shared'
+import { resolveLiveObjectVersions, getEventsAfterCursors, getMostRecentBlockNumbers, isReorgValid, RPC } from './rpcs'
 import { authConnection } from './utils/auth'
 
 const coreDBPromise = CoreDB.initialize()
+const sharedTablesPromise = SharedTables.initialize()
+const indexerDbPromise = IndexerDB.initialize()
 const indexerRedisPromise = indexerRedis.connect()
 
 // Create SocketCluster server options.
@@ -77,7 +79,12 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
 
 // SocketCluster/WebSocket connection handling loop.
 ;(async () => {
-    await Promise.all([coreDBPromise, indexerRedisPromise])
+    await Promise.all([
+        coreDBPromise,
+        sharedTablesPromise,
+        indexerDbPromise,
+        indexerRedisPromise,
+    ])
 
     for await (let {socket} of agServer.listener('connection')) {
         ;(async () => {
@@ -92,6 +99,18 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
                 getEventsAfterCursors(request, pub)
             }
         })()
+        ;(async () => {
+            // RPC - Get the most recent block numbers that events have been generated for.
+            for await (let request of socket.procedure(RPC.GetMostRecentBlockNumbers)) {
+                getMostRecentBlockNumbers(request)
+            }
+        })()
+        ;(async () => {
+            // RPC - Validate that a chain reorg actually occurred.
+            for await (let request of socket.procedure(RPC.ValidateReorg)) {
+                isReorgValid(request)
+            }
+        })()        
         ;(async () => {
             // RPC - Ping / Pong.
             for await (let request of socket.procedure(RPC.Ping)) {

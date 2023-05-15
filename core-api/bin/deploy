@@ -22,6 +22,7 @@ port=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_PORT" )
 log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 core_api_admin_token=$( $shared_bin_dir/env_reader "$env" "CORE_API_ADMIN_TOKEN" )
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "CORE_API_BUGSNAG_API_KEY" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -56,6 +57,7 @@ $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 $shared_bin_dir/assert_env "CORE_API_ADMIN_TOKEN" "$core_api_admin_token"
+$shared_bin_dir/assert_env "CORE_API_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -106,6 +108,7 @@ template=$( cat "$template_path" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
     sed "s|{{CORE_API_ADMIN_TOKEN}}|$core_api_admin_token|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \

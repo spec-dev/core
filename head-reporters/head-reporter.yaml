@@ -68,4 +68,11 @@ spec:
           value: {{CORE_DB_PASSWORD}}
         - name: FORCE_COLOR
           value: "1"
-
+        - name: EVENT_RELAY_HOSTNAME
+          value: {{EVENT_RELAY_HOSTNAME}}
+        - name: PUBLISHER_ROLE_KEY
+          value: {{PUBLISHER_ROLE_KEY}}
+        - name: CONNECT_TO_EVENT_RELAY
+          value: "true"
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}

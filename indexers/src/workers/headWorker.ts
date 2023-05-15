@@ -8,6 +8,7 @@ import {
     sleep,
     shouldProcessIndexJobs,
     setProcessIndexJobs,
+    randomIntegerInRange,
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
@@ -46,9 +47,10 @@ export function getHeadWorker(): Worker {
 
             let reIndex = false
             let attempt = 1
+            let indexer
             while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
                 // Get proper indexer based on head's chain id.
-                const indexer = getIndexer(head)
+                indexer = getIndexer(head)
                 if (!indexer) {
                     throw `No indexer exists for chainId: ${head.chainId}`
                 }
@@ -87,7 +89,10 @@ export function getHeadWorker(): Worker {
                     }
 
                     logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
-                    await sleep(config.JOB_DELAY_ON_FAILURE)
+                    await sleep(randomIntegerInRange(
+                        Math.floor(0.8 * config.JOB_DELAY_ON_FAILURE),
+                        Math.floor(1.2 * config.JOB_DELAY_ON_FAILURE),
+                    ))
                     continue
                 }
                 break
@@ -96,12 +101,13 @@ export function getHeadWorker(): Worker {
             await jobStatusUpdatePromise
 
             if (!(await shouldProcessIndexJobs(head.chainId))) {
-                logger.info(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker.`))
+                logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker.`))
                 worker.pause()
+                await sleep(5)
             }
 
             if (reIndex) {
-                logger.info(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
+                logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
                 await reenqueueJob(head)
             }
         },
@@ -126,9 +132,10 @@ export function getHeadWorker(): Worker {
         logger.error(
             `[${head.chainId}:${head.blockNumber}] ${chalk.redBright('Index block job failed: ')} ${JSON.stringify(err)}.`
         )
-        logger.info(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker & reenqueing job to be picked up by next deployment.`))
+        logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker & reenqueing job to be picked up by next deployment.`))
         await setProcessIndexJobs(head.chainId, false)
         worker.pause()
+        await sleep(5)
         await reenqueueJob(head)
     })
 

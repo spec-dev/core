@@ -17,4 +17,4 @@ create index idx_lens_profiles_ops_order on lens.profiles_ops(pk_values, block_n
 create trigger lens_profiles_insert_ops after insert on lens.profiles for each row execute procedure track_spec_table_ops('id');
 create trigger lens_profiles_update_ops after update on lens.profiles for each row execute procedure track_spec_table_ops('id');
 --
-insert into op_tracking (table_path, chain_id, is_enabled) values ('lens.profiles', '137', true);
+insert into op_tracking (table_path, chain_id, is_enabled_above) values ('lens.profiles', '137', 0);

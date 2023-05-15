@@ -276,15 +276,20 @@ class PolygonIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
-        await Promise.all([
-            this._upsertBlock(block),
-            this._upsertTransactions(transactions),
-            this._upsertLogs(logs),
-            this._upsertTraces(traces),
-            this._upsertContracts(contracts),
-            this._upsertErc20Tokens(erc20Tokens),
-            this._upsertNftCollections(nftCollections),
-        ])
+        const run = async () => {
+            await SharedTables.manager.transaction(async (tx) => {
+                await Promise.all([
+                    this._upsertBlock(block, tx),
+                    this._upsertTransactions(transactions, tx),
+                    this._upsertLogs(logs, tx),
+                    this._upsertTraces(traces, tx),
+                    this._upsertContracts(contracts, tx),
+                    this._upsertErc20Tokens(erc20Tokens, tx),
+                    this._upsertNftCollections(nftCollections, tx),
+                ])
+            })
+        }
+        await this._withDeadlockProtection(run, 'primitives')
     }
 
     async _createAndPublishEvents() {
@@ -1109,7 +1114,6 @@ class PolygonIndexer extends AbstractIndexer {
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
                 )
             }
-            console.log(numAttempts)
             numAttempts += 1
         }
         return receipts || []
@@ -1179,31 +1183,29 @@ class PolygonIndexer extends AbstractIndexer {
         }
     }
 
-    async _upsertBlock(block: PolygonBlock) {
+    async _upsertBlock(block: PolygonBlock, tx: any) {
         const [updateCols, conflictCols] = fullPolygonBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        const run = async () => {
-            return SharedTables
-                .createQueryBuilder()
-                .insert()
-                .into(PolygonBlock)
-                .values({ ...block, timestamp: () => blockTimestamp })
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        }
-        this.block = ((
-            await this._withDeadlockProtection(run, 'blocks')
-        ).generatedMaps[0] as PolygonBlock) || null
+        this.block =
+            (
+                await tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(PolygonBlock)
+                    .values({ ...block, timestamp: () => blockTimestamp })
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps[0] || null
     }
 
-    async _upsertTransactions(transactions: PolygonTransaction[]) {
+    async _upsertTransactions(transactions: PolygonTransaction[], tx: any) {
         if (!transactions.length) return
         const [updateCols, conflictCols] = fullPolygonTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         transactions = uniqueByKeys(transactions, conflictCols) as PolygonTransaction[]
-        const run = async () => {
-            return SharedTables
+        this.transactions = (
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonTransaction)
@@ -1211,13 +1213,10 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        }
-        this.transactions = (
-            await this._withDeadlockProtection(run, 'transactions')
-        ).generatedMaps as PolygonTransaction[]
+        ).generatedMaps || []
     }
 
-    async _upsertLogs(logs: PolygonLog[]) {
+    async _upsertLogs(logs: PolygonLog[], tx: any) {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullPolygonLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1225,25 +1224,22 @@ class PolygonIndexer extends AbstractIndexer {
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(PolygonLog)
-                            .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'logs')
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(PolygonLog)
+                        .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat() as PolygonLog[]
+            .map((result) => result.generatedMaps || [])
+            .flat()
     }
 
-    async _upsertTraces(traces: PolygonTrace[]) {
+    async _upsertTraces(traces: PolygonTrace[], tx: any) {
         if (!traces.length) return
         const [updateCols, conflictCols] = fullPolygonTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1251,31 +1247,28 @@ class PolygonIndexer extends AbstractIndexer {
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(PolygonTrace)
-                            .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'traces')
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(PolygonTrace)
+                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat() as PolygonTrace[]
+            .map((result) => result.generatedMaps || [])
+            .flat()
     }
 
-    async _upsertContracts(contracts: PolygonContract[]) {
+    async _upsertContracts(contracts: PolygonContract[], tx: any) {
         if (!contracts.length) return
         const [updateCols, conflictCols] = fullPolygonContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
         contracts = uniqueByKeys(contracts, conflictCols) as PolygonContract[]
-        const run = async () => {
-            return SharedTables
+        this.contracts = (
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(PolygonContract)
@@ -1283,10 +1276,7 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        }
-        this.contracts = (
-            await this._withDeadlockProtection(run, 'contracts')
-        ).generatedMaps as PolygonContract[]
+        ).generatedMaps || []
     }
 }
 

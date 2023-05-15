@@ -18,16 +18,16 @@ function newFakeBlockHeader(number: number): BlockHeader {
         extraData: '',
         gasLimit: 0,
         gasUsed: 0,
-        timestamp: new Date().toISOString(),    
+        timestamp: Math.floor(Date.now() / 1000)
     }
 } 
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 17210495
+    let number = 17262919
     let lastReorgAt = number
     let hasFlipped = false
     setInterval(async() => {
-        if (!hasFlipped && number - lastReorgAt === 15) {
+        if (!hasFlipped && number - lastReorgAt === 5) {
             hasFlipped = true
             lastReorgAt = number
             for (const n of range(number - 3, number)) {
@@ -38,7 +38,7 @@ async function fakeNewHeads(reporter: EvmReporter) {
             number++
             reporter._onNewBlockHeader(newFakeBlockHeader(number))
         }
-    }, randomIntegerInRange(11000, 12000))
+    }, randomIntegerInRange(10000, 11000))
 }
 
 async function listen() {

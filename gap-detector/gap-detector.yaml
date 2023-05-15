@@ -56,3 +56,5 @@ spec:
           value: {{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: FORCE_COLOR
+          value: "1" 

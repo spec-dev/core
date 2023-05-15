@@ -2,7 +2,6 @@ import config from './config'
 import chalk from 'chalk'
 import fetch from 'cross-fetch'
 import { camelizeKeys } from 'humps'
-import { publishEvents, publishCalls, getDBTimestamp } from './relay'
 import { 
     canBlockBeOperatedOn, 
     logger, 
@@ -16,7 +15,6 @@ import {
     toNamespacedVersion, 
     deleteBlockEvents, 
     deleteBlockCalls, 
-    getSkippedBlocks, 
     newTablesJWT,
     getFailingNamespaces,
     getFailingTables,
@@ -29,6 +27,9 @@ import {
     toDate,
     markLovFailure,
     getLovFailure,
+    publishEvents, 
+    publishCalls,
+    getDBTimestamp,
 } from '../../shared'
 
 /**
@@ -36,16 +37,15 @@ import {
  */
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
-    const skipped = data.skipped || false
-    const replay = data.replay || false
 
     // Ensure re-org hasn't occurred that would affect progress.
-    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {{}
-        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
 
-    logger.info(`\nGenerating calls & events for block ${blockNumber}...`)
+    console.log('')
+    logger.info(`Generating calls & events for block ${blockNumber}...`)
 
     // Get the calls & events for this block number from redis.
     let [blockCalls, blockEvents] = await Promise.all([
@@ -58,8 +58,8 @@ async function perform(data: StringKeyMap) {
     }
 
     // Format/sort the calls & events.
-    const contractCalls = formatContractCalls(blockCalls, skipped, replay)
-    const originEvents = formatOriginEvents(blockEvents, skipped, replay)
+    const contractCalls = sortContractCalls(blockCalls)
+    const originEvents = formatOriginEvents(blockEvents)
 
     // Publish all calls & origin events up-front.
     const hasContractCalls = contractCalls.length > 0
@@ -140,7 +140,7 @@ async function perform(data: StringKeyMap) {
 
     // One last check before event generation.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-event-gen.`))
+        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-event-gen.`))
         return
     }
 
@@ -158,14 +158,9 @@ async function perform(data: StringKeyMap) {
     }
     await Promise.all(promises)
 
-    // If any blocks have been skipped, keep the block calls & events in redis. 
-    // Otherwise, they can safely be removed.
-    const skippedBlocks = await getSkippedBlocks(config.CHAIN_ID)
-    if (skippedBlocks?.length) return
-
     // One last check before deleting calls/events from cache.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-cache-clear.`))
+        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-cache-clear.`))
         return
     }    
 
@@ -175,16 +170,10 @@ async function perform(data: StringKeyMap) {
     ])
 }
 
-function formatOriginEvents(blockEvents: StringKeyMap[], skipped: boolean, replay: boolean): StringKeyMap[] {
+function formatOriginEvents(blockEvents: StringKeyMap[]): StringKeyMap[] {
     const customOriginEvents = []
     const contractEvents = []
     for (const event of (blockEvents || [])) {
-        if (skipped) {
-            event.origin.skipped = skipped
-        }
-        if (replay) {
-            event.origin.replay = replay
-        }
         const isContractEvent = (
             event.origin.hasOwnProperty('transactionIndex') || 
             event.origin.hasOwnProperty('logIndex')
@@ -195,20 +184,6 @@ function formatOriginEvents(blockEvents: StringKeyMap[], skipped: boolean, repla
         ...customOriginEvents, 
         ...sortContractEvents(contractEvents),
     ]
-}
-
-function formatContractCalls(blockCalls: StringKeyMap[], skipped: boolean, replay: boolean): StringKeyMap[] {
-    const contractCalls = []
-    for (const call of (blockCalls || [])) {
-        if (skipped) {
-            call.origin.skipped = skipped
-        }
-        if (replay) {
-            call.origin.replay = replay
-        }
-        contractCalls.push(call)
-    }
-    return sortContractCalls(contractCalls)
 }
 
 async function publishOriginEvents(
@@ -284,7 +259,7 @@ async function generateLiveObjectEventsForNamespace(
 
     // Check before publishing.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
 

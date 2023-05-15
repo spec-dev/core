@@ -53,7 +53,7 @@ export async function rollbackTables(chainId: string, block: BlockHeader) {
     const numRecordsAffected = sum(Object.values(recordSnapshotOps).map(records => records.length))
     if (!numRecordsAffected) {
         await rollbackEventSorterSeries(chainId, blockNumber)
-        logger.info(chalk.magenta(`No records to roll back.`))
+        logger.info(chalk.magenta(`No op-tracked records to roll back.`))
         return
     }
 
@@ -63,9 +63,10 @@ export async function rollbackTables(chainId: string, block: BlockHeader) {
         `${rollbackTables.map(t => `- ${t}`).join('\n')}`
     ))
 
-    // Toggle op-tracking and perform the rollback, resetting records to a 
-    // previous snapshot AND deleting the ops that kept track of this.
-    await toggleOpTracking(opTables, chainId, false)
+    // Update the op-tracking floor to the rollback target number 
+    // and perform the rollback, resetting records to a previous 
+    // snapshot AND deleting the ops that kept track of this.
+    await setOpTrackingFloor(opTables, chainId, blockNumber)
     await performRollback(
         recordSnapshotOps, 
         crossChainTablePaths, 
@@ -74,7 +75,6 @@ export async function rollbackTables(chainId: string, block: BlockHeader) {
         blockNumber, 
         blockTimestamp,
     )
-    await toggleOpTracking(opTables, chainId, true)
 
     // Rollback the event sorter.
     await rollbackEventSorterSeries(chainId, blockNumber)
@@ -99,7 +99,7 @@ export async function rollbackTable(
         return
     }
 
-    await toggleOpTracking([{ table }], chainId, false)
+    await setOpTrackingFloor([{ table }], chainId, blockNumber)
     await rollbackTableRecords(
         table, 
         opRecords,
@@ -109,9 +109,8 @@ export async function rollbackTable(
         blockNumber,
         blockTimestamp,
     )
-    await toggleOpTracking([{ table }], chainId, true)
 
-    logger.info(chalk.green(`Rollback complete.`))
+    logger.info(chalk.green(`Rollback complte.`))
 }
 
 function getPrimitivesByType(chainId: string) {
@@ -168,24 +167,24 @@ export async function getOpTrackingTablesForChain(chainId: string): Promise<stri
     ).map(row => row.table_path)
 }
 
-async function toggleOpTracking(opTables: StringKeyMap[], chainId: string, enabled: boolean) {
+async function setOpTrackingFloor(opTables: StringKeyMap[], chainId: string, blockNumber: number) {
     const placeholders = []
     const bindings = []
     let i = 1
     for (const { table } of opTables) {
         placeholders.push(`($${i}, $${i + 1}, $${i + 2})`)
-        bindings.push(...[table, chainId, enabled])
+        bindings.push(...[table, chainId, blockNumber])
         i += 3
     }
     
     try {
         await SharedTables.query(
-            `insert into op_tracking (table_path, chain_id, is_enabled) values ${placeholders.join(', ')} on conflict (table_path, chain_id) do update set is_enabled = $${i}`,
-            [...bindings, enabled],
+            `insert into op_tracking (table_path, chain_id, is_enabled_above) values ${placeholders.join(', ')} on conflict (table_path, chain_id) do update set is_enabled_above = excluded.is_enabled_above`,
+            bindings,
         )    
     } catch (err) {
         logger.error(opTables.map(t => t.table).join(','), err)
-        throw `Failed to toggle op tracking to ${enabled} for ${opTables.join(', ')}: ${err}`
+        throw `Failed to set op-tracking floor to ${blockNumber} for ${opTables.join(', ')}: ${err}`
     }
 }
 
@@ -241,7 +240,7 @@ async function findEarliestRecordSnapshotsAtOrAboveNumber(
     const opTable = [ident(schema), ident(`${table}_ops`)].join('.')
     try {
         return await SharedTables.query(
-            `select distinct on (pk_values) * from ${opTable} ${whereClause} order by pk_values, block_number, ts ASC`
+            `select distinct on (pk_values) * from ${opTable} ${whereClause} order by pk_values ASC, block_number ASC, ts ASC`
         )
     } catch (err) {
         const error = `Error finding record snapshots >= ${blockNumber} (table_path=${opTable}, chain_id=${chainId}): ${err}`
@@ -388,10 +387,7 @@ async function upsertRecordsToPreviousStates(
         })
     }
 
-    const queries = []
-    const bindingGroups = []
     const promises = []
-    const opRecordGroups = []
     for (const key in rollbackGroups) {
         const upsertOps = rollbackGroups[key]
         const { conflictColNames, updateColNames, columns, upsert } = upsertOps[0]
@@ -399,9 +395,7 @@ async function upsertRecordsToPreviousStates(
         let i = 1
         const placeholders = []
         const bindings = []
-        const groupOpRecords = []
-        for (const { values, opRecord } of upsertOps) {
-            groupOpRecords.push(opRecord)
+        for (const { values } of upsertOps) {
             const recordPlaceholders = []
             for (let j = 0; j < columns.length; j++) {
                 recordPlaceholders.push(`$${i}`)
@@ -410,7 +404,6 @@ async function upsertRecordsToPreviousStates(
             }
             placeholders.push(`(${recordPlaceholders.join(', ')})`)
         }
-        opRecordGroups.push(groupOpRecords)
 
         let query = `insert into ${identPath(tablePath)} (${columns.map(ident).join(', ')}) values ${placeholders.join(', ')}`
 
@@ -419,20 +412,10 @@ async function upsertRecordsToPreviousStates(
             query += ` on conflict (${conflictColNames.map(ident).join(', ')}) do update set ${updateClause}`
         }
 
-        queries.push(query)
-        bindingGroups.push(bindings)
         promises.push(tx.query(query, bindings))
     }
 
-    try {
-        await Promise.all(promises)
-    } catch (err) {
-        queries.forEach((query, i) => {
-            logger.info(query)
-            logger.info(bindingGroups[i])
-        })
-        throw err
-    }
+    await Promise.all(promises)
 }
 
 async function rollbackRecordsWithDeletion(
@@ -461,14 +444,7 @@ async function rollbackRecordsWithDeletion(
 
     const conditions = orClauses.join(' or ')
     const query = `delete from ${identPath(tablePath)} where ${conditions}`
-
-    try {
-        await tx.query(query, bindings)
-    } catch (err) {
-        logger.info(query)
-        logger.info(bindings)
-        throw err
-    }
+    await tx.query(query, bindings)
 }
 
 function determineOpTypeFromRecord(opRecord: OpRecord): OpType {

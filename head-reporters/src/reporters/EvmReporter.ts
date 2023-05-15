@@ -16,6 +16,11 @@ import {
     getBlockOpsCeiling,
     setProcessNewHeads,
     shouldProcessNewHeads,
+    publishReorg,
+    createReorg, 
+    updateReorg,
+    failPotentialReorg,
+    ReorgStatus,
 } from '../../../shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import config from '../config'
@@ -24,6 +29,7 @@ import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
 import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
+import uuid4 from 'uuid4'
 
 class EvmReporter {
 
@@ -64,7 +70,7 @@ class EvmReporter {
 
     async listen() {
         if (!(await shouldProcessNewHeads(this.chainId))) {
-            logger.warn(chalk.yellow(`Won't process new heads -- master switch is off.`))
+            logger.notify(chalk.yellow(`Won't process new heads -- master switch is off.`))
             return
         }
 
@@ -79,7 +85,8 @@ class EvmReporter {
         if (this.isFailing) return
 
         const blockNumber = Number(data.number)
-        logger.info(chalk.gray(`\n> Got ${blockNumber}`))
+        console.log('')
+        logger.info(chalk.gray(`Got ${blockNumber}`))
 
         if (this.ignoreOnceDueToReorg.has(blockNumber)) {
             this.ignoreOnceDueToReorg.delete(blockNumber)
@@ -87,7 +94,7 @@ class EvmReporter {
             if (this.currentReorgCeiling && blockNumber > this.currentReorgCeiling) {
                 this.buffer[blockNumber.toString()] = data
             } else {
-                logger.info(chalk.magenta(`> Ignoring ${blockNumber} once`))
+                logger.info(chalk.magenta(`Ignoring ${blockNumber} once`))
             }
             return
         }
@@ -131,10 +138,12 @@ class EvmReporter {
             return
         }
 
+        let potentialReorgUid = uuid4()
         try {
-            await this._processNewHead(head)
+            await this._processNewHead(head, potentialReorgUid)
         } catch (err) {
             logger.error(chalk.redBright(`Processing head failed at ${head.number}`), err)
+            failPotentialReorg(potentialReorgUid, err)
             await this._stop(head.number)
             return
         }
@@ -146,12 +155,12 @@ class EvmReporter {
         }
     }
 
-    async _processNewHead(givenBlock: BlockHeader) {
-        logger.info(`> Processing ${givenBlock.number}`)
+    async _processNewHead(givenBlock: BlockHeader, potentialReorgUid: string) {
+        logger.info(`Processing ${givenBlock.number}...`)
         
         if (givenBlock.number === this.waitAfterUncleAt) {
             this.waitAfterUncleAt = null
-            logger.info(`Waiting extra at ${givenBlock.number} due to re-org previously seen in buffer.`)
+            logger.notify(`Waiting extra at ${givenBlock.number} due to re-org previously seen in buffer.`)
             await sleep(this.unclePauseTime / 2)
         }
 
@@ -162,64 +171,70 @@ class EvmReporter {
             hash: givenBlock.hash, 
             number: givenBlock.number,
         }]
-        
-        try {
-            // [REORG] If given block number is less than the 
-            // highest one seen, treat it as a re-org.
-            if (givenBlock.number <= highestBlockNumber) {
-                this.currentReorgFloor = givenBlock.number
-                this.currentReorgCeiling = highestBlockNumber
-                logger.warn(chalk.red(`REORG DETECTED - Marking blocks ${givenBlock.number} -> ${highestBlockNumber} as uncled.`))
-
-                if (highestBlockNumber - givenBlock.number > config.MAX_REORG_SIZE) {
-                    throw `Unbelievable Reorg detected ${highestBlockNumber} -> ${givenBlock.number}`
-                }
-
-                await this._uncleBlocks(givenBlock, highestBlockNumber, this.unclePauseTime)
-                this.currentReorgFloor = null
-                this.currentReorgCeiling = null
-                this.replacementReorgFloorBlock = null
-                this.isHandlingReorgBlocks = false
-                return
-            }
     
-            // [GAP] If the given block number is greater than the 
-            // highest one seen by MORE THAN 1, fill in the gaps.
-            if (givenBlock.number - highestBlockNumber > 1) {
-                newBlockSpecs = []
-                for (let i = highestBlockNumber + 1; i < givenBlock.number + 1; i++) {
-                    if (i === givenBlock.number) {
-                        newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
-                    } else {
-                        newBlockSpecs.push({ hash: null, number: i })
-                    }
-                }
+        // [REORG] If given block number is less than the highest one seen, treat it as a re-org.
+        if (givenBlock.number <= highestBlockNumber) {
+            this.currentReorgFloor = givenBlock.number
+            this.currentReorgCeiling = highestBlockNumber
+            logger.notify(chalk.red(`REORG DETECTED - Marking blocks ${givenBlock.number} -> ${highestBlockNumber} as uncled.`))
 
-                logger.warn(chalk.yellow(
-                    `GAP IN BLOCKS - Playing catch up for blocks ${
-                        newBlockSpecs[0].number
-                    } -> ${newBlockSpecs[newBlockSpecs.length - 1].number}`
-                ))
+            if (highestBlockNumber - givenBlock.number > config.MAX_REORG_SIZE) {
+                throw `Unbelievable Reorg detected ${highestBlockNumber} -> ${givenBlock.number}`
             }
-    
-            await this._handleNewBlocks(newBlockSpecs.sort((a, b) => a.number - b.number))
-        } catch (err) {
-            logger.error(`Error processing new head at block number ${givenBlock.number}`, err)
-        }    
+
+            await this._uncleBlocks(
+                givenBlock, 
+                highestBlockNumber, 
+                potentialReorgUid, 
+                this.unclePauseTime,
+            )
+
+            this.currentReorgFloor = null
+            this.currentReorgCeiling = null
+            this.replacementReorgFloorBlock = null
+            this.isHandlingReorgBlocks = false
+            return
+        }
+
+        // [GAP] If the given block number is greater than the 
+        // highest one seen by MORE THAN 1, fill in the gaps.
+        if (givenBlock.number - highestBlockNumber > 1) {
+            newBlockSpecs = []
+            for (let i = highestBlockNumber + 1; i < givenBlock.number + 1; i++) {
+                if (i === givenBlock.number) {
+                    newBlockSpecs.push({ hash: givenBlock.hash, number: givenBlock.number })
+                } else {
+                    newBlockSpecs.push({ hash: null, number: i })
+                }
+            }
+
+            logger.notify(chalk.yellow(
+                `GAP IN BLOCKS - Playing catch up for blocks ${
+                    newBlockSpecs[0].number
+                } -> ${newBlockSpecs[newBlockSpecs.length - 1].number}`
+            ))
+        }
+
+        await this._handleNewBlocks(newBlockSpecs.sort((a, b) => a.number - b.number))
     }
 
-    async _uncleBlocks(fromBlock: BlockHeader, to: number, pauseTime: number) {
+    async _uncleBlocks(fromBlock: BlockHeader, to: number, uid: string, pauseTime: number) {
         const fromNumber = Number(fromBlock.number)
         const uncleRange: number[] = range(fromNumber, to)
+
+        // Persist reorg to IndexerDB for telemetry.
+        const reorg = await createReorg(this.chainId, fromNumber, to, uid)
 
         // If a block can't be uncled, it's because there's an even LOWER
         // block number that failed indexing and the entire chain has been stopped.
         const currentBlockCeiling = await getBlockOpsCeiling(this.chainId)
         if (currentBlockCeiling && currentBlockCeiling < fromNumber) {
-            logger.error(
+            const error = (
                 `Uncle on range ${fromNumber} -> ${to} stopped. Chain ${this.chainId} currently 
-                has a ceiling of ${currentBlockCeiling}, which is less than the uncle floor.`
+                has a ceiling of ${currentBlockCeiling}, which is less than the uncle floor`
             )
+            logger.error(error)
+            updateReorg(reorg.id, { failed: true, error })
             this._stop(fromNumber)
             return
         }
@@ -244,7 +259,8 @@ class EvmReporter {
             const floorReplacement = this._prepEvenLowerReorgBlock(to)
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
-                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
+                updateReorg(reorg.id, { status: ReorgStatus.Replaced })
+                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
                 return    
             }
         }
@@ -259,6 +275,7 @@ class EvmReporter {
 
         // Wait for RPC provider to get their shit together and 
         // for the rest of our downstream data pipeline to clear out.
+        updateReorg(reorg.id, { status: ReorgStatus.Waiting })
         await sleep(pauseTime)
 
         // Check again.
@@ -266,27 +283,32 @@ class EvmReporter {
             const floorReplacement = this._prepEvenLowerReorgBlock(to)
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
-                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
+                updateReorg(reorg.id, { status: ReorgStatus.Replaced })
+                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
                 return    
             }
         }
         
         // Perform all record rollbacks.
-        logger.info(`> Rolling back to ${fromNumber}`)
+        logger.notify(`Rolling back to ${fromNumber}`)
+        updateReorg(reorg.id, { status: ReorgStatus.RollingBack })
         try {
             await rollbackTables(this.chainId, fromBlock)
         } catch (err) {
-            logger.error(`[${fromNumber}] ${chalk.redBright('Rollback failed')}:`, err)
+            const msg = err.message || err.toString() || ''
+            const error = `[${fromNumber}] ${chalk.redBright('Rollback failed')}: ${msg}`
+            logger.error(error)
+            updateReorg(reorg.id, { failed: true, error })
             await this._stop(fromNumber)
             return
         }
-        logger.info(chalk.green(`Rollback to ${fromNumber} complete.`))
+        logger.notify(chalk.green(`Rollback to ${fromNumber} complete.`))
 
         // Refetch hashes for block numbers.
         const currentHashes = await this._getBlockHashesForNumbers(uncleRange, {})
 
         // Find the indexed blocks whose hashes are different from "current".
-        const indexedBlocksToUncle =[]
+        const indexedBlocksToUncle = []
         for (const number of uncleRange) {
             const indexedBlocksWithNumber = mappedBlocksNotUncledYet[number.toString()]
             if (!indexedBlocksWithNumber?.length) continue
@@ -300,21 +322,32 @@ class EvmReporter {
         }
 
         // Mark blocks as uncled in both IndexerDB and redis.
-        indexedBlocksToUncle.length && await uncleBlocks(indexedBlocksToUncle)
+        let stats = {}
+        if (indexedBlocksToUncle) {
+            stats = {
+                uncled: indexedBlocksToUncle.map(({ number, hash }) => ({ number, hash })),
+            }
+            await uncleBlocks(indexedBlocksToUncle)
+        }
 
         // One last check before handling blocks.
         if (this.replacementReorgFloorBlock) {
             const floorReplacement = this._prepEvenLowerReorgBlock(to)
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
-                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
+                updateReorg(reorg.id, { status: ReorgStatus.Replaced })
+                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
                 return
             }
         }
 
         this.isHandlingReorgBlocks = true
 
-        // TODO: Broadcast reorg event out to all spec clients.
+        // Broadcast reorg event to all spec clients.
+        updateReorg(reorg.id, { status: ReorgStatus.Publishing, stats })
+        logger.notify(chalk.green(`Publishing reorg for ${this.chainId}:${fromNumber} (${reorg.uid})...`))
+        await publishReorg(reorg.uid, this.chainId, fromNumber)
+        await sleep(3000)
 
         const blockSpecs = []
         for (const number in currentHashes) {
@@ -327,6 +360,9 @@ class EvmReporter {
             0,
             true, // replace
         )
+
+        logger.notify(chalk.green(`Reorg successful for ${this.chainId}:${fromNumber}.`))
+        updateReorg(reorg.id, { status: ReorgStatus.Complete })
     }
 
     async _handleNewBlocks(
@@ -361,7 +397,7 @@ class EvmReporter {
     }
 
     async _getBlockHashesForNumbers(numbers: number[], numberToHash: any = {}) {
-        logger.info(chalk.gray(`> Getting latest block hashes for numbers ${numbers[0]} -> ${numbers[numbers.length - 1]}`))
+        logger.info(`Getting latest block hashes for numbers ${numbers[0]} -> ${numbers[numbers.length - 1]}`)
         const chunks = toChunks(numbers, 10)
         const hashes = []
         for (const chunk of chunks) {
@@ -444,7 +480,7 @@ class EvmReporter {
         if (this.buffer.hasOwnProperty(lowerNumberStr)) {
             delete this.buffer[lowerNumberStr]
         }
-        logger.warn(chalk.red(`DEEPER REORG DETECTED - Switching to uncle range ${lowerNumber} -> ${to}`))
+        logger.notify(chalk.red(`DEEPER REORG DETECTED - Switching to uncle range ${lowerNumber} -> ${to}`))
         return replacment
     }
 

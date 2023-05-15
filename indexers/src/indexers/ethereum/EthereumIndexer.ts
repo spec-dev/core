@@ -201,15 +201,15 @@ class EthereumIndexer extends AbstractIndexer {
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // New tokens and latest interactions.
-        const [newTokens, latestInteractions] = await Promise.all([
-            resolveNewTokenContracts(contracts, this.chainId),
-            (() => this.chainId === chainIds.ETHEREUM
-                ? initLatestInteractions(transactions, traces, contracts)
-                : [])(),
-        ])
+        // // New tokens and latest interactions.
+        // const [newTokens, latestInteractions] = await Promise.all([
+        //     resolveNewTokenContracts(contracts, this.chainId),
+        //     (() => this.chainId === chainIds.ETHEREUM
+        //         ? initLatestInteractions(transactions, traces, contracts)
+        //         : [])(),
+        // ])
+        const newTokens = await resolveNewTokenContracts(contracts, this.chainId)
         const [erc20Tokens, nftCollections] = newTokens
-
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
@@ -225,8 +225,8 @@ class EthereumIndexer extends AbstractIndexer {
         const successfulTraces = traces.filter(t => t.status !== EthTraceStatus.Failure)
 
         // Token transfers.
-        const [tokenTransfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
-            ? [[], [], []] 
+        const [tokenTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
+            ? [[], []] 
             : await initTokenTransfers(
                 erc20Tokens,
                 nftCollections,
@@ -235,8 +235,7 @@ class EthereumIndexer extends AbstractIndexer {
                 this.chainId,
             )
 
-        tokenTransfers.length && this._info(`${tokenTransfers.length} ERC-20 transfers.`)
-        nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
+        tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
 
         // One last check before saving.
         if (!(await this._shouldContinue())) {
@@ -258,11 +257,9 @@ class EthereumIndexer extends AbstractIndexer {
                 logs,
                 traces,
                 contracts,
-                latestInteractions,
                 erc20Tokens,
-                tokenTransfers,
                 nftCollections,
-                nftTransfers,
+                tokenTransfers,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -274,11 +271,9 @@ class EthereumIndexer extends AbstractIndexer {
             logs,
             traces,
             contracts,
-            latestInteractions,
             erc20Tokens,
-            tokenTransfers,
             nftCollections,
-            nftTransfers,
+            tokenTransfers,
             erc20TotalSupplyUpdates,
         )
 
@@ -305,27 +300,28 @@ class EthereumIndexer extends AbstractIndexer {
         logs: EthLog[],
         traces: EthTrace[],
         contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[],
         erc20Tokens: Erc20Token[],
-        tokenTransfers: TokenTransfer[],
         nftCollections: NftCollection[],
-        nftTransfers: NftTransfer[],
+        tokenTransfers: TokenTransfer[],
         erc20TotalSupplyUpdates: StringKeyMap[],
     ) {
         this._info('Saving primitives...')
 
-        await Promise.all([
-            this._upsertBlock(block),
-            this._upsertTransactions(transactions),
-            this._upsertLogs(logs),
-            this._upsertTraces(traces),
-            this._upsertContracts(contracts),
-            this._upsertNftTransfers(nftTransfers),
-            this._upsertTokenTransfers(tokenTransfers),
-            this._upsertLatestInteractions(latestInteractions),
-            this._upsertErc20Tokens(erc20Tokens),
-            this._upsertNftCollections(nftCollections),
-        ])
+        const run = async () => {
+            await SharedTables.manager.transaction(async (tx) => {
+                await Promise.all([
+                    this._upsertBlock(block, tx),
+                    this._upsertTransactions(transactions, tx),
+                    this._upsertLogs(logs, tx),
+                    this._upsertTraces(traces, tx),
+                    this._upsertContracts(contracts, tx),
+                    this._upsertErc20Tokens(erc20Tokens, tx),
+                    this._upsertNftCollections(nftCollections, tx),
+                    this._upsertTokenTransfers(tokenTransfers, tx),
+                ])
+            })
+        }
+        await this._withDeadlockProtection(run, 'primitives')
 
         erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
             erc20TotalSupplyUpdates,
@@ -359,10 +355,10 @@ class EthereumIndexer extends AbstractIndexer {
             originEvents.eth.NewContracts(this.contracts, eventOrigin)
         )
 
-        // eth.NewInteractions
-        isMainnet && this.latestInteractions?.length && originEventSpecs.push(
-            originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
-        )
+        // // eth.NewInteractions
+        // isMainnet && this.latestInteractions?.length && originEventSpecs.push(
+        //     originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
+        // )
 
         // tokens.NewTokenTransfers
         this.tokenTransfers?.length && originEventSpecs.push(
@@ -976,31 +972,29 @@ class EthereumIndexer extends AbstractIndexer {
         }
     }
 
-    async _upsertBlock(block: EthBlock) {
+    async _upsertBlock(block: EthBlock, tx: any) {
         const [updateCols, conflictCols] = fullBlockUpsertConfig(block)
         const blockTimestamp = this.pgBlockTimestamp
-        const run = async () => {
-            return SharedTables
-                .createQueryBuilder()
-                .insert()
-                .into(EthBlock)
-                .values({ ...block, timestamp: () => blockTimestamp })
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        }
-        this.block = ((
-            await this._withDeadlockProtection(run, 'blocks')
-        ).generatedMaps[0] as EthBlock) || null
+        this.block =
+            (
+                await tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EthBlock)
+                    .values({ ...block, timestamp: () => blockTimestamp })
+                    .orUpdate(updateCols, conflictCols)
+                    .returning('*')
+                    .execute()
+            ).generatedMaps[0] || null
     }
 
-    async _upsertTransactions(transactions: EthTransaction[]) {
+    async _upsertTransactions(transactions: EthTransaction[], tx: any) {
         if (!transactions.length) return
         const [updateCols, conflictCols] = fullTransactionUpsertConfig(transactions[0])
         const blockTimestamp = this.pgBlockTimestamp
         transactions = uniqueByKeys(transactions, conflictCols) as EthTransaction[]
-        const run = async () => {
-            return SharedTables
+        this.transactions = (
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthTransaction)
@@ -1008,13 +1002,10 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        }
-        this.transactions = (
-            await this._withDeadlockProtection(run, 'transactions')
-        ).generatedMaps as EthTransaction[]
+        ).generatedMaps || []
     }
 
-    async _upsertLogs(logs: EthLog[]) {
+    async _upsertLogs(logs: EthLog[], tx: any) {
         if (!logs.length) return
         const [updateCols, conflictCols] = fullLogUpsertConfig(logs[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1022,25 +1013,22 @@ class EthereumIndexer extends AbstractIndexer {
         this.logs = (
             await Promise.all(
                 toChunks(logs, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(EthLog)
-                            .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'logs')
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthLog)
+                        .values(chunk.map((l) => ({ ...l, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat() as EthLog[]
+            .map((result) => result.generatedMaps || [])
+            .flat()
     }
 
-    async _upsertTraces(traces: EthTrace[]) {
+    async _upsertTraces(traces: EthTrace[], tx: any) {
         if (!traces.length) return
         const [updateCols, conflictCols] = fullTraceUpsertConfig(traces[0])
         const blockTimestamp = this.pgBlockTimestamp
@@ -1048,31 +1036,28 @@ class EthereumIndexer extends AbstractIndexer {
         this.traces = (
             await Promise.all(
                 toChunks(traces, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(EthTrace)
-                            .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'traces')
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthTrace)
+                        .values(chunk.map((t) => ({ ...t, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat() as EthTrace[]
+            .map((result) => result.generatedMaps || [])
+            .flat()
     }
 
-    async _upsertContracts(contracts: EthContract[]) {
+    async _upsertContracts(contracts: EthContract[], tx: any) {
         if (!contracts.length) return
         const [updateCols, conflictCols] = fullContractUpsertConfig(contracts[0])
         const blockTimestamp = this.pgBlockTimestamp
         contracts = uniqueByKeys(contracts, conflictCols) as EthContract[]
-        const run = async () => {
-            return SharedTables
+        this.contracts = (
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(EthContract)
@@ -1080,13 +1065,10 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        }
-        this.contracts = (
-            await this._withDeadlockProtection(run, 'contracts')
-        ).generatedMaps as EthContract[]
+        ).generatedMaps || []
     }
 
-    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[]) {
+    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], tx: any) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
         const conflictColStatement = conflictCols.map(ident).join(', ')
@@ -1097,23 +1079,20 @@ class EthereumIndexer extends AbstractIndexer {
         this.latestInteractions = (
             await Promise.all(
                 toChunks(latestInteractions, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(EthLatestInteraction)
-                            .values(chunk.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
-                            .onConflict(
-                                `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
-                            )
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'latest_interactions')
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthLatestInteraction)
+                        .values(chunk.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
+                        .onConflict(
+                            `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                        )
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
+            .map((result) => result.generatedMaps || [])
             .flat()
             .filter(li => li && !!Object.keys(li).length) as EthLatestInteraction[]
     }

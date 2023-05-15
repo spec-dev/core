@@ -17,14 +17,11 @@ const alchemySubUrl = ev('ALCHEMY_SUBSCRIPTION_URL')
 
 const indexerConfig: StringKeyMap = {
     ...config,
-    CHAIN_ID: ev('CHAIN_ID'),
     ALCHEMY_API_KEY: ev('ALCHEMY_API_KEY'),
     ALCHEMY_REST_URL: alchemyRestUrl ? alchemyRestUrl : `https://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     ALCHEMY_SUBSCRIPTION_URL: alchemySubUrl ? alchemySubUrl : `wss://eth-mainnet.g.alchemy.com/v2/${ev('ALCHEMY_API_KEY')}`,
     QUICKNODE_REST_URL: ev('QUICKNODE_REST_URL'),
     PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
-    EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
-    EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
     FROM: from,
     TO: to,
     IS_RANGE_MODE: isRangeMode,
@@ -42,7 +39,6 @@ const indexerConfig: StringKeyMap = {
     ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
     MAX_TABLE_SAVE_TIME: Number(ev('MAX_TABLE_SAVE_TIME', 30000)),
     CMC_API_KEY: ev('CMC_API_KEY'),
-    JOB_TIMEOUT_ERROR: 'job-timeout',
     RPC_POOL_ENDPOINTS: ev('RPC_POOL_ENDPOINTS')
 }
 

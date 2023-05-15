@@ -5,7 +5,7 @@ metadata:
   labels:
     app: head-indexer-{{CHAIN_ID}}
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: head-indexer-{{CHAIN_ID}}
@@ -77,11 +77,13 @@ spec:
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "100"
         - name: SHARED_TABLES_OPTIONS
-          value: "-c statement_timeout=60000ms"
+          value: "-c statement_timeout=55000ms"
         - name: ABI_REDIS_HOST
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT
           value: "{{ABI_REDIS_PORT}}"
+        - name: RPC_POOL_ENDPOINTS
+          value: {{RPC_POOL_ENDPOINTS}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FLIP

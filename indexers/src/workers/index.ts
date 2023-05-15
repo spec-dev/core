@@ -24,6 +24,8 @@ import { getSeedTokenContractsWorker } from './seedTokenContractsWorker'
 import { getBackfillTransfersWorker } from './backfillTransfersWorker'
 import { getAssignTransferPricesWorker } from './assignTransferPricesWorker'
 import { getBackfillTokenPricesWorker } from './backfillTokenPricesWorker'
+import { getValidateBlocksWorker } from './validateBlocksWorker'
+import { getFindInvalidPrimitivesWorker } from './findInvalidPrimitivesWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -88,6 +90,12 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'ti') {
         return getTracesToInteractionsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'vb') {
+        return getValidateBlocksWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'fipw') {
+        return getFindInvalidPrimitivesWorker()
     }
     
     switch (config.CHAIN_ID) {

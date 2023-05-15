@@ -23,6 +23,7 @@ log_level=$( $shared_bin_dir/env_reader "$env" "SOCKETCLUSTER_LOG_LEVEL" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
 use_scc_cluster=$( $shared_bin_dir/env_reader "$env" "USE_EVENT_RELAY_SCC_CLUSTER" )
 scc_state_server_port=$( $shared_bin_dir/env_reader "$env" "SCC_STATE_SERVER_PORT" )
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_BUGSNAG_API_KEY" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -35,6 +36,20 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+
+# Indexer DB
+indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
+indexer_db_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_HOST" )
+indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
+indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
+indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
@@ -42,6 +57,7 @@ $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 $shared_bin_dir/assert_env "USE_EVENT_RELAY_SCC_CLUSTER" "$use_scc_cluster"
 $shared_bin_dir/assert_env "SCC_STATE_SERVER_PORT" "$scc_state_server_port"
+$shared_bin_dir/assert_env "EVENT_RELAY_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -54,6 +70,20 @@ $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
 $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_db_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
+# Indexer DB
+$shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
+$shared_bin_dir/assert_env "INDEXER_DB_HOST" "$indexer_db_host"
+$shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
+$shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
+$shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
+
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
@@ -62,9 +92,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="0af1e2b"
-
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -79,11 +107,22 @@ template=$( cat "$template_path" | \
     sed "s|{{SCC_STATE_SERVER_PORT}}|$scc_state_server_port|g" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
     sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
+    sed "s|{{INDEXER_DB_HOST}}|$indexer_db_host|g" | \
+    sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
+    sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
+    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" )
 

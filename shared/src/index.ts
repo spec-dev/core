@@ -1,5 +1,12 @@
 export { IndexedBlock, IndexedBlockStatus } from './lib/indexer/db/entities/IndexedBlock'
+export { Reorg, ReorgStatus } from './lib/indexer/db/entities/Reorg'
 export { IndexerDB } from './lib/indexer/db/dataSource'
+export {
+    getReorg,
+    createReorg,
+    updateReorg,
+    failPotentialReorg,
+} from './lib/indexer/db/services/reorgServices'
 export { EthBlock, fullBlockUpsertConfig } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,
@@ -26,10 +33,13 @@ export { TokenPrice } from './lib/shared-tables/db/entities/TokenPrice'
 export { Erc20Token, fullErc20TokenUpsertConfig } from './lib/shared-tables/db/entities/Erc20Token'
 export {
     TokenTransfer,
-    TokenTransferSource,
+    TokenTransferStandard,
     fullTokenTransferUpsertConfig,
 } from './lib/shared-tables/db/entities/TokenTransfer'
-export { Erc20, fullErc20UpsertConfig } from './lib/shared-tables/db/entities/Erc20'
+export {
+    Erc20Balance,
+    fullErc20BalanceUpsertConfig,
+} from './lib/shared-tables/db/entities/Erc20Balance'
 export {
     NftCollection,
     NftStandard,
@@ -39,10 +49,11 @@ export {
     NftTransfer,
     fullNftTransferUpsertConfig,
 } from './lib/shared-tables/db/entities/NftTransfer'
-export { Nft, fullNftUpsertConfig } from './lib/shared-tables/db/entities/Nft'
+export { NftBalance, fullNftBalanceUpsertConfig } from './lib/shared-tables/db/entities/NftBalance'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
 export {
     redis as indexerRedis,
+    keys as indexerRedisKeys,
     quickUncleCheck,
     upsertContractCaches,
     ContractInstanceEntry,
@@ -53,6 +64,7 @@ export {
     registerBlockLogsAsIndexed,
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
+    getLastEventId,
     getPublishedEventsAfterEventCursors,
     getPolygonContracts,
     savePolygonContracts,
@@ -107,7 +119,8 @@ export {
     getLovFailure,
     markLovFailure,
     removeLovFailure,
-    keys as indexerRedisKeys,
+    setGeneratedEventsCursor,
+    getGeneratedEventsCursors,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -332,3 +345,6 @@ export {
     generateLovInputsForEventsAndCalls,
     DEFAULT_TARGET_BLOCK_BATCH_SIZE,
 } from './lib/services/generateLovInputs'
+
+export { getDBTimestamp, publishEvents, publishCalls, publishReorg, emit } from './lib/relay'
+export { hash } from './lib/utils/hash'

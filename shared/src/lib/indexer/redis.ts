@@ -49,6 +49,7 @@ export const keys = {
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
     FREEZE_ABOVE_BLOCK_PREFIX: 'freeze-above-block',
+    FREEZE_ABOVE_BLOCK_UPDATE: 'freeze-above-block-update',
     PROCESS_NEW_HEADS_PREFIX: 'process-new-heads',
     PROCESS_INDEX_JOBS_PREFIX: 'process-index-jobs',
     PROCESS_EVENT_SORTER_JOBS_PREFIX: 'process-event-sorter',
@@ -60,12 +61,14 @@ export const keys = {
     PAUSE_EVENT_GENERATOR_PREFIX: 'event-generator-paused',
     FAILING_NAMESPACES: 'failing-namespaces',
     FAILING_TABLES: 'failing-tables',
+    FAILING_TABLES_UPDATE: 'failing-tables-update',
     LATEST_BLOCKS: 'latest-blocks',
     LATEST_BLOCK_NUMBERS: 'latest-block-numbers',
     LATEST_TRANSACTIONS: 'latest-transactions',
     TRANSACTION_HASHES_FOR_BLOCK_HASH: 'block-transactions',
     LIVE_OBJECT_TABLES: 'live-object-tables',
     LIVE_OBJECT_VERSION_FAILURES: 'lov-failures',
+    GENERATED_EVENTS_CURSOR: 'generated-events-cursor',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -306,6 +309,18 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
+export async function getLastEventId(eventName: string): Promise<string | null> {
+    try {
+        const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]
+        const eventData = lastEntry?.message?.event
+        if (!eventData) return null
+        return JSON.parse(eventData)?.id || null
+    } catch (err) {
+        logger.error(`Error getting last event id for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
 export async function getPublishedEventsAfterEventCursors(
     cursors: StringKeyMap[]
 ): Promise<{ [key: string]: StringKeyMap[] }> {
@@ -498,6 +513,13 @@ export async function freezeBlockOperationsAtOrAbove(chainId: string, blockNumbe
         } else {
             await redis?.del(key)
         }
+        await redis?.publish(
+            keys.FREEZE_ABOVE_BLOCK_UPDATE,
+            JSON.stringify({
+                chainId,
+                blockNumber: blockNumber === null ? null : Number(blockNumber),
+            })
+        )
     } catch (err) {
         throw `Error freezing block operations above number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
     }
@@ -530,6 +552,7 @@ export async function switchOffTableForChainId(table: string, chainId: string) {
     const key = [keys.FAILING_TABLES, chainId].join('-')
     try {
         await redis?.sAdd(key, table)
+        await redis?.publish(keys.FAILING_TABLES_UPDATE, JSON.stringify({ chainId }))
     } catch (err) {
         throw `Error switching OFF operations for ${table} on chain ${chainId}: ${err}`
     }
@@ -540,6 +563,7 @@ export async function switchOnTableForChainId(table: string, chainId: string) {
     const key = [keys.FAILING_TABLES, chainId].join('-')
     try {
         await redis?.sRem(key, table)
+        await redis?.publish(keys.FAILING_TABLES_UPDATE, JSON.stringify({ chainId }))
     } catch (err) {
         throw `Error switching ON operations for ${table} on chain ${chainId}: ${err}`
     }
@@ -1061,4 +1085,23 @@ export async function setProcessJobs(chainId: string, key: string, doProcess: bo
     }
     await f(chainId, doProcess)
     return true
+}
+
+export async function setGeneratedEventsCursor(chainId: string, blockNumber: number) {
+    try {
+        await redis?.hSet(keys.GENERATED_EVENTS_CURSOR, [chainId, blockNumber.toString()])
+    } catch (err) {
+        logger.error(
+            `Error setting generated events cursor for chain ${chainId} to ${blockNumber}: ${err}`
+        )
+    }
+}
+
+export async function getGeneratedEventsCursors(): Promise<StringKeyMap> {
+    try {
+        return (await redis?.hGetAll(keys.GENERATED_EVENTS_CURSOR)) || {}
+    } catch (err) {
+        logger.error(`Error getting generated events cursors: ${err}`)
+        return {}
+    }
 }

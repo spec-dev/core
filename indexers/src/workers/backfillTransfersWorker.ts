@@ -35,15 +35,12 @@ class BackfillTransfersWorker {
 
     tokenTransfers: TokenTransfer[]
 
-    nftTransfers: NftTransfer[]
-
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
         this.cursor = from
         this.groupSize = groupSize || 1
         this.tokenTransfers = []
-        this.nftTransfers = []
     }
 
     async run() {
@@ -61,13 +58,6 @@ class BackfillTransfersWorker {
             })
         }
 
-        if (this.nftTransfers.length) {
-            logger.info(`Saving ${this.nftTransfers.length} NFT transfers...`)
-            await SharedTables.manager.transaction(async (tx) => {
-                await this._upsertNftTransfers(this.nftTransfers, tx)
-            })
-        }
-
         logger.info('DONE')
         exit()
     }
@@ -76,11 +66,10 @@ class BackfillTransfersWorker {
         logger.info(`Indexing ${start} --> ${end}...`)
 
         // Get contracts for this block range.
-        const [tokenTransfers, nftTransfers] = await this._getTokenTransfersInRange(start, end)
-        if (!tokenTransfers.length && !nftTransfers.length) return
+        const tokenTransfers = await this._getTokenTransfersInRange(start, end)
+        if (!tokenTransfers.length) return
         
         this.tokenTransfers.push(...tokenTransfers)
-        this.nftTransfers.push(...nftTransfers)
 
         if (this.tokenTransfers.length >= 3000) {
             logger.info(`Saving ${this.tokenTransfers.length} token transfers...`)
@@ -89,15 +78,6 @@ class BackfillTransfersWorker {
                 await this._upsertTokenTransfers(tokenTransfers, tx)
             })
             this.tokenTransfers = []
-        }
-
-        if (this.nftTransfers.length >= 3000) {
-            logger.info(`Saving ${this.nftTransfers.length} NFT transfers...`)
-            const nftTransfers = [...this.nftTransfers]
-            await SharedTables.manager.transaction(async (tx) => {
-                await this._upsertNftTransfers(nftTransfers, tx)
-            })
-            this.nftTransfers = []
         }
     }
 
@@ -133,19 +113,19 @@ class BackfillTransfersWorker {
         )
     }
 
-    async _getTokenTransfersInRange(start: number, end: number): Promise<[TokenTransfer[], NftTransfer[]]> {
+    async _getTokenTransfersInRange(start: number, end: number): Promise<TokenTransfer[]> {
         const [transferLogs, successfulTraces] = await Promise.all([
             this._getTransferLogsInBlockRange(start, end),
             this._getTracesInBlockRange(start, end),
         ])
         const successfulTransferLogs = await this._filterTransferLogsForSuccess(transferLogs || [])
-        if (!successfulTransferLogs.length && !successfulTraces.length) return [[], []]
-        const [tokenTransfers, nftTransfers, _] = await initTokenTransfers([], [],
+        if (!successfulTransferLogs.length && !successfulTraces.length) return []
+        const [tokenTransfers, _] = await initTokenTransfers([], [],
             successfulTransferLogs,
             successfulTraces,
             config.CHAIN_ID,
         )
-        return [tokenTransfers, nftTransfers]
+        return tokenTransfers
     }
 
     async _getTransferLogsInBlockRange(start: number, end: number): Promise<StringKeyMap[]> {

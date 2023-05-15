@@ -1,5 +1,6 @@
 import Bugsnag from '@bugsnag/js'
 import config from './config'
+import chalk from 'chalk'
 import { ev } from './utils/env'
 
 const useBS = !!config.BUGSNAG_API_KEY
@@ -19,16 +20,25 @@ useBS &&
 
 class Logger {
     info(...args) {
-        console.log(...args)
+        console.log(this._prefix(), ...args)
     }
 
     warn(...args) {
-        console.warn(...args)
+        console.warn(this._prefix(), ...args)
     }
 
     error(...args) {
-        console.error(...args)
+        console.error(this._prefix(), ...args)
         useBS && Bugsnag.notify(args.join(' '))
+    }
+
+    notify(...args) {
+        this.info(...args)
+        useBS && Bugsnag.notify(args.join(' '))
+    }
+
+    _prefix(): string {
+        return chalk.gray(new Date().toISOString())
     }
 }
 

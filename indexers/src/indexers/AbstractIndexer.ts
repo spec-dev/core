@@ -12,10 +12,8 @@ import {
     NftCollection,
     fullNftCollectionUpsertConfig,
     fullTokenTransferUpsertConfig,
-    fullNftTransferUpsertConfig,
     uniqueByKeys,
     TokenTransfer,
-    NftTransfer,
     snakeToCamel,
     toChunks,
     canBlockBeOperatedOn,
@@ -47,8 +45,6 @@ class AbstractIndexer {
     tokenTransfers: TokenTransfer[] = []
 
     nftCollections: NftCollection[] = []
-
-    nftTransfers: NftTransfer[] = []
 
     get chainId(): string {
         return this.head.chainId
@@ -92,19 +88,20 @@ class AbstractIndexer {
     }
 
     async perform(): Promise<StringKeyMap | void> {
+        console.log('')
         config.IS_RANGE_MODE ||
             logger.info(
-                `\n${this.logPrefix} Indexing block ${this.blockNumber}...`
+                `${this.logPrefix} Indexing block ${this.blockNumber}...`
             )
 
         if (this.head.replace) {
-            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
+            this._notify(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
         }
     }
 
     async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
         if (!(await this._shouldContinue())) {
-            this._warn('Job stopped mid-indexing inside _kickBlockDownstream.')
+            this._notify(chalk.yellow('Job stopped mid-indexing inside _kickBlockDownstream.'))
             return
         }
 
@@ -130,7 +127,7 @@ class AbstractIndexer {
         }
     }
 
-    async _upsertErc20Tokens(erc20Tokens: Erc20Token[]) {
+    async _upsertErc20Tokens(erc20Tokens: Erc20Token[], tx: any) {
         if (!erc20Tokens.length) return
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
@@ -138,8 +135,8 @@ class AbstractIndexer {
         const whereClause = `tokens.erc20_tokens.last_updated < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
-        const run = async () => {
-            return SharedTables
+        this.erc20Tokens = ((
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(Erc20Token)
@@ -153,39 +150,10 @@ class AbstractIndexer {
                 )
                 .returning('*')
                 .execute()
-        }
-        this.erc20Tokens = ((
-            await this._withDeadlockProtection(run, 'erc20_tokens')
         ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Token[]
     }
-
-    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[]) {
-        if (!tokenTransfers.length) return
-        const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
-        const blockTimestamp = this.pgBlockTimestamp
-        tokenTransfers = uniqueByKeys(tokenTransfers, conflictCols.map(snakeToCamel)) as TokenTransfer[]
-        this.tokenTransfers = (
-            await Promise.all(
-                toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(TokenTransfer)
-                            .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'token_transfers')
-                })
-            )
-        )
-            .map((result) => result.generatedMaps)
-            .flat() as TokenTransfer[]
-    }
     
-    async _upsertNftCollections(nftCollections: NftCollection[]) {
+    async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
         if (!nftCollections.length) return
         const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
@@ -193,8 +161,8 @@ class AbstractIndexer {
         const whereClause = `tokens.nft_collections.last_updated < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
-        const run = async () => {
-            return SharedTables
+        this.nftCollections = ((
+            await tx
                 .createQueryBuilder()
                 .insert()
                 .into(NftCollection)
@@ -207,36 +175,30 @@ class AbstractIndexer {
                 )
                 .returning('*')
                 .execute()
-        }
-        this.nftCollections = ((
-            await this._withDeadlockProtection(run, 'nft_collections')
         ).generatedMaps || []).filter(n => n && !!Object.keys(n).length) as NftCollection[]
     }
 
-    async _upsertNftTransfers(nftTransfers: NftTransfer[]) {
-        if (!nftTransfers.length) return
-        const [updateCols, conflictCols] = fullNftTransferUpsertConfig(nftTransfers[0])
+    async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
+        if (!tokenTransfers.length) return
+        const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
         const blockTimestamp = this.pgBlockTimestamp
-        nftTransfers = uniqueByKeys(nftTransfers, conflictCols.map(snakeToCamel)) as NftTransfer[]
-        this.nftTransfers = (
+        tokenTransfers = uniqueByKeys(tokenTransfers, conflictCols.map(snakeToCamel)) as TokenTransfer[]
+        this.tokenTransfers = (
             await Promise.all(
-                toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    const run = async () => {
-                        return SharedTables
-                            .createQueryBuilder()
-                            .insert()
-                            .into(NftTransfer)
-                            .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
-                            .orUpdate(updateCols, conflictCols)
-                            .returning('*')
-                            .execute()
-                    }
-                    return this._withDeadlockProtection(run, 'nft_transfers')
+                toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(TokenTransfer)
+                        .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
+                        .orUpdate(updateCols, conflictCols)
+                        .returning('*')
+                        .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat() as NftTransfer[]
+            .map((result) => result.generatedMaps || [])
+            .flat() as TokenTransfer[]
     }
 
     async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
@@ -300,7 +262,7 @@ class AbstractIndexer {
      */
     async _shouldContinue(): Promise<boolean> {
         if (this.timedOut) {
-            this._warn(`Job timed out.`)
+            this._notify(chalk.yellow(`Job timed out.`))
             return false
         }
         if (config.IS_RANGE_MODE || this.head.force) return true
@@ -309,6 +271,10 @@ class AbstractIndexer {
 
     async _info(msg: any, ...args: any[]) {
         config.IS_RANGE_MODE || logger.info(`${this.logPrefix} ${msg}`, ...args)
+    }
+
+    async _notify(msg: any, ...args: any[]) {
+        config.IS_RANGE_MODE || logger.notify(`${this.logPrefix} ${msg}`, ...args)
     }
 
     async _warn(msg: any, ...args: any[]) {

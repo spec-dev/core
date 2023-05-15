@@ -9,10 +9,80 @@ import { performQuery, performTx, createQueryStream, loadSchemaRoles } from './l
 import { streamQuery, cleanupStream } from './lib/stream'
 import { authRequest } from './lib/auth'
 import { QueryPayload } from '@spec.dev/qb'
-import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis } from '../../shared'
+import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis, indexerRedisKeys } from '../../shared'
+import chalk from 'chalk'
 
 const indexerRedisPromise = indexerRedis.connect()
 const pipelineCache = {}
+const supportedChainIdsArray = Array.from(supportedChainIds)
+
+async function updatePipelineCache() {
+    const chainIds = []
+    const failingTablesPromises = []
+    const blockOpsCeilingPromises = []
+    for (const chainId of supportedChainIdsArray) {
+        chainIds.push(chainId)
+        failingTablesPromises.push(getFailingTables(chainId))
+        blockOpsCeilingPromises.push(getBlockOpsCeiling(chainId))
+    }
+    let updates = []
+    try {
+        updates = await Promise.all([...failingTablesPromises, ...blockOpsCeilingPromises])
+    } catch (err) {
+        logger.error(err)
+        return
+    }
+    const failingTablesGroups = updates.slice(0, supportedChainIdsArray.length)
+    const blockOpsCeilings = updates.slice(supportedChainIdsArray.length)
+    for (let i = 0; i < chainIds.length; i++) {
+        const chainId = chainIds[i]
+        const failingTables = failingTablesGroups[i] || []
+        const blockOpsCeiling = blockOpsCeilings[i] || null
+        pipelineCache[chainId] = pipelineCache[chainId] || {}
+        pipelineCache[chainId].failingTables = new Set(failingTables)
+        pipelineCache[chainId].blockOpsCeiling = blockOpsCeiling
+    }
+}
+
+const subscribeToNewBlockOpsCeilings = async () => {
+    return indexerRedis.subscribe(indexerRedisKeys.FREEZE_ABOVE_BLOCK_UPDATE, async message => {
+        let fullUpdate = false
+        try {
+            const payload = JSON.parse(message)
+            const { chainId, blockNumber } = payload
+            logger.info(chalk.cyanBright(`New block ops ceiling:`), payload)
+            if (chainId) {
+                pipelineCache[chainId].blockOpsCeiling = blockNumber
+            } else {
+                fullUpdate = true
+            }
+        } catch (err) {
+            logger.error(`Redis error on pub/sub message from ${indexerRedisKeys.FREEZE_ABOVE_BLOCK_UPDATE}: ${err}`)
+            fullUpdate = true
+        }
+        fullUpdate && await updatePipelineCache()
+    })
+}
+
+const subscribeToFailingTableChanges = async () => {
+    return indexerRedis.subscribe(indexerRedisKeys.FAILING_TABLES_UPDATE, async message => {
+        let fullUpdate = false
+        try {
+            const payload = JSON.parse(message)
+            const { chainId } = payload
+            logger.info(chalk.cyanBright(`New failing tables on chain ${chainId}.`))
+            if (chainId) {
+                pipelineCache[chainId].failingTables = new Set(await getFailingTables(chainId))
+            } else {
+                fullUpdate = true
+            }
+        } catch (err) {
+            logger.error(`Redis error on pub/sub message from ${indexerRedisKeys.FAILING_TABLES_UPDATE}: ${err}`)
+            fullUpdate = true
+        }
+        fullUpdate && await updatePipelineCache()
+    })
+}
 
 // Create Express app.
 const app = express()
@@ -134,36 +204,9 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     await Promise.all([loadSchemaRoles(), indexerRedisPromise])
     setInterval(() => loadSchemaRoles(), config.LOAD_SCHEMA_ROLES_INTERVAL)
 
-    const supportedChainIdsArray = Array.from(supportedChainIds)
-    const updatePipelineCache = async () => {
-        const chainIds = []
-        const failingTablesPromises = []
-        const blockOpsCeilingPromises = []
-        for (const chainId of supportedChainIdsArray) {
-            chainIds.push(chainId)
-            failingTablesPromises.push(getFailingTables(chainId))
-            blockOpsCeilingPromises.push(getBlockOpsCeiling(chainId))
-        }
-        let updates = []
-        try {
-            updates = await Promise.all([...failingTablesPromises, ...blockOpsCeilingPromises])
-        } catch (err) {
-            logger.error(err)
-            return
-        }
-        const failingTablesGroups = updates.slice(0, supportedChainIdsArray.length)
-        const blockOpsCeilings = updates.slice(supportedChainIdsArray.length)
-        for (let i = 0; i < chainIds.length; i++) {
-            const chainId = chainIds[i]
-            const failingTables = failingTablesGroups[i] || []
-            const blockOpsCeiling = blockOpsCeilings[i] || null
-            pipelineCache[chainId] = pipelineCache[chainId] || {}
-            pipelineCache[chainId].failingTables = new Set(failingTables)
-            pipelineCache[chainId].blockOpsCeiling = blockOpsCeiling
-        }
-    }
+    // Listen for updates in the pipeline cache.
     await updatePipelineCache()
-    setInterval(() => updatePipelineCache(), config.UPDATE_PIPELINE_CACHE_INTERVAL)
+    await Promise.all([subscribeToNewBlockOpsCeilings(), subscribeToFailingTableChanges()])
 
     // Start express server.
     const server = app.listen(config.PORT, () => (

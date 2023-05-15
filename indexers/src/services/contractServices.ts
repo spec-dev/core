@@ -1,4 +1,4 @@
-import { getSocketWeb3 } from '../providers'
+import { getSocketWeb3 } from '../rpcPool'
 import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
@@ -21,6 +21,11 @@ import {
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
+
+const errors = {
+    EXECUTION_REVERTED: 'execution reverted',
+    NUMERIC_FAULT: 'NUMERIC_FAULT',
+}
 
 export async function resolveNewTokenContracts(
     contracts: StringKeyMap[],
@@ -176,7 +181,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     let usingBytesAbi = false
 
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             const [name, symbol, decimals, totalSupply] = await Promise.all([
@@ -187,9 +192,10 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
             ])
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
-            const error = JSON.stringify(err)
-            if (numAttempts < 5) {
-                const switchAbi = error.includes('NUMERIC_FAULT')
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return {}
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                const switchAbi = message.includes(errors.NUMERIC_FAULT)
                 if (switchAbi && !usingBytesAbi) {
                     const newAbiItems = []
                     sigs.has(ERC20_NAME_ITEM.signature) && newAbiItems.push({ 
@@ -202,14 +208,14 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
                     })
                     sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
                     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
-                    methods = getContractInterface(contract.address, newAbiItems)
+                    methods = getContractInterface(contract.address, newAbiItems) || {}
                     usingBytesAbi = true
                 }
-                await sleep((1.5 ** numAttempts) * 10)
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
             logger.error(
-                `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${error}`
+                `[${config.CHAIN_ID}] Error resolving ERC-20 contract metadata for ${contract.address}: ${message}`
             )
             return {}
         }    
@@ -232,7 +238,7 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     let usingBytesAbi = false
 
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             const [name, symbol, totalSupply] = await Promise.all([
@@ -242,9 +248,10 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
             ])
             return { name, symbol, totalSupply }
         } catch (err) {
-            const error = JSON.stringify(err)
-            if (numAttempts < 5) {
-                const switchAbi = error.includes('NUMERIC_FAULT')
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return {}
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                const switchAbi = message.includes(errors.NUMERIC_FAULT)
                 if (switchAbi && !usingBytesAbi) {
                     const newAbiItems = []
                     sigs.has(ERC721_NAME_ITEM.signature) && newAbiItems.push({ 
@@ -257,14 +264,14 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
                     })
                     sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
                     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
-                    methods = getContractInterface(contract.address, newAbiItems)
+                    methods = getContractInterface(contract.address, newAbiItems) || {}
                     usingBytesAbi = true
                 }
-                await sleep((1.5 ** numAttempts) * 10)
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
             logger.error(
-                `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${error}`
+                `[${config.CHAIN_ID}] Error resolving NFT contract metadata for ${contract.address}: ${message}`
             )
             return {}
         }
@@ -280,7 +287,7 @@ export async function getERC20TokenBalance(
     const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
     if (!methods) return null
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             let balance = await methods.balanceOf(ownerAddress).call()
@@ -288,11 +295,15 @@ export async function getERC20TokenBalance(
             balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals) || 18)
             return Number(balance) === 0 ? '0' : balance
         } catch (err) {
-            if (numAttempts < 5) {
-                await sleep((1.5 ** numAttempts) * 10)
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
+
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
-            logger.error(`Error calling balanceOf(${ownerAddress}) on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+
+            logger.error(`Error calling balanceOf(${ownerAddress}) on ERC-20 contract ${tokenAddress}: ${message}`)
             return null
         }
     }
@@ -302,16 +313,20 @@ export async function getERC20TotalSupply(tokenAddress: string): Promise<string 
     const methods = getContractInterface(tokenAddress, [ERC20_TOTAL_SUPPLY_ITEM])
     if (!methods) return null
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             return await methods.totalSupply().call()
         } catch (err) {
-            if (numAttempts < 5) {
-                await sleep((1.5 ** numAttempts) * 10)
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
+
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
-            logger.error(`Error calling totalSupply() on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+
+            logger.error(`Error calling totalSupply() on ERC-20 contract ${tokenAddress}: ${message}`)
             return null
         }
     }
@@ -321,16 +336,19 @@ export async function getDecimals(tokenAddress: string): Promise<string | null> 
     const methods = getContractInterface(tokenAddress, [ERC20_DECIMALS_ITEM])
     if (!methods) return null
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < 10) {
         numAttempts++
         try {
             return await methods.decimals().call()
         } catch (err) {
-            if (numAttempts < 5) {
-                await sleep((1.5 ** numAttempts) * 10)
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
+
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
-            logger.error(`Error calling decimals() on ERC-20 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+            logger.error(`Error calling decimals() on ERC-20 contract ${tokenAddress}: ${message}`)
             return null
         }
     }
@@ -344,17 +362,21 @@ export async function getERC1155TokenBalance(
     const methods = getContractInterface(tokenAddress, [ERC1155_BALANCE_OF_ITEM])
     if (!methods) return null
     let numAttempts = 0
-    while (numAttempts < 5) {
+    while (numAttempts < 10) {
         numAttempts++
         try {
             let balance = await methods.balanceOf(ownerAddress, tokenId).call()
             return Number(balance) === 0 ? '0' : balance
         } catch (err) {
-            if (numAttempts < 5) {
-                await sleep((1.5 ** numAttempts) * 10)
+            const message = err.message || err.toString() || ''
+            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
+
+            if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
                 continue
             }
-            logger.error(`Error calling balanceOf(${ownerAddress}, ${tokenId}) on ERC-1155 contract ${tokenAddress}: ${JSON.stringify(err)}`)
+
+            logger.error(`Error calling balanceOf(${ownerAddress}, ${tokenId}) on ERC-1155 contract ${tokenAddress}: ${message}`)
             return null
         }
     }
@@ -366,6 +388,7 @@ export async function getContractBytecode(address: string): Promise<string> {
     try {
         return await web3.eth.getCode(address)
     } catch (err) {
+        logger.error(`Error calling getCode(${address}): ${err}`)
         return null
     }
 }

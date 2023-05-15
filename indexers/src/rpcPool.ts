@@ -1,6 +1,6 @@
 import Web3 from 'web3'
 import config from './config'
-import { StringKeyMap } from '../../shared'
+import { StringKeyMap, shuffle } from '../../shared'
 
 class RpcPool {
 
@@ -11,9 +11,11 @@ class RpcPool {
     connectionIndex: number
 
     constructor() {
-        this.endpoints = (config.RPC_POOL_ENDPOINTS?.split(',') || [])
-            .map(url => url.trim())
-            .filter(url => url!!)
+        this.endpoints = shuffle(
+            (config.RPC_POOL_ENDPOINTS?.split(',') || [])
+                .map(url => url.trim())
+                .filter(url => url!!)
+        )
         this._buildPool()
         this.connectionIndex = 0
     }
@@ -43,8 +45,8 @@ class RpcPool {
             },
             reconnect: {
                 auto: true,
-                delay: 5000,
-                maxAttempts: 5,
+                delay: 1000,
+                maxAttempts: 100,
                 onTimeout: false,
             },
         }))

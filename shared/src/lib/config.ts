@@ -3,6 +3,7 @@ import { StringKeyMap } from './types'
 
 const config: StringKeyMap = {
     ENV: ev('ENV', specEnvs.PROD),
+    CHAIN_ID: ev('CHAIN_ID'),
 
     // Logging.
     BUGSNAG_API_KEY: ev('BUGSNAG_API_KEY'),
@@ -43,6 +44,17 @@ const config: StringKeyMap = {
     EVENT_GENERATOR_QUEUE_PREFIX: ev('EVENT_GENERATOR_QUEUE_PREFIX', 'event-gen-queue'),
     EVENT_GENERATOR_JOB_NAME: ev('EVENT_GENERATOR_JOB_NAME', 'event-gen'),
     EVENT_GENERATOR_JOB_MAX_ATTEMPTS: Number(ev('EVENT_GENERATOR_JOB_MAX_ATTEMPTS', 1)),
+
+    // Event relay config.
+    CONNECT_TO_EVENT_RELAY: [true, 'true'].includes(ev('CONNECT_TO_EVENT_RELAY', '').toLowerCase()),
+    PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
+    EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
+    EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
+    EVENT_GEN_AUTH_HEADER_NAME: 'Spec-Auth-Token',
+    EVENT_GENERATORS_JWT: ev('EVENT_GENERATORS_JWT'),
+    EVENT_GEN_RESPONSE_TIMEOUT: Number(ev('EVENT_GEN_RESPONSE_TIMEOUT', 60000)),
+    TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
+    REORG_EVENT_NAME_PREFIX: 'chain.reorgs',
 
     // Delayed job redis queue
     DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'djq'),

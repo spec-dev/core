@@ -17,7 +17,7 @@ async function perform({ blockNumber }) {
 
     // Ensure re-org hasn't occurred that would affect progress.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
     
@@ -43,7 +43,7 @@ async function perform({ blockNumber }) {
     }
 
     // Blocks less than the current series number get pushed through only in force situations.
-    logger.warn(`Got number less than series number: ${blockNumber} vs. ${seriesNumber}`)
+    logger.notify(`Got number less than series number: ${blockNumber} vs. ${seriesNumber}`)
     await generateEventsForBlock(blockNumber, { replace: true })
 }
 
