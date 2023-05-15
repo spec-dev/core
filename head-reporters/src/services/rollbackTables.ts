@@ -21,9 +21,11 @@ import {
     markLovFailure,
     updateLiveObjectVersionStatus,
     LiveObjectVersionStatus,
+    unique,
+    range,
 } from '../../../shared'
 
-export async function rollbackTables(chainId: string, block: BlockHeader) {
+export async function rollbackTables(chainId: string, block: BlockHeader, toNumber: number) {
     const blockNumber = Number(block.number)
     const blockTimestamp = new Date(new Date(block.timestamp as number * 1000).toUTCString()).toISOString()
 
@@ -32,7 +34,7 @@ export async function rollbackTables(chainId: string, block: BlockHeader) {
     const updatablePrimitiveTablePaths = new Set(updatablePrimitives.map(p => p.table))
 
     // Delete from append-only primitive tables >= blockNumber.
-    await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber)
+    await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber, toNumber)
 
     // Get all tables that are being tracked for operations.
     const opTables: StringKeyMap[] = updatablePrimitives.map(obj => ({ ...obj, isPrimitive: true }))
@@ -134,22 +136,32 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
     appendOnlyPrimitives: StringKeyMap[],
     chainId: string, 
     blockNumber: number,
+    toNumber: number,
 ) {
     if (!appendOnlyPrimitives.length) return
-    logger.info(chalk.magenta(`Deleting primitives >= ${blockNumber}`))
+    logger.info(chalk.magenta(`Deleting primitives >= ${blockNumber}...`))
 
+    const blockNumbers = range(blockNumber, toNumber).sort((a, b) => a - b)
     const ops = []
     for (const primitive of appendOnlyPrimitives) {
         const { table, crossChain } = primitive
         const tableName = table.split('.')[1]
         const numberColumn = tableName === 'blocks' ? 'number' : 'block_number'
-        let query = `delete from ${identPath(table)} where ${ident(numberColumn)} >= $1`
-        const bindings: any[] = [blockNumber]
+
         if (crossChain) {
-            query += ` and "chain_id" = $2`
-            bindings.push(chainId)
+            const phs = range(1, blockNumbers.length).map(i => `$${i}`)
+            ops.push({
+                table,
+                query: `delete from ${identPath(table)} where ${ident(numberColumn)} in (${phs.join(', ')}) and "chain_id" = $${blockNumbers.length + 1}`,
+                bindings: [...blockNumbers, chainId]
+            })
+        } else {
+            ops.push({
+                table,
+                query: `delete from ${identPath(table)} where ${ident(numberColumn)} >= $1`,
+                bindings: [blockNumber]
+            })
         }
-        ops.push({ table, query, bindings })
     }
 
     await Promise.all(ops.map(op => runQueryWithDeadlockProtection(

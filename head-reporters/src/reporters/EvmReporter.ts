@@ -293,7 +293,7 @@ class EvmReporter {
         logger.notify(`Rolling back to ${fromNumber}`)
         updateReorg(reorg.id, { status: ReorgStatus.RollingBack })
         try {
-            await rollbackTables(this.chainId, fromBlock)
+            await rollbackTables(this.chainId, fromBlock, to)
         } catch (err) {
             const msg = err.message || err.toString() || ''
             const error = `[${fromNumber}] ${chalk.redBright('Rollback failed')}: ${msg}`
