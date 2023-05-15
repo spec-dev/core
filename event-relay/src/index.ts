@@ -138,7 +138,7 @@ logger.info(`[${config.SCC_INSTANCE_ID}]: Event Relay listening on port ${config
 if (config.SOCKETCLUSTER_LOG_LEVEL >= 2) {
     ;(async () => {
         for await (let { warning } of agServer.listener('warning')) {
-            logger.error(`AGServer Warning - ${warning}`)
+            logger.warn(`AGServer Warning - ${warning}`)
         }
     })()
 }

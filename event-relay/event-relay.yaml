@@ -73,6 +73,8 @@ spec:
           value: {{INDEXER_DB_PASSWORD}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: FORCE_COLOR
+          value: "1" 
         readinessProbe:
           httpGet:
             path: /health-check
