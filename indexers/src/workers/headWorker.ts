@@ -88,6 +88,7 @@ export function getHeadWorker(): Worker {
                         break
                     }
 
+                    logger.error(err)
                     logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
                     await sleep(randomIntegerInRange(
                         Math.floor(0.8 * config.JOB_DELAY_ON_FAILURE),

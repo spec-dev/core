@@ -132,9 +132,10 @@ class AbstractIndexer {
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
         const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
-        const whereClause = `tokens.erc20_tokens.last_updated < excluded.last_updated`
+        const whereClause = `"tokens"."erc20_tokens"."last_updated" < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
+
         this.erc20Tokens = ((
             await tx
                 .createQueryBuilder()
@@ -158,7 +159,7 @@ class AbstractIndexer {
         const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
         const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
-        const whereClause = `tokens.nft_collections.last_updated < excluded.last_updated`
+        const whereClause = `"tokens"."nft_collections"."last_updated" < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
         this.nftCollections = ((
