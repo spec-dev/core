@@ -78,3 +78,5 @@ spec:
           value: "true"
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: FORCE_UNCLE_RANGE
+          value: "9005583,9005583"

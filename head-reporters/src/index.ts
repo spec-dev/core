@@ -50,7 +50,7 @@ async function listen() {
         try {
             logger.info(`Forcing uncle ${from} -> ${to}`)
             await reporter._uncleBlocks(
-                { number: from } as BlockHeader, 
+                { number: from, timestamp: Math.floor(Date.now() / 1000) } as BlockHeader, 
                 to,
                 uuid4(),
                 1000,
