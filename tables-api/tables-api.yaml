@@ -53,6 +53,8 @@ spec:
           value: {{JWT_SECRET}}
         - name: FLIP
           value: heads
+        - name: FORCE_COLOR
+          value: "1" 
         readinessProbe:
           httpGet:
             path: /health-check
@@ -117,8 +119,14 @@ spec:
           value: {{V0_PAYLOAD_WHITELIST}}
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
+        - name: INDEXER_REDIS_HOST
+          value: {{INDEXER_REDIS_HOST}}
+        - name: INDEXER_REDIS_PORT
+          value: "{{INDEXER_REDIS_PORT}}"
         - name: FLIP
           value: tails
+        - name: FORCE_COLOR
+          value: "1" 
         readinessProbe:
           httpGet:
             path: /health-check

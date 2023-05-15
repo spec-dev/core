@@ -18,6 +18,7 @@ const eventClient = config.CONNECT_TO_EVENT_RELAY
           hostname: config.EVENT_RELAY_HOSTNAME,
           port: config.EVENT_RELAY_PORT,
           signedAuthToken: config.PUBLISHER_ROLE_KEY,
+          onConnect: () => logger.info('Connected to event-relay.'),
       })
     : null
 

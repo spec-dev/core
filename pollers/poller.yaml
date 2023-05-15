@@ -41,3 +41,7 @@ spec:
           value: {{SHARED_TABLES_DB_PASSWORD}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "20"
+        - name: FORCE_COLOR
+          value: "1" 
+        - name: JOB_INTERVAL
+          value: "600000"

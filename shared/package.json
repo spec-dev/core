@@ -43,7 +43,7 @@
         "reflect-metadata": "^0.1.13",
         "sha.js": "^2.4.11",
         "short-uuid": "^4.2.0",
-        "typeorm": "^0.3.7",
+        "typeorm": "0.3.7",
         "uuid4": "^2.0.2",
         "web3-utils": "^1.7.4"
     },
