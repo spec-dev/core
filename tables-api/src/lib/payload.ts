@@ -115,7 +115,7 @@ export function isTableOpRestricted(
     }
 
     for (const table of tables) {
-        if (pipelineCacheEntry.failingTables.has(table)) {
+        if (pipelineCacheEntry?.failingTables?.has(table)) {
             logger.warn(`Table "${table}" is currently marked as failing. Won't perform operation.`)
             return true
         }
