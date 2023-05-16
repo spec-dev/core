@@ -14,6 +14,7 @@ import {
     fullErc20BalanceUpsertConfig,
     Erc20Balance,
     identPath,
+    range,
     formatAbiValueWithType,
     Abi,
     NULL_ADDRESS,
@@ -50,10 +51,6 @@ class SeedErc20BalancesWithOwnersWorker {
 
     chainId: string
 
-    blockNumber: number
-
-    logIndex: number
-
     token: StringKeyMap
 
     ownerAddresses: Set<string> = new Set()
@@ -65,8 +62,7 @@ class SeedErc20BalancesWithOwnersWorker {
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
-        this.blockNumber = from
-        this.logIndex = 0
+        this.cursor = from
         this.groupSize = groupSize || 1
         this.chainId = config.CHAIN_ID
         this.token = {
@@ -84,10 +80,11 @@ class SeedErc20BalancesWithOwnersWorker {
         if (!this.latestBlock) throw 'no latest block found'
         setInterval(() => this._loadLatestBlock(), 10000)
 
-        while (true) {
-            // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            if (!(await this._indexGroup())) break
-            // this.cursor = this.cursor + this.groupSize
+        while (this.cursor <= this.to) {
+            const start = this.cursor
+            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            await this._indexGroup(start, end)
+            this.cursor = this.cursor + this.groupSize
         }
 
         if (this.ownerAddresses.size) {
@@ -100,22 +97,17 @@ class SeedErc20BalancesWithOwnersWorker {
         exit()
     }
 
-    async _indexGroup(): Promise<boolean> {
-        logger.info(`Cursor ${this.blockNumber},${this.logIndex}...`)
+    async _indexGroup(start: number, end: number): Promise<boolean> {
+        logger.info(`Indexing ${start} --> ${end}...`)
 
         const logs = this._decodeLogsIfNeeded(
-            await this._getTokenLogsForRange()
+            await this._getTokenLogsForRange(start, end)
         )
         if (!logs.length) return false
+        
+        logger.info(`Got ${logs.length} logs`)
 
-        if (Number(logs[0].blockNumber) > this.to) return false
-
-        let logged = false
         for (const log of logs) {
-            if (!logged) {
-                logged = true
-                logger.info(`Block ${log.blockNumber}`)
-            }
             log.eventArgs = log.eventArgs || []
             if (log.topic0 === TRANSFER_TOPIC) {
                 const fromAddress = log.eventArgs[0]?.value || NULL_ADDRESS
@@ -134,54 +126,43 @@ class SeedErc20BalancesWithOwnersWorker {
             await Promise.all(toChunks(balances, 2000).map(chunk => this._upsertErc20Balances(chunk)))
             this.ownerAddresses = new Set()
         }
-
-        this.blockNumber
-
         return true
     }
 
-    async _upsertErc20Balances(erc20Balances: Erc20Balance[]) {
+    async _upsertErc20Balances(erc20Balances: Erc20Balance[], attempt: number = 1) {
         if (!erc20Balances.length) return
         const [_, conflictCols] = fullErc20BalanceUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
         erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
-        const run = async () => {
-            return SharedTables
+        try {
+            await SharedTables
                 .createQueryBuilder()
                 .insert()
                 .into(Erc20Balance)
                 .values(erc20Balances)
                 .onConflict(`(${conflictColStatement}) DO NOTHING`)
                 .execute()
-        }
-
-        await this._withDeadlockProtection(run)
-    }
-
-    async _withDeadlockProtection(fn: Function, attempt: number = 1) {
-        try {
-            return await fn()
         } catch (err) {
             const message = err.message || err.toString() || ''
             if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
                 await sleep(randomIntegerInRange(50, 500))
-                return await this._withDeadlockProtection(fn, attempt + 1)
+                return await this._upsertErc20Balances(erc20Balances, attempt + 1)
             } else {
                 throw err
             }
         }
     }
 
-    async _getTokenLogsForRange(): Promise<StringKeyMap[]> {
+    async _getTokenLogsForRange(start: number, end: number): Promise<StringKeyMap[]> {
         const schema = schemaForChainId[config.CHAIN_ID]
         const table = [ident(schema), ident('logs')].join('.')
-
-        let results = []
+        const blockNumbers = range(start, end)
+        const phs = range(1, blockNumbers.length).map(i => `$${i}`)
         try {
-            results = ((await SharedTables.query(
-                `select * from ${table} where address = $1 and (block_number, log_index) >= ($2, $3) limit $4`,
-                [this.token.address, config.SAVE_BATCH_MULTIPLE, this.cursor, this.groupSize]
-            )) || []).filter(log => log.topic0 && topics.has(log.topic0))
+            const results = ((await SharedTables.query(
+                `select * from ${table} where block_number in (${phs.join(', ')}) and address = $${blockNumbers.length + 1}`,
+                [...blockNumbers, this.token.address]
+            )) || []).filter(l => l.topic0 && topics.has(l.topic0))
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
             logger.error(`Error getting logs`, err)
