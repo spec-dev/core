@@ -171,8 +171,8 @@ class SeedErc20BalancesWithOwnersWorker {
         let results = []
         try {
             results = ((await SharedTables.query(
-                `select * from ${table} where address = $1 order by block_number asc, log_index asc offset $2 limit $3`,
-                [this.token.address, this.cursor, this.groupSize]
+                `select * from ${table} where address = $1 and block_number >= $2 order by block_number asc, log_index asc offset $3 limit $4`,
+                [this.token.address, config.SAVE_BATCH_MULTIPLE, this.cursor, this.groupSize]
             )) || []).filter(log => log.topic0 && topics.has(log.topic0))
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
