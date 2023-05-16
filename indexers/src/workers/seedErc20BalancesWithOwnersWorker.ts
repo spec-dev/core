@@ -32,6 +32,12 @@ import Web3 from 'web3'
 
 const web3js = new Web3()
 
+const topics = new Set([
+    TRANSFER_TOPIC, 
+    WETH_DEPOSIT_TOPIC, 
+    WETH_WITHDRAWAL_TOPIC
+])
+
 class SeedErc20BalancesWithOwnersWorker {
 
     from: number 
@@ -73,10 +79,9 @@ class SeedErc20BalancesWithOwnersWorker {
         if (!this.latestBlock) throw 'no latest block found'
         setInterval(() => this._loadLatestBlock(), 10000)
 
-        while (this.cursor <= this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            await this._indexGroup(start, end)
+        while (true) {
+            // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+            if (!(await this._indexGroup())) break
             this.cursor = this.cursor + this.groupSize
         }
 
@@ -90,15 +95,20 @@ class SeedErc20BalancesWithOwnersWorker {
         exit()
     }
 
-    async _indexGroup(start: number, end: number) {
-        logger.info(`Indexing ${start} --> ${end}...`)
+    async _indexGroup(): Promise<boolean> {
+        logger.info(`Cursor ${this.cursor}...`)
 
         const logs = this._decodeLogsIfNeeded(
-            await this._getTokenLogsForRange(start, end)
+            await this._getTokenLogsForRange()
         )
-        if (!logs.length) return
-
+        if (!logs.length) return false
+        
+        let logged = false
         for (const log of logs) {
+            if (!logged) {
+                logged = true
+                logger.info(`Block ${log.blockNumber}`)
+            }
             log.eventArgs = log.eventArgs || []
             if (log.topic0 === TRANSFER_TOPIC) {
                 const fromAddress = log.eventArgs[0]?.value || NULL_ADDRESS
@@ -117,6 +127,7 @@ class SeedErc20BalancesWithOwnersWorker {
             await Promise.all(toChunks(balances, 2000).map(chunk => this._upsertErc20Balances(chunk)))
             this.ownerAddresses = new Set()
         }
+        return true
     }
 
     async _upsertErc20Balances(erc20Balances: Erc20Balance[]) {
@@ -151,16 +162,16 @@ class SeedErc20BalancesWithOwnersWorker {
         }
     }
 
-    async _getTokenLogsForRange(start: number, end: number): Promise<StringKeyMap[]> {
+    async _getTokenLogsForRange(): Promise<StringKeyMap[]> {
         const schema = schemaForChainId[config.CHAIN_ID]
         const table = [ident(schema), ident('logs')].join('.')
-        const whereClause = 'block_number >= $1 and block_number <= $2 and address = $3 and topic0 in ($4, $5, $6)'
 
+        let results = []
         try {
-            const results = (await SharedTables.query(
-                `select * from ${table} where ${whereClause}`,
-                [start, end, this.token.address, TRANSFER_TOPIC, WETH_DEPOSIT_TOPIC, WETH_WITHDRAWAL_TOPIC]
-            )) || []
+            results = ((await SharedTables.query(
+                `select * from ${table} where address = $1 order by block_number asc, log_index asc offset $2 limit $3`,
+                [this.token.address, this.cursor, this.groupSize]
+            )) || []).filter(log => log.topic0 && topics.has(log.topic0))
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
             logger.error(`Error getting logs`, err)
