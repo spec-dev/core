@@ -192,7 +192,6 @@ class SeedErc20BalancesWithOwnersWorker {
             }
 
             if (log.topic0 === TRANSFER_TOPIC) {
-                console.log('decoding transfer')
                 const eventArgs = decodeTransferEvent(log, true)
                 if (!eventArgs) continue
                 log.eventName = TRANSFER_EVENT_NAME
