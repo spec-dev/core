@@ -8,7 +8,6 @@ function NewTokenTransfers(tokenTransfers: TokenTransfer[], eventOrigin: StringK
         blockNumber: Number(t.blockNumber),
         blockTimestamp: t.blockTimestamp.toISOString(),
     }))
-    
     return {
         name: eventName,
         data: eventData,

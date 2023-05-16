@@ -6,7 +6,6 @@ import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
-import initLatestInteractions from './services/initLatestInteractions'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
@@ -363,22 +362,30 @@ class EthereumIndexer extends AbstractIndexer {
 
         // eth.NewTransactions
         isMainnet && this.transactions?.length && originEventSpecs.push(
-            originEvents.eth.NewTransactions(this.transactions, eventOrigin)
+            ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.eth.NewTransactions(txs, eventOrigin)
+            ))
         )
 
         // eth.NewContracts
         isMainnet && this.contracts?.length && originEventSpecs.push(
-            originEvents.eth.NewContracts(this.contracts, eventOrigin)
+            ...(toChunks(this.contracts, config.MAX_EVENTS_LENGTH).map(contracts => 
+                originEvents.eth.NewContracts(contracts, eventOrigin)
+            ))
         )
-
-        // // eth.NewInteractions
-        // isMainnet && this.latestInteractions?.length && originEventSpecs.push(
-        //     originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
-        // )
 
         // tokens.NewTokenTransfers
         this.tokenTransfers?.length && originEventSpecs.push(
-            originEvents.tokens.NewTokenTransfers(this.tokenTransfers, eventOrigin)
+            ...(toChunks(this.tokenTransfers, config.MAX_EVENTS_LENGTH).map(transfers => 
+                originEvents.tokens.NewTokenTransfers(transfers, eventOrigin)
+            ))
+        )
+
+        // tokens.NewErc20Balances
+        this.erc20Balances?.length && originEventSpecs.push(
+            ...(toChunks(this.erc20Balances, config.MAX_EVENTS_LENGTH).map(balances => 
+                originEvents.tokens.NewErc20Balances(balances, eventOrigin)
+            ))
         )
 
         // Decode contract events and function calls.
