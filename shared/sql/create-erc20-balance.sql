@@ -12,4 +12,6 @@ create table if not exists tokens.erc20_balance (
     block_timestamp timestamp with time zone not null,
     chain_id character varying not null
 );
-create unique index "tokens_erc20_balance_primary_unique_idx" ON tokens.erc20_balance(token_address, owner_address, chain_id);
+create unique index "tokens_erc20_balance_primary_unique_idx" on tokens.erc20_balance(token_address, owner_address, chain_id);
+create index "tokens_erc20_balance_by_owner_chain" on tokens.erc20_balance(owner_address, chain_id);
+create index "tokens_erc20_balance_by_timestamp" on tokens.erc20_balance(block_timestamp);

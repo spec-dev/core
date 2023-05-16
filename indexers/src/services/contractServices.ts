@@ -427,9 +427,7 @@ export async function getLatestTokenBalances(
             isNative,
         } = transfer
 
-        const ownerAddresses = [fromAddress, toAddress].filter(a => a !== NULL_ADDRESS)
-        if (!ownerAddresses.length) continue
-        
+        const ownerAddresses = [fromAddress, toAddress]
         if (isNative || tokenStandard === TokenTransferStandard.ERC20) {
             ownerAddresses.forEach(ownerAddress => {
                 const uniqueKey = [tokenAddress, ownerAddress].join(':')

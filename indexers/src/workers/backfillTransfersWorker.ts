@@ -65,7 +65,6 @@ class BackfillTransfersWorker {
     async _indexGroup(start: number, end: number) {
         logger.info(`Indexing ${start} --> ${end}...`)
 
-        // Get contracts for this block range.
         const tokenTransfers = await this._getTokenTransfersInRange(start, end)
         if (!tokenTransfers.length) return
         

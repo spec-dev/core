@@ -809,31 +809,6 @@ class EthereumIndexer extends AbstractIndexer {
         return log
     }
 
-    _tryDecodingLogAsSpecialErc20BalanceEvent(log: EthLog): EthLog {
-        let eventName, eventArgs
-
-        // WETH Deposit
-        if (log.topic0 === WETH_DEPOSIT_TOPIC) {
-            eventArgs = decodeTransferEvent(log, true)
-            if (!eventArgs) return log
-            eventName = TRANSFER_EVENT_NAME
-        }
-
-        // WETH Withdrawal
-        if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
-            eventArgs = decodeTransferSingleEvent(log, true)
-            if (!eventArgs) return log
-            eventName = TRANSFER_SINGLE_EVENT_NAME
-        }
-
-        if (!eventName) return log
-
-        log.eventName = eventName
-        log.eventArgs = eventArgs as StringKeyMap[]
-
-        return log
-    }
-
     _formatLogAsSpecEvent(log: EthLog, contractInstanceName: string): StringKeyMap {
         const eventOrigin = {
             contractAddress: log.address,
