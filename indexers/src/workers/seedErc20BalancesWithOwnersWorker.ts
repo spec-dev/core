@@ -102,6 +102,8 @@ class SeedErc20BalancesWithOwnersWorker {
             await this._getTokenLogsForRange()
         )
         if (!logs.length) return false
+
+        if (Number(logs[0].blockNumber) > this.to) return false
         
         let logged = false
         for (const log of logs) {
