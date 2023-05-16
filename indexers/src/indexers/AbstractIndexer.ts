@@ -231,7 +231,7 @@ class AbstractIndexer {
             .flat() as TokenTransfer[]
     }
 
-    async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
+    async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string, attempt: number = 1) {
         if (!updates.length) return
         const tempTableName = `erc20_tokens_${short.generate()}`
         const insertPlaceholders = []
@@ -243,47 +243,40 @@ class AbstractIndexer {
             i += 3
         }
         
-        const run = async () => {
-            const client = await this.pool.connect()
-            try {
-                // Create temp table and insert updates + primary key data.
-                await client.query('BEGIN')
-                await client.query(
-                    `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
-                )
-    
-                // Bulk insert the updated records to the temp table.
-                await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
-    
-                // Merge the temp table updates into the target table ("bulk update").
-                await client.query(
-                    `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
-                )
-                await client.query('COMMIT')
-            } catch (e) {
-                await client.query('ROLLBACK')
-                this._error(`Error bulk updating ERC-20 Tokens`, updates, e)
-            } finally {
-                client.release()
-            }
-        }
-
-        await this._withDeadlockProtection(run, 'erc20_tokens')
-    }
-
-    async _withDeadlockProtection(fn: Function, table: string, attempt: number = 1) {
+        let error
+        const client = await this.pool.connect()
         try {
-            return await fn()
+            // Create temp table and insert updates + primary key data.
+            await client.query('BEGIN')
+            await client.query(
+                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
+            )
+
+            // Bulk insert the updated records to the temp table.
+            await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
+
+            // Merge the temp table updates into the target table ("bulk update").
+            await client.query(
+                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
+            )
+            await client.query('COMMIT')
         } catch (err) {
-            const message = err.message || err.toString() || ''
-            if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-                this._error(`Got deadlock (${table}). Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
-                await sleep(randomIntegerInRange(50, 500))
-                return await this._withDeadlockProtection(fn, table, attempt + 1)
-            } else {
-                throw err
-            }
+            await client.query('ROLLBACK')
+            this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
+            error = err
+        } finally {
+            client.release()
         }
+        if (!error) return
+
+        const message = error.message || error.toString() || ''
+        if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+            this._error(`Got deadlock ("tokens"."erc20_tokens"). Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+            await sleep(randomIntegerInRange(50, 500))
+            return await this._bulkUpdateErc20TokensTotalSupply(updates, timestamp, attempt + 1)
+        }
+        
+        throw error
     }
 
     /**

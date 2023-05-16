@@ -56,6 +56,7 @@ import {
     EthTraceStatus,
     EthTraceType,
     Erc20Balance,
+    randomIntegerInRange,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -321,23 +322,34 @@ class EthereumIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
-        const run = async () => {
-            await SharedTables.manager.transaction(async (tx) => {
-                await Promise.all([
-                    this._upsertBlock(block, tx),
-                    this._upsertTransactions(transactions, tx),
-                    this._upsertLogs(logs, tx),
-                    this._upsertTraces(traces, tx),
-                    this._upsertContracts(contracts, tx),
-                    this._upsertErc20Tokens(erc20Tokens, tx),
-                    this._upsertErc20Balances(erc20Balances, tx),
-                    this._upsertNftCollections(nftCollections, tx),
-                    this._upsertTokenTransfers(tokenTransfers, tx),
-                ])
-            })
+        let attempt = 1
+        while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
+            try {
+                await SharedTables.manager.transaction(async (tx) => {
+                    await Promise.all([
+                        this._upsertBlock(block, tx),
+                        this._upsertTransactions(transactions, tx),
+                        this._upsertLogs(logs, tx),
+                        this._upsertTraces(traces, tx),
+                        this._upsertContracts(contracts, tx),
+                        this._upsertErc20Tokens(erc20Tokens, tx),
+                        this._upsertErc20Balances(erc20Balances, tx),
+                        this._upsertNftCollections(nftCollections, tx),
+                        this._upsertTokenTransfers(tokenTransfers, tx),
+                    ])
+                })
+                break
+            } catch (err) {
+                attempt++
+                const message = err.message || err.toString() || ''
+                if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+                    this._error(`Got deadlock on primitives. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+                    await sleep(randomIntegerInRange(50, 500))
+                    continue
+                }
+                throw err
+            }
         }
-        await this._withDeadlockProtection(run, 'primitives')
-
         erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
             erc20TotalSupplyUpdates,
             this.block.timestamp.toISOString(),
