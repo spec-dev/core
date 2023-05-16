@@ -96,6 +96,7 @@ export function getHeadWorker(): Worker {
                     ))
                     continue
                 }
+                timer && clearTimeout(timer)
                 break
             }
 
