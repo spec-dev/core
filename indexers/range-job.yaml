@@ -94,7 +94,7 @@ spec:
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "50"
         - name: SAVE_BATCH_MULTIPLE
-          value: "16000000"
+          value: "1"
         - name: FORCE_COLOR
           value: "1" 
         - name: RPC_POOL_ENDPOINTS

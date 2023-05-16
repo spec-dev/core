@@ -163,7 +163,7 @@ class AbstractIndexer {
         const [updateCols, conflictCols] = fullErc20BalanceUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
         const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
-        const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp`
+        const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp and "tokens"."erc20_balance"."balance" != excluded.balance`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
         this.erc20Balances = ((
