@@ -732,7 +732,7 @@ function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): St
             try {
                 log = decodeLogEvent(log, abis[log.address])
             } catch (err) {
-                logger.error(`Error decoding log for address ${log.address}: ${err}`)
+                logger.warn(`Error decoding log for address ${log.address}: ${err}`)
             }
         }
         finalLogs.push(log)

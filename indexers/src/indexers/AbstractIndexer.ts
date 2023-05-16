@@ -8,7 +8,9 @@ import {
     saveBlockEvents,
     saveBlockCalls,
     Erc20Token,
+    Erc20Balance,
     fullErc20TokenUpsertConfig,
+    fullErc20BalanceUpsertConfig,
     NftCollection,
     fullNftCollectionUpsertConfig,
     fullTokenTransferUpsertConfig,
@@ -41,6 +43,8 @@ class AbstractIndexer {
     pool: Pool
 
     erc20Tokens: Erc20Token[] = []
+
+    erc20Balances: Erc20Balance[] = []
 
     tokenTransfers: TokenTransfer[] = []
 
@@ -152,6 +156,31 @@ class AbstractIndexer {
                 .returning('*')
                 .execute()
         ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Token[]
+    }
+
+    async _upsertErc20Balances(erc20Balances: Erc20Balance[], tx: any) {
+        if (!erc20Balances.length) return
+        const [updateCols, conflictCols] = fullErc20BalanceUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp`
+        const blockTimestamp = this.pgBlockTimestamp
+        erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
+        this.erc20Balances = ((
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(Erc20Balance)
+                .values(erc20Balances.map((b) => ({ 
+                    ...b, 
+                    blockTimestamp: () => blockTimestamp,
+                })))
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
+                .returning('*')
+                .execute()
+        ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Balance[]
     }
     
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {

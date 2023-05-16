@@ -47,10 +47,8 @@ export class Erc20Balance {
     chainId: string
 }
 
-export const fullErc20BalanceUpsertConfig = (erc20Balance: Erc20Balance): string[][] => {
+export const fullErc20BalanceUpsertConfig = (): string[][] => {
     const conflictCols = ['token_address', 'owner_address', 'chain_id']
-    const updateCols = Object.keys(erc20Balance)
-        .map(decamelize)
-        .filter((col) => !conflictCols.includes(col))
+    const updateCols = ['balance', 'block_hash', 'block_number', 'block_timestamp']
     return [updateCols, conflictCols]
 }

@@ -39,7 +39,8 @@ const indexerConfig: StringKeyMap = {
     ETHERSCAN_API_KEY: ev('ETHERSCAN_API_KEY'),
     MAX_TABLE_SAVE_TIME: Number(ev('MAX_TABLE_SAVE_TIME', 30000)),
     CMC_API_KEY: ev('CMC_API_KEY'),
-    RPC_POOL_ENDPOINTS: ev('RPC_POOL_ENDPOINTS')
+    RPC_POOL_ENDPOINTS: ev('RPC_POOL_ENDPOINTS'),
+    RPC_FUNCTION_BATCH_SIZE: Number(ev('RPC_FUNCTION_BATCH_SIZE', 100)),
 }
 
 export default indexerConfig

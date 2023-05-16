@@ -12,7 +12,8 @@ import config from '../../config'
 import Web3 from 'web3'
 import chalk from 'chalk'
 import { ident } from 'pg-format'
-import { resolveNewTokenContracts } from '../../services/contractServices'
+import { resolveNewTokenContracts, getLatestTokenBalances } from '../../services/contractServices'
+import extractSpecialErc20BalanceEventData from '../../services/extractSpecialErc20BalanceEventData'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
     sleep,
@@ -53,9 +54,9 @@ import {
     Erc20Token,
     NftCollection,
     TokenTransfer,
-    NftTransfer,
     EthTraceStatus,
     EthTraceType,
+    Erc20Balance,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -69,6 +70,8 @@ import {
     TRANSFER_EVENT_NAME,
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
+    WETH_DEPOSIT_TOPIC,
+    specialErc20BalanceAffectingAbis,
 } from '../../utils/standardAbis'
 import initTokenTransfers from '../../services/initTokenTransfers'
 
@@ -197,22 +200,17 @@ class EthereumIndexer extends AbstractIndexer {
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
-        // Get any new contracts deployed this block.
+        // New contracts deployed this block.
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // // New tokens and latest interactions.
-        // const [newTokens, latestInteractions] = await Promise.all([
-        //     resolveNewTokenContracts(contracts, this.chainId),
-        //     (() => this.chainId === chainIds.ETHEREUM
-        //         ? initLatestInteractions(transactions, traces, contracts)
-        //         : [])(),
-        // ])
+        // New ERC-20 tokens & NFT collections.
         const newTokens = await resolveNewTokenContracts(contracts, this.chainId)
         const [erc20Tokens, nftCollections] = newTokens
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
+        // Filter logs and traces to only those that succeeded.
         const txSuccess = {}
         for (const tx of transactions) {
             txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
@@ -221,11 +219,14 @@ class EthereumIndexer extends AbstractIndexer {
             .filter(log => txSuccess[log.transactionHash])
             .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
         )
-
         const successfulTraces = traces.filter(t => t.status !== EthTraceStatus.Failure)
 
-        // Token transfers.
-        const [tokenTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
+        // All token transfers.
+        const [
+            tokenTransfers, 
+            erc20TotalSupplyUpdates,
+            referencedErc20TokensMap,
+        ] = config.IS_RANGE_MODE
             ? [[], []] 
             : await initTokenTransfers(
                 erc20Tokens,
@@ -234,8 +235,20 @@ class EthereumIndexer extends AbstractIndexer {
                 successfulTraces,
                 this.chainId,
             )
-
         tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
+
+        // Refresh any ERC-20 balances and NFT balances that could have changed.
+        const specialErc20BalanceDataByOwner = await extractSpecialErc20BalanceEventData(
+            this.successfulLogs,
+            referencedErc20TokensMap,
+            this.chainId,
+        )
+        let [erc20Balances, nftBalances] = await getLatestTokenBalances(
+            tokenTransfers,
+            specialErc20BalanceDataByOwner,
+        )
+        erc20Balances = this._enrichErc20Balances(erc20Balances, block)
+        erc20Balances.length && this._info(`${erc20Balances.length} new ERC-20 balances.`)
 
         // One last check before saving.
         if (!(await this._shouldContinue())) {
@@ -272,6 +285,7 @@ class EthereumIndexer extends AbstractIndexer {
             traces,
             contracts,
             erc20Tokens,
+            erc20Balances,
             nftCollections,
             tokenTransfers,
             erc20TotalSupplyUpdates,
@@ -301,6 +315,7 @@ class EthereumIndexer extends AbstractIndexer {
         traces: EthTrace[],
         contracts: EthContract[],
         erc20Tokens: Erc20Token[],
+        erc20Balances: Erc20Balance[],
         nftCollections: NftCollection[],
         tokenTransfers: TokenTransfer[],
         erc20TotalSupplyUpdates: StringKeyMap[],
@@ -316,6 +331,7 @@ class EthereumIndexer extends AbstractIndexer {
                     this._upsertTraces(traces, tx),
                     this._upsertContracts(contracts, tx),
                     this._upsertErc20Tokens(erc20Tokens, tx),
+                    this._upsertErc20Balances(erc20Balances, tx),
                     this._upsertNftCollections(nftCollections, tx),
                     this._upsertTokenTransfers(tokenTransfers, tx),
                 ])
@@ -669,7 +685,7 @@ class EthereumIndexer extends AbstractIndexer {
                 try {
                     log = this._decodeLog(log, abis[log.address])
                 } catch (err) {
-                    this._error(`Error decoding log for address ${log.address}: ${err}`)
+                    this._warn(`Error decoding log for address ${log.address}: ${err}`)
                 }
             }
             // Try decoding as transfer event if couldn't decode with contract ABI.
@@ -677,7 +693,20 @@ class EthereumIndexer extends AbstractIndexer {
                 try {
                     log = this._tryDecodingLogAsTransfer(log)
                 } catch (err) {
-                    this._error(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                    this._warn(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                }
+            }
+            // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
+            if (!log.eventName && log.address && specialErc20BalanceAffectingAbis[log.topic0]) {
+                const abi = specialErc20BalanceAffectingAbis[log.topic0]
+                try {
+                    log = this._decodeLog(log, [abi])
+                } catch (err) {
+                    this._warn(
+                        `Error decoding log with special ERC-20 balance-affecting ABI (${log.topic0}):`,
+                        log,
+                        err
+                    )
                 }
             }
             finalLogs.push(log)
@@ -763,6 +792,31 @@ class EthereumIndexer extends AbstractIndexer {
             eventArgs = decodeTransferBatchEvent(log, true)
             if (!eventArgs) return log
             eventName = TRANSFER_BATCH_EVENT_NAME
+        }
+
+        if (!eventName) return log
+
+        log.eventName = eventName
+        log.eventArgs = eventArgs as StringKeyMap[]
+
+        return log
+    }
+
+    _tryDecodingLogAsSpecialErc20BalanceEvent(log: EthLog): EthLog {
+        let eventName, eventArgs
+
+        // WETH Deposit
+        if (log.topic0 === WETH_DEPOSIT_TOPIC) {
+            eventArgs = decodeTransferEvent(log, true)
+            if (!eventArgs) return log
+            eventName = TRANSFER_EVENT_NAME
+        }
+
+        // WETH Withdrawal
+        if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
+            eventArgs = decodeTransferSingleEvent(log, true)
+            if (!eventArgs) return log
+            eventName = TRANSFER_SINGLE_EVENT_NAME
         }
 
         if (!eventName) return log
@@ -1095,6 +1149,16 @@ class EthereumIndexer extends AbstractIndexer {
             .map((result) => result.generatedMaps || [])
             .flat()
             .filter(li => li && !!Object.keys(li).length) as EthLatestInteraction[]
+    }
+
+    _enrichErc20Balances(erc20Balances: Erc20Balance[], block: EthBlock): Erc20Balance[] {
+        return erc20Balances.map(b => ({
+            ...b,
+            blockNumber: this.blockNumber,
+            blockHash: this.blockHash,
+            blockTimestamp: block.timestamp,
+            chainId: this.chainId,
+        }))
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {

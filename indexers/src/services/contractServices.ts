@@ -1,5 +1,5 @@
 import { getSocketWeb3 } from '../rpcPool'
-import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep } from '../../../shared'
+import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep, TokenTransfer, Erc20Balance, NftBalance, TokenTransferStandard, NULL_ADDRESS } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
 import config from '../config'
@@ -114,7 +114,7 @@ async function newNFTCollection(contract: StringKeyMap, chainId: string): Promis
 
 export function getContractInterface(address: string, abi: any): StringKeyMap | null {
     const web3 = getSocketWeb3()
-    if (!web3) return {}
+    if (!web3) return null
     try {
         const contract = new web3.eth.Contract(abi, address)
         return contract.methods    
@@ -281,18 +281,32 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
 export async function getERC20TokenBalance(
     tokenAddress: string, 
     ownerAddress: string, 
-    decimals: number = 18,
+    decimals: number | null,
     formatWithDecimals: boolean = true,
 ): Promise<string | null> {
-    const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
-    if (!methods) return null
+    const isNative = tokenAddress === NULL_ADDRESS
+    let fn: Function
+    if (isNative) {
+        fn = async () => {
+            const web3 = getSocketWeb3()
+            if (!web3) return null
+            return web3.eth.getBalance(ownerAddress)
+        }
+    } else {
+        fn = async () => {
+            const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
+            if (!methods) return null
+            return methods.balanceOf(ownerAddress).call()
+        }
+    }
+
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
-            let balance = await methods.balanceOf(ownerAddress).call()
-            if (!formatWithDecimals) return balance
-            balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals) || 18)
+            let balance = await fn()
+            if (!formatWithDecimals || !decimals) return balance
+            balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals))
             return Number(balance) === 0 ? '0' : balance
         } catch (err) {
             const message = err.message || err.toString() || ''
@@ -391,4 +405,121 @@ export async function getContractBytecode(address: string): Promise<string> {
         logger.error(`Error calling getCode(${address}): ${err}`)
         return null
     }
+}
+
+export async function getLatestTokenBalances(
+    tokenTransfers: TokenTransfer[],
+    specialErc20BalanceDataByOwner: StringKeyMap,
+): Promise<[Erc20Balance[], NftBalance[]]> {
+    // Extract the unique token:owner groups referenced by the transfers.
+    let erc20BalanceDataByOwner = {}
+    const nftBalanceDataByOwner = {}
+    for (const transfer of tokenTransfers) {
+        const { 
+            tokenAddress, 
+            tokenName,
+            tokenSymbol,
+            tokenDecimals,
+            fromAddress, 
+            toAddress, 
+            tokenStandard,
+            tokenId,
+            isNative,
+        } = transfer
+
+        const ownerAddresses = [fromAddress, toAddress].filter(a => a !== NULL_ADDRESS)
+        if (!ownerAddresses.length) continue
+        
+        if (isNative || tokenStandard === TokenTransferStandard.ERC20) {
+            ownerAddresses.forEach(ownerAddress => {
+                const uniqueKey = [tokenAddress, ownerAddress].join(':')
+                erc20BalanceDataByOwner[uniqueKey] = {
+                    tokenAddress,
+                    ownerAddress,
+                    tokenName,
+                    tokenSymbol,
+                    tokenDecimals,
+                }
+            })
+            continue
+        }
+        
+        const isNft = (
+            tokenStandard === TokenTransferStandard.ERC721 || 
+            tokenStandard === TokenTransferStandard.ERC1155
+        )
+        if (isNft) {
+            ownerAddresses.forEach(ownerAddress => {
+                const uniqueKey = [tokenAddress, ownerAddress, tokenId].join(':')
+                nftBalanceDataByOwner[uniqueKey] = {
+                    tokenAddress,
+                    ownerAddress,
+                    tokenId,
+                    tokenName,
+                    tokenSymbol,
+
+                }
+            })
+            continue
+        }
+    }
+
+    // Add in the special erc20 token owners for tokens that have 
+    // events *other than Transfer* to signal balance changes.
+    erc20BalanceDataByOwner = {
+        ...erc20BalanceDataByOwner,
+        ...specialErc20BalanceDataByOwner,
+    }
+
+    const erc20BalancesToRefetch = Object.values(erc20BalanceDataByOwner) as StringKeyMap[]
+    const nftBalancesToRefetch = Object.values(nftBalanceDataByOwner) as StringKeyMap[]
+    if (!erc20BalancesToRefetch.length && !nftBalancesToRefetch.length) {
+        return [[], []]
+    }
+    
+    const erc20BalanceGroups = toChunks(
+        erc20BalancesToRefetch, 
+        config.RPC_FUNCTION_BATCH_SIZE,
+    )
+    
+    let erc20BalanceValues = []
+    try {
+        for (const group of erc20BalanceGroups) {
+            erc20BalanceValues.push(...(await Promise.all(group.map(info => (
+                getERC20TokenBalance(
+                    info.tokenAddress, 
+                    info.ownerAddress,
+                    info.tokenDecimals,
+                )
+            )))))
+        }    
+    } catch (err) {
+        logger.error(`Failed to fetch latest batch of ERC-20 balances: ${err}`)
+        return [[], []]
+    }
+
+    const erc20Balances = []
+    for (let i = 0; i < erc20BalancesToRefetch.length; i++) {
+        const tokenOwnerInfo = erc20BalancesToRefetch[i]
+        const balance = erc20BalanceValues[i]
+        if (balance === null) continue
+        const {
+            tokenAddress,
+            tokenName,
+            tokenSymbol,
+            tokenDecimals,
+            ownerAddress,
+        } = tokenOwnerInfo
+        
+        erc20Balances.push({
+            tokenAddress,
+            tokenName,
+            tokenSymbol,
+            tokenDecimals,
+            ownerAddress,
+            balance,
+        })
+    }
+
+    return [erc20Balances as Erc20Balance[], []]
 }

@@ -862,7 +862,7 @@ class PolygonIndexer extends AbstractIndexer {
                 try {
                     log = this._decodeLog(log, abis[log.address])
                 } catch (err) {
-                    this._error(`Error decoding log for address ${log.address}: ${err}`)
+                    this._warn(`Error decoding log for address ${log.address}: ${err}`)
                 }
             }
             // Try decoding as transfer event if couldn't decode with contract ABI.
@@ -870,7 +870,7 @@ class PolygonIndexer extends AbstractIndexer {
                 try {
                     log = this._tryDecodingLogAsTransfer(log)
                 } catch (err) {
-                    this._error(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                    this._warn(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
                 }
             }
             finalLogs.push(log)

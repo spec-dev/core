@@ -42,7 +42,7 @@ async function initTokenTransfers(
     logs: StringKeyMap[],
     traces: StringKeyMap[],
     chainId: string,
-): Promise<[TokenTransfer[], StringKeyMap[]]> {
+): Promise<[TokenTransfer[], StringKeyMap[], StringKeyMap]> {
     const tokenTransfers = initNativeTokenTransfers(traces, chainId)
     const transferLogs = []
     const potentialErc20TokenAddressSet = new Set<string>()
@@ -181,7 +181,7 @@ async function initTokenTransfers(
     }
 
     if (!tokenTransfers.length) {
-        return [[], []]
+        return [[], [], erc20TokensMap]
     }
 
     // Refetch the latest totalSupply on existing ERC-20 token contracts that were involved in a mint.
@@ -211,7 +211,7 @@ async function initTokenTransfers(
     // Only price token transfers on mainnets and when not in range mode.
     const onMainnet = [chainIds.ETHEREUM, chainIds.POLYGON].includes(chainId)
     if (!onMainnet || config.IS_RANGE_MODE) {
-        return [tokenTransfers, erc20TokenTotalSupplyUpdates]
+        return [tokenTransfers, erc20TokenTotalSupplyUpdates, erc20TokensMap]
     }
 
     const uniqueTokenTransferTokenAddresses = unique(tokenTransfers.map(t => t.tokenAddress))
@@ -243,7 +243,7 @@ async function initTokenTransfers(
         tokenTransfers[i].valueMatic = calculateTokenPrice(transfer.value, decimals, priceMatic) as any
     }
 
-    return [tokenTransfers, erc20TokenTotalSupplyUpdates]
+    return [tokenTransfers, erc20TokenTotalSupplyUpdates, erc20TokensMap]
 }
 
 function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): TokenTransfer[] {
@@ -333,7 +333,7 @@ function newTokenTransfer(
     return tokenTransfer
 }
 
-async function getErc20Tokens(addresses: string[], chainId: string): Promise<StringKeyMap> {
+export async function getErc20Tokens(addresses: string[], chainId: string): Promise<StringKeyMap> {
     if (!addresses.length) return {}
     try {
         const records = (await erc20TokensRepo().find({
@@ -347,7 +347,7 @@ async function getErc20Tokens(addresses: string[], chainId: string): Promise<Str
     }
 }
 
-async function getNftCollections(addresses: string[], chainId: string): Promise<StringKeyMap> {
+export async function getNftCollections(addresses: string[], chainId: string): Promise<StringKeyMap> {
     if (!addresses.length) return {}
     try {
         const records = (await nftCollectionsRepo().find({
