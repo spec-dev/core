@@ -164,9 +164,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    const rpcIndex = rpcPool.index()
     const address = contract.address
-
     let usingBytesAbi = false
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
@@ -174,13 +172,13 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
         try {
             const [name, symbol, decimals, totalSupply] = await Promise.all([
                 sigs.has(ERC20_NAME_ITEM.signature) 
-                    ? rpcPool.call(address, 'name', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'name', abiItems) : nullPromise(),
                 sigs.has(ERC20_SYMBOL_ITEM.signature)
-                    ? rpcPool.call(address, 'symbol', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'symbol', abiItems) : nullPromise(),
                 sigs.has(ERC20_DECIMALS_ITEM.signature)
-                    ? rpcPool.call(address, 'decimals', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'decimals', abiItems) : nullPromise(),
                 sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature)
-                    ? rpcPool.call(address, 'totalSupply', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'totalSupply', abiItems) : nullPromise(),
             ])
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
@@ -225,9 +223,7 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC721_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    const rpcIndex = rpcPool.index()
     const address = contract.address
-
     let usingBytesAbi = false
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
@@ -235,11 +231,11 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
         try {
             const [name, symbol, totalSupply] = await Promise.all([
                 sigs.has(ERC721_NAME_ITEM.signature) 
-                    ? rpcPool.call(address, 'name', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'name', abiItems) : nullPromise(),
                 sigs.has(ERC721_SYMBOL_ITEM.signature) 
-                    ? rpcPool.call(address, 'symbol', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'symbol', abiItems) : nullPromise(),
                 sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) 
-                    ? rpcPool.call(address, 'totalSupply', abiItems, rpcIndex) : nullPromise(),
+                    ? rpcPool.call(address, 'totalSupply', abiItems) : nullPromise(),
             ])
             return { name, symbol, totalSupply }
         } catch (err) {

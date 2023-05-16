@@ -24,13 +24,14 @@ class RpcPool {
     index(): number {
         if (this.connectionIndex >= this.endpoints.length) {
             this.connectionIndex = 0
+            return this.connectionIndex
         }
-        this.connectionIndex++  
+        this.connectionIndex++ 
         return this.connectionIndex
     }
 
-    call(address: string, method: string, abi: any, index: number = null) {
-        return new this.pool[index === null ? this.index(): index].eth.Contract(abi, address).methods[method]().call()    
+    call(address: string, method: string, abi: any) {
+        return new this.pool[this.index()].eth.Contract(abi, address).methods[method]().call()    
     }
 
     async getBalance(address: string) {
