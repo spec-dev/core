@@ -1,4 +1,3 @@
-import { getSocketWeb3 } from '../rpcPool'
 import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep, TokenTransfer, Erc20Balance, NftBalance, TokenTransferStandard, NULL_ADDRESS } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
@@ -21,6 +20,7 @@ import {
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
+import rpcPool from '../rpcPool'
 
 const errors = {
     EXECUTION_REVERTED: 'execution reverted',
@@ -112,18 +112,6 @@ async function newNFTCollection(contract: StringKeyMap, chainId: string): Promis
     return collection
 }
 
-export function getContractInterface(address: string, abi: any): StringKeyMap | null {
-    const web3 = getSocketWeb3()
-    if (!web3) return null
-    try {
-        const contract = new web3.eth.Contract(abi, address)
-        return contract.methods    
-    } catch (err) {
-        logger.error(`Error gettingContractInterface for ${address}`, err)
-        return null
-    }
-}
-
 export function isContractERC20(bytecode?: string, functionSignatures?: string[]): boolean {
     functionSignatures = functionSignatures?.length ? functionSignatures : bytecodeToFunctionSignatures(bytecode)
     if (!functionSignatures?.length) return false
@@ -168,7 +156,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     const functionSignatures = bytecodeToFunctionSignatures(contract.bytecode)
     if (!functionSignatures?.length) return {}
 
-    const abiItems = []
+    let abiItems = []
     const sigs = new Set(functionSignatures)
     sigs.has(ERC20_NAME_ITEM.signature) && abiItems.push(ERC20_NAME_ITEM)
     sigs.has(ERC20_SYMBOL_ITEM.signature) && abiItems.push(ERC20_SYMBOL_ITEM)
@@ -176,19 +164,23 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    let methods = getContractInterface(contract.address, abiItems)
-    if (!methods) return {}
-    let usingBytesAbi = false
+    const rpcIndex = rpcPool.index()
+    const address = contract.address
 
+    let usingBytesAbi = false
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             const [name, symbol, decimals, totalSupply] = await Promise.all([
-                sigs.has(ERC20_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
-                sigs.has(ERC20_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
-                sigs.has(ERC20_DECIMALS_ITEM.signature) ? methods.decimals().call() : nullPromise(),
-                sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
+                sigs.has(ERC20_NAME_ITEM.signature) 
+                    ? rpcPool.call(address, 'name', abiItems, rpcIndex) : nullPromise(),
+                sigs.has(ERC20_SYMBOL_ITEM.signature)
+                    ? rpcPool.call(address, 'symbol', abiItems, rpcIndex) : nullPromise(),
+                sigs.has(ERC20_DECIMALS_ITEM.signature)
+                    ? rpcPool.call(address, 'decimals', abiItems, rpcIndex) : nullPromise(),
+                sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature)
+                    ? rpcPool.call(address, 'totalSupply', abiItems, rpcIndex) : nullPromise(),
             ])
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
@@ -208,7 +200,7 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
                     })
                     sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
                     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
-                    methods = getContractInterface(contract.address, newAbiItems) || {}
+                    abiItems = newAbiItems
                     usingBytesAbi = true
                 }
                 await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
@@ -226,25 +218,28 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
     const functionSignatures = bytecodeToFunctionSignatures(contract.bytecode)
     if (!functionSignatures?.length) return {}
 
-    const abiItems = []
+    let abiItems = []
     const sigs = new Set(functionSignatures)
     sigs.has(ERC721_NAME_ITEM.signature) && abiItems.push(ERC721_NAME_ITEM)
     sigs.has(ERC721_SYMBOL_ITEM.signature) && abiItems.push(ERC721_SYMBOL_ITEM)
     sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) && abiItems.push(ERC721_TOTAL_SUPPLY_ITEM)
     if (!abiItems.length) return {}
 
-    let methods = getContractInterface(contract.address, abiItems)
-    if (!methods) return {}
-    let usingBytesAbi = false
+    const rpcIndex = rpcPool.index()
+    const address = contract.address
 
+    let usingBytesAbi = false
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
             const [name, symbol, totalSupply] = await Promise.all([
-                sigs.has(ERC721_NAME_ITEM.signature) ? methods.name().call() : nullPromise(),
-                sigs.has(ERC721_SYMBOL_ITEM.signature) ? methods.symbol().call() : nullPromise(),
-                sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) ? methods.totalSupply().call() : nullPromise(),
+                sigs.has(ERC721_NAME_ITEM.signature) 
+                    ? rpcPool.call(address, 'name', abiItems, rpcIndex) : nullPromise(),
+                sigs.has(ERC721_SYMBOL_ITEM.signature) 
+                    ? rpcPool.call(address, 'symbol', abiItems, rpcIndex) : nullPromise(),
+                sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) 
+                    ? rpcPool.call(address, 'totalSupply', abiItems, rpcIndex) : nullPromise(),
             ])
             return { name, symbol, totalSupply }
         } catch (err) {
@@ -264,7 +259,7 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
                     })
                     sigs.has(ERC20_DECIMALS_ITEM.signature) && newAbiItems.push(ERC20_DECIMALS_ITEM)
                     sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature) && newAbiItems.push(ERC20_TOTAL_SUPPLY_ITEM)
-                    methods = getContractInterface(contract.address, newAbiItems) || {}
+                    abiItems = newAbiItems
                     usingBytesAbi = true
                 }
                 await sleep((config.EXPO_BACKOFF_FACTOR ** numAttempts) * 30)
@@ -285,26 +280,13 @@ export async function getERC20TokenBalance(
     formatWithDecimals: boolean = true,
 ): Promise<string | null> {
     const isNative = tokenAddress === NULL_ADDRESS
-    let fn: Function
-    if (isNative) {
-        fn = async () => {
-            const web3 = getSocketWeb3()
-            if (!web3) return null
-            return web3.eth.getBalance(ownerAddress)
-        }
-    } else {
-        fn = async () => {
-            const methods = getContractInterface(tokenAddress, [ERC20_BALANCE_OF_ITEM])
-            if (!methods) return null
-            return methods.balanceOf(ownerAddress).call()
-        }
-    }
-
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
-            let balance = await fn()
+            let balance = isNative
+                ? await rpcPool.getBalance(ownerAddress)
+                : await rpcPool.balanceOf(tokenAddress, ownerAddress)
             if (!formatWithDecimals || !decimals) return balance
             balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals))
             return Number(balance) === 0 ? '0' : balance
@@ -324,13 +306,11 @@ export async function getERC20TokenBalance(
 }
 
 export async function getERC20TotalSupply(tokenAddress: string): Promise<string | null> {
-    const methods = getContractInterface(tokenAddress, [ERC20_TOTAL_SUPPLY_ITEM])
-    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
-            return await methods.totalSupply().call()
+            return await rpcPool.call(tokenAddress, 'totalSupply', [ERC20_TOTAL_SUPPLY_ITEM])
         } catch (err) {
             const message = err.message || err.toString() || ''
             if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
@@ -347,13 +327,11 @@ export async function getERC20TotalSupply(tokenAddress: string): Promise<string 
 }
 
 export async function getDecimals(tokenAddress: string): Promise<string | null> {
-    const methods = getContractInterface(tokenAddress, [ERC20_DECIMALS_ITEM])
-    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < 10) {
         numAttempts++
         try {
-            return await methods.decimals().call()
+            return await rpcPool.call(tokenAddress, 'decimals', [ERC20_DECIMALS_ITEM])
         } catch (err) {
             const message = err.message || err.toString() || ''
             if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
@@ -373,13 +351,11 @@ export async function getERC1155TokenBalance(
     tokenId: string,
     ownerAddress: string, 
 ): Promise<string | null> {
-    const methods = getContractInterface(tokenAddress, [ERC1155_BALANCE_OF_ITEM])
-    if (!methods) return null
     let numAttempts = 0
     while (numAttempts < 10) {
         numAttempts++
         try {
-            let balance = await methods.balanceOf(ownerAddress, tokenId).call()
+            const balance = await rpcPool.balanceOf1155(tokenAddress, ownerAddress, tokenId)
             return Number(balance) === 0 ? '0' : balance
         } catch (err) {
             const message = err.message || err.toString() || ''
@@ -397,10 +373,8 @@ export async function getERC1155TokenBalance(
 }
 
 export async function getContractBytecode(address: string): Promise<string> {
-    const web3 = getSocketWeb3()
-    if (!web3) return null
     try {
-        return await web3.eth.getCode(address)
+        return await rpcPool.getCode(address)
     } catch (err) {
         logger.error(`Error calling getCode(${address}): ${err}`)
         return null

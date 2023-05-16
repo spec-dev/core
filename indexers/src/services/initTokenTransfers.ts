@@ -11,31 +11,6 @@ import { BigNumber, FixedNumber, utils } from 'ethers'
 const erc20TokensRepo = () => SharedTables.getRepository(Erc20Token)
 const nftCollectionsRepo = () => SharedTables.getRepository(NftCollection)
 
-// export async function getEthBalance(address: string) {
-//     const web3 = getSocketWeb3()
-//     if (!web3) return null
-//     try {
-//         const balance = await web3.eth.getBalance(address)
-//         return utils.formatEther(balance)
-//     } catch (err) {
-//         logger.error(`Error getting balance for ${address}`, err)
-//         return null
-//     }
-// }
-// const uniqueOwnerAddresses = unique(tokenTransfers.map(t => ([t.fromAddress, t.toAddress])).flat())
-// const t0 = performance.now()
-// console.log(`${uniqueOwnerAddresses.length} unique owners`)
-
-// const chunks = toChunks(uniqueOwnerAddresses, 100)
-// const balances = []
-// for (const chunk of chunks) {
-//     balances.push(...(await Promise.all(chunk.map(getEthBalance))))
-// }
-// console.log(`${balances.length} balances`)
-// const tf = performance.now()
-// const seconds = Number(((tf - t0) / 1000).toFixed(2))
-// console.log(`${seconds}s`)
-
 async function initTokenTransfers(
     newErc20Tokens: Erc20Token[],
     newNftCollections: NftCollection[],

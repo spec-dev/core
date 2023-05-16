@@ -1,5 +1,6 @@
 import Web3 from 'web3'
 import config from './config'
+import { ERC20_BALANCE_OF_ITEM, ERC1155_BALANCE_OF_ITEM } from './utils/standardAbis'
 import { StringKeyMap, shuffle } from '../../shared'
 
 class RpcPool {
@@ -20,13 +21,36 @@ class RpcPool {
         this.connectionIndex = 0
     }
 
-    getConnection(): Web3 {
+    index(): number {
         if (this.connectionIndex >= this.endpoints.length) {
             this.connectionIndex = 0
         }
-        const connection = this.pool[this.connectionIndex]
-        this.connectionIndex++
-        return connection
+        this.connectionIndex++  
+        return this.connectionIndex
+    }
+
+    call(address: string, method: string, abi: any, index: number = null) {
+        return new this.pool[index === null ? this.index(): index].eth.Contract(abi, address).methods[method]().call()    
+    }
+
+    async getBalance(address: string) {
+        return this.pool[this.index()].eth.getBalance(address)
+    }
+
+    async balanceOf(tokenAddress: string, ownerAddress: string) {
+        return new this.pool[this.index()].eth.Contract([ERC20_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress).call()  
+    }
+
+    async balanceOf1155(tokenAddress: string, ownerAddress: string, tokenId: any) {
+        return new this.pool[this.index()].eth.Contract([ERC1155_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress, tokenId).call()  
+    }
+
+    async getCode(address: string) {
+        return this.pool[this.index()].eth.getCode(address)
+    }
+
+    async getBlock(number: number, withTx: boolean) {
+        return this.pool[this.index()].eth.getBlock(number, withTx)
     }
 
     _buildPool() {
@@ -54,5 +78,4 @@ class RpcPool {
 }
 
 const rpcPool = new RpcPool()
-
-export const getSocketWeb3 = () => rpcPool.getConnection()
+export default rpcPool

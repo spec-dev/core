@@ -50,6 +50,10 @@ class SeedErc20BalancesWithOwnersWorker {
 
     chainId: string
 
+    blockNumber: number
+
+    logIndex: number
+
     token: StringKeyMap
 
     ownerAddresses: Set<string> = new Set()
@@ -61,7 +65,8 @@ class SeedErc20BalancesWithOwnersWorker {
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
-        this.cursor = from
+        this.blockNumber = from
+        this.logIndex = 0
         this.groupSize = groupSize || 1
         this.chainId = config.CHAIN_ID
         this.token = {
@@ -82,7 +87,7 @@ class SeedErc20BalancesWithOwnersWorker {
         while (true) {
             // const end = Math.min(this.cursor + this.groupSize - 1, this.to)
             if (!(await this._indexGroup())) break
-            this.cursor = this.cursor + this.groupSize
+            // this.cursor = this.cursor + this.groupSize
         }
 
         if (this.ownerAddresses.size) {
@@ -96,7 +101,7 @@ class SeedErc20BalancesWithOwnersWorker {
     }
 
     async _indexGroup(): Promise<boolean> {
-        logger.info(`Cursor ${this.cursor}...`)
+        logger.info(`Cursor ${this.blockNumber},${this.logIndex}...`)
 
         const logs = this._decodeLogsIfNeeded(
             await this._getTokenLogsForRange()
@@ -104,7 +109,7 @@ class SeedErc20BalancesWithOwnersWorker {
         if (!logs.length) return false
 
         if (Number(logs[0].blockNumber) > this.to) return false
-        
+
         let logged = false
         for (const log of logs) {
             if (!logged) {
@@ -129,6 +134,9 @@ class SeedErc20BalancesWithOwnersWorker {
             await Promise.all(toChunks(balances, 2000).map(chunk => this._upsertErc20Balances(chunk)))
             this.ownerAddresses = new Set()
         }
+
+        this.blockNumber
+
         return true
     }
 
@@ -171,7 +179,7 @@ class SeedErc20BalancesWithOwnersWorker {
         let results = []
         try {
             results = ((await SharedTables.query(
-                `select * from ${table} where address = $1 and block_number >= $2 order by block_number asc, log_index asc offset $3 limit $4`,
+                `select * from ${table} where address = $1 and (block_number, log_index) >= ($2, $3) limit $4`,
                 [this.token.address, config.SAVE_BATCH_MULTIPLE, this.cursor, this.groupSize]
             )) || []).filter(log => log.topic0 && topics.has(log.topic0))
             return camelizeKeys(results) as StringKeyMap[]

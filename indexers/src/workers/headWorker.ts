@@ -47,32 +47,32 @@ export function getHeadWorker(): Worker {
 
             let reIndex = false
             let attempt = 1
-            let indexer
+            // let indexer
             while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
                 // Get proper indexer based on head's chain id.
-                indexer = getIndexer(head)
+                const indexer = getIndexer(head)
                 if (!indexer) {
                     throw `No indexer exists for chainId: ${head.chainId}`
                 }
 
                 // Set max job timeout timer.
-                let timer = null
-                const timeout = async () => {
-                    await new Promise((res) => {
-                        timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
-                        return timer
-                    })
-                    indexer.timedOut = true
-                    throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
-                }
+                // let timer = null
+                // const timeout = async () => {
+                //     await new Promise((res) => {
+                //         timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
+                //         return timer
+                //     })
+                //     throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
+                // }
 
                 // BullMQ for whatever fucking reason doesn't have a 
                 // "max job timeout" so we have to hack this manually.
                 try {
-                    await Promise.race([indexer.perform(), timeout()])
+                    await indexer.perform()
+                    // await Promise.race([indexer.perform(), timeout()])
                 } catch (err) {
                     attempt++
-                    timer && clearTimeout(timer)
+                    // timer && clearTimeout(timer)
                     // When all attempts are exhausted, flip the master switch for index jobs 
                     // to false, telling all other (potential) parallel index workers to pause.
                     if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
@@ -96,7 +96,7 @@ export function getHeadWorker(): Worker {
                     ))
                     continue
                 }
-                timer && clearTimeout(timer)
+                // timer && clearTimeout(timer)
                 break
             }
 
