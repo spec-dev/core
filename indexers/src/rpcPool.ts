@@ -1,7 +1,7 @@
 import Web3 from 'web3'
 import config from './config'
 import { ERC20_BALANCE_OF_ITEM, ERC1155_BALANCE_OF_ITEM } from './utils/standardAbis'
-import { StringKeyMap, shuffle } from '../../shared'
+import { StringKeyMap, shuffle, TIMESTAMP_WITH_TIME_ZONE } from '../../shared'
 
 class RpcPool {
 
@@ -28,6 +28,15 @@ class RpcPool {
         }
         this.connectionIndex++
         return this.connectionIndex
+    }
+
+    teardown() {
+        for (const i in this.pool) {
+            const provider = this.pool[i].currentProvider as any
+            provider?.removeAllListeners && provider.removeAllListeners()
+            provider?.disconnect && provider.disconnect()
+            this.pool[i] = null
+        }
     }
 
     call(address: string, method: string, abi: any) {
@@ -78,5 +87,19 @@ class RpcPool {
     }
 }
 
-const rpcPool = new RpcPool()
-export default rpcPool
+let rpcPool: RpcPool
+
+export function getRpcPool(): RpcPool {
+    return rpcPool
+}
+
+export function createRpcPool() {
+    rpcPool = new RpcPool()
+}
+
+export function teardownRpcPool() {
+    rpcPool?.teardown()
+    rpcPool = null
+}
+
+createRpcPool()

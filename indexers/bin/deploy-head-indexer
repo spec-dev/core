@@ -118,7 +118,8 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
 # image_version="9b4e4d9"
 # image_version="43da759"
-image_version="1986e82"
+# image_version="1986e82"
+image_version="c7dfeff"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

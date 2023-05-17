@@ -19,7 +19,7 @@ import {
 import { ident } from 'pg-format'
 import chalk from 'chalk'
 import { exit } from 'process'
-import rpcPool from '../rpcPool'
+import { getRpcPool } from '../rpcPool'
 
 class ValidateBlocksWorker {
 
@@ -104,7 +104,7 @@ class ValidateBlocksWorker {
     }
 
     async _hashForNumber(number: number) {
-        const block = await rpcPool.getBlock(number, false)
+        const block = await getRpcPool().getBlock(number, false)
         return block.hash
     }
 }

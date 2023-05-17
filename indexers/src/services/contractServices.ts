@@ -20,7 +20,7 @@ import {
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
 } from '../utils/standardAbis'
-import rpcPool from '../rpcPool'
+import { getRpcPool } from '../rpcPool'
 
 const errors = {
     EXECUTION_REVERTED: 'execution reverted',
@@ -172,13 +172,13 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
         try {
             const [name, symbol, decimals, totalSupply] = await Promise.all([
                 sigs.has(ERC20_NAME_ITEM.signature) 
-                    ? rpcPool.call(address, 'name', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'name', abiItems) : nullPromise(),
                 sigs.has(ERC20_SYMBOL_ITEM.signature)
-                    ? rpcPool.call(address, 'symbol', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'symbol', abiItems) : nullPromise(),
                 sigs.has(ERC20_DECIMALS_ITEM.signature)
-                    ? rpcPool.call(address, 'decimals', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'decimals', abiItems) : nullPromise(),
                 sigs.has(ERC20_TOTAL_SUPPLY_ITEM.signature)
-                    ? rpcPool.call(address, 'totalSupply', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'totalSupply', abiItems) : nullPromise(),
             ])
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
@@ -231,11 +231,11 @@ export async function resolveNFTContractMetadata(contract: StringKeyMap): Promis
         try {
             const [name, symbol, totalSupply] = await Promise.all([
                 sigs.has(ERC721_NAME_ITEM.signature) 
-                    ? rpcPool.call(address, 'name', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'name', abiItems) : nullPromise(),
                 sigs.has(ERC721_SYMBOL_ITEM.signature) 
-                    ? rpcPool.call(address, 'symbol', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'symbol', abiItems) : nullPromise(),
                 sigs.has(ERC721_TOTAL_SUPPLY_ITEM.signature) 
-                    ? rpcPool.call(address, 'totalSupply', abiItems) : nullPromise(),
+                    ? getRpcPool().call(address, 'totalSupply', abiItems) : nullPromise(),
             ])
             return { name, symbol, totalSupply }
         } catch (err) {
@@ -281,8 +281,8 @@ export async function getERC20TokenBalance(
         numAttempts++
         try {
             let balance = isNative
-                ? await rpcPool.getBalance(ownerAddress)
-                : await rpcPool.balanceOf(tokenAddress, ownerAddress)
+                ? await getRpcPool().getBalance(ownerAddress)
+                : await getRpcPool().balanceOf(tokenAddress, ownerAddress)
             if (!formatWithDecimals || !decimals) return balance
             balance = utils.formatUnits(BigNumber.from(balance || '0'), Number(decimals))
             return Number(balance) === 0 ? '0' : balance
@@ -306,7 +306,7 @@ export async function getERC20TotalSupply(tokenAddress: string): Promise<string 
     while (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
         numAttempts++
         try {
-            return await rpcPool.call(tokenAddress, 'totalSupply', [ERC20_TOTAL_SUPPLY_ITEM])
+            return await getRpcPool().call(tokenAddress, 'totalSupply', [ERC20_TOTAL_SUPPLY_ITEM])
         } catch (err) {
             const message = err.message || err.toString() || ''
             if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
@@ -327,7 +327,7 @@ export async function getDecimals(tokenAddress: string): Promise<string | null> 
     while (numAttempts < 10) {
         numAttempts++
         try {
-            return await rpcPool.call(tokenAddress, 'decimals', [ERC20_DECIMALS_ITEM])
+            return await getRpcPool().call(tokenAddress, 'decimals', [ERC20_DECIMALS_ITEM])
         } catch (err) {
             const message = err.message || err.toString() || ''
             if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return null
@@ -351,7 +351,7 @@ export async function getERC1155TokenBalance(
     while (numAttempts < 10) {
         numAttempts++
         try {
-            const balance = await rpcPool.balanceOf1155(tokenAddress, ownerAddress, tokenId)
+            const balance = await getRpcPool().balanceOf1155(tokenAddress, ownerAddress, tokenId)
             return Number(balance) === 0 ? '0' : balance
         } catch (err) {
             const message = err.message || err.toString() || ''
@@ -370,7 +370,7 @@ export async function getERC1155TokenBalance(
 
 export async function getContractBytecode(address: string): Promise<string> {
     try {
-        return await rpcPool.getCode(address)
+        return await getRpcPool().getCode(address)
     } catch (err) {
         logger.error(`Error calling getCode(${address}): ${err}`)
         return null

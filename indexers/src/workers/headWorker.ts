@@ -12,6 +12,7 @@ import {
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
+import { teardownRpcPool, createRpcPool } from '../rpcPool'
 
 let queue: Queue
 export async function reenqueueJob(head: NewReportedHead) {   
@@ -35,9 +36,10 @@ export async function reenqueueJob(head: NewReportedHead) {
     })
 }
 
-
+let numIterations = 0
 let worker: Worker
 async function runJob(job: Job) {
+    numIterations++
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(
         head.id,
@@ -47,6 +49,7 @@ async function runJob(job: Job) {
     let reIndex = false
     let attempt = 1
     let indexer = null
+    let timer = null
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
         indexer = getIndexer(head)
@@ -55,24 +58,26 @@ async function runJob(job: Job) {
         }
 
         // Set max job timeout timer.
-        // let timer = null
-        // const timeout = async () => {
-        //     await new Promise((res) => {
-        //         timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
-        //         return timer
-        //     })
-        //     throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
-        // }
-
+        const timeout = async () => {
+            await new Promise((res) => {
+                timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
+                return timer
+            })
+            throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
+        }
+        
         // BullMQ for whatever fucking reason doesn't have a 
         // "max job timeout" so we have to hack this manually.
         try {
-            await indexer.perform()
-            // await Promise.race([indexer.perform(), timeout()])
+            await Promise.race([indexer.perform(), timeout()])
+            indexer.timedOut = true
+            break
         } catch (err) {
+            indexer.timedOut = true
             indexer = null
             attempt++
-            // timer && clearTimeout(timer)
+            timer && clearTimeout(timer)
+            timer = null
             // When all attempts are exhausted, flip the master switch for index jobs 
             // to false, telling all other (potential) parallel index workers to pause.
             if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
@@ -96,9 +101,9 @@ async function runJob(job: Job) {
             ))
             continue
         }
-        // timer && clearTimeout(timer)
-        break
     }
+    timer && clearTimeout(timer)
+    timer = null
     indexer = null
 
     await jobStatusUpdatePromise
@@ -112,6 +117,14 @@ async function runJob(job: Job) {
     if (reIndex) {
         logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
         await reenqueueJob(head)
+    }
+
+    if (numIterations >= 1000) {
+        numIterations = 0
+        teardownRpcPool()
+        await sleep(50)
+        createRpcPool()
+        await sleep(50)
     }
 }
 
