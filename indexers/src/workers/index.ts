@@ -27,6 +27,7 @@ import { getBackfillTokenPricesWorker } from './backfillTokenPricesWorker'
 import { getValidateBlocksWorker } from './validateBlocksWorker'
 import { getFindInvalidPrimitivesWorker } from './findInvalidPrimitivesWorker'
 import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwnersWorker'
+import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -101,7 +102,10 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (config.RANGE_WORKER_TYPE === 'stb') {
         return getSeedErc20BalancesWithOwnersWorker()
     } 
-    
+    if (config.RANGE_WORKER_TYPE === 'atb') {
+        return getAssignErc20BalancesWorker()
+    } 
+
     switch (config.CHAIN_ID) {
         case chainIds.POLYGON:
         case chainIds.MUMBAI:

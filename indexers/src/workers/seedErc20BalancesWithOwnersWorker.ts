@@ -105,8 +105,6 @@ class SeedErc20BalancesWithOwnersWorker {
         )
         if (!logs.length) return false
         
-        logger.info(`Got ${logs.length} logs`)
-
         for (const log of logs) {
             log.eventArgs = log.eventArgs || []
             if (log.topic0 === TRANSFER_TOPIC) {
