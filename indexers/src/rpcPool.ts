@@ -31,27 +31,27 @@ class RpcPool {
     }
 
     call(address: string, method: string, abi: any) {
-        return new this.pool[this.index()].eth.Contract(abi, address).methods[method]().call()    
+        return new (this.pool[this.index()] || this.pool[0]).eth.Contract(abi, address).methods[method]().call()    
     }
 
     async getBalance(address: string) {
-        return this.pool[this.index()].eth.getBalance(address)
+        return (this.pool[this.index()] || this.pool[0]).eth.getBalance(address)
     }
 
     async balanceOf(tokenAddress: string, ownerAddress: string) {
-        return new this.pool[this.index()].eth.Contract([ERC20_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress).call()  
+        return new (this.pool[this.index()] || this.pool[0]).eth.Contract([ERC20_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress).call()  
     }
 
     async balanceOf1155(tokenAddress: string, ownerAddress: string, tokenId: any) {
-        return new this.pool[this.index()].eth.Contract([ERC1155_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress, tokenId).call()  
+        return new (this.pool[this.index()] || this.pool[0]).eth.Contract([ERC1155_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress, tokenId).call()  
     }
 
     async getCode(address: string) {
-        return this.pool[this.index()].eth.getCode(address)
+        return (this.pool[this.index()] || this.pool[0]).eth.getCode(address)
     }
 
     async getBlock(number: number, withTx: boolean) {
-        return this.pool[this.index()].eth.getBlock(number, withTx)
+        return (this.pool[this.index()] || this.pool[0]).eth.getBlock(number, withTx)
     }
 
     _buildPool() {

@@ -65,6 +65,12 @@ class SeedErc20BalancesWithOwnersWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.chainId = config.CHAIN_ID
+
+        // ******************
+        // GO SET THE OP_TABLE FLOOR
+        // Rather than using the latest block (below) you'll wanna use whatever the floor is to prevent ops from being written to??
+        // ******************
+
         this.token = {
             address: this.chainId === chainIds.ETHEREUM
                 ? '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'

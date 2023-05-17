@@ -52,9 +52,9 @@ async function extractSpecialErc20BalanceEventData(
         erc20BalanceDataByOwner[uniqueKey] = {
             tokenAddress,
             ownerAddress,
-            tokenName: token.tokenName,
-            tokenSymbol: token.tokenSymbol,
-            tokenDecimals: token.tokenDecimals,
+            tokenName: token.name,
+            tokenSymbol: token.symbol,
+            tokenDecimals: token.decimals,
         }
     }
 

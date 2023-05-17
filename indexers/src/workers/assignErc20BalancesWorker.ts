@@ -8,6 +8,7 @@ import {
     chainIds,
     Erc20Balance,
     In,
+    sleep,
 } from '../../../shared'
 import { Pool } from 'pg'
 import { exit } from 'process'
@@ -98,7 +99,7 @@ class AssignErc20BalancesWorker {
 
         logger.info(`Got ${emptyBalances.length}`)
         
-        const groups = toChunks(emptyBalances, config.RPC_FUNCTION_BATCH_SIZE)
+        const groups = toChunks(emptyBalances, 30)
         const erc20BalanceValues = []
         try {
             for (const group of groups) {
@@ -109,6 +110,7 @@ class AssignErc20BalancesWorker {
                         this.token.decimals,
                     )
                 )))))
+                await sleep(10)
             }    
         } catch (err) {
             throw `Failed to fetch latest batch of ERC-20 balances: ${err}`
@@ -133,13 +135,13 @@ class AssignErc20BalancesWorker {
         this.updates.push(...updates)
         this.deletes.push(...deletes)
 
-        if (this.updates.length >= 4000) {
+        if (this.updates.length) {
             logger.info(`Setting ${this.updates.length} balances...`)
             await this._update([...this.updates])
             this.updates = []
         }
     
-        if (this.deletes.length >= 2000) {
+        if (this.deletes.length) {
             logger.info(`Deleting ${this.deletes.length} zero balances...`)
             await this._delete([...this.deletes])
             this.deletes = []
@@ -198,10 +200,10 @@ class AssignErc20BalancesWorker {
 
     async _getEmptyBalances(): Promise<StringKeyMap[]> {
         try {
-            const results = ((await SharedTables.query(
-                `select id, owner_address from tokens.erc20_balance where token_address = $1 and chain_id = $2 and owner_address is not null order by id asc offset $3 limit $4`,
-                [this.token.address, this.chainId, this.offset, this.groupSize]
-            )) || []).filter(b => !b.balance)
+            const results = (await SharedTables.query(
+                `select id, owner_address from tokens.weth_balance where balance is null limit 1000`,
+                // [this.offset, this.groupSize]
+            ))
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
             logger.error(`Error getting logs`, err)
