@@ -726,7 +726,7 @@ class EthereumIndexer extends AbstractIndexer {
                 }
             }
             // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
-            if (!log.eventName && log.address && specialErc20BalanceAffectingAbis[log.topic0]) {
+            if (!log.eventName && log.address && log.topic0 && log.topic1 && specialErc20BalanceAffectingAbis[log.topic0]) {
                 const abi = specialErc20BalanceAffectingAbis[log.topic0]
                 try {
                     log = this._decodeLog(log, [abi])
