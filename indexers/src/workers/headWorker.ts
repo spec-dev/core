@@ -35,84 +35,90 @@ export async function reenqueueJob(head: NewReportedHead) {
     })
 }
 
-export function getHeadWorker(): Worker {
-    const worker = new Worker(
-        config.HEAD_REPORTER_QUEUE_KEY,
-        async (job: Job) => {
-            const head = job.data as NewReportedHead
-            const jobStatusUpdatePromise = setIndexedBlockStatus(
-                head.id,
-                IndexedBlockStatus.Indexing
-            )
 
-            let reIndex = false
-            let attempt = 1
-            // let indexer
-            while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
-                // Get proper indexer based on head's chain id.
-                const indexer = getIndexer(head)
-                if (!indexer) {
-                    throw `No indexer exists for chainId: ${head.chainId}`
-                }
+let worker: Worker
+async function runJob(job: Job) {
+    const head = job.data as NewReportedHead
+    const jobStatusUpdatePromise = setIndexedBlockStatus(
+        head.id,
+        IndexedBlockStatus.Indexing
+    )
 
-                // Set max job timeout timer.
-                // let timer = null
-                // const timeout = async () => {
-                //     await new Promise((res) => {
-                //         timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
-                //         return timer
-                //     })
-                //     throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
-                // }
+    let reIndex = false
+    let attempt = 1
+    let indexer = null
+    while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
+        // Get proper indexer based on head's chain id.
+        indexer = getIndexer(head)
+        if (!indexer) {
+            throw `No indexer exists for chainId: ${head.chainId}`
+        }
 
-                // BullMQ for whatever fucking reason doesn't have a 
-                // "max job timeout" so we have to hack this manually.
-                try {
-                    await indexer.perform()
-                    // await Promise.race([indexer.perform(), timeout()])
-                } catch (err) {
-                    attempt++
-                    // timer && clearTimeout(timer)
-                    // When all attempts are exhausted, flip the master switch for index jobs 
-                    // to false, telling all other (potential) parallel index workers to pause.
-                    if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
-                        await setProcessIndexJobs(head.chainId, false)
-                        reIndex = true
-                        logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.redBright('All attempts exhausted.')}`)
-                        break
-                    }
+        // Set max job timeout timer.
+        // let timer = null
+        // const timeout = async () => {
+        //     await new Promise((res) => {
+        //         timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
+        //         return timer
+        //     })
+        //     throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
+        // }
 
-                    if (!(await shouldProcessIndexJobs(head.chainId))) {
-                        reIndex = true
-                        logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
-                        break
-                    }
-
-                    logger.error(err)
-                    logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
-                    await sleep(randomIntegerInRange(
-                        Math.floor(0.8 * config.JOB_DELAY_ON_FAILURE),
-                        Math.floor(1.2 * config.JOB_DELAY_ON_FAILURE),
-                    ))
-                    continue
-                }
-                // timer && clearTimeout(timer)
+        // BullMQ for whatever fucking reason doesn't have a 
+        // "max job timeout" so we have to hack this manually.
+        try {
+            await indexer.perform()
+            // await Promise.race([indexer.perform(), timeout()])
+        } catch (err) {
+            indexer = null
+            attempt++
+            // timer && clearTimeout(timer)
+            // When all attempts are exhausted, flip the master switch for index jobs 
+            // to false, telling all other (potential) parallel index workers to pause.
+            if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
+                await setProcessIndexJobs(head.chainId, false)
+                reIndex = true
+                logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.redBright('All attempts exhausted.')}`)
                 break
             }
 
-            await jobStatusUpdatePromise
-
             if (!(await shouldProcessIndexJobs(head.chainId))) {
-                logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker.`))
-                worker.pause()
-                await sleep(5)
+                reIndex = true
+                logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
+                break
             }
 
-            if (reIndex) {
-                logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
-                await reenqueueJob(head)
-            }
-        },
+            logger.error(err)
+            logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
+            await sleep(randomIntegerInRange(
+                Math.floor(0.8 * config.JOB_DELAY_ON_FAILURE),
+                Math.floor(1.2 * config.JOB_DELAY_ON_FAILURE),
+            ))
+            continue
+        }
+        // timer && clearTimeout(timer)
+        break
+    }
+    indexer = null
+
+    await jobStatusUpdatePromise
+
+    if (!(await shouldProcessIndexJobs(head.chainId))) {
+        logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Pausing worker.`))
+        worker.pause()
+        await sleep(5)
+    }
+
+    if (reIndex) {
+        logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
+        await reenqueueJob(head)
+    }
+}
+
+export function getHeadWorker(): Worker {
+    worker = new Worker(
+        config.HEAD_REPORTER_QUEUE_KEY,
+        runJob,
         {
             autorun: false,
             connection: {

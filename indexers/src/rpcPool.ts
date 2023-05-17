@@ -26,7 +26,7 @@ class RpcPool {
             this.connectionIndex = 0
             return this.connectionIndex
         }
-        this.connectionIndex++ 
+        this.connectionIndex++
         return this.connectionIndex
     }
 
