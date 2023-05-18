@@ -236,18 +236,19 @@ class EthereumIndexer extends AbstractIndexer {
             )
         tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
 
-        // Refresh any ERC-20 balances and NFT balances that could have changed.
-        const specialErc20BalanceDataByOwner = await extractSpecialErc20BalanceEventData(
-            this.successfulLogs,
-            referencedErc20TokensMap,
-            this.chainId,
-        )
-        let [erc20Balances, nftBalances] = await getLatestTokenBalances(
-            tokenTransfers,
-            specialErc20BalanceDataByOwner,
-        )
-        erc20Balances = this._enrichErc20Balances(erc20Balances, block)
-        erc20Balances.length && this._info(`${erc20Balances.length} new ERC-20 balances.`)
+        // // Refresh any ERC-20 balances and NFT balances that could have changed.
+        // const specialErc20BalanceDataByOwner = await extractSpecialErc20BalanceEventData(
+        //     this.successfulLogs,
+        //     referencedErc20TokensMap,
+        //     this.chainId,
+        // )
+        // let [erc20Balances, nftBalances] = await getLatestTokenBalances(
+        //     tokenTransfers,
+        //     specialErc20BalanceDataByOwner,
+        // )
+        // erc20Balances = this._enrichErc20Balances(erc20Balances, block)
+        // erc20Balances.length && this._info(`${erc20Balances.length} new ERC-20 balances.`)
+        const erc20Balances = []
 
         // One last check before saving.
         if (!(await this._shouldContinue())) {
