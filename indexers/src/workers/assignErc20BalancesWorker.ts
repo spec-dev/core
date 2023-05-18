@@ -110,7 +110,7 @@ class AssignErc20BalancesWorker {
                         this.token.decimals,
                     )
                 )))))
-                await sleep(10)
+                await sleep(15)
             }    
         } catch (err) {
             throw `Failed to fetch latest batch of ERC-20 balances: ${err}`
@@ -201,8 +201,8 @@ class AssignErc20BalancesWorker {
     async _getEmptyBalances(): Promise<StringKeyMap[]> {
         try {
             const results = (await SharedTables.query(
-                `select id, owner_address from tokens.weth_balance where balance is null limit 1000`,
-                // [this.offset, this.groupSize]
+                `select id, owner_address from tokens.weth_balance where chain_id = $1 and balance is null limit 1000`,
+                [config.CHAIN_ID]
             ))
             return camelizeKeys(results) as StringKeyMap[]
         } catch (err) {
