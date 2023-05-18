@@ -84,7 +84,7 @@ class SeedErc20BalancesWithOwnersWorker {
     async run() {
         await this._loadLatestBlock()
         if (!this.latestBlock) throw 'no latest block found'
-        setInterval(() => this._loadLatestBlock(), 10000)
+        // setInterval(() => this._loadLatestBlock(), 10000)
 
         while (this.cursor <= this.to) {
             const start = this.cursor
@@ -273,7 +273,8 @@ class SeedErc20BalancesWithOwnersWorker {
         let block
         try {
             block = ((await SharedTables.query(
-                `select number, hash, timestamp from ${identPath(tablePath)} order by number desc limit 1`, 
+                `select number, hash, timestamp from ${identPath(tablePath)} where number = $1`, 
+                [config.CHAIN_ID === '1' ? 17286680 : 9022239]
             )) || [])[0]
         } catch (err) {
             logger.error(err)
