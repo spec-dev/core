@@ -1,7 +1,7 @@
 import config from './config'
 import createSubscriber, { Subscriber } from 'pg-listen'
 import { NewBlockEvent } from './types'
-import { SharedTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId } from '../../shared'
+import { SharedTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId, avgBlockTimesForChainId } from '../../shared'
 import { Queue, QueueScheduler } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
 
@@ -131,7 +131,7 @@ class GapDetector {
     }
     
     _resetCheckInTimer(chainId: string) {
-        const requiredCheckInTime = config.CHECK_IN_TOLERANCE
+        const requiredCheckInTime = config.CHECK_IN_TOLERANCE * avgBlockTimesForChainId[chainId] * 1000
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
             logger.error(
