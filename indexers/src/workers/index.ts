@@ -28,6 +28,7 @@ import { getValidateBlocksWorker } from './validateBlocksWorker'
 import { getFindInvalidPrimitivesWorker } from './findInvalidPrimitivesWorker'
 import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwnersWorker'
 import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
+import { getTrimAbisWorker } from './trimAbisWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -104,6 +105,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     } 
     if (config.RANGE_WORKER_TYPE === 'atb') {
         return getAssignErc20BalancesWorker()
+    } 
+    if (config.RANGE_WORKER_TYPE === 'trim-abis') {
+        return getTrimAbisWorker()
     } 
 
     switch (config.CHAIN_ID) {
