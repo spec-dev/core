@@ -291,6 +291,7 @@ export * from './lib/utils/general'
 export * from './lib/utils/tokenMappings'
 
 export { enqueueDelayedJob } from './lib/utils/delayedJobsQueue'
+export { enqueueBlock } from './lib/utils/emergencyIndexQueue'
 
 export {
     PolygonBlock,

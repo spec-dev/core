@@ -32,6 +32,13 @@ interface LovIdPayload {
     lovId: number
 }
 
+interface EnqueueBlockPayload {
+    chainId: string
+    blockNumber: number
+    replace?: boolean
+    force?: boolean
+}
+
 export function parseToggleProcessJobsPayload(
     data: StringKeyMap,
 ): ValidatedPayload<ToggleProcessJobsPayload> {
@@ -141,6 +148,34 @@ export function parseLovIdPayload(
         isValid: true,
         payload: {
             lovId,
+        },
+    }
+}
+
+export function parseEnqueueBlockPayload(
+    data: StringKeyMap,
+): ValidatedPayload<EnqueueBlockPayload> {
+    const chainId = data?.chainId
+    let blockNumber = data?.blockNumber
+    const replace = !!data?.replace
+    const force = !!data?.force
+
+    if (!supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
+
+    blockNumber = parseInt(blockNumber)
+    if (Number.isNaN(blockNumber)) {
+        return { isValid: false, error: `Invalid "blockNumber": ${data?.blockNumber}` }
+    }    
+
+    return {
+        isValid: true,
+        payload: {
+            chainId,
+            blockNumber,
+            replace,
+            force,
         },
     }
 }

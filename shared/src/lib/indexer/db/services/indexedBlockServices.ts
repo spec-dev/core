@@ -113,6 +113,7 @@ export async function uncleBlocks(entries: IndexedBlock[]) {
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {
+    if (!id) return
     try {
         await indexedBlocks().createQueryBuilder().update({ status }).where({ id }).execute()
     } catch (err) {

@@ -6,7 +6,8 @@ import {
     parseGetProcessJobsStatusPayload, 
     parseChainIdPayload, 
     parseChainIdBlockNumberPayload, 
-    parseLovIdPayload 
+    parseLovIdPayload,
+    parseEnqueueBlockPayload,
 } from './pipelinePayloads'
 import {
     setProcessJobs, 
@@ -16,8 +17,8 @@ import {
     getBlockOpsCeiling, 
     freezeBlockOperationsAtOrAbove, 
     getLovFailure, 
-    markLovFailure,
     removeLovFailure,
+    enqueueBlock,
 } from '../../../../../shared'
 
 /**
@@ -201,6 +202,33 @@ app.put(paths.BLOCK_OPS_CEILING, async (req, res) => {
         await removeLovFailure(payload.lovId)
     } catch (err) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: err.toString() })
+    }
+
+    return res.status(codes.SUCCESS).json({ ok: true })
+})
+
+/**
+ * Enqueue a block to be indexed. Should only be used in emergency cases.
+ */
+app.post(paths.ENQUEUE_BLOCK, async (req, res) => {
+    if (!(await authorizeAdminRequest(req, res))) return
+
+    // Parse & validate payload.
+    const { payload, isValid, error: payloadError } = parseEnqueueBlockPayload(req.body)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: payloadError || errors.INVALID_PAYLOAD })
+    }
+
+    // Run service to enqueue block to proper head-reporter queue for given chain.
+    const { chainId, blockNumber, replace, force } = payload
+    let error
+    try {
+        ;({ error } = await enqueueBlock(chainId, blockNumber, replace, force))
+    } catch (err) {
+        error = err
+    }
+    if (error) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: error.toString() })
     }
 
     return res.status(codes.SUCCESS).json({ ok: true })

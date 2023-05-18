@@ -45,6 +45,7 @@ const paths = {
     SERIES_NUMBER: prefix.ADMIN + prefix.PIPELINE + '/series-number',
     BLOCK_OPS_CEILING: prefix.ADMIN + prefix.PIPELINE + '/block-ops-ceiling',
     LOV_FAILURE: prefix.ADMIN + prefix.PIPELINE + '/lov-failure',
+    ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
 }
 
 export default paths
