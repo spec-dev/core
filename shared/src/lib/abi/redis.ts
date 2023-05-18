@@ -126,6 +126,20 @@ export async function getAbis(
     }
 }
 
+export async function removeAbis(
+    addresses: string[],
+    chainId: string = chainIds.ETHEREUM
+): Promise<Abi | null> {
+    if (!addresses.length) return
+    const nsp = contractsKeyForChainId(chainId)
+    if (!nsp) return null
+    try {
+        await redis?.hDel(nsp, addresses)
+    } catch (err) {
+        logger.error(`Error deleting ABIs: ${err}.`)
+    }
+}
+
 export async function getMissingAbiAddresses(
     addresses: string[],
     chainId: string = chainIds.ETHEREUM

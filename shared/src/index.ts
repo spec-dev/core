@@ -282,6 +282,7 @@ export {
     saveFunctionSignatures,
     getAbi,
     getAbis,
+    removeAbis,
     getMissingAbiAddresses,
     getFunctionSignatures,
 } from './lib/abi/redis'
