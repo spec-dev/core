@@ -29,6 +29,7 @@ import setEdgeFunctionVersionUrl from './setEdgeFunctionVersionUrl'
 import updateLiveObjectVersionProperties from './updateLiveObjectVersionProperties'
 import updateLiveObjectVersionExample from './updateLiveObjectVersionExample'
 import removeNamespaceAsFailed from './removeNamespaceAsFailed'
+import removeKeys from './removeKeys'
 import { argv } from 'process'
 import logger from '../lib/logger'
 
@@ -63,6 +64,7 @@ const jobs = {
     setEdgeFunctionVersionUrl,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
+    removeKeys,
     removeNamespaceAsFailed,
 }
 

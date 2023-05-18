@@ -70,7 +70,7 @@ export const normalizeByteData = (
     }
 }
 
-export const numberToHex = (value: any): string | null => {
+export const numberToHex = (value: any) => {
     if (typeof value !== 'number' && typeof value !== 'bigint') {
         return null
     }
@@ -78,14 +78,15 @@ export const numberToHex = (value: any): string | null => {
     return nth(value as any)
 }
 
-export const hexToNumber = (value: any): number | null => {
+export const hexToNumber = (value: any) => {
     if (typeof value !== 'string') {
         return null
     }
+
     return htn(value)
 }
 
-export const hexToNumberString = (value: any): string | null => {
+export const hexToNumberString = (value: any) => {
     if (typeof value !== 'string') {
         return null
     }
