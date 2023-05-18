@@ -104,9 +104,12 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // Get blocks (+transactions), receipts (+logs), and traces.
+        // Get blocks (+transactions), receipts (+logs).
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
+
+        // Ensure this.blockHash is set before fetching traces. 
+        // We need this for formatting & setting of primary id.
         let tracesPromise = null
         if (this.blockHash) {
             tracesPromise = this._getTraces()
@@ -261,8 +264,10 @@ class PolygonIndexer extends AbstractIndexer {
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        if (this.head.force) return false
-        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.polygon()))
+        return !config.IS_RANGE_MODE 
+            && !this.head.force 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.polygon()))
     }
 
     async _savePrimitives(
