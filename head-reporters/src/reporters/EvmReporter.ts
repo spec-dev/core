@@ -19,7 +19,6 @@ import {
     publishReorg,
     createReorg, 
     updateReorg,
-    failPotentialReorg,
     ReorgStatus,
 } from '../../../shared'
 import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
@@ -29,7 +28,6 @@ import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
 import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
-import uuid4 from 'uuid4'
 
 class EvmReporter {
 
@@ -138,12 +136,10 @@ class EvmReporter {
             return
         }
 
-        let potentialReorgUid = uuid4()
         try {
-            await this._processNewHead(head, potentialReorgUid)
+            await this._processNewHead(head)
         } catch (err) {
             logger.error(chalk.redBright(`Processing head failed at ${head.number}`), err)
-            failPotentialReorg(potentialReorgUid, err)
             await this._stop(head.number)
             return
         }
@@ -155,7 +151,7 @@ class EvmReporter {
         }
     }
 
-    async _processNewHead(givenBlock: BlockHeader, potentialReorgUid: string) {
+    async _processNewHead(givenBlock: BlockHeader) {
         logger.info(`Processing ${givenBlock.number}...`)
         
         if (givenBlock.number === this.waitAfterUncleAt) {
@@ -185,7 +181,6 @@ class EvmReporter {
             await this._uncleBlocks(
                 givenBlock, 
                 highestBlockNumber, 
-                potentialReorgUid, 
                 this.unclePauseTime,
             )
 
@@ -218,12 +213,12 @@ class EvmReporter {
         await this._handleNewBlocks(newBlockSpecs.sort((a, b) => a.number - b.number))
     }
 
-    async _uncleBlocks(fromBlock: BlockHeader, to: number, uid: string, pauseTime: number) {
+    async _uncleBlocks(fromBlock: BlockHeader, to: number, pauseTime: number) {
         const fromNumber = Number(fromBlock.number)
         const uncleRange: number[] = range(fromNumber, to)
 
         // Persist reorg to IndexerDB for telemetry.
-        const reorg = await createReorg(this.chainId, fromNumber, to, uid)
+        const reorg = await createReorg(this.chainId, fromNumber, to)
 
         // If a block can't be uncled, it's because there's an even LOWER
         // block number that failed indexing and the entire chain has been stopped.
@@ -260,7 +255,7 @@ class EvmReporter {
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
                 updateReorg(reorg.id, { status: ReorgStatus.Replaced })
-                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
+                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
                 return    
             }
         }
@@ -284,7 +279,7 @@ class EvmReporter {
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
                 updateReorg(reorg.id, { status: ReorgStatus.Replaced })
-                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
+                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
                 return    
             }
         }
@@ -336,7 +331,7 @@ class EvmReporter {
             if (floorReplacement) {
                 this.replacementReorgFloorBlock = null
                 updateReorg(reorg.id, { status: ReorgStatus.Replaced })
-                await this._uncleBlocks(floorReplacement, to, uid, this.unclePauseTime / 2)
+                await this._uncleBlocks(floorReplacement, to, this.unclePauseTime / 2)
                 return
             }
         }
