@@ -50,6 +50,7 @@ async function runJob(job: Job) {
     let attempt = 1
     let indexer = null
     let timer = null
+    let triedToRebuildRpcPoolAsFix = false
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
         indexer = getIndexer(head)
@@ -95,6 +96,15 @@ async function runJob(job: Job) {
 
             logger.error(err)
             logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
+
+            if (attempt > 2 && !triedToRebuildRpcPoolAsFix) {
+                triedToRebuildRpcPoolAsFix = true
+                numIterations = 0
+                teardownRpcPool()
+                await sleep(50)
+                createRpcPool()
+            }
+
             await sleep(randomIntegerInRange(
                 Math.floor(0.8 * config.JOB_DELAY_ON_FAILURE),
                 Math.floor(1.2 * config.JOB_DELAY_ON_FAILURE),
