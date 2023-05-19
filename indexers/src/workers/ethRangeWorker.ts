@@ -663,50 +663,23 @@ class EthRangeWorker {
             ? uniqueByKeys(nftCollections, this.upsertConstraints.nftCollection[1].map(snakeToCamel))
             : nftCollections
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertBlocks(blocks, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertTransactions(transactions, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertLogs(logs, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertTraces(traces, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertContracts(contracts, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertLatestInteractions(latestInteractions, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertErc20Tokens(erc20Tokens, tx)
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await this._upsertNftCollections(nftCollections, tx)
-        })
-
-        // await SharedTables.manager.transaction(async (tx) => {
-        //     await Promise.all([
-        //         this._upsertBlocks(blocks, tx),
-        //         this._upsertTransactions(transactions, tx),
-        //         this._upsertLogs(logs, tx),
-        //         this._upsertTraces(traces, tx),
-        //         this._upsertContracts(contracts, tx),
-        //         this._upsertLatestInteractions(latestInteractions, tx),
-        //         this._upsertErc20Tokens(erc20Tokens, tx),
-        //         this._upsertNftCollections(nftCollections, tx),
-        //     ])
-        // })
+        await Promise.all([
+            this._upsertBlocks(blocks),
+            this._upsertTransactions(transactions),
+            this._upsertLogs(logs),
+            this._upsertTraces(traces),
+            this._upsertContracts(contracts),
+            this._upsertLatestInteractions(latestInteractions),
+            this._upsertErc20Tokens(erc20Tokens),
+            this._upsertNftCollections(nftCollections),
+        ])
     }
 
-    async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
+    async _upsertBlocks(blocks: StringKeyMap[]) {
         if (!blocks.length) return
         logger.info(`Saving ${blocks.length} blocks...`)
         const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
-        await tx
+        await SharedTables
             .createQueryBuilder()
             .insert()
             .into(EthBlock)
@@ -715,13 +688,13 @@ class EthRangeWorker {
             .execute()
     }
 
-    async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
+    async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         logger.info(`Saving ${transactions.length} transactions...`)
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EthTransaction)
@@ -732,13 +705,13 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any) {
+    async _upsertLogs(logs: StringKeyMap[]) {
         if (!logs.length) return
         logger.info(`Saving ${logs.length} logs...`)
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         await Promise.all(
             toChunks(logs, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EthLog)
@@ -749,13 +722,13 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertTraces(traces: StringKeyMap[], tx: any) {
+    async _upsertTraces(traces: StringKeyMap[]) {
         if (!traces.length) return
         logger.info(`Saving ${traces.length} traces...`)
         const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
         await Promise.all(
             toChunks(traces, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EthTrace)
@@ -766,13 +739,13 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertContracts(contracts: StringKeyMap[], tx: any) {
+    async _upsertContracts(contracts: StringKeyMap[]) {
         if (!contracts.length) return
         logger.info(`Saving ${contracts.length} contracts...`)
         const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
         await Promise.all(
             toChunks(contracts, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EthContract)
@@ -783,7 +756,7 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], tx: any, attempt: number = 1) {
+    async _upsertLatestInteractions(latestInteractions: StringKeyMap[], attempt: number = 1) {
         if (!latestInteractions.length) return
         const chunks = toChunks(latestInteractions, this.chunkSize)
         const [updateCols, conflictCols] = this.upsertConstraints.latestInteraction
@@ -808,7 +781,7 @@ class EthRangeWorker {
             logger.info(`Saving ${latestInteractionsToUpsert.length} latest interactions...`)
 
             try {
-                await tx
+                await SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EthLatestInteraction)
@@ -822,19 +795,19 @@ class EthRangeWorker {
                 if (attempt < 3 && message.toLowerCase().includes('deadlock')) {
                     logger.error(`[Attempt ${attempt}] Got deadlock, trying again...`)
                     await sleep(Math.floor(Math.random() * (600 - 400) + 400))
-                    await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
+                    await this._upsertLatestInteractions(latestInteractions, attempt + 1)
                 }
             }
     
         }
     }
 
-    async _upsertErc20Tokens(erc20Tokens: StringKeyMap[], tx: any) {
+    async _upsertErc20Tokens(erc20Tokens: StringKeyMap[]) {
         if (!erc20Tokens.length) return
         logger.info(`Saving ${erc20Tokens.length} erc20_tokens...`)
         await Promise.all(
             toChunks(erc20Tokens, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(Erc20Token)
@@ -845,12 +818,12 @@ class EthRangeWorker {
         )
     }
 
-    async _upsertNftCollections(nftCollections: StringKeyMap[], tx: any) {
+    async _upsertNftCollections(nftCollections: StringKeyMap[]) {
         if (!nftCollections.length) return
         logger.info(`Saving ${nftCollections.length} nft_collections...`)
         await Promise.all(
             toChunks(nftCollections, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(NftCollection)

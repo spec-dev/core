@@ -79,7 +79,7 @@ class ValidateBlocksWorker {
             }
         }
 
-        if (this.mismatches.length >= 10000) {
+        if (this.mismatches.length >= 1000) {
             await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
@@ -94,7 +94,7 @@ class ValidateBlocksWorker {
     }
 
     async _getActualBlockHashes(hashes: number[]): Promise<string[]> {
-        const numberChunks = toChunks(hashes, 50)
+        const numberChunks = toChunks(hashes, 40)
         const rangeHashes = []
         for (const chunk of numberChunks) {
             await sleep(120)
