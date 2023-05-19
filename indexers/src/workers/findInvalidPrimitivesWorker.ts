@@ -7,6 +7,7 @@ import {
     range,
     indexerRedis,
     unique,
+    sleep,
 } from '../../../shared'
 import { ident } from 'pg-format'
 import chalk from 'chalk'
@@ -36,12 +37,18 @@ class FindInvalidPrimitivesWorker {
         while (this.cursor <= this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
-            await this._indexGroup(start, end)
+            try {
+                await this._indexGroup(start, end)
+            } catch (err) {
+                logger.error(err)
+                await sleep(1000)
+                continue
+            }
             this.cursor = this.cursor + this.groupSize
         }
 
         if (this.mismatches.size) {
-            await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, Array.from(this.mismatches))
+            await indexerRedis.sAdd(`redo2-${config.CHAIN_ID}`, Array.from(this.mismatches))
         }
 
         logger.info('DONE')
@@ -58,10 +65,10 @@ class FindInvalidPrimitivesWorker {
             blockNumbersFromLogs,
             blockNumbersFromContracts,
         ] = await Promise.all([
-            this._getShit('transactions', start, end),
-            this._getShit('traces', start, end),
-            this._getShit('logs', start, end),
-            this._getShit('contracts', start, end),
+            this._getStoredBlockNumberHashGroups('transactions', start, end),
+            this._getStoredBlockNumberHashGroups('traces', start, end),
+            this._getStoredBlockNumberHashGroups('logs', start, end),
+            this._getStoredBlockNumberHashGroups('contracts', start, end),
         ])
 
         const allBlockNumberHashData = [
@@ -73,33 +80,48 @@ class FindInvalidPrimitivesWorker {
         if (!allBlockNumberHashData.length) return
 
         const newInvalidBlockNumbers = new Set<string>()
-        for (const { blockNumber, blockHash } of allBlockNumberHashData) {
+        const locations = {}
+        for (const { blockNumber, blockHash, table } of allBlockNumberHashData) {
             const bn = blockNumber.toString()
             const actualHash = blockNumberToHash[bn]
             if (blockHash !== actualHash) {
+                locations[bn] = locations[bn] || {}
+                locations[bn].tables = locations[bn].tables || new Set()
+                locations[bn].tables.add(table)
                 newInvalidBlockNumbers.add(bn)
             }
         }
 
         Array.from(newInvalidBlockNumbers).forEach(bn => {
             logger.info(chalk.yellow(`Mismatch detected in block ${bn}`))
+            logger.info(`    - ${Array.from(locations[bn].tables).join(', ')}`)
             this.mismatches.add(bn)
         })
 
-        if (this.mismatches.size >= 100) {
+        if (this.mismatches.size) {
             await indexerRedis.sAdd(`redo2-${config.CHAIN_ID}`, Array.from(this.mismatches))
             this.mismatches = new Set()
         }
     }
 
-    async _getShit(table: string, start: number, end: number) {
+    async _getStoredBlockNumberHashGroups(table: string, start: number, end: number) {
         return ((await SharedTables.query(
-            `select block_number, block_hash from ${ident(schemaForChainId[config.CHAIN_ID])}.${table} where block_number >= $1 and block_number <= $2`,
+            `select distinct(block_number, block_hash) from ${ident(schemaForChainId[config.CHAIN_ID])}.${table} where block_number >= $1 and block_number <= $2`,
             [start, end]
-        )) || []).map(r => ({
-            blockNumber: r.block_number,
-            blockHash: r.block_hash,
-        }))
+        )) || []).map(r => {
+            const group = r.row || ''
+            const split = group.split(',')
+            if (split.length !== 2) return null
+            let [number, hash] = split
+            number = parseInt(number.slice(1))
+            hash = hash.slice(0, hash.length - 1)
+            if (Number.isNaN(number)) return null
+            return {
+                table,
+                blockNumber: number,
+                blockHash: hash,
+            }
+        })
     }
 
     async _getCurrentBlockHashesMap(start: number, end: number): Promise<StringKeyMap> {
