@@ -52,7 +52,6 @@ async function listen() {
             await reporter._uncleBlocks(
                 { number: from, timestamp: Math.floor(Date.now() / 1000) } as BlockHeader, 
                 to,
-                uuid4(),
                 1000,
             )
         } catch (err) {
