@@ -44,7 +44,6 @@ async function perform({ blockNumber }) {
 
     // Blocks less than the current series number get pushed through only in force situations.
     logger.notify(`Got number less than series number: ${blockNumber} vs. ${seriesNumber}`)
-    await generateEventsForBlock(blockNumber, { replace: true })
 }
 
 async function addEagerBlockToHoldingZone(blockNumber: number) {
