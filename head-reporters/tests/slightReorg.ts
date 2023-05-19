@@ -23,7 +23,7 @@ function newFakeBlockHeader(number: number): BlockHeader {
 } 
 
 async function fakeNewHeads(reporter: EvmReporter) {
-    let number = 17269837
+    let number = 17290932
     let lastReorgAt = number
     let hasFlipped = false
     setInterval(async() => {

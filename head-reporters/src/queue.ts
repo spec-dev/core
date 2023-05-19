@@ -56,11 +56,24 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
     series = data.blockNumber
 
     for (const head of heads) {
+        try {
+            const jobAlreadyWaiting = (await queue.getWaiting()).find(job => (
+                job?.data?.blockNumber === head.blockNumber
+            ))
+            if (jobAlreadyWaiting) {
+                logger.notify(chalk.yellow(`Replacing job for block ${head.blockNumber}`))
+                await jobAlreadyWaiting.remove()
+            }
+        } catch (err) {
+            logger.error(`Error finding/replacing waiting jobs`, err)
+        }
+
         const logMethod = replace ? 'notify' : 'info'
         const logColor = replace ? 'green' : 'cyanBright'
         logger[logMethod](chalk[logColor](
             `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
         ))
+        
         await sleep(10)
         await queue.add(config.INDEX_BLOCK_JOB_NAME, head, {
             priority: head.blockNumber,
