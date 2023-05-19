@@ -1138,7 +1138,9 @@ class PolygonIndexer extends AbstractIndexer {
 
     async _getTraces(): Promise<PolygonTrace[]> {
         try {
-            return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.blockHash, this.chainId)
+            return config.IS_RANGE_MODE 
+                ? [] 
+                : resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.blockHash, this.chainId)
         } catch (err) {
             throw err
         }
