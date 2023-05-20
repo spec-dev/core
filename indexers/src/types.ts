@@ -7,6 +7,7 @@ export interface IndexerWorker {
 export interface Indexer {
     head: NewReportedHead
     resolvedBlockHash: string | null
+    timedOut: boolean
     perform: () => Promise<StringKeyMap | void>
 }
 

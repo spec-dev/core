@@ -1,17 +1,58 @@
-import { Worker, Job } from 'bullmq'
+import { Queue, Worker, Job } from 'bullmq'
 import config from './config'
-import { logger, isEventGeneratorPaused, pauseEventGenerator } from '../../shared'
+import { logger, setProcessEventGenJobs, shouldProcessEventGenJobs, setGeneratedEventsCursor, StringKeyMap, sleep } from '../../shared'
 import perform from './job'
 import chalk from 'chalk'
+
+const queueKey = [config.EVENT_GENERATOR_QUEUE_PREFIX, config.CHAIN_ID].join('-')
+
+let queue: Queue
+export async function reenqueueJob(blockNumber: number, data: StringKeyMap) {   
+    queue = queue || new Queue(queueKey, {
+        connection: {
+            host: config.INDEXER_REDIS_HOST,
+            port: config.INDEXER_REDIS_PORT,
+        },
+        defaultJobOptions: {
+            attempts: config.EVENT_GENERATOR_JOB_MAX_ATTEMPTS,
+            removeOnComplete: true,
+            removeOnFail: 10,
+            backoff: {
+                type: 'fixed',
+                delay: config.JOB_DELAY_ON_FAILURE,
+            },
+        },
+    })
+    await queue.add(config.EVENT_GENERATOR_JOB_NAME, data, {
+        priority: blockNumber,
+    })
+}
 
 export function getWorker(): Worker {
     let worker: Worker
     worker = new Worker(
-        [config.EVENT_GENERATOR_QUEUE_PREFIX, config.CHAIN_ID].join('-'),
+        queueKey,
         async (job: Job) => {
-            await perform(job.data)
-            if (await isEventGeneratorPaused(config.CHAIN_ID)) {
-                await pauseEventGenerator(config.CHAIN_ID)
+            const blockNumber = Number(job.data.blockNumber)
+            const chainId = config.CHAIN_ID
+            let reEnqueue = false
+            try {
+                await perform(job.data)
+            } catch (err) {
+                await setProcessEventGenJobs(chainId, false)
+                reEnqueue = true
+                logger.error(`[${chainId}:${blockNumber}] ${chalk.redBright('Event generator job failed:')} ${err}`)
+            }
+
+            if (!(await shouldProcessEventGenJobs(chainId))) {
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Pausing worker.`))
+                worker.pause()
+                await sleep(5)
+            }
+
+            if (reEnqueue) {
+                logger.notify(chalk.magenta(`[${chainId}:${blockNumber}] Re-enqueueing job to be picked up on next deployment.`))
+                await reenqueueJob(blockNumber, job.data)
             }
         },
         {
@@ -24,12 +65,22 @@ export function getWorker(): Worker {
         }
     )
 
-    worker.on('paused', () => {
-        logger.info(chalk.yellow('Event generator paused.'))
+    worker.on('completed', async (job) => {
+        const blockNumber = Number(job.data.blockNumber)
+        const chainId = config.CHAIN_ID
+        await setGeneratedEventsCursor(chainId, blockNumber)
     })
 
     worker.on('failed', async (job, err) => {
-        logger.error(`[${config.CHAIN_ID}:${job.data?.blockNumber}] Event generator job failed`, err)
+        const { blockNumber } = job.data || {}
+        const chainId = config.CHAIN_ID
+        logger.error(`[${chainId}:${blockNumber}] ${chalk.redBright('Event generator job failed:')} ${err}`)
+        logger.notify(`[${chainId}:${blockNumber}] ${chalk.magenta('Pausing worker & re-enqueueing job for next deployment.')}`)
+        await setProcessEventGenJobs(chainId, false)
+        worker.pause()
+        await sleep(5)
+        await reenqueueJob(Number(blockNumber), job.data)
+
     })
 
     worker.on('error', (err) => {

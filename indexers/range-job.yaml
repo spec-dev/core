@@ -95,4 +95,8 @@ spec:
           value: "50"
         - name: SAVE_BATCH_MULTIPLE
           value: "1"
+        - name: FORCE_COLOR
+          value: "1" 
+        - name: RPC_POOL_ENDPOINTS
+          value: wss://polished-newest-lambo.quiknode.pro/c2282b1241456ea0541ba45afe89a87c60ecb8b0/,wss://eth-mainnet.g.alchemy.com/v2/Pj1LFBCcfkSl1eIy0BQgkmt8LmszlCIW,wss://eth-mainnet.g.alchemy.com/v2/-eR-KiTsVibgoKItumE4A8MAiA_Ci_SE,wss://eth-mainnet.g.alchemy.com/v2/Ruaxvq_j4m7q0zSDI_HWK5dY6SohY3XM,wss://eth-mainnet.g.alchemy.com/v2/PCray8AkZS_xQFOWvSdckPM00FJ2xQ4L
       restartPolicy: Never

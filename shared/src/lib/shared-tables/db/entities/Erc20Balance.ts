@@ -4,9 +4,9 @@ import { decamelize } from 'humps'
 /**
  * An ERC-20 balance owned by a particular address.
  */
-@Entity('erc20s', { schema: 'tokens' })
+@Entity('erc20_balance', { schema: 'tokens' })
 @Index(['tokenAddress', 'ownerAddress', 'chainId'], { unique: true })
-export class Erc20 {
+export class Erc20Balance {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -47,10 +47,8 @@ export class Erc20 {
     chainId: string
 }
 
-export const fullErc20UpsertConfig = (erc20: Erc20): string[][] => {
+export const fullErc20BalanceUpsertConfig = (): string[][] => {
     const conflictCols = ['token_address', 'owner_address', 'chain_id']
-    const updateCols = Object.keys(erc20)
-        .map(decamelize)
-        .filter((col) => !conflictCols.includes(col))
+    const updateCols = ['balance', 'block_hash', 'block_number', 'block_timestamp']
     return [updateCols, conflictCols]
 }

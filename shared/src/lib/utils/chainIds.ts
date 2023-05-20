@@ -89,11 +89,10 @@ const basePrimitives = [
 
 const tokenPrimitives = [
     { table: 'tokens.erc20_tokens', appendOnly: false, crossChain: true },
-    { table: 'tokens.erc20s', appendOnly: false, crossChain: true },
-    { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
+    { table: 'tokens.erc20_balance', appendOnly: false, crossChain: true },
     { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
-    { table: 'tokens.nfts', appendOnly: false, crossChain: true },
-    { table: 'tokens.nft_transfers', appendOnly: true, crossChain: true },
+    { table: 'tokens.nft_balance', appendOnly: false, crossChain: true },
+    { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
 ]
 
 export const primitivesForChainId = {
@@ -102,11 +101,11 @@ export const primitivesForChainId = {
             ...p,
             table: [schemaForChainId[chainIds.ETHEREUM], p.table].join('.'),
         })),
-        {
-            table: [schemaForChainId[chainIds.ETHEREUM], 'latest_interactions'].join('.'),
-            appendOnly: false,
-            crossChain: false,
-        },
+        // {
+        //     table: [schemaForChainId[chainIds.ETHEREUM], 'latest_interactions'].join('.'),
+        //     appendOnly: false,
+        //     crossChain: false,
+        // },
         ...tokenPrimitives,
     ],
     [chainIds.GOERLI]: [

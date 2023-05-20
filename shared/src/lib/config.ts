@@ -3,6 +3,7 @@ import { StringKeyMap } from './types'
 
 const config: StringKeyMap = {
     ENV: ev('ENV', specEnvs.PROD),
+    CHAIN_ID: ev('CHAIN_ID'),
 
     // Logging.
     BUGSNAG_API_KEY: ev('BUGSNAG_API_KEY'),
@@ -10,6 +11,7 @@ const config: StringKeyMap = {
     // Indexer Redis Instance
     INDEXER_REDIS_HOST: ev('INDEXER_REDIS_HOST', 'localhost'),
     INDEXER_REDIS_PORT: Number(ev('INDEXER_REDIS_PORT', 6379)),
+    DISABLE_REDIS: ev('DISABLE_REDIS'),
 
     // Indexer Postgres Instance
     INDEXER_DB_NAME: ev('INDEXER_DB_NAME', 'indexer'),
@@ -19,20 +21,43 @@ const config: StringKeyMap = {
     INDEXER_DB_PASSWORD: ev('INDEXER_DB_PASSWORD'),
     INDEXER_DB_MAX_POOL_SIZE: Number(ev('INDEXER_DB_MAX_POOL_SIZE', 10)),
 
-    // Head Reporter redis queue & job name
+    JOB_DELAY_ON_FAILURE: Number(ev('JOB_DELAY_ON_FAILURE', 2000)),
+
+    // Indexing job config.
     HEAD_REPORTER_QUEUE_KEY: ev('HEAD_REPORTER_QUEUE_KEY', 'head-reporter-queue'),
     INDEX_BLOCK_JOB_NAME: ev('INDEX_BLOCK_JOB_NAME', 'index-block'),
+    INDEX_JOB_MAX_ATTEMPTS: Number(ev('INDEX_JOB_MAX_ATTEMPTS', 1)),
+    INDEX_PERFORM_MAX_DURATION: Number(ev('INDEX_PERFORM_MAX_DURATION', 75000)),
+    INDEX_PERFORM_MAX_ATTEMPTS: Number(ev('INDEX_PERFORM_MAX_ATTEMPTS', 100)),
+    INDEX_JOB_LOCK_DURATION: Number(ev('INDEX_JOB_LOCK_DURATION', 45000)),
+
+    // Cached events/calls for an indexed block.
+    BLOCK_EVENTS_PREFIX: ev('BLOCK_EVENTS_PREFIX', 'block-events'),
+    BLOCK_CALLS_PREFIX: ev('BLOCK_CALLS_PREFIX', 'block-calls'),
+
+    // Event sorter job config.
+    BLOCK_EVENTS_QUEUE_PREFIX: ev('BLOCK_EVENTS_QUEUE_KEY', 'block-events-queue'),
+    SORT_BLOCK_EVENTS_JOB_NAME: ev('SORT_BLOCK_EVENTS_JOB_NAME', 'sort-block-events'),
+    SORT_BLOCK_EVENTS_JOB_MAX_ATTEMPTS: Number(ev('SORT_BLOCK_EVENTS_JOB_MAX_ATTEMPTS', 1)),
+
+    // Event generator job config.
+    EVENT_GENERATOR_QUEUE_PREFIX: ev('EVENT_GENERATOR_QUEUE_PREFIX', 'event-gen-queue'),
+    EVENT_GENERATOR_JOB_NAME: ev('EVENT_GENERATOR_JOB_NAME', 'event-gen'),
+    EVENT_GENERATOR_JOB_MAX_ATTEMPTS: Number(ev('EVENT_GENERATOR_JOB_MAX_ATTEMPTS', 1)),
+
+    // Event relay config.
+    CONNECT_TO_EVENT_RELAY: [true, 'true'].includes(ev('CONNECT_TO_EVENT_RELAY', '').toLowerCase()),
+    PUBLISHER_ROLE_KEY: ev('PUBLISHER_ROLE_KEY'),
+    EVENT_RELAY_HOSTNAME: ev('EVENT_RELAY_HOSTNAME', 'events.spec.dev'),
+    EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
+    EVENT_GEN_AUTH_HEADER_NAME: 'Spec-Auth-Token',
+    EVENT_GENERATORS_JWT: ev('EVENT_GENERATORS_JWT'),
+    EVENT_GEN_RESPONSE_TIMEOUT: Number(ev('EVENT_GEN_RESPONSE_TIMEOUT', 60000)),
+    TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
+    REORG_EVENT_NAME_PREFIX: 'chain.reorgs',
 
     // Delayed job redis queue
     DELAYED_JOB_QUEUE_KEY: ev('DELAYED_JOB_QUEUE_KEY', 'djq'),
-
-    BLOCK_EVENTS_PREFIX: ev('BLOCK_EVENTS_PREFIX', 'block-events'),
-    BLOCK_CALLS_PREFIX: ev('BLOCK_CALLS_PREFIX', 'block-calls'),
-    BLOCK_EVENTS_QUEUE_PREFIX: ev('BLOCK_EVENTS_QUEUE_KEY', 'block-events-queue'),
-    SORT_BLOCK_EVENTS_JOB_NAME: ev('SORT_BLOCK_EVENTS_JOB_NAME', 'sort-block-events'),
-
-    EVENT_GENERATOR_QUEUE_PREFIX: ev('EVENT_GENERATOR_QUEUE_PREFIX', 'event-gen-queue'),
-    EVENT_GENERATOR_JOB_NAME: ev('EVENT_GENERATOR_JOB_NAME', 'event-gen'),
 
     // Public Tables Postgres Instance
     SHARED_TABLES_DB_NAME: ev('SHARED_TABLES_DB_NAME', 'shared-tables'),
@@ -41,6 +66,9 @@ const config: StringKeyMap = {
     SHARED_TABLES_DB_USERNAME: ev('SHARED_TABLES_DB_USERNAME', 'spec'),
     SHARED_TABLES_DB_PASSWORD: ev('SHARED_TABLES_DB_PASSWORD'),
     SHARED_TABLES_MAX_POOL_SIZE: Number(ev('SHARED_TABLES_MAX_POOL_SIZE', 10)),
+    SHARED_TABLES_OPTIONS: ev('SHARED_TABLES_OPTIONS'),
+
+    MAX_ATTEMPTS_DUE_TO_DEADLOCK: 10,
 
     // DAG Queue
     DAG_QUEUE_KEY: ev('DAG_QUEUE_KEY', 'dag-queue'),

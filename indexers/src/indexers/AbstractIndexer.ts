@@ -1,7 +1,6 @@
 import {
     NewReportedHead,
     logger,
-    quickUncleCheck,
     numberToHex,
     SharedTables,
     StringKeyMap,
@@ -9,24 +8,31 @@ import {
     saveBlockEvents,
     saveBlockCalls,
     Erc20Token,
+    Erc20Balance,
     fullErc20TokenUpsertConfig,
+    fullErc20BalanceUpsertConfig,
     NftCollection,
     fullNftCollectionUpsertConfig,
     fullTokenTransferUpsertConfig,
-    fullNftTransferUpsertConfig,
     uniqueByKeys,
     TokenTransfer,
-    NftTransfer,
     snakeToCamel,
     toChunks,
+    canBlockBeOperatedOn,
+    sleep,
+    randomIntegerInRange,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
 import { Pool } from 'pg'
 import { reportBlockEvents } from '../events'
+import chalk from 'chalk'
+import { ident } from 'pg-format'
 
 class AbstractIndexer {
     head: NewReportedHead
+
+    timedOut: boolean = false
 
     resolvedBlockHash: string | null
 
@@ -38,11 +44,11 @@ class AbstractIndexer {
 
     erc20Tokens: Erc20Token[] = []
 
+    erc20Balances: Erc20Balance[] = []
+
     tokenTransfers: TokenTransfer[] = []
 
     nftCollections: NftCollection[] = []
-
-    nftTransfers: NftTransfer[] = []
 
     get chainId(): string {
         return this.head.chainId
@@ -57,7 +63,7 @@ class AbstractIndexer {
     }
 
     get blockHash(): string | null {
-        return this.head.blockHash || this.resolvedBlockHash
+        return this.resolvedBlockHash || this.head.blockHash
     }
 
     get logPrefix(): string {
@@ -74,44 +80,49 @@ class AbstractIndexer {
         this.blockUnixTimestamp = null
         this.contractEventNsp = contractNamespaceForChainId(this.chainId)
         this.pool = new Pool({
-            host : config.SHARED_TABLES_DB_HOST,
-            port : config.SHARED_TABLES_DB_PORT,
-            user : config.SHARED_TABLES_DB_USERNAME,
-            password : config.SHARED_TABLES_DB_PASSWORD,
-            database : config.SHARED_TABLES_DB_NAME,
+            host: config.SHARED_TABLES_DB_HOST,
+            port: config.SHARED_TABLES_DB_PORT,
+            user: config.SHARED_TABLES_DB_USERNAME,
+            password: config.SHARED_TABLES_DB_PASSWORD,
+            database: config.SHARED_TABLES_DB_NAME,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
+            connectionTimeoutMillis: 60000,
         })
         this.pool.on('error', err => logger.error('PG client error', err))
     }
 
     async perform(): Promise<StringKeyMap | void> {
+        console.log('')
         config.IS_RANGE_MODE ||
             logger.info(
-                `\n${this.logPrefix} Indexing block ${this.blockNumber} (${this.blockHash})...`
+                `${this.logPrefix} Indexing block ${this.blockNumber}...`
             )
 
         if (this.head.replace) {
-            this._info(`GOT REORG -- Uncling existing block ${this.blockNumber}...`)
-            await this._deleteRecordsWithBlockNumber()
+            this._notify(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
         }
     }
 
     async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
+        if (!(await this._shouldContinue())) {
+            this._notify(chalk.yellow('Job stopped mid-indexing inside _kickBlockDownstream.'))
+            return
+        }
+
         await Promise.all([
             saveBlockEvents(this.chainId, this.blockNumber, eventSpecs),
             saveBlockCalls(this.chainId, this.blockNumber, callSpecs),
         ])
+
         await reportBlockEvents(this.blockNumber)
     }
 
     async _blockAlreadyExists(schema: string): Promise<boolean> {
         try {
-            const colName = this.blockHash ? 'hash' : 'number'
-            const value = this.blockHash || this.blockNumber
             return (
                 await SharedTables.query(
-                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where ${colName} = $1)`,
-                    [value]
+                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where number = $1)`,
+                    [this.blockNumber]
                 )
             )[0]?.exists
         } catch (err) {
@@ -123,21 +134,78 @@ class AbstractIndexer {
     async _upsertErc20Tokens(erc20Tokens: Erc20Token[], tx: any) {
         if (!erc20Tokens.length) return
         const [updateCols, conflictCols] = fullErc20TokenUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"tokens"."erc20_tokens"."last_updated" < excluded.last_updated`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Tokens = uniqueByKeys(erc20Tokens, conflictCols.map(snakeToCamel)) as Erc20Token[]
-        this.erc20Tokens = (
+
+        this.erc20Tokens = ((
             await tx
                 .createQueryBuilder()
                 .insert()
                 .into(Erc20Token)
-                .values(erc20Tokens.map((c) => ({ ...c, 
+                .values(erc20Tokens.map((c) => ({ 
+                    ...c, 
                     blockTimestamp: () => blockTimestamp,
                     lastUpdated: () => blockTimestamp
                 })))
-                .orUpdate(updateCols, conflictCols)
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Token[]
+    }
+
+    async _upsertErc20Balances(erc20Balances: Erc20Balance[], tx: any) {
+        if (!erc20Balances.length) return
+        const [updateCols, conflictCols] = fullErc20BalanceUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp and "tokens"."erc20_balance"."balance" != excluded.balance`
+        const blockTimestamp = this.pgBlockTimestamp
+        erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
+        this.erc20Balances = ((
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(Erc20Balance)
+                .values(erc20Balances.map((b) => ({ 
+                    ...b, 
+                    blockTimestamp: () => blockTimestamp,
+                })))
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
+                .returning('*')
+                .execute()
+        ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Balance[]
+    }
+    
+    async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
+        if (!nftCollections.length) return
+        const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"tokens"."nft_collections"."last_updated" < excluded.last_updated`
+        const blockTimestamp = this.pgBlockTimestamp
+        nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
+        this.nftCollections = ((
+            await tx
+                .createQueryBuilder()
+                .insert()
+                .into(NftCollection)
+                .values(nftCollections.map((c) => ({ ...c, 
+                    blockTimestamp: () => blockTimestamp,
+                    lastUpdated: () => blockTimestamp
+                })))
+                .onConflict(
+                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                )
+                .returning('*')
+                .execute()
+        ).generatedMaps || []).filter(n => n && !!Object.keys(n).length) as NftCollection[]
     }
 
     async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
@@ -152,65 +220,18 @@ class AbstractIndexer {
                         .createQueryBuilder()
                         .insert()
                         .into(TokenTransfer)
-                        .values(chunk.map((c) => ({ ...c, 
-                            blockTimestamp: () => blockTimestamp,
-                        })))
+                        .values(chunk.map((c) => ({ ...c, blockTimestamp: () => blockTimestamp })))
                         .orUpdate(updateCols, conflictCols)
                         .returning('*')
                         .execute()
                 })
             )
         )
-            .map((result) => result.generatedMaps)
-            .flat()
-    }
-    
-    async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
-        if (!nftCollections.length) return
-        const [updateCols, conflictCols] = fullNftCollectionUpsertConfig()
-        const blockTimestamp = this.pgBlockTimestamp
-        nftCollections = uniqueByKeys(nftCollections, conflictCols.map(snakeToCamel)) as NftCollection[]
-        this.nftCollections = (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(NftCollection)
-                .values(nftCollections.map((c) => ({ ...c, 
-                    blockTimestamp: () => blockTimestamp,
-                    lastUpdated: () => blockTimestamp
-                })))
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps
+            .map((result) => result.generatedMaps || [])
+            .flat() as TokenTransfer[]
     }
 
-    async _upsertNftTransfers(nftTransfers: NftTransfer[], tx: any) {
-        if (!nftTransfers.length) return
-        const [updateCols, conflictCols] = fullNftTransferUpsertConfig(nftTransfers[0])
-        const blockTimestamp = this.pgBlockTimestamp
-        nftTransfers = uniqueByKeys(nftTransfers, conflictCols.map(snakeToCamel)) as NftTransfer[]
-        this.nftTransfers = (
-            await Promise.all(
-                toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                    return tx
-                        .createQueryBuilder()
-                        .insert()
-                        .into(NftTransfer)
-                        .values(chunk.map((c) => ({ ...c, 
-                            blockTimestamp: () => blockTimestamp,
-                        })))
-                        .orUpdate(updateCols, conflictCols)
-                        .returning('*')
-                        .execute()
-                })
-            )
-        )
-            .map((result) => result.generatedMaps)
-            .flat()
-    }
-
-    async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string) {
+    async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string, attempt: number = 1) {
         if (!updates.length) return
         const tempTableName = `erc20_tokens_${short.generate()}`
         const insertPlaceholders = []
@@ -222,6 +243,7 @@ class AbstractIndexer {
             i += 3
         }
         
+        let error
         const client = await this.pool.connect()
         try {
             // Create temp table and insert updates + primary key data.
@@ -235,37 +257,55 @@ class AbstractIndexer {
 
             // Merge the temp table updates into the target table ("bulk update").
             await client.query(
-                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id`
+                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
             )
             await client.query('COMMIT')
-        } catch (e) {
+        } catch (err) {
             await client.query('ROLLBACK')
-            this._error(`Error bulk updating ERC-20 Tokens`, updates, e)
+            this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
+            error = err
         } finally {
             client.release()
         }
+        if (!error) return
+
+        const message = error.message || error.toString() || ''
+        if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+            this._error(`Got deadlock ("tokens"."erc20_tokens"). Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+            await sleep(randomIntegerInRange(50, 500))
+            return await this._bulkUpdateErc20TokensTotalSupply(updates, timestamp, attempt + 1)
+        }
+        
+        throw error
     }
 
-    async _deleteRecordsWithBlockNumber() {
-        throw 'must implement in child class'
-    }
-
-    async _wasUncled(): Promise<boolean> {
-        return false // HACK - experiment
-        if (config.IS_RANGE_MODE) return false
-        return await quickUncleCheck(this.chainId, this.blockHash)
+    /**
+     * Checks to see if this service should continue or if there was a re-org 
+     * back to a previous block number -- in which case everything should stop.
+     */
+    async _shouldContinue(): Promise<boolean> {
+        if (this.timedOut) {
+            this._notify(chalk.yellow(`Job timed out.`))
+            return false
+        }
+        if (config.IS_RANGE_MODE || this.head.force) return true
+        return await canBlockBeOperatedOn(this.chainId, this.blockNumber)
     }
 
     async _info(msg: any, ...args: any[]) {
         config.IS_RANGE_MODE || logger.info(`${this.logPrefix} ${msg}`, ...args)
     }
 
+    async _notify(msg: any, ...args: any[]) {
+        config.IS_RANGE_MODE || logger.notify(`${this.logPrefix} ${msg}`, ...args)
+    }
+
     async _warn(msg: any, ...args: any[]) {
-        logger.warn(`${this.logPrefix} ${msg}`, ...args)
+        logger.warn(`${this.logPrefix} ${chalk.yellow(msg)}`, ...args)
     }
 
     async _error(msg: any, ...args: any[]) {
-        logger.error(`${this.logPrefix} ${msg}`, ...args)
+        logger.error(`${this.logPrefix} ${chalk.red(msg)}`, ...args)
     }
 }
 

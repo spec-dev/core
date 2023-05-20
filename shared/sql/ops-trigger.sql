@@ -5,14 +5,16 @@ DECLARE
     rec_after JSON;
     block_number BIGINT;
     chain_id TEXT;
+    block_number_floor BIGINT;
+    pk_names_array TEXT[] := ARRAY[]::TEXT[];
+    pk_names TEXT := '';
     pk_values_array TEXT[] := ARRAY[]::TEXT[];
     pk_values TEXT := '';
     ops_table_name TEXT;
     pk_column_name TEXT;
-    pk_column_value JSONB;
+    pk_column_value TEXT;
     insert_stmt TEXT;
     table_path TEXT;
-    is_op_tracking_enabled BOOLEAN;
 BEGIN
     -- Current table this trigger is actually on.
     table_path := TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME;
@@ -39,21 +41,23 @@ BEGIN
         chain_id := OLD.chain_id;
     END CASE;
 
-    -- Ensure op-tracking is on.
-    EXECUTE format('SELECT is_enabled from op_tracking where table_path = $1 and chain_id = $2')
-        INTO is_op_tracking_enabled
+    -- Ensure op-tracking is allowed for this block number.
+    EXECUTE format('SELECT is_enabled_above from op_tracking where table_path = $1 and chain_id = $2')
+        INTO block_number_floor
         USING table_path, chain_id::TEXT;
-    IF is_op_tracking_enabled IS NOT TRUE THEN
+    IF (block_number_floor IS NULL OR block_number < block_number_floor) THEN
         RETURN rec;
     END IF;
 
     -- Curate a comma-delimited string of primary key values for the record.
     FOREACH pk_column_name IN ARRAY TG_ARGV LOOP
-        EXECUTE format('SELECT to_json($1.%I)', pk_column_name)
+        EXECUTE format('SELECT ($1.%I)::TEXT', pk_column_name)
         INTO pk_column_value
         USING rec;
+        pk_names_array := array_append(pk_names_array, pk_column_name::TEXT);
         pk_values_array := array_append(pk_values_array, pk_column_value::TEXT);
     END LOOP;
+    pk_names := array_to_string(pk_names_array, ',');
     pk_values := array_to_string(pk_values_array, ',');
 
     -- Table's associated "ops" table.
@@ -61,11 +65,11 @@ BEGIN
 
     -- Build and perform the ops table insert.
     insert_stmt := format(
-        'INSERT INTO %I.%I ("pk_values", "before", "after", "block_number", "chain_id") VALUES ($1, $2, $3, $4, $5)', 
+        'INSERT INTO %I.%I ("pk_names", "pk_values", "before", "after", "block_number", "chain_id") VALUES ($1, $2, $3, $4, $5, $6)', 
         TG_TABLE_SCHEMA,
         ops_table_name
     );
-    EXECUTE insert_stmt USING pk_values, rec_before, rec_after, block_number, chain_id::TEXT;
+    EXECUTE insert_stmt USING pk_names, pk_values, rec_before, rec_after, block_number, chain_id::TEXT;
     RETURN rec;
 END;
 $$ LANGUAGE plpgsql;

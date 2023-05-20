@@ -6,6 +6,10 @@
     "scripts": {
         "start": "node dist/index.js",
         "dev": "ts-node ./src/index.ts",
+        "scrap": "ts-node ./src/scrap.ts",
+        "test-same-block-reorg": "ts-node ./tests/sameBlockReorg.ts",
+        "test-slight-reorg": "ts-node ./tests/slightReorg.ts",
+        "test-heavy-reorg": "ts-node ./tests/heavyReorg.ts",
         "clean": "rimraf dist",
         "format": "prettier --write \"{src,test}/**/*.ts\"",
         "build": "run-s clean format build:main",
@@ -14,7 +18,11 @@
     },
     "dependencies": {
         "@alch/alchemy-web3": "^1.4.4",
-        "bullmq": "^1.86.4"
+        "bullmq": "^3.12.0",
+        "chalk": "4.1.0",
+        "pg-format": "^1.0.4",
+        "short-uuid": "^4.2.0",
+        "uuid4": "^2.0.2"
     },
     "devDependencies": {
         "@types/node": "^18.0.3",

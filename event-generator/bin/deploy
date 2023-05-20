@@ -36,6 +36,14 @@ core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
 core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
 core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DEFAULT_ROLE" )
+shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
@@ -56,6 +64,14 @@ $shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
 $shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
 $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_role"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
+
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
@@ -65,8 +81,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_GENERATOR_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-# image_version="ca285dd"
-image_version="c3fbce5"
+image_version="bf1d1de"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -88,6 +103,12 @@ template=$( cat "$template_path" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
     sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DEFAULT_ROLE}}|$shared_tables_default_role|g" | \
+    sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating event-generator job resources..."

@@ -42,5 +42,39 @@ spec:
           value: {{INDEXER_DB_USERNAME}}
         - name: INDEXER_DB_PASSWORD
           value: {{INDEXER_DB_PASSWORD}}
-        - name: HEAD_BUFFER
-          value: "{{HEAD_BUFFER}}"
+        - name: SHARED_TABLES_DB_NAME
+          value: {{SHARED_TABLES_DB_NAME}}
+        - name: SHARED_TABLES_DB_HOST
+          value: {{SHARED_TABLES_DB_HOST}}
+        - name: SHARED_TABLES_DB_PORT
+          value: "{{SHARED_TABLES_DB_PORT}}"
+        - name: SHARED_TABLES_DB_USERNAME
+          value: {{SHARED_TABLES_DB_USERNAME}}
+        - name: SHARED_TABLES_DB_PASSWORD
+          value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_MAX_POOL_SIZE
+          value: "100"
+        - name: SHARED_TABLES_OPTIONS
+          value: "-c statement_timeout=120000ms"
+        - name: CORE_DB_NAME
+          value: {{CORE_DB_NAME}}
+        - name: CORE_DB_HOST
+          value: {{CORE_DB_HOST}}
+        - name: CORE_DB_PORT
+          value: "{{CORE_DB_PORT}}"
+        - name: CORE_DB_USERNAME
+          value: {{CORE_DB_USERNAME}}
+        - name: CORE_DB_PASSWORD
+          value: {{CORE_DB_PASSWORD}}
+        - name: FORCE_COLOR
+          value: "1"
+        - name: EVENT_RELAY_HOSTNAME
+          value: {{EVENT_RELAY_HOSTNAME}}
+        - name: EVENT_RELAY_PORT
+          value: "443"
+        - name: PUBLISHER_ROLE_KEY
+          value: {{PUBLISHER_ROLE_KEY}}
+        - name: CONNECT_TO_EVENT_RELAY
+          value: "true"
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}

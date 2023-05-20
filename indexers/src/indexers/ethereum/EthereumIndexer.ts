@@ -6,11 +6,13 @@ import resolveBlockTraces from './services/resolveBlockTraces'
 import initTransactions from './services/initTransactions'
 import initLogs from './services/initLogs'
 import getContracts from './services/getContracts'
-import initLatestInteractions from './services/initLatestInteractions'
 import { originEvents } from '../../events'
 import config from '../../config'
 import Web3 from 'web3'
-import { resolveNewTokenContracts } from '../../services/contractServices'
+import chalk from 'chalk'
+import { ident } from 'pg-format'
+import { resolveNewTokenContracts, getLatestTokenBalances } from '../../services/contractServices'
+import extractSpecialErc20BalanceEventData from '../../services/extractSpecialErc20BalanceEventData'
 import { ExternalEthTransaction, ExternalEthReceipt, ExternalEthBlock } from './types'
 import {
     sleep,
@@ -31,8 +33,6 @@ import {
     StringKeyMap,
     EthLatestInteraction,
     toChunks,
-    enqueueDelayedJob,
-    getMissingAbiAddresses,
     getAbis,
     getFunctionSignatures,
     Abi,
@@ -44,7 +44,6 @@ import {
     groupAbiInputsWithValues,
     formatAbiValueWithType,
     schemas,
-    randomIntegerInRange,
     uniqueByKeys,
     unique,
     snakeToCamel,
@@ -54,10 +53,10 @@ import {
     Erc20Token,
     NftCollection,
     TokenTransfer,
-    NftTransfer,
     EthTraceStatus,
     EthTraceType,
-    namespaceForChainId,
+    Erc20Balance,
+    randomIntegerInRange,
 } from '../../../../shared'
 import { 
     decodeTransferEvent, 
@@ -71,6 +70,7 @@ import {
     TRANSFER_EVENT_NAME,
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
+    specialErc20BalanceAffectingAbis,
 } from '../../utils/standardAbis'
 import initTokenTransfers from '../../services/initTokenTransfers'
 
@@ -119,41 +119,40 @@ class EthereumIndexer extends AbstractIndexer {
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Quick re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing.')
             return
-        }
-
-        // Ensure there's not a block hash mismatch between block and receipts.
-        // This can happen when fetching by block number around chain re-orgs.
-        if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
-            )
-            receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
         // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(
             (t) => t as unknown as ExternalEthTransaction
         )
-
-        // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
-            this._warn('Transactions exist but no receipts were found -- trying again.')
-            await sleep(1000)
-            receipts = await this._getBlockReceiptsWithLogs()
-            if (!receipts.length) {
-                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
-            }
-        } else if (!externalTransactions.length) {
+        const hasTxs = !!externalTransactions.length
+        if (!hasTxs) {
             this._info('No transactions this block.')
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Ensure there's not a block hash mismatch between block and receipts 
+        // and that there are no missing logs.
+        const isHashMismatch = receipts.length && receipts[0].blockHash !== block.hash
+        const hasMissingLogs = hasTxs && !receipts.length
+        if (isHashMismatch || hasMissingLogs) {
+            this._warn(
+                isHashMismatch
+                    ? `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+                    : `Transactions exist but no receipts were found -- retrying`
+            )
+            receipts = await this._waitAndRefetchReceipts(block.hash, hasTxs)
+            if (hasTxs && !receipts.length) {
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+            }
+        }
+        
+        // Another re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing, post-fetch.')
             return
         }
 
@@ -200,22 +199,17 @@ class EthereumIndexer extends AbstractIndexer {
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
 
-        // Get any new contracts deployed this block.
+        // New contracts deployed this block.
         const contracts = getContracts(traces)
         contracts.length && this._info(`Got ${contracts.length} new contracts.`)
 
-        // New tokens and latest interactions.
-        const [newTokens, latestInteractions] = await Promise.all([
-            resolveNewTokenContracts(contracts, this.chainId),
-            (() => this.chainId === chainIds.ETHEREUM
-                ? initLatestInteractions(transactions, traces, contracts)
-                : [])(),
-        ])
+        // New ERC-20 tokens & NFT collections.
+        const newTokens = await resolveNewTokenContracts(contracts, this.chainId)
         const [erc20Tokens, nftCollections] = newTokens
-
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
+        // Filter logs and traces to only those that succeeded.
         const txSuccess = {}
         for (const tx of transactions) {
             txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure
@@ -224,12 +218,15 @@ class EthereumIndexer extends AbstractIndexer {
             .filter(log => txSuccess[log.transactionHash])
             .sort((a, b) => (a.transactionIndex - b.transactionIndex) || (a.logIndex - b.logIndex)
         )
-
         const successfulTraces = traces.filter(t => t.status !== EthTraceStatus.Failure)
 
-        // Token transfers.
-        const [tokenTransfers, nftTransfers, erc20TotalSupplyUpdates] = config.IS_RANGE_MODE
-            ? [[], [], []] 
+        // All token transfers.
+        const [
+            tokenTransfers, 
+            erc20TotalSupplyUpdates,
+            referencedErc20TokensMap,
+        ] = config.IS_RANGE_MODE
+            ? [[], []] 
             : await initTokenTransfers(
                 erc20Tokens,
                 nftCollections,
@@ -237,19 +234,30 @@ class EthereumIndexer extends AbstractIndexer {
                 successfulTraces,
                 this.chainId,
             )
+        tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
 
-        tokenTransfers.length && this._info(`${tokenTransfers.length} ERC-20 transfers.`)
-        nftTransfers.length && this._info(`${nftTransfers.length} NFT transfers.`)
+        // Refresh any ERC-20 balances and NFT balances that could have changed.
+        const specialErc20BalanceDataByOwner = await extractSpecialErc20BalanceEventData(
+            this.successfulLogs,
+            referencedErc20TokensMap,
+            this.chainId,
+        )
+        let [erc20Balances, _] = await getLatestTokenBalances(
+            tokenTransfers,
+            specialErc20BalanceDataByOwner,
+        )
+        erc20Balances = this._enrichErc20Balances(erc20Balances, block)
+        erc20Balances.length && this._info(`${erc20Balances.length} new ERC-20 balances.`)
 
-        // One more uncle check before taking action.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // One last check before saving.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing, pre-save.')
             return
         }
 
         // One last check before saving primitives / publishing events.
         if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
+            this._warn('Current block was already indexed. Stopping pre-save.')
             return
         }
 
@@ -261,11 +269,9 @@ class EthereumIndexer extends AbstractIndexer {
                 logs,
                 traces,
                 contracts,
-                latestInteractions,
                 erc20Tokens,
-                tokenTransfers,
                 nftCollections,
-                nftTransfers,
+                tokenTransfers,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -277,11 +283,10 @@ class EthereumIndexer extends AbstractIndexer {
             logs,
             traces,
             contracts,
-            latestInteractions,
             erc20Tokens,
-            tokenTransfers,
+            erc20Balances,
             nftCollections,
-            nftTransfers,
+            tokenTransfers,
             erc20TotalSupplyUpdates,
         )
 
@@ -292,24 +297,14 @@ class EthereumIndexer extends AbstractIndexer {
             this._error('Publishing events failed:', err)
         }
 
-        // Kick off delayed job to fetch abis for new contracts.
-        contracts.length && (await this._fetchAbisForNewContracts(contracts))
+        this._info(chalk.cyanBright(`Successfully indexed block ${this.blockNumber}.`))
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        if (this.head.force) return false
-        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.ethereum()))
-    }
-
-    async _fetchAbisForNewContracts(contracts: EthContract[]) {
-        // For new contracts that could possibly already have ABIs on etherscan/samczsun, 
-        // Add the ability for upsertAbis to flag that the logs (and downstream events triggered by those logs/events)
-        // should be decoded after this upsertAbis job runs (either within the job itself or kicked off into another).
-        const missingAddresses = await getMissingAbiAddresses(contracts.map((c) => c.address))
-        missingAddresses.length && await enqueueDelayedJob('upsertAbis', { 
-            addresses: missingAddresses,
-            chainId: this.chainId
-        })
+        return !config.IS_RANGE_MODE 
+            && !this.head.force 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.ethereum()))
     }
 
     async _savePrimitives(
@@ -318,33 +313,42 @@ class EthereumIndexer extends AbstractIndexer {
         logs: EthLog[],
         traces: EthTrace[],
         contracts: EthContract[],
-        latestInteractions: EthLatestInteraction[],
         erc20Tokens: Erc20Token[],
-        tokenTransfers: TokenTransfer[],
+        erc20Balances: Erc20Balance[],
         nftCollections: NftCollection[],
-        nftTransfers: NftTransfer[],
+        tokenTransfers: TokenTransfer[],
         erc20TotalSupplyUpdates: StringKeyMap[],
     ) {
         this._info('Saving primitives...')
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertBlock(block, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
-            ])
-        })
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertLatestInteractions(latestInteractions, tx),
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertTokenTransfers(tokenTransfers, tx),
-                this._upsertNftCollections(nftCollections, tx),
-                this._upsertNftTransfers(nftTransfers, tx),    
-            ])
-        })
+        let attempt = 1
+        while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
+            try {
+                await SharedTables.manager.transaction(async (tx) => {
+                    await Promise.all([
+                        this._upsertBlock(block, tx),
+                        this._upsertTransactions(transactions, tx),
+                        this._upsertLogs(logs, tx),
+                        this._upsertTraces(traces, tx),
+                        this._upsertContracts(contracts, tx),
+                        this._upsertErc20Tokens(erc20Tokens, tx),
+                        this._upsertErc20Balances(erc20Balances, tx),
+                        this._upsertNftCollections(nftCollections, tx),
+                        this._upsertTokenTransfers(tokenTransfers, tx),
+                    ])
+                })
+                break
+            } catch (err) {
+                attempt++
+                const message = err.message || err.toString() || ''
+                if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+                    this._error(`Got deadlock on primitives. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+                    await sleep(randomIntegerInRange(50, 500))
+                    continue
+                }
+                throw err
+            }
+        }
         erc20TotalSupplyUpdates.length && await this._bulkUpdateErc20TokensTotalSupply(
             erc20TotalSupplyUpdates,
             this.block.timestamp.toISOString(),
@@ -369,21 +373,41 @@ class EthereumIndexer extends AbstractIndexer {
 
         // eth.NewTransactions
         isMainnet && this.transactions?.length && originEventSpecs.push(
-            originEvents.eth.NewTransactions(this.transactions, eventOrigin)
+            ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.eth.NewTransactions(txs, eventOrigin)
+            ))
         )
 
         // eth.NewContracts
         isMainnet && this.contracts?.length && originEventSpecs.push(
-            originEvents.eth.NewContracts(this.contracts, eventOrigin)
+            ...(toChunks(this.contracts, config.MAX_EVENTS_LENGTH).map(contracts => 
+                originEvents.eth.NewContracts(contracts, eventOrigin)
+            ))
         )
 
-        // eth.NewInteractions
-        isMainnet && this.latestInteractions?.length && originEventSpecs.push(
-            originEvents.eth.NewInteractions(this.latestInteractions, eventOrigin)
-        )
-
+        // tokens.NewTokenTransfers
         this.tokenTransfers?.length && originEventSpecs.push(
-            originEvents.tokens.NewTokenTransfers(this.tokenTransfers, eventOrigin)
+            ...(toChunks(this.tokenTransfers, config.MAX_EVENTS_LENGTH).map(transfers => 
+                originEvents.tokens.NewTokenTransfers(transfers, eventOrigin)
+            ))
+        )
+
+        // tokens.NewErc20Balances
+        this.erc20Balances?.length && originEventSpecs.push(
+            ...(toChunks(this.erc20Balances, config.MAX_EVENTS_LENGTH).map(balances => 
+                originEvents.tokens.NewErc20Balances(balances, eventOrigin)
+            ))
+        )
+
+        // tokens.NewWethBalances
+        const wethBalances = (this.erc20Balances || []).filter(b => (
+            (b.chainId === chainIds.ETHEREUM && b.tokenAddress === '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2') ||
+            (b.chainId === chainIds.GOERLI && b.tokenAddress === '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6')
+        ))
+        wethBalances.length && originEventSpecs.push(
+            ...(toChunks(wethBalances, config.MAX_EVENTS_LENGTH).map(balances => 
+                originEvents.tokens.NewWethBalances(balances, eventOrigin)
+            ))
         )
 
         // Decode contract events and function calls.
@@ -690,7 +714,7 @@ class EthereumIndexer extends AbstractIndexer {
                 try {
                     log = this._decodeLog(log, abis[log.address])
                 } catch (err) {
-                    this._error(`Error decoding log for address ${log.address}: ${err}`)
+                    this._warn(`Error decoding log for address ${log.address}: ${err}`)
                 }
             }
             // Try decoding as transfer event if couldn't decode with contract ABI.
@@ -698,7 +722,20 @@ class EthereumIndexer extends AbstractIndexer {
                 try {
                     log = this._tryDecodingLogAsTransfer(log)
                 } catch (err) {
-                    this._error(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                    this._warn(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                }
+            }
+            // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
+            if (!log.eventName && log.address && log.topic0 && log.topic1 && specialErc20BalanceAffectingAbis[log.topic0]) {
+                const abi = specialErc20BalanceAffectingAbis[log.topic0]
+                try {
+                    log = this._decodeLog(log, [abi])
+                } catch (err) {
+                    this._warn(
+                        `Error decoding log with special ERC-20 balance-affecting ABI (${log.topic0}):`,
+                        log,
+                        err
+                    )
                 }
             }
             finalLogs.push(log)
@@ -886,7 +923,6 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
         return resolveBlock(
             this.web3,
-            this.blockHash || this.blockNumber,
             this.blockNumber,
             this.chainId
         )
@@ -895,7 +931,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockReceiptsWithLogs(): Promise<ExternalEthReceipt[]> {
         return getBlockReceipts(
             this.web3,
-            this.blockHash ? { blockHash: this.blockHash } : { blockNumber: this.hexBlockNumber },
+            { blockNumber: this.hexBlockNumber },
             this.blockNumber,
             this.chainId
         )
@@ -909,7 +945,7 @@ class EthereumIndexer extends AbstractIndexer {
         }
     }
 
-    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalEthReceipt[]> {
+    async _waitAndRefetchReceipts(blockHash: string, hasTxs: boolean): Promise<ExternalEthReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
                 this.web3,
@@ -917,9 +953,16 @@ class EthereumIndexer extends AbstractIndexer {
                 this.blockNumber,
                 this.chainId
             )
+            // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== blockHash) {
                 return null
-            } else {
+            }
+            // Missing logs.
+            else if (!receipts.length && hasTxs) {
+                return null
+            }
+            // All good.
+            else {
                 return receipts
             }
         }
@@ -967,7 +1010,7 @@ class EthereumIndexer extends AbstractIndexer {
         receipts: ExternalEthReceipt[],
         traces: EthTrace[]
     ) {
-        const hash = this.head.blockHash || block.hash
+        const hash = this.blockHash
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
@@ -1017,7 +1060,7 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        ).generatedMaps || []
     }
 
     async _upsertLogs(logs: EthLog[], tx: any) {
@@ -1039,7 +1082,7 @@ class EthereumIndexer extends AbstractIndexer {
                 })
             )
         )
-            .map((result) => result.generatedMaps)
+            .map((result) => result.generatedMaps || [])
             .flat()
     }
 
@@ -1062,7 +1105,7 @@ class EthereumIndexer extends AbstractIndexer {
                 })
             )
         )
-            .map((result) => result.generatedMaps)
+            .map((result) => result.generatedMaps || [])
             .flat()
     }
 
@@ -1080,45 +1123,46 @@ class EthereumIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        ).generatedMaps || []
     }
 
-    async _upsertLatestInteractions(
-        latestInteractions: EthLatestInteraction[],
-        tx: any,
-        attempt: number = 1
-    ) {
+    async _upsertLatestInteractions(latestInteractions: EthLatestInteraction[], tx: any) {
         if (!latestInteractions.length) return
         const [updateCols, conflictCols] = fullLatestInteractionUpsertConfig(latestInteractions[0])
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `${schemas.ethereum()}.latest_interactions.block_number < excluded.block_number`
         const blockTimestamp = this.pgBlockTimestamp
         latestInteractions = uniqueByKeys(latestInteractions, conflictCols) as EthLatestInteraction[]
-        try {
-            this.latestInteractions = (
-                await (tx as any)
-                    .createQueryBuilder()
-                    .insert()
-                    .into(EthLatestInteraction)
-                    .values(
-                        latestInteractions.map((li) => ({
-                            ...li,
-                            timestamp: () => blockTimestamp,
-                        }))
-                    )
-                    .orUpdate(updateCols, conflictCols)
-                    .returning('*')
-                    .execute()
-            ).generatedMaps
-        } catch (err) {
-            this._error(err)
-            const message = err.message || err.toString() || ''
-            this.latestInteractions = []
-            // Wait and try again if deadlocked.
-            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(randomIntegerInRange(50, 150))
-                await this._upsertLatestInteractions(latestInteractions, tx, attempt + 1)
-            }
-        }
+        this.latestInteractions = (
+            await Promise.all(
+                toChunks(latestInteractions, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(EthLatestInteraction)
+                        .values(chunk.map((li) => ({ ...li, timestamp: () => blockTimestamp })))
+                        .onConflict(
+                            `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                        )
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => result.generatedMaps || [])
+            .flat()
+            .filter(li => li && !!Object.keys(li).length) as EthLatestInteraction[]
+    }
+
+    _enrichErc20Balances(erc20Balances: Erc20Balance[], block: EthBlock): Erc20Balance[] {
+        return erc20Balances.map(b => ({
+            ...b,
+            blockNumber: this.blockNumber,
+            blockHash: this.blockHash,
+            blockTimestamp: block.timestamp,
+            chainId: this.chainId,
+        }))
     }
 
     _enrichTraces(traces: EthTrace[], block: EthBlock): EthTrace[] {
@@ -1127,60 +1171,6 @@ class EthereumIndexer extends AbstractIndexer {
             t.blockTimestamp = block.timestamp
             return t
         })
-    }
-
-    async _deleteRecordsWithBlockNumber(attempt: number = 1) {
-        try {
-            await SharedTables.manager.transaction(async (tx) => {
-                const deleteBlock = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(EthBlock)
-                    .where('number = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteTransactions = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(EthTransaction)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteLogs = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(EthLog)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteTraces = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(EthTrace)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteContracts = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(EthContract)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                await Promise.all([
-                    deleteBlock,
-                    deleteTransactions,
-                    deleteLogs,
-                    deleteTraces,
-                    deleteContracts,
-                ])
-            })    
-        } catch (err) {
-            this._error(err)
-            const message = err.message || err.toString() || ''
-            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(randomIntegerInRange(50, 150))
-                await this._deleteRecordsWithBlockNumber(attempt + 1)
-            } else {
-                throw err
-            }
-        }
     }
 }
 

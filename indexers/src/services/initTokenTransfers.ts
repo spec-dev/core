@@ -1,4 +1,4 @@
-import { In, polygonToEthereumTokenMappings, TokenTransferSource, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, TokenTransfer, NftTransfer, StringKeyMap, logger, unique, mapByKey, Erc20 } from '../../../shared'
+import { In, polygonToEthereumTokenMappings, TokenTransferStandard, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, TokenTransfer, StringKeyMap, logger, unique, mapByKey } from '../../../shared'
 import { 
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
@@ -17,22 +17,21 @@ async function initTokenTransfers(
     logs: StringKeyMap[],
     traces: StringKeyMap[],
     chainId: string,
-): Promise<[TokenTransfer[], NftTransfer[], StringKeyMap[]]> {
+): Promise<[TokenTransfer[], StringKeyMap[], StringKeyMap]> {
     const tokenTransfers = initNativeTokenTransfers(traces, chainId)
     const transferLogs = []
-    const erc1155TransferLogs = []
-    const potentialTokenAddressSet = new Set<string>()
+    const potentialErc20TokenAddressSet = new Set<string>()
     const potentialNftCollectionAddressSet = new Set<string>()
 
     for (const log of logs) {
         switch (log.topic0) {
             case TRANSFER_TOPIC: 
                 transferLogs.push(log)
-                potentialTokenAddressSet.add(log.address)
+                potentialErc20TokenAddressSet.add(log.address)
                 break
             case TRANSFER_SINGLE_TOPIC:
             case TRANSFER_BATCH_TOPIC:
-                erc1155TransferLogs.push(log)
+                transferLogs.push(log)
                 potentialNftCollectionAddressSet.add(log.address)
                 break
             default:
@@ -40,13 +39,13 @@ async function initTokenTransfers(
         }
     }
  
-    const potentialTokenAddresses = Array.from(potentialTokenAddressSet)
+    const potentialErc20TokenAddresses = Array.from(potentialErc20TokenAddressSet)
     let potentialNftCollectionAddresses = Array.from(potentialNftCollectionAddressSet)
-    potentialNftCollectionAddresses.push(...potentialTokenAddresses)
+    potentialNftCollectionAddresses.push(...potentialErc20TokenAddresses)
     potentialNftCollectionAddresses = unique(potentialNftCollectionAddresses)
 
     const [erc20TokensMap, nftCollectionsMap] = await Promise.all([
-        getErc20Tokens(potentialTokenAddresses, chainId),
+        getErc20Tokens(potentialErc20TokenAddresses, chainId),
         getNftCollections(potentialNftCollectionAddresses, chainId),
     ])
     
@@ -57,112 +56,110 @@ async function initTokenTransfers(
         nftCollectionsMap[newNftCollection.address] = newNftCollection
     }
 
-    const nftTransferLogs = []
-    for (const log of erc1155TransferLogs) {
-        const nftCollection = nftCollectionsMap[log.address]
-        if (!nftCollection) continue
-        nftTransferLogs.push({ log, nftCollection })
-    }
-
     for (const log of transferLogs) {
-        // NFT Transfers
         const nftCollection = nftCollectionsMap[log.address]
-        if (nftCollection) {
-            nftTransferLogs.push({ log, nftCollection })
-            continue
-        }
-
-        // Token Transfers
-        const eventArgs = log.eventArgs || []
-        const fromAddress = eventArgs[0]?.value
-        const toAddress = eventArgs[1]?.value
-        const value = eventArgs[2]?.value || null
-        if (value === null) continue
-
         const erc20Token = erc20TokensMap[log.address]
-        tokenTransfers.push(newTokenTransfer(
-            hashSync([chainId, log.transactionHash, log.logIndex].join(':')),
-            fromAddress, 
-            toAddress,
-            value,
-            log,
-            TokenTransferSource.Log,
-            erc20Token || { address: log.address }, 
-            chainId,
-        ))
-    }
+        const eventArgs = log.eventArgs || []
+        let fromAddress = null
+        let toAddress = null
+        let value = null
+        let tokenId = null
 
-    const nftTransfers = []
-    for (const nftTransferLog of nftTransferLogs) {
-        const { log, nftCollection } = nftTransferLog
+        const { transactionHash, logIndex } = log
+        let transferIndex = 0
+        
+        let tokenStandard, tokenModel
+        if (nftCollection) {
+            tokenModel = nftCollection
+            tokenStandard = nftCollection.standard as TokenTransferStandard
+        } else if (erc20Token) {
+            tokenModel = erc20Token
+            tokenStandard = TokenTransferStandard.ERC20
+        } else {
+            tokenModel = { address: log.address }
+            tokenStandard = TokenTransferStandard.Unknown
+        }
 
+        // "Transfer"
         if (log.topic0 === TRANSFER_TOPIC) {
-            const eventArgs = log.eventArgs || []
-            const fromAddress = eventArgs[0]?.value
-            const toAddress = eventArgs[1]?.value
-            const tokenId = eventArgs[2]?.value || null
-            const value = null
-            if (tokenId === null) continue
-            nftTransfers.push(newNftTransfer(
-                fromAddress, 
-                toAddress, 
-                tokenId, 
-                value,
-                log,
-                0,
-                nftCollection, 
-                chainId,
-            ))
+            fromAddress = eventArgs[0]?.value
+            toAddress = eventArgs[1]?.value
+
+            // NFT transfers.
+            if (nftCollection) {
+                tokenId = eventArgs[2]?.value || null
+                if (tokenId === null) continue
+                value = 1
+            }
+            // All others.
+            else {
+                value = eventArgs[2]?.value || null
+                if (value === null) continue
+            }
         }
+        // "TransferSingle" (typically ERC-1155)
         else if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
-            const eventArgs = log.eventArgs || []
-            const fromAddress = eventArgs[1]?.value
-            const toAddress = eventArgs[2]?.value
-            const tokenId = eventArgs[3]?.value || null
-            const value = eventArgs[4]?.value || null
+            fromAddress = eventArgs[1]?.value
+            toAddress = eventArgs[2]?.value
+            tokenId = eventArgs[3]?.value || null
+            value = eventArgs[4]?.value || 1
             if (tokenId === null) continue
-            nftTransfers.push(newNftTransfer(
-                fromAddress, 
-                toAddress, 
-                tokenId,
-                value,
-                log,
-                0,
-                nftCollection, 
-                chainId,
-            ))
         }
-        else if (log.topic0 === TRANSFER_BATCH_TOPIC) {
-            const eventArgs = log.eventArgs || []
-            const fromAddress = eventArgs[1]?.value
-            const toAddress = eventArgs[2]?.value
+        // "TransferBatch" (typically ERC-1155)
+        else {
+            fromAddress = eventArgs[1]?.value
+            toAddress = eventArgs[2]?.value
             const tokenIds = eventArgs[3]?.value || []
             const values = eventArgs[4]?.value || []
             if (!tokenIds?.length || !values?.length || tokenIds.length !== values.length) continue
 
+            const valueTokenIdPairs = []
             for (let i = 0; i < tokenIds.length; i++) {
-                const tokenId = tokenIds[i] || null
-                const value = values[i] || null
+                tokenId = tokenIds[i] || null
+                value = values[i] || 1
                 if (tokenId === null) continue
-                nftTransfers.push(newNftTransfer(
-                    fromAddress, 
-                    toAddress, 
-                    tokenId, 
-                    value, 
+                valueTokenIdPairs.push({ value, tokenId })
+            }
+
+            for (let j = 0; j < valueTokenIdPairs.length; j++) {
+                const pair = valueTokenIdPairs[j]
+                transferIndex = j
+                tokenTransfers.push(newTokenTransfer(
+                    hashSync([chainId, transactionHash, logIndex, transferIndex].join(':')),
+                    fromAddress,
+                    toAddress,
+                    pair.value,
                     log,
-                    i,
-                    nftCollection,
+                    tokenModel,
+                    tokenStandard,
+                    pair.tokenId,
+                    false,
                     chainId,
                 ))
             }
+
+            continue
         }
+
+        tokenTransfers.push(newTokenTransfer(
+            hashSync([chainId, transactionHash, logIndex, transferIndex].join(':')),
+            fromAddress,
+            toAddress,
+            value,
+            log,
+            tokenModel,
+            tokenStandard,
+            tokenId,
+            false,
+            chainId,
+        ))   
     }
 
     if (!tokenTransfers.length) {
-        return [tokenTransfers, nftTransfers, []]
+        return [[], [], erc20TokensMap]
     }
 
-    // Refetch the latest totalSupply on existing token contracts that were used to mint.
+    // Refetch the latest totalSupply on existing ERC-20 token contracts that were involved in a mint.
     const newErc20TokenAddresses = new Set(newErc20Tokens.map(t => t.address))
     const erc20TokenAddressesToRefetchTotalSupply = unique(
         tokenTransfers.filter(t => t.isMint && !!erc20TokensMap[t.tokenAddress]).map(t => t.tokenAddress)
@@ -178,17 +175,18 @@ async function initTokenTransfers(
         for (let i = 0; i < batch.length; i++) {
             const address = batch[i]
             const totalSupply = batchValues[i]
-            if (!totalSupply) continue
             const erc20TokenId = erc20TokensMap[address]?.id
-            if (!erc20TokenId) continue
-            erc20TokenTotalSupplyUpdates.push({ id: erc20TokenId, totalSupply })
+            totalSupply && erc20TokenId && erc20TokenTotalSupplyUpdates.push({ 
+                id: erc20TokenId, 
+                totalSupply,
+            })
         }
     }
 
-    // Only price token transfers when on mainnets and not in range mode.
+    // Only price token transfers on mainnets and when not in range mode.
     const onMainnet = [chainIds.ETHEREUM, chainIds.POLYGON].includes(chainId)
     if (!onMainnet || config.IS_RANGE_MODE) {
-        return [tokenTransfers, nftTransfers, erc20TokenTotalSupplyUpdates]
+        return [tokenTransfers, erc20TokenTotalSupplyUpdates, erc20TokensMap]
     }
 
     const uniqueTokenTransferTokenAddresses = unique(tokenTransfers.map(t => t.tokenAddress))
@@ -203,20 +201,24 @@ async function initTokenTransfers(
 
     for (let i = 0; i < tokenTransfers.length; i++) {
         const transfer = tokenTransfers[i]
+        // Don't price NFTs.
+        if ([TokenTransferStandard.ERC721, TokenTransferStandard.ERC1155].includes(transfer.tokenStandard)) {
+            continue
+        }
+
         const [ethereumKey, polygonKey] = getTokenPriceCacheKeys(chainId, transfer.tokenAddress)
         const tokenPrice = tokenPrices[ethereumKey || ''] || tokenPrices[polygonKey || '']
-        if (!tokenPrice || !transfer.tokenDecimals) continue
+        if (!tokenPrice || !transfer.tokenDecimals || !transfer.value) continue
 
-        const value = transfer.value
         const decimals = Number(transfer.tokenDecimals)
         const { priceUsd, priceEth, priceMatic } = tokenPrice
 
-        tokenTransfers[i].valueUsd = calculateTokenPrice(value, decimals, priceUsd) as any
-        tokenTransfers[i].valueEth = calculateTokenPrice(value, decimals, priceEth) as any
-        tokenTransfers[i].valueMatic = calculateTokenPrice(value, decimals, priceMatic) as any
+        tokenTransfers[i].valueUsd = calculateTokenPrice(transfer.value, decimals, priceUsd) as any
+        tokenTransfers[i].valueEth = calculateTokenPrice(transfer.value, decimals, priceEth) as any
+        tokenTransfers[i].valueMatic = calculateTokenPrice(transfer.value, decimals, priceMatic) as any
     }
 
-    return [tokenTransfers, nftTransfers, erc20TokenTotalSupplyUpdates]
+    return [tokenTransfers, erc20TokenTotalSupplyUpdates, erc20TokensMap]
 }
 
 function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): TokenTransfer[] {
@@ -224,14 +226,16 @@ function initNativeTokenTransfers(traces: StringKeyMap[], chainId: string): Toke
     const nativeToken = getNativeTokenForChain(chainId)!
     return traces.filter(({ value }) => (
         value !== null && value.toString() !== '0'
-    )).map(trace => newTokenTransfer(
+    )).map(trace => newTokenTransfer( 
         hashSync([chainId, trace.id].join(':')),
         trace.from,
         trace.to,
         trace.value,
         trace,
-        TokenTransferSource.Trace,
         nativeToken,
+        null,
+        null,
+        true,
         chainId,
     ))
 }
@@ -273,22 +277,27 @@ function newTokenTransfer(
     toAddress: string,
     value: any,
     sourceModel: StringKeyMap,
-    sourceType: TokenTransferSource,
-    erc20Token: StringKeyMap,
+    tokenModel: StringKeyMap,
+    tokenStandard: TokenTransferStandard | null,
+    tokenId: string | null,
+    isNative: boolean,
     chainId: string,
 ): TokenTransfer {
     const tokenTransfer = new TokenTransfer()
-    tokenTransfer.transactionHash = sourceModel.transactionHash
     tokenTransfer.transferId = transferId
-    tokenTransfer.tokenAddress = erc20Token.address
-    tokenTransfer.tokenName = erc20Token.name
-    tokenTransfer.tokenSymbol = erc20Token.symbol
-    tokenTransfer.tokenDecimals = erc20Token.decimals
+    tokenTransfer.transactionHash = sourceModel.transactionHash
+    tokenTransfer.logIndex = sourceModel.logIndex
+    tokenTransfer.tokenAddress = tokenModel.address
+    tokenTransfer.tokenName = tokenModel.name
+    tokenTransfer.tokenSymbol = tokenModel.symbol
+    tokenTransfer.tokenDecimals = tokenModel.decimals
+    tokenTransfer.tokenStandard = tokenStandard
+    tokenTransfer.tokenId = tokenId?.toString()
     tokenTransfer.fromAddress = fromAddress || NULL_ADDRESS
     tokenTransfer.toAddress = toAddress || NULL_ADDRESS
-    tokenTransfer.isMint = sourceType === TokenTransferSource.Log && tokenTransfer.fromAddress === NULL_ADDRESS
-    tokenTransfer.source = sourceType
-    tokenTransfer.value = value.toString()
+    tokenTransfer.isMint = !isNative && tokenTransfer.fromAddress === NULL_ADDRESS
+    tokenTransfer.isNative = isNative
+    tokenTransfer.value = value?.toString()
     tokenTransfer.valueUsd = null
     tokenTransfer.valueEth = null
     tokenTransfer.valueMatic = null
@@ -299,37 +308,7 @@ function newTokenTransfer(
     return tokenTransfer
 }
 
-function newNftTransfer(
-    fromAddress: string, 
-    toAddress: string,
-    tokenId: any,
-    value: any,
-    log: StringKeyMap,
-    transferIndex: number,
-    nftCollection: NftCollection,
-    chainId: string,
-): NftTransfer {
-    const nftTransfer = new NftTransfer()
-    nftTransfer.transactionHash = log.transactionHash
-    nftTransfer.logIndex = log.logIndex
-    nftTransfer.transferIndex = transferIndex
-    nftTransfer.tokenAddress = nftCollection.address
-    nftTransfer.tokenName = nftCollection.name
-    nftTransfer.tokenSymbol = nftCollection.symbol
-    nftTransfer.tokenStandard = nftCollection.standard
-    nftTransfer.fromAddress = fromAddress || NULL_ADDRESS
-    nftTransfer.toAddress = toAddress || NULL_ADDRESS
-    nftTransfer.isMint = nftTransfer.fromAddress === NULL_ADDRESS
-    nftTransfer.tokenId = tokenId.toString()
-    nftTransfer.value = value === null ? '1' : value.toString()
-    nftTransfer.blockHash = log.blockHash
-    nftTransfer.blockNumber = log.blockNumber
-    nftTransfer.blockTimestamp = log.blockTimestamp
-    nftTransfer.chainId = chainId
-    return nftTransfer
-}
-
-async function getErc20Tokens(addresses: string[], chainId: string): Promise<StringKeyMap> {
+export async function getErc20Tokens(addresses: string[], chainId: string): Promise<StringKeyMap> {
     if (!addresses.length) return {}
     try {
         const records = (await erc20TokensRepo().find({
@@ -343,7 +322,7 @@ async function getErc20Tokens(addresses: string[], chainId: string): Promise<Str
     }
 }
 
-async function getNftCollections(addresses: string[], chainId: string): Promise<StringKeyMap> {
+export async function getNftCollections(addresses: string[], chainId: string): Promise<StringKeyMap> {
     if (!addresses.length) return {}
     try {
         const records = (await nftCollectionsRepo().find({

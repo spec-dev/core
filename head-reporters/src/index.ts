@@ -1,55 +1,66 @@
 import config from './config'
-import { logger, IndexerDB, indexerRedis, IndexedBlock, IndexedBlockStatus, sleep, insertIndexedBlocks, range } from '../../shared'
-import { getReporter } from './reporters'
-import  { reportBlock } from './queue'
+import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId, identPath } from '../../shared'
+import { EvmReporter } from './reporters'
+import { BlockHeader } from 'web3-eth'
+import { rollbackTable } from './services/rollbackTables'
+import uuid4 from 'uuid4'
 
-async function upsertIndexedBlocks(numbers: number[], chainId: string): Promise<IndexedBlock[]> {
-    const inserts = numbers.map(number => ({
-        chainId: Number(chainId),
-        number,
-        hash: null,
-        status: IndexedBlockStatus.Pending,
-        failed: false,
-    }))
-    let indexedBlocks = []
+async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
+    const schema = schemaForChainId[config.CHAIN_ID]
+    const tablePath = [schema, 'blocks'].join('.')
     try {
-        indexedBlocks = await insertIndexedBlocks(inserts)
+        return (((await SharedTables.query(
+            `select timestamp from ${identPath(tablePath)} where number = $1`, 
+            [blockNumber]
+        )) || [])[0] || {}).timestamp || null
     } catch (err) {
-        logger.error(`Error upserting indexed blocks with numbers ${numbers.join(', ')}: ${err}`)
-        return []
+        logger.error(err)
+        return null
     }
-    return indexedBlocks as IndexedBlock[]
 }
 
 async function listen() {
-    await IndexerDB.initialize()
-    await indexerRedis.connect()
+    await Promise.all([
+        CoreDB.initialize(),
+        SharedTables.initialize(),
+        IndexerDB.initialize(),
+        indexerRedis.connect(),
+    ])
 
-    if (config.MANUALLY_REPORT_NUMBERS.length) {
-        const numbers = range(config.MANUALLY_REPORT_NUMBERS[0], config.MANUALLY_REPORT_NUMBERS[1])
-        const indexedBlocks = await upsertIndexedBlocks(numbers, config.CHAIN_ID)
-        if (!indexedBlocks.length) {
-            logger.error(`Can't re-enqueue blocks without indexed_block instances.`)
-            return
-        }
-
-        for (const indexedBlock of indexedBlocks) {
-            await reportBlock(indexedBlock, false)
-            await sleep(300)
-        }
-        logger.info('Done.')
+    // Rollback a specific table to a specific block number. Useful when a 
+    // live object version gets half indexed for particular block and then fails. 
+    if (config.ROLLBACK_TABLE && config.ROLLBACK_TARGET !== null) {
+        const blockTimestamp = await getBlockTimestamp(config.ROLLBACK_TARGET)
+        await rollbackTable(
+            config.ROLLBACK_TABLE,
+            config.CHAIN_ID,
+            config.ROLLBACK_TARGET,
+            blockTimestamp,
+        )
         return
     }
 
-    // Get proper reporter for chain id.
-    const reporter = getReporter(config.CHAIN_ID)
-    if (!reporter) {
-        logger.error(`No reporter exists for chainId: ${config.CHAIN_ID}`)
-        return
-    }
+    const reporter = new EvmReporter(config.CHAIN_ID)
 
-    // Listen and report new heads.
-    reporter.listen()
+    // Force-run an uncle that failed after patch fix.
+    if (config.FORCE_UNCLE_RANGE.length === 2) {
+        const [from, to] = config.FORCE_UNCLE_RANGE
+        reporter.currentReorgFloor = from
+        reporter.currentReorgCeiling = to
+        try {
+            logger.info(`Forcing uncle ${from} -> ${to}`)
+            await reporter._uncleBlocks(
+                { number: from, timestamp: Math.floor(Date.now() / 1000) } as BlockHeader, 
+                to,
+                1000,
+            )
+        } catch (err) {
+            logger.error(`Forced uncle failed`, err)
+        }
+    } 
+    else {
+        reporter.listen()
+    }
 }
 
 listen()

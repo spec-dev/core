@@ -8,6 +8,7 @@ import initLogs from './services/initLogs'
 import config from '../../config'
 import { resolveNewTokenContracts } from '../../services/contractServices'
 import { originEvents } from '../../events'
+import chalk from 'chalk'
 import { ExternalPolygonTransaction, ExternalPolygonReceipt, ExternalPolygonBlock } from './types'
 import {
     sleep,
@@ -66,6 +67,7 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
+import { logger } from 'ethers'
 
 const web3js = new Web3()
 
@@ -102,9 +104,12 @@ class PolygonIndexer extends AbstractIndexer {
             return
         }
 
-        // Get blocks (+transactions), receipts (+logs), and traces.
+        // Get blocks (+transactions), receipts (+logs).
         const blockPromise = this._getBlockWithTransactions()
         const receiptsPromise = this._getBlockReceiptsWithLogs()
+
+        // Ensure this.blockHash is set before fetching traces. 
+        // We need this for formatting & setting of primary id.
         let tracesPromise = null
         if (this.blockHash) {
             tracesPromise = this._getTraces()
@@ -120,44 +125,42 @@ class PolygonIndexer extends AbstractIndexer {
             tracesPromise = this._getTraces()
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Quick re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing.')
             return
-        }
-
-        // Ensure there's not a block hash mismatch between block  and receipts.
-        // This can happen when fetching by block number around chain re-orgs.
-        if (receipts.length && receipts[0].blockHash !== block.hash) {
-            this._warn(
-                `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
-            )
-            receipts = await this._waitAndRefetchReceipts(block.hash)
         }
 
         // Convert external block transactions into our custom external eth transaction type.
         const externalTransactions = externalBlock.transactions.map(
             (t) => t as unknown as ExternalPolygonTransaction
         )
-
-        // If transactions exist, but receipts don't, try one more time to get them before erroring out.
-        if (externalTransactions.length && !receipts.length) {
-            this._warn('Transactions exist but no receipts were found -- trying again.')
-            await sleep(1000)
-            receipts = await this._getBlockReceiptsWithLogs()
-            if (!receipts.length) {
-                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
-            }
-        } else if (!externalTransactions.length) {
+        const hasTxs = !!externalTransactions.length
+        if (!hasTxs) {
             this._info('No transactions this block.')
         }
 
-        // Quick uncle check.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // Ensure there's not a block hash mismatch between block and receipts 
+        // and that there are no missing logs.
+        const isHashMismatch = receipts.length && receipts[0].blockHash !== block.hash
+        const hasMissingLogs = hasTxs && !receipts.length
+        if (isHashMismatch || hasMissingLogs) {
+            this._warn(
+                isHashMismatch
+                    ? `Hash mismatch with receipts for block ${block.hash} -- refetching until equivalent.`
+                    : `Transactions exist but no receipts were found -- retrying`
+            )
+            receipts = await this._waitAndRefetchReceipts(block.hash, hasTxs)
+            if (hasTxs && !receipts.length) {
+                throw `Failed to fetch receipts when transactions (count=${externalTransactions.length}) clearly exist.`
+            }
+        }
+        
+        // Another re-org check.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing, post-fetch.')
             return
         }
-
         // Initialize our internal models for both transactions and logs.
         let transactions = externalTransactions.length
             ? initTransactions(block, externalTransactions, receipts)
@@ -168,7 +171,7 @@ class PolygonIndexer extends AbstractIndexer {
         let traces = await tracesPromise
         if (traces.length && traces[0].blockHash !== block.hash) {
             this._warn(
-                `Hash mismatch with traces for block ${block.hash} -- refetching until equivalent.`
+                `Hash mismatch with traces: ${traces[0].blockHash} vs ${block.hash} -- refetching until equivalent.`
             )
             traces = await this._waitAndRefetchTraces(block.hash)
         }
@@ -210,9 +213,9 @@ class PolygonIndexer extends AbstractIndexer {
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
-        // One more uncle check before taking action.
-        if (await this._wasUncled()) {
-            this._warn('Current block was uncled mid-indexing. Stopping.')
+        // One last check before saving.
+        if (!(await this._shouldContinue())) {
+            this._warn('Job stopped mid-indexing, pre-save.')
             return
         }
 
@@ -256,11 +259,15 @@ class PolygonIndexer extends AbstractIndexer {
         } catch (err) {
             this._error('Publishing events failed:', err)
         }
+
+        this._info(chalk.cyanBright(`Successfully indexed block ${this.blockNumber}.`))
     }
 
     async _alreadyIndexedBlock(): Promise<boolean> {
-        if (this.head.force) return false
-        return !config.IS_RANGE_MODE && !this.head.replace && (await this._blockAlreadyExists(schemas.polygon()))
+        return !config.IS_RANGE_MODE 
+            && !this.head.force 
+            && !this.head.replace 
+            && (await this._blockAlreadyExists(schemas.polygon()))
     }
 
     async _savePrimitives(
@@ -274,17 +281,32 @@ class PolygonIndexer extends AbstractIndexer {
     ) {
         this._info('Saving primitives...')
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertBlock(block, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-                this._upsertTraces(traces, tx),
-                this._upsertContracts(contracts, tx),
-                this._upsertErc20Tokens(erc20Tokens, tx),
-                this._upsertNftCollections(nftCollections, tx),
-            ])
-        })
+        let attempt = 1
+        while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
+            try {
+                await SharedTables.manager.transaction(async (tx) => {
+                    await Promise.all([
+                        this._upsertBlock(block, tx),
+                        this._upsertTransactions(transactions, tx),
+                        this._upsertLogs(logs, tx),
+                        this._upsertTraces(traces, tx),
+                        this._upsertContracts(contracts, tx),
+                        this._upsertErc20Tokens(erc20Tokens, tx),
+                        this._upsertNftCollections(nftCollections, tx),
+                    ])
+                })
+                break
+            } catch (err) {
+                attempt++
+                const message = err.message || err.toString() || ''
+                if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+                    this._error(`Got deadlock on primitives. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+                    await sleep(randomIntegerInRange(50, 500))
+                    continue
+                }
+                throw err
+            }
+        }
     }
 
     async _createAndPublishEvents() {
@@ -857,7 +879,7 @@ class PolygonIndexer extends AbstractIndexer {
                 try {
                     log = this._decodeLog(log, abis[log.address])
                 } catch (err) {
-                    this._error(`Error decoding log for address ${log.address}: ${err}`)
+                    this._warn(`Error decoding log for address ${log.address}: ${err}`)
                 }
             }
             // Try decoding as transfer event if couldn't decode with contract ABI.
@@ -865,7 +887,7 @@ class PolygonIndexer extends AbstractIndexer {
                 try {
                     log = this._tryDecodingLogAsTransfer(log)
                 } catch (err) {
-                    this._error(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
+                    this._warn(`Error decoding log as transfer ${log.logIndex}-${log.transactionHash}: ${err}`)
                 }
             }
             finalLogs.push(log)
@@ -1064,7 +1086,6 @@ class PolygonIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalPolygonBlock, PolygonBlock]> {
         return resolveBlock(
             this.web3,
-            this.blockHash || this.blockNumber,
             this.blockNumber,
             this.chainId
         )
@@ -1073,13 +1094,13 @@ class PolygonIndexer extends AbstractIndexer {
     async _getBlockReceiptsWithLogs(): Promise<ExternalPolygonReceipt[]> {
         return getBlockReceipts(
             this.web3,
-            this.blockHash ? { blockHash: this.blockHash } : { blockNumber: this.hexBlockNumber },
+            { blockNumber: this.hexBlockNumber },
             this.blockNumber,
             this.chainId
         )
     }
 
-    async _waitAndRefetchReceipts(blockHash: string): Promise<ExternalPolygonReceipt[]> {
+    async _waitAndRefetchReceipts(blockHash: string, hasTxs: boolean): Promise<ExternalPolygonReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
                 this.web3,
@@ -1087,9 +1108,16 @@ class PolygonIndexer extends AbstractIndexer {
                 this.blockNumber,
                 this.chainId
             )
+            // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== blockHash) {
                 return null
-            } else {
+            }
+            // Missing logs.
+            else if (!receipts.length && hasTxs) {
+                return null
+            }
+            // All good.
+            else {
                 return receipts
             }
         }
@@ -1110,7 +1138,9 @@ class PolygonIndexer extends AbstractIndexer {
 
     async _getTraces(): Promise<PolygonTrace[]> {
         try {
-            return resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.blockHash, this.chainId)
+            return config.IS_RANGE_MODE 
+                ? [] 
+                : resolveBlockTraces(this.hexBlockNumber, this.blockNumber, this.blockHash, this.chainId)
         } catch (err) {
             throw err
         }
@@ -1152,7 +1182,7 @@ class PolygonIndexer extends AbstractIndexer {
         receipts: ExternalPolygonReceipt[],
         traces: PolygonTrace[],
     ) {
-        const hash = this.head.blockHash || block.hash
+        const hash = this.blockHash
         if (block.hash !== hash) {
             throw `Block has hash mismatch -- Truth: ${hash}; Received: ${block.hash}`
         }
@@ -1202,7 +1232,7 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
+        ).generatedMaps || []
     }
 
     async _upsertLogs(logs: PolygonLog[], tx: any) {
@@ -1224,7 +1254,7 @@ class PolygonIndexer extends AbstractIndexer {
                 })
             )
         )
-            .map((result) => result.generatedMaps)
+            .map((result) => result.generatedMaps || [])
             .flat()
     }
 
@@ -1247,7 +1277,7 @@ class PolygonIndexer extends AbstractIndexer {
                 })
             )
         )
-            .map((result) => result.generatedMaps)
+            .map((result) => result.generatedMaps || [])
             .flat()
     }
 
@@ -1265,47 +1295,7 @@ class PolygonIndexer extends AbstractIndexer {
                 .orUpdate(updateCols, conflictCols)
                 .returning('*')
                 .execute()
-        ).generatedMaps
-    }
-
-    async _deleteRecordsWithBlockNumber(attempt: number = 1) {
-        try {
-            await SharedTables.manager.transaction(async (tx) => {
-                const deleteBlock = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonBlock)
-                    .where('number = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteTransactions = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonTransaction)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                const deleteLogs = tx
-                    .createQueryBuilder()
-                    .delete()
-                    .from(PolygonLog)
-                    .where('blockNumber = :number', { number: this.blockNumber })
-                    .execute()
-                await Promise.all([
-                    deleteBlock,
-                    deleteTransactions,
-                    deleteLogs,
-                ])
-            })
-        } catch (err) {
-            this._error(err)
-            const message = err.message || err.toString() || ''
-            if (attempt <= 3 && message.toLowerCase().includes('deadlock')) {
-                this._error(`[Attempt ${attempt}] Got deadlock, trying again...`)
-                await sleep(randomIntegerInRange(50, 150))
-                await this._deleteRecordsWithBlockNumber(attempt + 1)
-            } else {
-                throw err
-            }
-        }
+        ).generatedMaps || []
     }
 }
 

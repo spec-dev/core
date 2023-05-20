@@ -71,6 +71,10 @@ spec:
           value: "25"
         - name: FLIP
           value: heads
+        - name: FORCE_COLOR
+          value: "1" 
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}
         readinessProbe:
           httpGet:
             path: /health-check

@@ -24,6 +24,11 @@ import { getSeedTokenContractsWorker } from './seedTokenContractsWorker'
 import { getBackfillTransfersWorker } from './backfillTransfersWorker'
 import { getAssignTransferPricesWorker } from './assignTransferPricesWorker'
 import { getBackfillTokenPricesWorker } from './backfillTokenPricesWorker'
+import { getValidateBlocksWorker } from './validateBlocksWorker'
+import { getFindInvalidPrimitivesWorker } from './findInvalidPrimitivesWorker'
+import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwnersWorker'
+import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
+import { getTrimAbisWorker } from './trimAbisWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -89,7 +94,22 @@ export async function getWorker(): Promise<IndexerWorker> {
     if (config.RANGE_WORKER_TYPE === 'ti') {
         return getTracesToInteractionsWorker()
     }
-    
+    if (config.RANGE_WORKER_TYPE === 'vb') {
+        return getValidateBlocksWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'fipw') {
+        return getFindInvalidPrimitivesWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'stb') {
+        return getSeedErc20BalancesWithOwnersWorker()
+    } 
+    if (config.RANGE_WORKER_TYPE === 'atb') {
+        return getAssignErc20BalancesWorker()
+    } 
+    if (config.RANGE_WORKER_TYPE === 'trim-abis') {
+        return getTrimAbisWorker()
+    } 
+
     switch (config.CHAIN_ID) {
         case chainIds.POLYGON:
         case chainIds.MUMBAI:

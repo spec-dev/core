@@ -5,9 +5,9 @@ import { NftStandard } from './NftCollection'
 /**
  * An NFT asset within a collection owned by a particular address.
  */
-@Entity('nfts', { schema: 'tokens' })
+@Entity('nft_balance', { schema: 'tokens' })
 @Index(['tokenAddress', 'tokenId', 'ownerAddress', 'chainId'], { unique: true })
-export class Nft {
+export class NftBalance {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -72,9 +72,9 @@ export class Nft {
     chainId: string
 }
 
-export const fullNftUpsertConfig = (nft: Nft): string[][] => {
+export const fullNftBalanceUpsertConfig = (nftBalance: NftBalance): string[][] => {
     const conflictCols = ['token_address', 'token_id', 'owner_address', 'chain_id']
-    const updateCols = Object.keys(nft)
+    const updateCols = Object.keys(nftBalance)
         .map(decamelize)
         .filter((col) => !conflictCols.includes(col))
     return [updateCols, conflictCols]

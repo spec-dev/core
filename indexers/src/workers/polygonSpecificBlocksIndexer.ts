@@ -19,13 +19,27 @@ import {
     SharedTables,
     uniqueByKeys,
     formatAbiValueWithType,
+    PolygonTrace,
+    PolygonContract,
     toChunks,
+    fullTraceUpsertConfig,
+    fullContractUpsertConfig,
+    fullErc20TokenUpsertConfig,
+    fullNftCollectionUpsertConfig,
+    snakeToCamel,
     CoreDB,
+    Erc20Token,
+    NftCollection,
     ContractInstance,
 } from '../../../shared'
 import { exit } from 'process'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
+
+const redo = [
+    34889335,
+    34889336,
+]
 
 class PolygonSpecificNumbersWorker {
     
@@ -61,135 +75,45 @@ class PolygonSpecificNumbersWorker {
     async run() {
         this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
 
-        const numberGroups = toChunks(this.numbers, this.groupSize)
-        for (const group of numberGroups) {
+        const groups = toChunks(redo, this.groupSize)
+        for (const group of groups) {
             await this._indexBlockGroup(group)
         }
-
         if (this.batchResults.length) {
-            await this._saveBatches(
-                this.batchBlockNumbersIndexed,
-                this.batchResults,
-                this.batchExistingBlocksMap
-            )
+            try {
+                await this._saveBatchResults(this.batchResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return
+            } 
         }
 
         logger.info('DONE')
         exit()
     }
-
+    
     async _indexBlockGroup(blockNumbers: number[]) {
-        // Get the indexed blocks for these numbers from our registry (Indexer DB).
-        const existingIndexedBlocks = await this._getIndexedBlocksInNumberRange(blockNumbers)
-        if (existingIndexedBlocks === null) return // is only null on failure
-
-        // Map existing blocks by number.
-        const existingIndexedBlocksMap = {}
-        for (const existingIndexedBlock of existingIndexedBlocks) {
-            existingIndexedBlocksMap[Number(existingIndexedBlock.number)] = existingIndexedBlock
-        }
-
-        // Start indexing this block group.
-        const blockNumbersIndexed = []
         const indexResultPromises = []
         for (const blockNumber of blockNumbers) {
-            const existingIndexedBlock = existingIndexedBlocksMap[blockNumber]
-
-            // Only index blocks that haven't been indexed before or have previously failed.
-            const shouldIndexBlock = !existingIndexedBlock || existingIndexedBlock.failed
-            if (!shouldIndexBlock) continue
-
-            blockNumbersIndexed.push(blockNumber)
             indexResultPromises.push(this._indexBlock(blockNumber))
         }
 
-        // Don't do anything if the entire block group has already *successfully* been indexed.
-        if (!blockNumbersIndexed.length) return
+        logger.info(`Indexing ${blockNumbers[0]} --> ${blockNumbers[blockNumbers.length - 1]}...`)
 
-        logger.info(`Indexing blocks ${blockNumbers.join(', ')}...`)
-
-        // Index block group in parallel.
         const indexResults = await Promise.all(indexResultPromises)
-
-        this.batchBlockNumbersIndexed.push(...blockNumbersIndexed)
         this.batchResults.push(...indexResults)
-        this.batchExistingBlocksMap = {
-            ...this.batchExistingBlocksMap,
-            ...existingIndexedBlocksMap,
-        }
         this.saveBatchIndex++
 
         if (this.saveBatchIndex === this.saveBatchMultiple) {
             this.saveBatchIndex = 0
-            const batchBlockNumbersIndexed = [...this.batchBlockNumbersIndexed]
             const batchResults = [...this.batchResults]
-            const batchExistingBlocksMap = { ...this.batchExistingBlocksMap }
-            await this._saveBatches(batchBlockNumbersIndexed, batchResults, batchExistingBlocksMap)
-            this.batchBlockNumbersIndexed = []
             this.batchResults = []
-            this.batchExistingBlocksMap = {}
-        }
-    }
-
-    async _saveBatches(
-        batchBlockNumbersIndexed: number[] = [],
-        batchResults: any[],
-        batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
-    ) {
-        return
-        logger.info(`Saving blocks ${batchBlockNumbersIndexed.join(', ')}...`)
-
-        try {
-            await this._saveBatchResults(batchResults)
-        } catch (err) {
-            logger.error(`Error saving batch: ${err}`)
-            return [null, false]
-        }
-
-        // Group index results by block number.
-        const retriedBlockNumbersThatSucceeded = []
-        const inserts = []
-        for (let i = 0; i < batchBlockNumbersIndexed.length; i++) {
-            const blockNumber = batchBlockNumbersIndexed[i]
-            const result = batchResults[i]
-            const succeeded = !!result
-
-            if (!succeeded) {
-                logger.error(`Indexing Block Failed: ${blockNumber}`)
+            try {
+                await this._saveBatchResults(batchResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return
             }
-
-            // If the indexed block already existed, but now succeeded, just update the 'failed' status.
-            const existingIndexedBlock = batchExistingBlocksMap[blockNumber]
-            if (existingIndexedBlock) {
-                succeeded && retriedBlockNumbersThatSucceeded.push(existingIndexedBlock.id)
-                continue
-            }
-
-            // Fresh new indexed block entries.
-            inserts.push({
-                chainId: config.CHAIN_ID,
-                number: blockNumber,
-                hash: result?.block?.hash,
-                status: IndexedBlockStatus.Complete,
-                failed: !succeeded,
-            })
-        }
-
-        let persistResultPromises = []
-        // Persist updates.
-        retriedBlockNumbersThatSucceeded.length &&
-            persistResultPromises.push(
-                setIndexedBlocksToSucceeded(retriedBlockNumbersThatSucceeded)
-            )
-        // Persist inserts.
-        inserts.length && persistResultPromises.push(insertIndexedBlocks(inserts))
-        try {
-            await Promise.all(persistResultPromises)
-        } catch (err) {
-            logger.error(
-                `Error persisting indexed block results to DB for block range: ${batchBlockNumbersIndexed}`,
-                err
-            )
         }
     }
 
@@ -204,19 +128,6 @@ class PolygonSpecificNumbersWorker {
         if (!result) return null
 
         return result as StringKeyMap
-    }
-
-    async _getIndexedBlocksInNumberRange(blockNumbers: number[]): Promise<IndexedBlock[] | null> {
-        return []
-        try {
-            return await getBlocksInNumberRange(config.CHAIN_ID, blockNumbers)
-        } catch (err) {
-            logger.error(
-                `Error getting indexed_blocks from DB for block range: ${blockNumbers}`,
-                err
-            )
-            return null
-        }
     }
 
     _atNumber(blockNumber: number): NewReportedHead {
@@ -234,6 +145,10 @@ class PolygonSpecificNumbersWorker {
         let blocks = []
         let transactions = []
         let logs = []
+        let traces = []
+        let contracts = []
+        let erc20Tokens = [] 
+        let nftCollections = []
 
         for (const result of results) {
             if (!result) continue
@@ -247,8 +162,34 @@ class PolygonSpecificNumbersWorker {
             logs.push(
                 ...result.logs.map((l) => ({ ...l, blockTimestamp: () => result.pgBlockTimestamp }))
             )
+            traces.push(
+                ...result.traces.map((t) => ({
+                    ...t,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            contracts.push(
+                ...result.contracts.map((c) => ({
+                    ...c,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            erc20Tokens.push(
+                ...result.erc20Tokens.map((e) => ({
+                    ...e,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                    lastUpdated: () => result.pgBlockTimestamp,
+                }))
+            )
+            nftCollections.push(
+                ...result.nftCollections.map((n) => ({
+                    ...n,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                    lastUpdated: () => result.pgBlockTimestamp,
+                }))
+            )
         }
-
+        
         if (!this.upsertConstraints.block && blocks.length) {
             this.upsertConstraints.block = fullPolygonBlockUpsertConfig(blocks[0])
         }
@@ -257,6 +198,18 @@ class PolygonSpecificNumbersWorker {
         }
         if (!this.upsertConstraints.log && logs.length) {
             this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
+        }
+        if (!this.upsertConstraints.trace && traces.length) {
+            this.upsertConstraints.trace = fullTraceUpsertConfig(traces[0])
+        }
+        if (!this.upsertConstraints.contract && contracts.length) {
+            this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
+        }
+        if (!this.upsertConstraints.erc20Token && erc20Tokens.length) {
+            this.upsertConstraints.erc20Token = fullErc20TokenUpsertConfig()
+        }
+        if (!this.upsertConstraints.nftCollection && nftCollections.length) {
+            this.upsertConstraints.nftCollection = fullNftCollectionUpsertConfig()
         }
 
         blocks = this.upsertConstraints.block
@@ -269,14 +222,31 @@ class PolygonSpecificNumbersWorker {
 
         logs = this.upsertConstraints.log ? uniqueByKeys(logs, ['logIndex', 'transactionHash']) : logs
 
-        await SharedTables.manager.transaction(async (tx) => {
-            let x, y
-            ;([x, y, logs] = await Promise.all([
-                this._upsertBlocks(blocks, tx),
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-            ]))
-        })
+        traces = this.upsertConstraints.trace
+            ? uniqueByKeys(traces, this.upsertConstraints.trace[1])
+            : traces
+
+        contracts = this.upsertConstraints.contract
+            ? uniqueByKeys(contracts, this.upsertConstraints.contract[1])
+            : contracts
+
+        erc20Tokens = this.upsertConstraints.erc20Token
+            ? uniqueByKeys(erc20Tokens, this.upsertConstraints.erc20Token[1].map(snakeToCamel))
+            : erc20Tokens
+
+        nftCollections = this.upsertConstraints.nftCollection
+            ? uniqueByKeys(nftCollections, this.upsertConstraints.nftCollection[1].map(snakeToCamel))
+            : nftCollections
+
+        await Promise.all([
+            this._upsertBlocks(blocks),
+            this._upsertTransactions(transactions),
+            this._upsertLogs(logs),
+            this._upsertTraces(traces),
+            this._upsertContracts(contracts),
+            this._upsertErc20Tokens(erc20Tokens),
+            this._upsertNftCollections(nftCollections),
+        ])
 
         const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
         ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
@@ -324,10 +294,10 @@ class PolygonSpecificNumbersWorker {
         return data
     }
 
-    async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
+    async _upsertBlocks(blocks: StringKeyMap[]) {
         if (!blocks.length) return
         const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
-        await tx
+        await SharedTables
             .createQueryBuilder()
             .insert()
             .into(PolygonBlock)
@@ -336,12 +306,12 @@ class PolygonSpecificNumbersWorker {
             .execute()
     }
 
-    async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
+    async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(PolygonTransaction)
@@ -352,13 +322,13 @@ class PolygonSpecificNumbersWorker {
         )
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
+    async _upsertLogs(logs: StringKeyMap[]): Promise<StringKeyMap[]> {
         if (!logs.length) return []
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         return (
             await Promise.all(
                 toChunks(logs, this.chunkSize).map((chunk) => {
-                    return tx
+                    return SharedTables
                         .createQueryBuilder()
                         .insert()
                         .into(PolygonLog)
@@ -369,6 +339,40 @@ class PolygonSpecificNumbersWorker {
                 })
             )
         ).map(result => result.generatedMaps).flat()
+    }
+
+    async _upsertTraces(traces: StringKeyMap[]) {
+        if (!traces.length) return
+        logger.info(`Saving ${traces.length} traces...`)
+        const [updateTraceCols, conflictTraceCols] = this.upsertConstraints.trace
+        await Promise.all(
+            toChunks(traces, this.chunkSize).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(PolygonTrace)
+                    .values(chunk)
+                    .orUpdate(updateTraceCols, conflictTraceCols)
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertContracts(contracts: StringKeyMap[]) {
+        if (!contracts.length) return
+        logger.info(`Saving ${contracts.length} contracts...`)
+        const [updateContractCols, conflictContractCols] = this.upsertConstraints.contract
+        await Promise.all(
+            toChunks(contracts, this.chunkSize).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(PolygonContract)
+                    .values(chunk)
+                    .orUpdate(updateContractCols, conflictContractCols)
+                    .execute()
+            })
+        )
     }
 
     async _upsertIvySmartWallets(smartWallets: StringKeyMap[]) {
@@ -389,8 +393,40 @@ class PolygonSpecificNumbersWorker {
                 logger.error('Failed to insert smart wallet', err)
                 return
             }
-            logger.info('\nADDED SMART WALLET!', smartWallet)
+            logger.info('\nADDED SMART WALLET!\n', smartWallet)
         }
+    }
+
+    async _upsertErc20Tokens(erc20Tokens: StringKeyMap[]) {
+        if (!erc20Tokens.length) return
+        logger.info(`Saving ${erc20Tokens.length} erc20_tokens...`)
+        await Promise.all(
+            toChunks(erc20Tokens, this.chunkSize).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(Erc20Token)
+                    .values(chunk)
+                    .orIgnore()
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertNftCollections(nftCollections: StringKeyMap[]) {
+        if (!nftCollections.length) return
+        logger.info(`Saving ${nftCollections.length} nft_collections...`)
+        await Promise.all(
+            toChunks(nftCollections, this.chunkSize).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(NftCollection)
+                    .values(chunk)
+                    .orIgnore()
+                    .execute()
+            })
+        )
     }
 
     async _getIvySmartWalletInitializerAddresses(): Promise<string[]> {

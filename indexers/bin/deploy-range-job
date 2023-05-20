@@ -28,6 +28,7 @@ range_group_size=$( $shared_bin_dir/env_reader "$env" "INDEXER_RANGE_GROUP_SIZE"
 alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
 alchemy_rest_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_REST_URL" )
 alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
+rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "RPC_POOL_ENDPOINTS" )
 quicknode_rest_url=$( $shared_bin_dir/env_reader "$env" "QUICKNODE_REST_URL" )
 publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
 event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
@@ -73,6 +74,7 @@ $shared_bin_dir/assert_env "INDEXER_RANGE_GROUP_SIZE" "$range_group_size"
 $shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
 $shared_bin_dir/assert_env "ALCHEMY_REST_URL" "$alchemy_rest_url"
 $shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
+$shared_bin_dir/assert_env "RPC_POOL_ENDPOINTS" "$rpc_pool_endpoints"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
@@ -118,8 +120,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="40213a2"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -140,6 +141,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
     sed "s|{{ALCHEMY_REST_URL}}|$alchemy_rest_url|g" | \
     sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
+    sed "s|{{RPC_POOL_ENDPOINTS}}|$rpc_pool_endpoints|g" | \
     sed "s|{{QUICKNODE_REST_URL}}|$quicknode_rest_url|g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \
     sed "s|{{EVENT_RELAY_HOSTNAME}}|$event_relay_hostname|g" | \

@@ -110,22 +110,10 @@ export async function uncleBlocks(entries: IndexedBlock[]) {
         logger.error(`Error marking indexed blocks as uncled (${JSON.stringify(entries)}): ${err}`)
         throw err
     }
-
-    // Add block hash to uncled redis set.
-    // await Promise.all(
-    //     entries
-    //         .filter((b) => !!b.hash)
-    //         .map((indexedBlock) =>
-    //             registerBlockAsUncled(
-    //                 indexedBlock.chainId.toString(),
-    //                 indexedBlock.number,
-    //                 indexedBlock.hash
-    //             )
-    //         )
-    // )
 }
 
 export async function setIndexedBlockStatus(id: number, status: IndexedBlockStatus) {
+    if (!id) return
     try {
         await indexedBlocks().createQueryBuilder().update({ status }).where({ id }).execute()
     } catch (err) {

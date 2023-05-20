@@ -6,6 +6,7 @@ import {
     CreateDateColumn,
     OneToMany,
     DeleteDateColumn,
+    BeforeInsert,
 } from 'typeorm'
 import { Session } from './Session'
 import { OrgUser } from './OrgUser'

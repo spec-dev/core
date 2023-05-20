@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Create and deploy a new K8S manual number reporter --- #
+# --- Create and deploy a new K8S rollback-table job --- #
 
 set -e # exit if any child script exits with non-zero status
 
@@ -11,19 +11,18 @@ core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 hr_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
 env="$1"
+table="$2"  # table to rollback
+target="$2" # block number to roll back to
 
 # ======== VALIDATE ARGS ======== #
 
 $shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
+$shared_bin_dir/validate_arg "table" "$table"
+$shared_bin_dir/validate_arg "target" "$target"
 
 # ======== SET KEY VARS ======== #
 
-manually_report_numbers=$( $shared_bin_dir/env_reader "$env" "MANUALLY_REPORT_NUMBERS" )
-force_reindex=$( $shared_bin_dir/env_reader "$env" "FORCE_REINDEX" )
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
-alchemy_api_key=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_API_KEY" )
-alchemy_sub_url=$( $shared_bin_dir/env_reader "$env" "ALCHEMY_SUBSCRIPTION_URL" )
-head_reporter_queue_key=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_QUEUE_KEY" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -36,13 +35,23 @@ indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
 indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
 indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
+# Core DB
+core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
+core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
+core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
+core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
+core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+
+# Shared Tables DB
+shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
+shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
+shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
+shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "MANUALLY_REPORT_NUMBERS" "$manually_report_numbers"
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
-$shared_bin_dir/assert_env "ALCHEMY_API_KEY" "$alchemy_api_key"
-$shared_bin_dir/assert_env "ALCHEMY_SUBSCRIPTION_URL" "$alchemy_sub_url"
-$shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -55,6 +64,20 @@ $shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
 $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
+# Core DB
+$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
+$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
+$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
+$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
+$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
+
+# Shared Tables DB
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
@@ -63,36 +86,40 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-
-# DO NOT CHANGE THIS.
-image_version="20c2353"
-
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
 
-template_path="$hr_dir/manual-reporter.yaml"
-job_name="manual-reporter-$image_version-x"
+template_path="$hr_dir/rollback-table-job.yaml"
+job_name="rollback-table-$image_version-x"
 
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{IMAGE}}|$image|g" | \
-    sed "s|{{MANUALLY_REPORT_NUMBERS}}|$manually_report_numbers|g" | \
-    sed "s|{{FORCE_REINDEX}}|$force_reindex|g" | \
+    sed "s|{{ROLLBACK_TABLE}}|$table|g" | \
+    sed "s|{{ROLLBACK_TARGET}}|$target|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
-    sed "s|{{ALCHEMY_API_KEY}}|$alchemy_api_key|g" | \
-    sed "s|{{ALCHEMY_SUBSCRIPTION_URL}}|$alchemy_sub_url|g" | \
-    sed "s|{{HEAD_REPORTER_QUEUE_KEY}}|$head_reporter_queue_key|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
     sed "s|{{INDEXER_DB_HOST}}|$indexer_db_host|g" | \
     sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
-    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" )
+    sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
+    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
+    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
+    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
+    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
+    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
+    sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
+    sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" )
 
-echo "Creating manual reporter job resources..."
+echo "Creating rollback-table-job resources..."
 
 # Apply the template.
 echo "$template" | kubectl apply -f -

@@ -6,6 +6,7 @@ const prefix = {
     LIVE_OBJECT: '/live-object',
     LIVE_OBJECT_VERSION: '/live-object-version',
     CONTRACT_INSTANCE: '/contract-instance',
+    PIPELINE: '/pipeline',
 }
 
 const paths = {
@@ -37,6 +38,14 @@ const paths = {
     // Contract Instance paths.
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
     DECODE_CONTRACT_INTERACTIONS: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's' + '/decode',
+
+    // Pipeline config paths.
+    TOGGLE_PROCESS_JOBS: prefix.ADMIN + prefix.PIPELINE + '/toggle-process-jobs',
+    GET_PROCESS_JOBS_STATUS: prefix.ADMIN + prefix.PIPELINE + '/process-jobs',
+    SERIES_NUMBER: prefix.ADMIN + prefix.PIPELINE + '/series-number',
+    BLOCK_OPS_CEILING: prefix.ADMIN + prefix.PIPELINE + '/block-ops-ceiling',
+    LOV_FAILURE: prefix.ADMIN + prefix.PIPELINE + '/lov-failure',
+    ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
 }
 
 export default paths

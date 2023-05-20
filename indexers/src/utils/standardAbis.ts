@@ -2,37 +2,84 @@
 //  EVENTS
 // ################################
 
-export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
-export const TRANSFER_SINGLE_TOPIC = '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
-export const TRANSFER_BATCH_TOPIC = '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
 export const TRANSFER_EVENT_NAME = 'Transfer'
+export const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+
 export const TRANSFER_SINGLE_EVENT_NAME = 'TransferSingle'
+export const TRANSFER_SINGLE_TOPIC = '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
+
 export const TRANSFER_BATCH_EVENT_NAME = 'TransferBatch'
+export const TRANSFER_BATCH_TOPIC = '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
 export const BATCH_TRANSFER_INPUTS = [
     {
         name: 'operator',
-        type: 'address'
+        type: 'address',
     },
     {
         name: 'from',
-        type: 'address'
+        type: 'address',
     },
     {
         name: 'to',
-        type: 'address'
+        type: 'address',
     },
     {
         name: 'ids',
-        type: 'uint256[]'
+        type: 'uint256[]',
     },
     {
         name: 'values',
-        type: 'uint256[]'
+        type: 'uint256[]',
     }
 ]
+
+export const WETH_DEPOSIT_TOPIC = '0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c'
+export const WETH_WITHDRAWAL_TOPIC = '0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65'
+
 export const METADATA_UPDATE_TOPIC = '0xf8e1a15aba9398e019f0b49df1a4fde98ee17ae345cb5f6b5e2c27f5033e8ce7'
 export const BATCH_METADATA_UPDATE_TOPIC = '0x6bd5c950a8d8df17f772f5af37cb3655737899cbf903264b9795592da439661c'
 export const PROXY_UPGRADED_TOPIC = '0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b'
+
+export const specialErc20BalanceAffectingAbis = {
+    [WETH_DEPOSIT_TOPIC]: {
+        anonymous: false,
+        inputs: [
+            {
+                indexed: true,
+                name: 'dst',
+                type: 'address',
+            },
+            {
+                indexed: false,
+                name: 'wad',
+                type: 'uint256',
+            }
+        ],
+        name: 'Deposit',
+        type: 'event',
+        signature: WETH_DEPOSIT_TOPIC,
+        addressIndex: 0,
+    },
+    [WETH_WITHDRAWAL_TOPIC]: {
+        anonymous: false,
+        inputs: [
+            {
+                indexed: true,
+                name: 'src',
+                type: 'address',
+            },
+            {
+                indexed: false,
+                name: 'wad',
+                type: 'uint256',
+            }
+        ],
+        name: 'Withdrawal',
+        type: 'event',
+        signature: WETH_WITHDRAWAL_TOPIC,
+        addressIndex: 0,
+    }
+}
 
 // ################################
 //  ERC-20

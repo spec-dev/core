@@ -8,19 +8,33 @@ import {
     sleep,
     enqueueDelayedJob,
     DEFAULT_TARGET_BLOCK_BATCH_SIZE,
+    CoreDB,
+    LiveObjectVersion,
+    In,
+    unique,
+    SharedTables,
+    range,
+    getGeneratedEventsCursors,
 } from '../../../shared'
 import config from '../config'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
 
+const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
+
 export async function indexLiveObjectVersions(
     lovIds: number[],
+    lovTables: string[],
     startTimestamp: string | null = null,
     iteration: number = 1,
     maxIterations: number | null = null,
     maxJobTime: number = DEFAULT_MAX_JOB_TIME,
     targetBatchSize: number = DEFAULT_TARGET_BLOCK_BATCH_SIZE,
+    shouldGenerateEvents: boolean,
+    updateOpTrackingFloor: boolean,
+    setLovToIndexingBefore: boolean,
+    setLovToLiveAfter: boolean,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
 
@@ -35,9 +49,26 @@ export async function indexLiveObjectVersions(
             await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
         ) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
-        
-        // Set live object version statuses to indexing.
-        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Indexing)
+
+        // Before/setup logic.
+        if (iteration === 1) {
+            // Set op-tracking floors to the head of each chain to prevent ops from 
+            // being tracked for the potentially massive # of historical records
+            // about to be indexed.
+            if (updateOpTrackingFloor) {
+                lovTables = lovTables.length ? lovTables : await getTablesForLovs(lovIds)
+                await updateOpTrackingFloors(lovTables)
+            }
+
+            // Set live object version statuses to indexing.
+            setLovToIndexingBefore && await updateLiveObjectVersionStatus(
+                lovIds, 
+                LiveObjectVersionStatus.Indexing,
+            )
+            
+            // Slight break for race conditions with lovs potentially being saved elsewhere.
+            await sleep(1000)
+        }
 
         // Index live object versions.
         while (true) {
@@ -57,7 +88,7 @@ export async function indexLiveObjectVersions(
     // All done -> set to "live".
     if (!cursor) {
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
-        await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
+        setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         return
     }
 
@@ -71,12 +102,73 @@ export async function indexLiveObjectVersions(
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds,
+        lovTables,
         startTimestamp: cursor.toISOString(),
         iteration: iteration + 1,
         maxIterations,
         maxJobTime,
         targetBatchSize,
+        shouldGenerateEvents,
+        updateOpTrackingFloor,
+        setLovToIndexingBefore,
+        setLovToLiveAfter,
     })
+}
+
+async function getTablesForLovs(lovIds: number[]): Promise<string[]> {
+    let tables = []
+    try {
+        tables = unique((await lovsRepo().find({
+            where: {
+                id: In(lovIds)
+            }
+        })).map(lov => lov.config?.table))
+    } catch (err) {
+        throw `Failed to get tables for lov ids ${lovIds.join(', ')}: ${err}`
+    }
+
+    if (!tables.length) {
+        throw `No tables found for lovIds: ${lovIds.join(', ')}`
+    }
+
+    return tables
+}
+
+async function updateOpTrackingFloors(tables: string[]) {    
+    const currentHeads = await getGeneratedEventsCursors()
+    if (!Object.keys(currentHeads).length) return
+
+    const updates = []
+    for (const table of tables) {
+        for (const chainId in currentHeads) {
+            const blockNumber = currentHeads[chainId]
+            if (blockNumber === null) continue
+
+            // Shielding against potential race conditions.
+            const opTrackingFloor = Math.max(0, Number(blockNumber) - 10)
+
+            updates.push([
+                table, 
+                chainId, 
+                opTrackingFloor,
+            ])
+        }
+    }
+
+    const queries = []
+    for (const entry of updates) {
+        const [table, chainId, opTrackingFloor] = entry
+        queries.push({
+            sql: `update op_tracking set is_enabled_above = $1 where table_path = $2 and chain_id = $3`,
+            bindings: [opTrackingFloor, table, chainId],
+        })
+    }
+
+    try {
+        await Promise.all(queries.map(({ sql, bindings}) => SharedTables.query(sql, bindings)))
+    } catch (err) {
+        throw `Failed to update op-tracking floors for ${tables.join(', ')}: ${err}`
+    }
 }
 
 async function processInputs(
@@ -191,21 +283,33 @@ async function sendInputsToLov(
 }
 
 export default function job(params: StringKeyMap) {
-    const lovIds = params.lovIds || {}
+    const lovIds = params.lovIds || []
+    const lovTables = params.lovTables || []
     const startTimestamp = params.startTimestamp
     const iteration = params.iteration || 1
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
     const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BLOCK_BATCH_SIZE
+    const shouldGenerateEvents = params.shouldGenerateEvents === true
+    const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
+
+    // TODO: Whether to flip status of lov to indexing/live
+    const setLovToIndexingBefore = params.setLovToIndexingBefore !== false
+    const setLovToLiveAfter = params.setLovToLiveAfter !== false
 
     return {
         perform: async () => indexLiveObjectVersions(
-            lovIds, 
+            lovIds,
+            lovTables,
             startTimestamp, 
             iteration,
             maxIterations,
             maxJobTime,
             targetBatchSize,
+            shouldGenerateEvents,
+            updateOpTrackingFloor,
+            setLovToIndexingBefore,
+            setLovToLiveAfter,
         )
     }
 }

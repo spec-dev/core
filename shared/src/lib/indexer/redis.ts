@@ -8,9 +8,11 @@ import { EventVersion } from '../core/db/entities/EventVersion'
 import { StringKeyMap, StringMap } from '../types'
 import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
+import { toDate } from '../utils/date'
+
+const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 
 // Create redis client.
-const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 export const redis = configureRedis ? createClient({ url: config.INDEXER_REDIS_URL }) : null
 
 // Log any redis client errors.
@@ -39,7 +41,7 @@ export interface ContractEntry {
     eventGenerators: EventGeneratorEntry[]
 }
 
-const keys = {
+export const keys = {
     UNCLED_BLOCKS: 'uncled-blocks',
     CONTRACTS: 'contracts',
     CONTRACT_INSTANCES: 'contract-instances',
@@ -47,17 +49,26 @@ const keys = {
     POLYGON_CONTRACTS_CACHE: 'polygon-contract-cache',
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
     FREEZE_ABOVE_BLOCK_PREFIX: 'freeze-above-block',
+    FREEZE_ABOVE_BLOCK_UPDATE: 'freeze-above-block-update',
+    PROCESS_NEW_HEADS_PREFIX: 'process-new-heads',
+    PROCESS_INDEX_JOBS_PREFIX: 'process-index-jobs',
+    PROCESS_EVENT_SORTER_JOBS_PREFIX: 'process-event-sorter',
+    PROCESS_EVENT_GEN_JOBS_PREFIX: 'process-event-gen-jobs',
     BLOCK_EVENTS_SERIES_NUMBER_PREFIX: 'block-events-series',
     BLOCK_EVENTS_EAGER_BLOCKS_PREFIX: 'block-events-eager-blocks',
     BLOCK_EVENTS_SKIPPED_BLOCKS_PREFIX: 'block-events-skipped-blocks',
     PAUSE_EVENT_SORTER_PREFIX: 'event-sorter-paused',
     PAUSE_EVENT_GENERATOR_PREFIX: 'event-generator-paused',
     FAILING_NAMESPACES: 'failing-namespaces',
+    FAILING_TABLES: 'failing-tables',
+    FAILING_TABLES_UPDATE: 'failing-tables-update',
     LATEST_BLOCKS: 'latest-blocks',
     LATEST_BLOCK_NUMBERS: 'latest-block-numbers',
     LATEST_TRANSACTIONS: 'latest-transactions',
     TRANSACTION_HASHES_FOR_BLOCK_HASH: 'block-transactions',
     LIVE_OBJECT_TABLES: 'live-object-tables',
+    LIVE_OBJECT_VERSION_FAILURES: 'lov-failures',
+    GENERATED_EVENTS_CURSOR: 'generated-events-cursor',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -298,6 +309,18 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
+export async function getLastEventId(eventName: string): Promise<string | null> {
+    try {
+        const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]
+        const eventData = lastEntry?.message?.event
+        if (!eventData) return null
+        return JSON.parse(eventData)?.id || null
+    } catch (err) {
+        logger.error(`Error getting last event id for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
 export async function getPublishedEventsAfterEventCursors(
     cursors: StringKeyMap[]
 ): Promise<{ [key: string]: StringKeyMap[] }> {
@@ -404,13 +427,18 @@ export async function getBlockEvents(
     }
 }
 
-export async function deleteBlockEvents(chainId: string, blockNumber: number) {
+export async function deleteBlockEvents(chainId: string, blockNumbers: number | number[]) {
+    const numbers = ((Array.isArray(blockNumbers) ? blockNumbers : [blockNumbers]) as number[]).map(
+        (n) => n.toString()
+    )
     const key = [config.BLOCK_EVENTS_PREFIX, chainId].join('-')
     try {
-        await redis?.hDel(key, blockNumber.toString())
+        await redis?.hDel(key, numbers)
     } catch (err) {
         logger.error(
-            `Error deleting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+            `Error deleting block events (chainId=${chainId}, blockNubers=${numbers.join(
+                ', '
+            )}): ${err}`
         )
         return false
     }
@@ -436,13 +464,18 @@ export async function getBlockCalls(chainId: string, blockNumber: number): Promi
     }
 }
 
-export async function deleteBlockCalls(chainId: string, blockNumber: number) {
+export async function deleteBlockCalls(chainId: string, blockNumbers: number | number[]) {
+    const numbers = ((Array.isArray(blockNumbers) ? blockNumbers : [blockNumbers]) as number[]).map(
+        (n) => n.toString()
+    )
     const key = [config.BLOCK_CALLS_PREFIX, chainId].join('-')
     try {
-        await redis?.hDel(key, blockNumber.toString())
+        await redis?.hDel(key, numbers)
     } catch (err) {
         logger.error(
-            `Error deleting block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+            `Error deleting block calls (chainId=${chainId}, blockNuber=${numbers.join(
+                ', '
+            )}): ${err}`
         )
         return false
     }
@@ -459,17 +492,8 @@ export async function getBlockEventsSeriesNumber(chainId: string): Promise<numbe
     }
 }
 
-export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: number) {
+export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: number | null) {
     const key = [keys.BLOCK_EVENTS_SERIES_NUMBER_PREFIX, chainId].join('-')
-    try {
-        await redis?.set(key, Number(blockNumber))
-    } catch (err) {
-        throw `Error setting block events series number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
-    }
-}
-
-export async function freezeBlockOperationsAbove(chainId: string, blockNumber: number | null) {
-    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
     try {
         if (blockNumber) {
             await redis?.set(key, Number(blockNumber))
@@ -477,7 +501,113 @@ export async function freezeBlockOperationsAbove(chainId: string, blockNumber: n
             await redis?.del(key)
         }
     } catch (err) {
+        throw `Error setting block events series number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function freezeBlockOperationsAtOrAbove(chainId: string, blockNumber: number | null) {
+    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
+    try {
+        if (blockNumber) {
+            await redis?.set(key, Number(blockNumber))
+        } else {
+            await redis?.del(key)
+        }
+        await redis?.publish(
+            keys.FREEZE_ABOVE_BLOCK_UPDATE,
+            JSON.stringify({
+                chainId,
+                blockNumber: blockNumber === null ? null : Number(blockNumber),
+            })
+        )
+    } catch (err) {
         throw `Error freezing block operations above number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+    }
+}
+
+export async function getBlockOpsCeiling(chainId: string): Promise<number | null> {
+    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
+    try {
+        const currentBlockOpsCeiling = (await redis?.get(key)) || null
+        if (currentBlockOpsCeiling === null) return null
+        return Number(currentBlockOpsCeiling)
+    } catch (err) {
+        throw `[${chainId}] Error getting blocks ops ceiling: ${err}`
+    }
+}
+
+export async function canBlockBeOperatedOn(chainId: string, blockNumber: number): Promise<boolean> {
+    const key = [keys.FREEZE_ABOVE_BLOCK_PREFIX, chainId].join('-')
+    try {
+        const currentBlockOpsCeiling = (await redis?.get(key)) || null
+        if (currentBlockOpsCeiling === null) return true
+        return blockNumber < Number(currentBlockOpsCeiling)
+    } catch (err) {
+        throw `[${chainId}] Error checking if block operations can proceed for block ${blockNumber}: ${err}`
+    }
+}
+
+export async function switchOffTableForChainId(table: string, chainId: string) {
+    logger.warn(`Switching OFF operations for ${table} on chain ${chainId}.`)
+    const key = [keys.FAILING_TABLES, chainId].join('-')
+    try {
+        await redis?.sAdd(key, table)
+        await redis?.publish(keys.FAILING_TABLES_UPDATE, JSON.stringify({ chainId }))
+    } catch (err) {
+        throw `Error switching OFF operations for ${table} on chain ${chainId}: ${err}`
+    }
+}
+
+export async function switchOnTableForChainId(table: string, chainId: string) {
+    logger.warn(`Switching ON operations for ${table} on chain ${chainId}.`)
+    const key = [keys.FAILING_TABLES, chainId].join('-')
+    try {
+        await redis?.sRem(key, table)
+        await redis?.publish(keys.FAILING_TABLES_UPDATE, JSON.stringify({ chainId }))
+    } catch (err) {
+        throw `Error switching ON operations for ${table} on chain ${chainId}: ${err}`
+    }
+}
+
+export async function getFailingTables(chainId: string): Promise<string[]> {
+    const key = [keys.FAILING_TABLES, chainId].join('-')
+    try {
+        return (await redis?.sMembers(key)) || []
+    } catch (err) {
+        throw `Error getting failing tables (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getLovFailure(lovId: number): Promise<string | null> {
+    try {
+        const results =
+            (await redis?.hmGet(keys.LIVE_OBJECT_VERSION_FAILURES, lovId.toString())) || []
+        return results?.length ? results[0] : null
+    } catch (err) {
+        throw `Error getting lov failure (lovId=${lovId}): ${err}`
+    }
+}
+
+export async function markLovFailure(lovId: number, blockTimestamp: string) {
+    const currentLovFailure = await getLovFailure(lovId)
+    if (currentLovFailure) {
+        const currentLovFailureDate = toDate(currentLovFailure)
+        const blockDate = toDate(blockTimestamp)
+        // Prevent update into the future
+        if (blockDate && currentLovFailureDate && blockDate > currentLovFailureDate) return
+    }
+    try {
+        await redis?.hSet(keys.LIVE_OBJECT_VERSION_FAILURES, [lovId.toString(), blockTimestamp])
+    } catch (err) {
+        throw `Error marking lov failure (lovId=${lovId}, blockTimestamp=${blockTimestamp}): ${err}`
+    }
+}
+
+export async function removeLovFailure(lovId: number) {
+    try {
+        await redis?.hDel(keys.LIVE_OBJECT_VERSION_FAILURES, lovId.toString())
+    } catch (err) {
+        throw `Error deleting lov failure (lovId=${lovId}): ${err}`
     }
 }
 
@@ -809,5 +939,169 @@ export async function registerLiveObjectTablesForChainId(
         return await redis?.sAdd([keys.LIVE_OBJECT_TABLES, chainId].join(':'), liveObjectTables)
     } catch (err) {
         logger.error(`Error setting cached live object tables for chainId ${chainId}: ${err}`)
+    }
+}
+
+export async function getProcessNewHeads(chainId: string) {
+    const key = [keys.PROCESS_NEW_HEADS_PREFIX, chainId].join('-')
+    try {
+        return await redis?.get(key)
+    } catch (err) {
+        throw `Error getting process-new-heads (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function setProcessNewHeads(chainId: string, doProcess: boolean) {
+    const key = [keys.PROCESS_NEW_HEADS_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, doProcess ? 1 : 0)
+    } catch (err) {
+        throw `Error setting process-new-heads (chainId=${chainId}) to ${doProcess}): ${err}`
+    }
+}
+
+export async function shouldProcessNewHeads(chainId: string): Promise<boolean> {
+    const key = [keys.PROCESS_NEW_HEADS_PREFIX, chainId].join('-')
+    try {
+        const value = await redis?.get(key)
+        return value === null || Number(value) === 1
+    } catch (err) {
+        throw `Error getting process-new-heads (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getProcessIndexJobs(chainId: string) {
+    const key = [keys.PROCESS_INDEX_JOBS_PREFIX, chainId].join('-')
+    try {
+        return await redis?.get(key)
+    } catch (err) {
+        throw `Error getting process-index-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function setProcessIndexJobs(chainId: string, doProcess: boolean) {
+    const key = [keys.PROCESS_INDEX_JOBS_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, doProcess ? 1 : 0)
+    } catch (err) {
+        throw `Error setting process-index-jobs (chainId=${chainId}) to ${doProcess}): ${err}`
+    }
+}
+
+export async function shouldProcessIndexJobs(chainId: string): Promise<boolean> {
+    const key = [keys.PROCESS_INDEX_JOBS_PREFIX, chainId].join('-')
+    try {
+        const value = await redis?.get(key)
+        return value === null || Number(value) === 1
+    } catch (err) {
+        throw `Error getting process-index-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getProcessEventSorterJobs(chainId: string) {
+    const key = [keys.PROCESS_EVENT_SORTER_JOBS_PREFIX, chainId].join('-')
+    try {
+        return await redis?.get(key)
+    } catch (err) {
+        throw `Error getting process-event-sorter-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function setProcessEventSorterJobs(chainId: string, doProcess: boolean) {
+    const key = [keys.PROCESS_EVENT_SORTER_JOBS_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, doProcess ? 1 : 0)
+    } catch (err) {
+        throw `Error setting process-event-sorter-jobs (chainId=${chainId}) to ${doProcess}): ${err}`
+    }
+}
+
+export async function shouldProcessEventSorterJobs(chainId: string): Promise<boolean> {
+    const key = [keys.PROCESS_EVENT_SORTER_JOBS_PREFIX, chainId].join('-')
+    try {
+        const value = await redis?.get(key)
+        return value === null || Number(value) === 1
+    } catch (err) {
+        throw `Error getting process-event-sorter-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function getProcessEventGenJobs(chainId: string) {
+    const key = [keys.PROCESS_EVENT_GEN_JOBS_PREFIX, chainId].join('-')
+    try {
+        return await redis?.get(key)
+    } catch (err) {
+        throw `Error getting process-event-gen-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+export async function setProcessEventGenJobs(chainId: string, doProcess: boolean) {
+    const key = [keys.PROCESS_EVENT_GEN_JOBS_PREFIX, chainId].join('-')
+    try {
+        await redis?.set(key, doProcess ? 1 : 0)
+    } catch (err) {
+        throw `Error setting process-event-gen-jobs (chainId=${chainId}) to ${doProcess}): ${err}`
+    }
+}
+
+export async function shouldProcessEventGenJobs(chainId: string): Promise<boolean> {
+    const key = [keys.PROCESS_EVENT_GEN_JOBS_PREFIX, chainId].join('-')
+    try {
+        const value = await redis?.get(key)
+        return value === null || Number(value) === 1
+    } catch (err) {
+        throw `Error getting process-event-gen-jobs (chainId=${chainId}): ${err}`
+    }
+}
+
+const getProcessJobsMap = {
+    [keys.PROCESS_NEW_HEADS_PREFIX]: getProcessNewHeads,
+    [keys.PROCESS_INDEX_JOBS_PREFIX]: getProcessIndexJobs,
+    [keys.PROCESS_EVENT_SORTER_JOBS_PREFIX]: getProcessEventSorterJobs,
+    [keys.PROCESS_EVENT_GEN_JOBS_PREFIX]: getProcessEventGenJobs,
+}
+
+const setProcessJobsMap = {
+    [keys.PROCESS_NEW_HEADS_PREFIX]: setProcessNewHeads,
+    [keys.PROCESS_INDEX_JOBS_PREFIX]: setProcessIndexJobs,
+    [keys.PROCESS_EVENT_SORTER_JOBS_PREFIX]: setProcessEventSorterJobs,
+    [keys.PROCESS_EVENT_GEN_JOBS_PREFIX]: setProcessEventGenJobs,
+}
+
+export async function getProcessJobs(chainId: string, key: string) {
+    const f = getProcessJobsMap[key]
+    if (!f) {
+        logger.error(`Unknown process jobs function for key: ${key}`)
+        return 'unknown'
+    }
+    return await f(chainId)
+}
+
+export async function setProcessJobs(chainId: string, key: string, doProcess: boolean) {
+    const f = setProcessJobsMap[key]
+    if (!f) {
+        logger.error(`Unknown process jobs function for key: ${key}`)
+        return false
+    }
+    await f(chainId, doProcess)
+    return true
+}
+
+export async function setGeneratedEventsCursor(chainId: string, blockNumber: number) {
+    try {
+        await redis?.hSet(keys.GENERATED_EVENTS_CURSOR, [chainId, blockNumber.toString()])
+    } catch (err) {
+        logger.error(
+            `Error setting generated events cursor for chain ${chainId} to ${blockNumber}: ${err}`
+        )
+    }
+}
+
+export async function getGeneratedEventsCursors(): Promise<StringKeyMap> {
+    try {
+        return (await redis?.hGetAll(keys.GENERATED_EVENTS_CURSOR)) || {}
+    } catch (err) {
+        logger.error(`Error getting generated events cursors: ${err}`)
+        return {}
     }
 }

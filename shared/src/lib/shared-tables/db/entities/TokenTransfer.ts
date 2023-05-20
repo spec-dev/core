@@ -1,12 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index } from 'typeorm'
 
-export enum TokenTransferSource {
-    Log = 'log',
-    Trace = 'trace',
+export enum TokenTransferStandard {
+    ERC20 = 'erc20',
+    ERC721 = 'erc721',
+    ERC1155 = 'erc1155',
+    Unknown = 'unknown',
 }
 
 /**
- * A token transfer event (excluding NFTs).
+ * A token transfer event.
  */
 @Entity('token_transfers', { schema: 'tokens' })
 @Index(['transferId'], { unique: true })
@@ -20,6 +22,9 @@ export class TokenTransfer {
     @Column('varchar', { name: 'transaction_hash', length: 70, nullable: true })
     transactionHash: string
 
+    @Column('int8', { name: 'log_index', nullable: true })
+    logIndex: number
+
     @Column('varchar', { name: 'token_address', length: 50 })
     tokenAddress: string
 
@@ -32,19 +37,25 @@ export class TokenTransfer {
     @Column('int8', { name: 'token_decimals', nullable: true })
     tokenDecimals: number
 
+    @Column('varchar', { name: 'token_standard', nullable: true })
+    tokenStandard: TokenTransferStandard
+
+    @Column('varchar', { name: 'token_id', nullable: true })
+    tokenId: string
+
     @Column('varchar', { name: 'from_address', length: 50 })
     fromAddress: string
 
     @Column('varchar', { name: 'to_address', length: 50 })
     toAddress: string
 
-    @Column({ name: 'is_mint' })
+    @Column({ name: 'is_mint', nullable: true })
     isMint: boolean
 
-    @Column('varchar', { name: 'source', length: 20 })
-    source: TokenTransferSource
+    @Column({ name: 'is_native', nullable: true })
+    isNative: boolean
 
-    @Column('varchar')
+    @Column('varchar', { nullable: true })
     value: string
 
     @Column('numeric', { name: 'value_usd', nullable: true })
@@ -77,6 +88,6 @@ export class TokenTransfer {
 
 export const fullTokenTransferUpsertConfig = (): string[][] => {
     const conflictCols = ['transfer_id']
-    const updateCols = ['source'] // Hack
+    const updateCols = ['token_standard']
     return [updateCols, conflictCols]
 }

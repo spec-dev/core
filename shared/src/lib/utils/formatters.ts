@@ -1,6 +1,7 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
 import { StringKeyMap } from '../types'
 import humps from 'humps'
+import { ident } from 'pg-format'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -8,6 +9,12 @@ export const NULL_32_BYTE_HASH =
 export const NULL_BYTE_DATE = '0x'
 
 const ABI_INPUT_PLACEHOLDER_PREFIX = '___ph-'
+
+export const identPath = (value: string): string =>
+    value
+        .split('.')
+        .map((v) => ident(v))
+        .join('.')
 
 export const mapByKey = (iterable: object[], key: string): { [key: string]: any } => {
     let m = {}
@@ -63,7 +70,7 @@ export const normalizeByteData = (
     }
 }
 
-export const numberToHex = (value: any): string | null => {
+export const numberToHex = (value: any) => {
     if (typeof value !== 'number' && typeof value !== 'bigint') {
         return null
     }
@@ -71,14 +78,15 @@ export const numberToHex = (value: any): string | null => {
     return nth(value as any)
 }
 
-export const hexToNumber = (value: any): number | null => {
+export const hexToNumber = (value: any) => {
     if (typeof value !== 'string') {
         return null
     }
+
     return htn(value)
 }
 
-export const hexToNumberString = (value: any): string | null => {
+export const hexToNumberString = (value: any) => {
     if (typeof value !== 'string') {
         return null
     }
@@ -405,4 +413,15 @@ export const sum = (arr: number[]): number => arr.reduce((a, b) => a + b, 0)
 export const toNumber = (val: any): number | null => {
     const num = parseInt(val)
     return Number.isNaN(num) ? null : num
+}
+
+export const shuffle = (arr: any[]) => {
+    let currentIndex = arr.length
+    let randomIndex: number
+    while (currentIndex != 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex)
+        currentIndex--
+        ;[arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]]
+    }
+    return arr
 }

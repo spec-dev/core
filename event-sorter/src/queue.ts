@@ -1,4 +1,4 @@
-import { Queue, QueueScheduler } from 'bullmq'
+import { Queue } from 'bullmq'
 import config from './config'
 import { logger, SortedBlockEventsOptions } from '../../shared'
 import chalk from 'chalk'
@@ -11,31 +11,36 @@ const queue = new Queue(queueKey, {
         port: config.INDEXER_REDIS_PORT,
     },
     defaultJobOptions: {
-        attempts: 5,
+        attempts: config.EVENT_GENERATOR_JOB_MAX_ATTEMPTS,
+        removeOnComplete: true,
+        removeOnFail: 50,
         backoff: {
             type: 'fixed',
-            delay: 2000,
+            delay: config.JOB_DELAY_ON_FAILURE,
         },
     },
 })
 
-const queueScheduler = new QueueScheduler(queueKey, {
-    connection: {
-        host: config.INDEXER_REDIS_HOST,
-        port: config.INDEXER_REDIS_PORT,
-    }
-})
+let seen = new Set<number>()
+const seenKeepCount = 500
+const trimSeenSet = () => {
+    if (seen.size <= seenKeepCount) return
+    const trimmed = Array.from(seen).sort((a, b) => a - b).slice(seenKeepCount - 100)
+    seen = new Set(trimmed)
+}
 
 export async function generateEventsForBlock(
     blockNumber: number, 
     options: SortedBlockEventsOptions = {},
 ) {
     blockNumber = Number(blockNumber)
-    logger.info(chalk.cyanBright(`Enqueueing sorted block ${blockNumber}`))
+    const color = options.replace ? 'yellow' : (seen.has(blockNumber) ? 'magenta' : 'cyanBright')
+    logger.info(chalk[color](`Enqueueing sorted block ${blockNumber}`))
+    seen.add(blockNumber)
 
     await queue.add(config.EVENT_GENERATOR_JOB_NAME, { ...options, blockNumber }, {
         priority: blockNumber,
-        removeOnComplete: true,
-        removeOnFail: 10,
     })
+
+    trimSeenSet()
 }

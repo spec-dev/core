@@ -12,6 +12,7 @@ export interface NewReportedHead {
 export interface SortedBlockEventsOptions {
     skipped?: boolean
     replay?: boolean
+    replace?: boolean
 }
 
 export interface SpecFunctionResponse {
