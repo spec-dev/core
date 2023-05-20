@@ -21,7 +21,6 @@ const headerNames = {
 }
 
 const config = {
-    // @ts-ignore
     JWT_SECRET: Deno.env.get('JWT_SECRET'),
     JWT_ROLE: 'internal',
 }
