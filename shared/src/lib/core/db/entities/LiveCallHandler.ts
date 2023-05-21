@@ -3,7 +3,7 @@ import { LiveObjectVersion } from './LiveObjectVersion'
 import { Namespace } from './Namespace'
 
 /**
- * A contract function that's handled/used as an input to a particular Live Object Version.
+ * A contract function call that's used as an input to a Live Object Version.
  */
 @Entity('live_call_handlers')
 @Index(['functionName', 'namespaceId', 'liveObjectVersionId'], { unique: true })

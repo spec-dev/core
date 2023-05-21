@@ -3,15 +3,15 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toSlug } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
-import { newApiKey, newJWT, ClaimRole, Claims } from '../../../utils/auth'
+import { newApiKey, newJWT, ClaimRole } from '../../../utils/auth'
 import randToken from 'rand-token'
 
 const projects = () => CoreDB.getRepository(Project)
 
-export async function createProject(name: string, orgId: number): Promise<Project> {
+export async function createProject(name: string, namespaceId: number): Promise<Project> {
     const project = new Project()
     project.uid = randToken.generate(20, 'abcdefghijklmnopqrstuvwxyz')
-    project.orgId = orgId
+    project.namespaceId = namespaceId
     project.name = name
     project.slug = toSlug(name)
     project.apiKey = await newApiKey()

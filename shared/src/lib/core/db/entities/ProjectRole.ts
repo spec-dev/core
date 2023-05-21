@@ -9,13 +9,19 @@ import {
     DeleteDateColumn,
 } from 'typeorm'
 import { Project } from './Project'
-import { OrgUser } from './OrgUser'
+import { NamespaceUser } from './NamespaceUser'
+
+export enum ProjectRoleName {
+    Owner = 'owner',
+    Admin = 'admin',
+    member = 'member',
+}
 
 /**
- * The role a particular OrgUser has within a Project.
+ * The role a particular NamespaceUser has within a Project.
  */
 @Entity('project_roles')
-@Index(['projectId', 'orgUserId'], { unique: true })
+@Index(['projectId', 'namespaceUserId'], { unique: true })
 export class ProjectRole {
     @PrimaryGeneratedColumn()
     id: number
@@ -23,8 +29,8 @@ export class ProjectRole {
     @Column({ name: 'project_id' })
     projectId: number
 
-    @Column({ name: 'org_user_id' })
-    orgUserId: number
+    @Column({ name: 'namespace_user_id' })
+    namespaceUserId: number
 
     @Column('varchar')
     role: ProjectRoleName
@@ -47,13 +53,7 @@ export class ProjectRole {
     @JoinColumn({ name: 'project_id' })
     project: Project
 
-    @ManyToOne(() => OrgUser, (orgUser) => orgUser.projectRoles)
-    @JoinColumn({ name: 'org_user_id' })
-    orgUser: OrgUser
-}
-
-export enum ProjectRoleName {
-    Owner = 'owner',
-    Admin = 'admin',
-    member = 'member',
+    @ManyToOne(() => NamespaceUser, (namespaceUser) => namespaceUser.projectRoles)
+    @JoinColumn({ name: 'namespace_user_id' })
+    namespaceUser: NamespaceUser
 }

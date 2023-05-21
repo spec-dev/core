@@ -6,10 +6,9 @@ import {
     CreateDateColumn,
     OneToMany,
     DeleteDateColumn,
-    BeforeInsert,
 } from 'typeorm'
 import { Session } from './Session'
-import { OrgUser } from './OrgUser'
+import { NamespaceUser } from './NamespaceUser'
 import { StringKeyMap } from '../../../types'
 
 /**
@@ -57,8 +56,8 @@ export class User {
     })
     deletedAt: Date
 
-    @OneToMany(() => OrgUser, (orgUser) => orgUser.user)
-    orgUsers: OrgUser[]
+    @OneToMany(() => NamespaceUser, (namespaceUser) => namespaceUser.user)
+    namespaceUsers: NamespaceUser[]
 
     @OneToMany(() => Session, (session) => session.user)
     sessions: Session[]

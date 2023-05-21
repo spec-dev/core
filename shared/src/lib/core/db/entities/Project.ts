@@ -9,16 +9,16 @@ import {
     CreateDateColumn,
     DeleteDateColumn,
 } from 'typeorm'
-import { Org } from './Org'
+import { Namespace } from './Namespace'
 import { ProjectRole } from './ProjectRole'
 import { Deployment } from './Deployment'
 import { StringKeyMap } from '../../../types'
 
 /**
- * A project on Spec within an organization.
+ * A project on Spec within a namespace.
  */
 @Entity('projects')
-@Index(['orgId', 'slug'], { unique: true })
+@Index(['namespaceId', 'slug'], { unique: true })
 export class Project {
     @PrimaryGeneratedColumn()
     id: number
@@ -27,8 +27,8 @@ export class Project {
     @Column()
     uid: string
 
-    @Column({ name: 'org_id' })
-    orgId: number
+    @Column({ name: 'namespace_id' })
+    namespaceId: number
 
     @Column()
     name: string
@@ -70,9 +70,9 @@ export class Project {
     })
     deletedAt: Date
 
-    @ManyToOne(() => Org, (org) => org.projects)
-    @JoinColumn({ name: 'org_id' })
-    org: Org
+    @ManyToOne(() => Namespace, (nsp) => nsp.projects)
+    @JoinColumn({ name: 'namespace_id' })
+    namespace: Namespace
 
     @OneToMany(() => ProjectRole, (projectRole) => projectRole.project)
     projectRoles: ProjectRole[]
@@ -86,7 +86,7 @@ export class Project {
             name: this.name,
             slug: this.slug,
             apiKey: this.signedApiKey,
-            org: this.org?.publicView(),
+            namespace: this.namespace?.publicView(),
             metadata: this.metadata || {},
         }
     }

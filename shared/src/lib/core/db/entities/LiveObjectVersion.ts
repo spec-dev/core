@@ -9,7 +9,6 @@ import {
     JoinColumn,
 } from 'typeorm'
 import { LiveEventVersion } from './LiveEventVersion'
-import { LiveEdgeFunctionVersion } from './LiveEdgeFunctionVersion'
 import { LiveObject } from './LiveObject'
 import { StringKeyMap } from '../../../types'
 import { LiveCallHandler } from './LiveCallHandler'
@@ -96,12 +95,6 @@ export class LiveObjectVersion {
 
     @OneToMany(() => LiveEventVersion, (liveEventVersion) => liveEventVersion.liveObjectVersion)
     liveEventVersions: LiveEventVersion[]
-
-    @OneToMany(
-        () => LiveEdgeFunctionVersion,
-        (liveEdgeFunctionVersion) => liveEdgeFunctionVersion.liveObjectVersion
-    )
-    liveEdgeFunctionVersions: LiveEdgeFunctionVersion[]
 
     @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.liveObjectVersion)
     liveCallHandlers: LiveCallHandler[]

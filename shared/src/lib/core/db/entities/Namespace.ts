@@ -1,12 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany } from 'typeorm'
-import { EdgeFunction } from './EdgeFunction'
 import { Contract } from './Contract'
 import { Event } from './Event'
 import { LiveObject } from './LiveObject'
 import { LiveCallHandler } from './LiveCallHandler'
+import { NamespaceUser } from './NamespaceUser'
+import { Project } from './Project'
+import { StringKeyMap } from '../../../types'
 
 /**
- * A globally unique namespace for functions, contracts, events, live objects, etc.
+ * A globally unique namespace for projects, contracts, events, live objects, etc.
  */
 @Entity('namespaces')
 export class Namespace {
@@ -34,11 +36,14 @@ export class Namespace {
     })
     createdAt: Date
 
+    @OneToMany(() => NamespaceUser, (namespaceUser) => namespaceUser.namespace)
+    namespaceUsers: NamespaceUser[]
+
+    @OneToMany(() => Project, (project) => project.namespace)
+    projects: Project[]
+
     @OneToMany(() => Contract, (contract) => contract.namespace)
     contracts: Contract[]
-
-    @OneToMany(() => EdgeFunction, (edgeFunction) => edgeFunction.namespace)
-    edgeFunctions: EdgeFunction[]
 
     @OneToMany(() => Event, (event) => event.namespace)
     events: Event[]
@@ -48,4 +53,10 @@ export class Namespace {
 
     @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.namespace)
     liveCallHandlers: LiveCallHandler[]
+
+    publicView(): StringKeyMap {
+        return {
+            name: this.name,
+        }
+    }
 }

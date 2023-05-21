@@ -2,7 +2,6 @@ import {
     getLiveObjectVersionsByNamespacedVersions, 
     CoreDB, 
     EventVersion, 
-    EdgeFunctionVersion, 
     toNamespacedVersion, 
     logger,
 } from '../../../shared'
@@ -12,10 +11,8 @@ interface ResolveLiveObjectVersionsPayload {
 }
 
 export async function resolveLiveObjectVersions(request: any) {
-    // Parse payload.
-    const data = request.data as ResolveLiveObjectVersionsPayload
-
     // Get all live object versions for the given array of versioned ids.
+    const data = request.data as ResolveLiveObjectVersionsPayload
     const lovs = await getLiveObjectVersionsByNamespacedVersions(data.ids)
     const lovIds = lovs.map(lov => lov.id)
 
@@ -36,22 +33,6 @@ export async function resolveLiveObjectVersions(request: any) {
         return
     }
 
-    // Get all edge function versions associated with these live object versions.
-    let edgeFunctionVersions = []
-    try {
-        edgeFunctionVersions = lovIds.length ? (await CoreDB.getRepository(EdgeFunctionVersion)
-            .createQueryBuilder('edgeFunctionVersion')
-            .leftJoinAndSelect('edgeFunctionVersion.liveEdgeFunctionVersions', 'liveEdgeFunctionVersion')
-            .where('liveEdgeFunctionVersion.liveObjectVersionId IN (:...lovIds)', { lovIds })
-            .getMany()) : []
-    } catch (err) {
-        logger.error(
-            `Error fetching EdgeFunctionVersions for liveObjectVersionIds: ${lovIds.join(', ')}: ${err}`
-        )
-        request.end([])
-        return
-    }
-
     // Group everything by live object version.
     const lovMap = {}
     for (const eventVersion of eventVersions) {
@@ -64,22 +45,6 @@ export async function resolveLiveObjectVersions(request: any) {
             lovMap[liveObjectVersionId].events.push({ name: eventName })
         }
     }
-    for (const edgeFunctionVersion of edgeFunctionVersions) {
-        for (const liveEdgeFunctionVersion of edgeFunctionVersion.liveEdgeFunctionVersions) {
-            const liveObjectVersionId = liveEdgeFunctionVersion.liveObjectVersionId
-            if (!lovMap.hasOwnProperty(liveObjectVersionId)) {
-                lovMap[liveObjectVersionId] = { events: [], edgeFunctions: [] }
-            }
-            lovMap[liveObjectVersionId].edgeFunctions.push({
-                name: toNamespacedVersion(edgeFunctionVersion.nsp, edgeFunctionVersion.name, edgeFunctionVersion.version),
-                args: liveEdgeFunctionVersion.args || edgeFunctionVersion.args || {},
-                argsMap: liveEdgeFunctionVersion.argsMap || {},
-                metadata: liveEdgeFunctionVersion.metadata || {},
-                role: liveEdgeFunctionVersion.role,
-                url: edgeFunctionVersion.url,
-            })
-        }
-    }
 
     // Format clean and simple namespace-versioned response.
     const resp = []
@@ -87,7 +52,7 @@ export async function resolveLiveObjectVersions(request: any) {
         resp.push({
             id: toNamespacedVersion(lov.nsp, lov.name, lov.version),
             events: (lovMap[lov.id] || {}).events || [],
-            edgeFunctions: (lovMap[lov.id] || {}).edgeFunctions || [],
+            edgeFunctions: [], // Legacy (keep for now)
             config: lov.config || {},
         })
     }

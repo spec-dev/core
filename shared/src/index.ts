@@ -55,12 +55,6 @@ export {
     redis as indexerRedis,
     keys as indexerRedisKeys,
     quickUncleCheck,
-    upsertContractCaches,
-    ContractInstanceEntry,
-    EventGeneratorEntry,
-    EventVersionEntry,
-    ContractEntry,
-    getContractEventGeneratorData,
     registerBlockLogsAsIndexed,
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
@@ -162,11 +156,8 @@ export * from './lib/utils/date'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
 export { Namespace } from './lib/core/db/entities/Namespace'
-export { EdgeFunction } from './lib/core/db/entities/EdgeFunction'
-export { EdgeFunctionVersion } from './lib/core/db/entities/EdgeFunctionVersion'
 export { Contract } from './lib/core/db/entities/Contract'
 export { ContractInstance } from './lib/core/db/entities/ContractInstance'
-export { EventGenerator, EventGeneratorParentType } from './lib/core/db/entities/EventGenerator'
 export { Event } from './lib/core/db/entities/Event'
 export { EventVersion } from './lib/core/db/entities/EventVersion'
 export { LiveObject } from './lib/core/db/entities/LiveObject'
@@ -178,14 +169,9 @@ export {
     LiveObjectVersionStatus,
 } from './lib/core/db/entities/LiveObjectVersion'
 export { LiveEventVersion } from './lib/core/db/entities/LiveEventVersion'
-export {
-    LiveEdgeFunctionVersion,
-    LiveEdgeFunctionVersionRole,
-} from './lib/core/db/entities/LiveEdgeFunctionVersion'
 export { User } from './lib/core/db/entities/User'
 export { Session } from './lib/core/db/entities/Session'
-export { Org } from './lib/core/db/entities/Org'
-export { OrgUser, OrgUserRole } from './lib/core/db/entities/OrgUser'
+export { NamespaceUser, NamespaceUserRole } from './lib/core/db/entities/NamespaceUser'
 export { Project } from './lib/core/db/entities/Project'
 export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
@@ -200,19 +186,8 @@ export {
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
-export { createEdgeFunction, upsertEdgeFunction } from './lib/core/db/services/edgeFunctionServices'
-export {
-    createEdgeFunctionVersion,
-    getEdgeFunctionVersion,
-    getLatestEdgeFunctionVersion,
-    setEdgeFunctionVersionUrl,
-    createEdgeFunctionVersionWithTx,
-} from './lib/core/db/services/edgeFunctionVersionServices'
 export {
     redis as coreRedis,
-    setEdgeFunctionUrl,
-    getEdgeFunctionUrl,
-    formatEdgeFunctionVersionStr,
     addLog,
     tailLogs,
     getLastXLogs,
@@ -231,7 +206,6 @@ export {
     createContractInstance,
     upsertContractInstancesWithTx,
 } from './lib/core/db/services/contractInstanceServices'
-export { createEventGenerator } from './lib/core/db/services/eventGeneratorServices'
 export { createEvent, getEvent, upsertEventsWithTx } from './lib/core/db/services/eventServices'
 export {
     createEventVersion,
@@ -264,10 +238,6 @@ export {
     createLiveEventVersion,
     createLiveEventVersionsWithTx,
 } from './lib/core/db/services/liveEventVersionServices'
-export {
-    createLiveEdgeFunctionVersion,
-    createLiveEdgeFunctionVersionWithTx,
-} from './lib/core/db/services/liveEdgeFunctionVersionServices'
 export {
     createLiveCallHandler,
     createLiveCallHandlersWithTx,

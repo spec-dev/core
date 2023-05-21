@@ -2,7 +2,7 @@ import { ValidatedPayload, StringKeyMap } from '../../types'
 
 export interface GetProjectPayload {
     project: string // slug
-    org: string // slug
+    namespace: string // slug
 }
 
 export interface StreamLogsPayload {
@@ -15,14 +15,14 @@ export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<Get
     if (!project) {
         return { isValid: false, error: '"project" key required' }
     }
-    const org = data?.org
-    if (!org) {
-        return { isValid: false, error: '"org" key required' }
+    const namespace = data?.namespace
+    if (!namespace) {
+        return { isValid: false, error: '"namespace" key required' }
     }
 
     return {
         isValid: true,
-        payload: { project, org },
+        payload: { project, namespace },
     }
 }
 

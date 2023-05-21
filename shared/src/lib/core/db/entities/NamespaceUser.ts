@@ -9,16 +9,22 @@ import {
     CreateDateColumn,
     DeleteDateColumn,
 } from 'typeorm'
-import { Org } from './Org'
+import { Namespace } from './Namespace'
 import { User } from './User'
 import { ProjectRole } from './ProjectRole'
 
+export enum NamespaceUserRole {
+    Owner = 'owner',
+    Admin = 'admin',
+    member = 'member',
+}
+
 /**
- * A user who is a member of an organization.
+ * A user who is a member of an namespace.
  */
-@Entity('org_users')
-@Index(['orgId', 'userId'], { unique: true })
-export class OrgUser {
+@Entity('namespace_users')
+@Index(['namespaceId', 'userId'], { unique: true })
+export class NamespaceUser {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -26,14 +32,14 @@ export class OrgUser {
     @Column()
     uid: string
 
-    @Column({ name: 'org_id' })
-    orgId: number
+    @Column({ name: 'namespace_id' })
+    namespaceId: number
 
     @Column({ name: 'user_id' })
     userId: number
 
     @Column('varchar')
-    role: OrgUserRole
+    role: NamespaceUserRole
 
     @CreateDateColumn({
         type: 'timestamptz',
@@ -49,20 +55,14 @@ export class OrgUser {
     })
     deletedAt: Date
 
-    @ManyToOne(() => Org, (org) => org.orgUsers)
-    @JoinColumn({ name: 'org_id' })
-    org: Org
+    @ManyToOne(() => Namespace, (nsp) => nsp.namespaceUsers)
+    @JoinColumn({ name: 'namespace_id' })
+    namespace: Namespace
 
-    @ManyToOne(() => User, (user) => user.orgUsers)
+    @ManyToOne(() => User, (user) => user.namespaceUsers)
     @JoinColumn({ name: 'user_id' })
     user: User
 
-    @OneToMany(() => ProjectRole, (projectRole) => projectRole.orgUser)
+    @OneToMany(() => ProjectRole, (projectRole) => projectRole.namespaceUser)
     projectRoles: ProjectRole[]
-}
-
-export enum OrgUserRole {
-    Owner = 'owner',
-    Admin = 'admin',
-    member = 'member',
 }
