@@ -172,7 +172,7 @@ class EvmReporter {
         if (givenBlock.number <= highestBlockNumber) {
             this.currentReorgFloor = givenBlock.number
             this.currentReorgCeiling = highestBlockNumber
-            logger.notify(chalk.red(`REORG DETECTED - Marking blocks ${givenBlock.number} -> ${highestBlockNumber} as uncled.`))
+            logger.info(chalk.red(`REORG DETECTED - Marking blocks ${givenBlock.number} -> ${highestBlockNumber} as uncled.`))
 
             if (highestBlockNumber - givenBlock.number > config.MAX_REORG_SIZE) {
                 throw `Unbelievable Reorg detected ${highestBlockNumber} -> ${givenBlock.number}`
@@ -285,7 +285,7 @@ class EvmReporter {
         }
         
         // Perform all record rollbacks.
-        logger.notify(`Rolling back to ${fromNumber}`)
+        logger.info(`Rolling back to ${fromNumber}`)
         updateReorg(reorg.id, { status: ReorgStatus.RollingBack })
         try {
             await rollbackTables(this.chainId, fromBlock, to)
@@ -297,7 +297,7 @@ class EvmReporter {
             await this._stop(fromNumber)
             return
         }
-        logger.notify(chalk.green(`Rollback to ${fromNumber} complete.`))
+        logger.info(chalk.green(`Rollback to ${fromNumber} complete.`))
 
         // Refetch hashes for block numbers.
         const currentHashes = await this._getBlockHashesForNumbers(uncleRange, {})
@@ -340,7 +340,7 @@ class EvmReporter {
 
         // Broadcast reorg event to all spec clients.
         updateReorg(reorg.id, { status: ReorgStatus.Publishing, stats })
-        logger.notify(chalk.green(`Publishing reorg for ${this.chainId}:${fromNumber} (${reorg.uid})...`))
+        logger.info(chalk.green(`Publishing reorg for ${this.chainId}:${fromNumber} (${reorg.uid})...`))
         await publishReorg(reorg.uid, this.chainId, fromNumber)
         await sleep(3000)
 
@@ -356,7 +356,7 @@ class EvmReporter {
             true, // replace
         )
 
-        logger.notify(chalk.green(`Reorg successful for ${this.chainId}:${fromNumber}.`))
+        logger.info(chalk.green(`Reorg successful for ${this.chainId}:${fromNumber}.`))
         updateReorg(reorg.id, { status: ReorgStatus.Complete })
     }
 
@@ -475,7 +475,7 @@ class EvmReporter {
         if (this.buffer.hasOwnProperty(lowerNumberStr)) {
             delete this.buffer[lowerNumberStr]
         }
-        logger.notify(chalk.red(`DEEPER REORG DETECTED - Switching to uncle range ${lowerNumber} -> ${to}`))
+        logger.info(chalk.red(`DEEPER REORG DETECTED - Switching to uncle range ${lowerNumber} -> ${to}`))
         return replacment
     }
 

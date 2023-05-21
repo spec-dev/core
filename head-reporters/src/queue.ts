@@ -68,9 +68,8 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
             logger.error(`Error finding/replacing waiting jobs`, err)
         }
 
-        const logMethod = replace ? 'notify' : 'info'
         const logColor = replace ? 'green' : 'cyanBright'
-        logger[logMethod](chalk[logColor](
+        logger.info(chalk[logColor](
             `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
         ))
         

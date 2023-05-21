@@ -66,7 +66,7 @@ class GapDetector {
         if (!event || !event.number || !this.chains.includes(chainId)) return
 
         if (this.checkInDidTimeout[chainId]) {
-            logger.notify(`Blocks are back for chain ${chainId} - Got block ${event.number}`)
+            logger.info(`Blocks are back for chain ${chainId} - Got block ${event.number}`)
             this.checkInDidTimeout[chainId] = false
         }
 
@@ -134,7 +134,8 @@ class GapDetector {
         const requiredCheckInTime = config.CHECK_IN_TOLERANCE * avgBlockTimesForChainId[chainId] * 1000
         this.checkInTimers[chainId] && clearInterval(this.checkInTimers[chainId])
         this.checkInTimers[chainId] = setInterval(() => {
-            logger.error(
+            const logMethod = this.checkInDidTimeout[chainId] ? 'error' : 'warn'
+            logger[logMethod](
                 `No new block on chain ${chainId} in the last ${requiredCheckInTime / 1000}s. ` + 
                 `Last seen block - ${this.lastSeenBlock[chainId]}`
             )

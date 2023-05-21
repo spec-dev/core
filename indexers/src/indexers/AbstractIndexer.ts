@@ -99,13 +99,13 @@ class AbstractIndexer {
             )
 
         if (this.head.replace) {
-            this._notify(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
+            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
         }
     }
 
     async _kickBlockDownstream(eventSpecs: StringKeyMap[], callSpecs: StringKeyMap[]) {
         if (!(await this._shouldContinue())) {
-            this._notify(chalk.yellow('Job stopped mid-indexing inside _kickBlockDownstream.'))
+            this._info(chalk.yellow('Job stopped mid-indexing inside _kickBlockDownstream.'))
             return
         }
 
