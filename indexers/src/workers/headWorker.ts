@@ -12,7 +12,7 @@ import {
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
-import { teardownRpcPool, createRpcPool } from '../rpcPool'
+import { teardownRpcPool, createRpcPool, hasHitMaxCalls } from '../rpcPool'
 
 let queue: Queue
 export async function reenqueueJob(head: NewReportedHead) {   
@@ -128,8 +128,8 @@ async function runJob(job: Job) {
         logger.notify(chalk.magenta(`[${head.chainId}:${head.blockNumber}] Re-enqueueing head to be picked up by next deployment.`))
         await reenqueueJob(head)
     }
-
-    if (numIterations >= 1000) {
+    
+    if (numIterations >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
         numIterations = 0
         teardownRpcPool()
         await sleep(50)

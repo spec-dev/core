@@ -11,6 +11,8 @@ class RpcPool {
 
     connectionIndex: number
 
+    numCalls: number = 0
+
     constructor() {
         this.endpoints = shuffle(
             (config.RPC_POOL_ENDPOINTS?.split(',') || [])
@@ -40,26 +42,32 @@ class RpcPool {
     }
 
     call(address: string, method: string, abi: any) {
+        this.numCalls++
         return new (this.pool[this.index()] || this.pool[0]).eth.Contract(abi, address).methods[method]().call()    
     }
 
     async getBalance(address: string) {
+        this.numCalls++
         return (this.pool[this.index()] || this.pool[0]).eth.getBalance(address)
     }
 
     async balanceOf(tokenAddress: string, ownerAddress: string) {
+        this.numCalls++
         return new (this.pool[this.index()] || this.pool[0]).eth.Contract([ERC20_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress).call()  
     }
 
     async balanceOf1155(tokenAddress: string, ownerAddress: string, tokenId: any) {
+        this.numCalls++
         return new (this.pool[this.index()] || this.pool[0]).eth.Contract([ERC1155_BALANCE_OF_ITEM], tokenAddress).methods.balanceOf(ownerAddress, tokenId).call()  
     }
 
     async getCode(address: string) {
+        this.numCalls++
         return (this.pool[this.index()] || this.pool[0]).eth.getCode(address)
     }
 
     async getBlock(number: number, withTx: boolean) {
+        this.numCalls++
         return (this.pool[this.index()] || this.pool[0]).eth.getBlock(number, withTx)
     }
 
@@ -100,6 +108,10 @@ export function createRpcPool() {
 export function teardownRpcPool() {
     rpcPool?.teardown()
     rpcPool = null
+}
+
+export function hasHitMaxCalls() {
+    return rpcPool?.numCalls >= config.MAX_RPC_POOL_CALLS
 }
 
 createRpcPool()

@@ -42,6 +42,8 @@ const indexerConfig: StringKeyMap = {
     CMC_API_KEY: ev('CMC_API_KEY'),
     RPC_POOL_ENDPOINTS: ev('RPC_POOL_ENDPOINTS'),
     RPC_FUNCTION_BATCH_SIZE: Number(ev('RPC_FUNCTION_BATCH_SIZE', 100)),
+    MAX_RPC_POOL_CALLS: Number(ev('MAX_RPC_POOL_CALLS', 100000)),
+    MAX_RPC_POOL_BLOCK_ITERATIONS: Number(ev('MAX_RPC_POOL_BLOCK_ITERATIONS', 1000)),
 }
 
 export default indexerConfig
