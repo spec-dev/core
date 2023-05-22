@@ -23,13 +23,13 @@ $ bin/run
 ## Build Image
 
 ```bash
-$ bin/build eth
+$ bin/build
 ```
 
 ## Push Image
 
 ```bash
-$ bin/push eth
+$ bin/push
 ```
 
 ## Deploy
