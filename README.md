@@ -36,7 +36,7 @@ https://deno.com/manual@v1.33.1/getting_started/installation)
 
 # Data Pipeline
 
-The backbone of Spec is its indexing pipeline, which ingests data from a variety of blockchains, uses it to curate data for higher-level data models, and then publishes these data changes downstream to customers' databases.
+The backbone of Spec is its indexing pipeline, which ingests data from a variety of blockchains, uses that data to curate data higher-level data models, and then publishes updates downstream to customers' databases.
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/data-pipeline.png)
 
@@ -51,7 +51,7 @@ The backbone of Spec is its indexing pipeline, which ingests data from a variety
 * [Live Object Deno Entrypoint](/deno/live-object-entrypoint.ts)
 * [Shared Tables](#shared-tables-db)
 * [Indexer DB](#indexer-db)
-* [Indexer Redis](#indexer-db)
+* [Indexer Redis](#indexer-redis)
 * [Spec Client](https://github.com/spec-dev/spec)
 
 # Full Stack App
@@ -63,10 +63,10 @@ The infrastructure that end-users interact with follows more of the classic `Cli
 ## Components
 * [CLI](https://github.com/spec-dev/cli)
 * [Desktop App](https://github.com/spec-dev/app)
-* [Core API](/head-reporters/)
-* [Delayed Jobs](/indexers/)
-* [Logs Relay](/event-sorter/)
-* [Indexer Redis](#indexer-db)
+* [Core API](/core-api/)
+* [Delayed Jobs](/delayed-jobs/)
+* [Log Relay](/log-relay/)
+* [Indexer Redis](#indexer-redis)
 * [ABI Redis](#abi-redis)
 * [Core Redis](#core-redis)
 * [Core DB](#core-db)
