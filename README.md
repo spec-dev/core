@@ -59,12 +59,13 @@ The Indexer database keeps track of index-block jobs as well as any chain reorgs
 
 ## Shared Tables DB
 
-The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables (the tables backing every Live Object). Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables database. As an example, all Live Objects for the Uniswap protocol would exist under the `uniswap` namespace, and each of which would have its own table in the `uniswap` schema.
+The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables (the tables backing every Live Object). Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables database. As an example, all Live Objects for the Uniswap protocol would exist under the `uniswap` namespace, and each would have its own corresponding table in the `uniswap` schema.
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/shared-tables.png)
 
-
 ## Core DB
+
+The Core database stores all users, namespaces, Live Objects, events, contracts, and other metadata needed for the end-user application.
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/coredb.png)
 
