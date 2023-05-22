@@ -2,7 +2,7 @@
 
 Welcome to Spec's core microservices :)
 
-## Full-Stack Requirements
+## Requirements
 
 - node >= 16
 - npm >= 8
@@ -11,6 +11,8 @@ Welcome to Spec's core microservices :)
 - docker
 - Rust
 - Deno >= 1.3 (+recommend the Deno/Denoland VSCode extension)
+
+### Helpful Links
 
 Installing Node.js with `nvm` on Mac:<br>
 https://collabnix.com/how-to-install-and-configure-nvm-on-mac-os/
