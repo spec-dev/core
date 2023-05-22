@@ -10,15 +10,14 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 pollers_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="$1"
-job_name="$2"
-deployment_name="$3"
+env="eth"
+job_name="$1"
+deployment_name="$2"
 
-# Ex: bin/deploy eth pollTokenPrices poll-token-prices
+# Ex: bin/deploy pollTokenPrices poll-token-prices
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
 $shared_bin_dir/validate_arg "job_name" "$job_name"
 $shared_bin_dir/validate_arg "deployment_name" "$deployment_name"
 
