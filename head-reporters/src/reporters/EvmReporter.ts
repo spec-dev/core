@@ -156,7 +156,7 @@ class EvmReporter {
         
         if (givenBlock.number === this.waitAfterUncleAt) {
             this.waitAfterUncleAt = null
-            logger.notify(`Waiting extra at ${givenBlock.number} due to re-org previously seen in buffer.`)
+            logger.warn(`Waiting extra at ${givenBlock.number} due to re-org previously seen in buffer.`)
             await sleep(this.unclePauseTime / 2)
         }
 
