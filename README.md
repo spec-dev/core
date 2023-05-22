@@ -38,11 +38,38 @@ The backbone of Spec is its indexing pipeline, which ingests data from a variety
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/data-pipeline.png)
 
+## Components
+* [Head Reporter](/head-reporters/)
+* [Indexer](/indexers/)
+* [Event Sorter](/event-sorter/)
+* [Event Generator](/event-generator/)
+* [Event Relay](/event-relay/)
+* [Tables API](/tables-api/)
+* [Gap Detector](/gap-detector/)
+* [Live Object Deno Entrypoint](/deno/live-object-entrypoint.ts)
+* [Shared Tables](#shared-tables-db)
+* [Indexer DB](#indexer-db)
+* [Indexer Redis](#indexer-db)
+* [Spec Client](https://github.com/spec-dev/spec)
+
 # Full Stack App
 
 The infrastructure that end-users interact with follows more of the classic `Client` -> `Server` -> `Database` pattern and resembles the following: 
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/full-stack.png)
+
+## Components
+* [CLI](https://github.com/spec-dev/cli)
+* [Desktop App](https://github.com/spec-dev/app)
+* [Core API](/head-reporters/)
+* [Delayed Jobs](/indexers/)
+* [Logs Relay](/event-sorter/)
+* [Indexer Redis](#indexer-db)
+* [ABI Redis](#abi-redis)
+* [Core Redis](#core-redis)
+* [Core DB](#core-db)
+* [Shared Tables](#shared-tables-db)
+* [Spec Client](https://github.com/spec-dev/spec)
 
 # Storage Infrastructure
 
@@ -55,12 +82,12 @@ The Indexer database keeps track of index-block jobs as well as any chain reorgs
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/indexerdb.png)
 
-[`indexed_blocks`](/shared/src/lib/indexer/db/entities/IndexedBlock.ts) - A block indexed by Spec.<br>
-[`reorgs`](/shared/src/lib/indexer/db/entities/Reorg.ts) - A chain reorg.<br>
+* [`indexed_blocks`](/shared/src/lib/indexer/db/entities/IndexedBlock.ts) - A block indexed by Spec.
+* [`reorgs`](/shared/src/lib/indexer/db/entities/Reorg.ts) - A chain reorg.
 
 ## Shared Tables DB
 
-The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables (the tables backing every Live Object). Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables database. As an example, all Live Objects for the Uniswap protocol would exist under the `uniswap` namespace, and each would have its own corresponding table in the `uniswap` schema.<br>
+The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables. Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables DB. For example, a Live Object for the Uniswap protocol would exist under the `uniswap` namespace and would have its own corresponding table in the `uniswap` schema.<br>
 [[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=shared-tables;is-cluster=false)
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/shared-tables.png)
@@ -72,20 +99,20 @@ The Core database stores all users, namespaces, projects, Live Objects, events, 
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/coredb.png)
 
-[`users`](/shared/src/lib/core/db/entities/User.ts) - A user on Spec.<br>
-[`sessions`](/shared/src/lib/core/db/entities/Session.ts) - An authed user session.<br>
-[`namespaces`](/shared/src/lib/core/db/entities/Namespace.ts) - A globally unique namespace serving as an umbrella to other resources on Spec.<br>
-[`namespace_users`](/shared/src/lib/core/db/entities/NamespaceUser.ts) - A user that belongs to a particular namespace, with associated permissions.<br>
-[`projects`](/shared/src/lib/core/db/entities/Project.ts) - A customer project on Spec.<br>
-[`project_roles`](/shared/src/lib/core/db/entities/ProjectRole.ts) - A way of specifying owners, admins, and members of a project.<br>
-[`contracts`](/shared/src/lib/core/db/entities/Contract.ts) - A group of smart contracts that all share the same ABI.<br>
-[`contract_instances`](/shared/src/lib/core/db/entities/ContractInstance.ts) - A smart contract deployed to a specific chain/address.<br>
-[`events`](/shared/src/lib/core/db/entities/Event.ts) - An event on Spec that represents something that happened on-chain.<br>
-[`event_versions`](/shared/src/lib/core/db/entities/EventVersion.ts) - Version control for events.<br>
-[`live_objects`](/shared/src/lib/core/db/entities/LiveObject.ts) - A data model representing some live data on-chain.<br>
-[`live_object_versions`](/shared/src/lib/core/db/entities/LiveObjectVersion.ts) - Version control for Live Objects.<br>
-[`live_event_versions`](/shared/src/lib/core/db/entities/LiveEventVersion.ts) - A join-table specifying which event versions are associated with which live object versions, either as inputs or outputs.<br>
-[`live_call_handlers`](/shared/src/lib/core/db/entities/LiveCallHandler.ts) - A smart contract function whose handler is used as an input to a live object version.<br>
+* [`users`](/shared/src/lib/core/db/entities/User.ts) - A user on Spec.
+* [`sessions`](/shared/src/lib/core/db/entities/Session.ts) - An authed user session.
+* [`namespaces`](/shared/src/lib/core/db/entities/Namespace.ts) - A globally unique namespace serving as an umbrella to other resources on Spec.
+* [`namespace_users`](/shared/src/lib/core/db/entities/NamespaceUser.ts) - A user that belongs to a particular namespace, with associated permissions.
+* [`projects`](/shared/src/lib/core/db/entities/Project.ts) - A customer project on Spec.
+* [`project_roles`](/shared/src/lib/core/db/entities/ProjectRole.ts) - A way of specifying owners, admins, and members of a project.
+* [`contracts`](/shared/src/lib/core/db/entities/Contract.ts) - A group of smart contracts that all share the same ABI.
+* [`contract_instances`](/shared/src/lib/core/db/entities/ContractInstance.ts) - A smart contract deployed to a specific chain/address.
+* [`events`](/shared/src/lib/core/db/entities/Event.ts) - An event on Spec that represents something that happened on-chain.
+* [`event_versions`](/shared/src/lib/core/db/entities/EventVersion.ts) - Version control for events.
+* [`live_objects`](/shared/src/lib/core/db/entities/LiveObject.ts) - A data model representing some live data on-chain.
+* [`live_object_versions`](/shared/src/lib/core/db/entities/LiveObjectVersion.ts) - Version control for Live Objects.
+* [`live_event_versions`](/shared/src/lib/core/db/entities/LiveEventVersion.ts) - A join-table specifying which event versions are associated with which live object versions, either as inputs or outputs.
+* [`live_call_handlers`](/shared/src/lib/core/db/entities/LiveCallHandler.ts) - A smart contract function whose handler is used as an input to a live object version.
 
 ## Indexer Redis
 
