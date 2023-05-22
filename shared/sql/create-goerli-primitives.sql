@@ -15,6 +15,3 @@ CREATE TABLE "goerli"."traces" ("id" character varying NOT NULL, "transaction_ha
 
 -- goerli.contracts
 CREATE TABLE "goerli"."contracts" ("address" character varying(50) NOT NULL, "bytecode" character varying, "is_erc20" boolean, "is_erc721" boolean, "is_erc1155" boolean, "block_hash" character varying(70) NOT NULL, "block_number" bigint NOT NULL, "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, CONSTRAINT "PK_71a93ca1569ed761dced911f0a4" PRIMARY KEY ("address"));
-
--- goerli.latest_interactions
-CREATE TABLE "goerli"."latest_interactions" ("from" character varying(50) NOT NULL, "to" character varying(50) NOT NULL, "interaction_type" character varying(20) NOT NULL, "hash" character varying(70) NOT NULL, "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, "block_hash" character varying(70) NOT NULL, "block_number" bigint NOT NULL, CONSTRAINT "PK_8d6ef51b5f31ad371bf86ce2db4" PRIMARY KEY ("from", "to"));

@@ -115,7 +115,21 @@ The Shared Tables database stores all blockchain data. This includes all chain-s
 
 ### Local Setup
 
-Coming soon...
+Create `spec` user if you haven't already:
+```bash
+$ createuser spec
+```
+
+Create the Shared Tables database:
+```bash
+$ createdb shared-tables -O spec
+```
+
+Run migrations:
+```bash
+$ cd shared
+$ bin/init-shared-tables
+```
 
 ## Core DB
 

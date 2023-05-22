@@ -13,7 +13,3 @@ CREATE TRIGGER tokens_nft_collections_update_ops AFTER UPDATE ON tokens.nft_coll
 -- tokens.nft_balance
 CREATE TRIGGER tokens_nft_balance_insert_ops AFTER INSERT ON tokens.nft_balance FOR EACH ROW EXECUTE PROCEDURE track_spec_table_ops('id');
 CREATE TRIGGER tokens_nft_balance_update_ops AFTER UPDATE ON tokens.nft_balance FOR EACH ROW EXECUTE PROCEDURE track_spec_table_ops('id');
-
--- -- ethereum.latest_interactions
--- CREATE TRIGGER ethereum_latest_interactions_insert_ops AFTER INSERT ON ethereum.latest_interactions FOR EACH ROW EXECUTE PROCEDURE track_spec_table_ops_cs('from', 'to');
--- CREATE TRIGGER ethereum_latest_interactions_update_ops AFTER UPDATE ON ethereum.latest_interactions FOR EACH ROW EXECUTE PROCEDURE track_spec_table_ops_cs('from', 'to');
