@@ -35,5 +35,5 @@ $ bin/push
 ## Deploy
 
 ```bash
-$ bin/deploy <chain>
+$ bin/deploy <eth|goerli|polygon|mumbai>
 ```

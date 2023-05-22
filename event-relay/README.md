@@ -10,7 +10,7 @@ The Socketcluster powering Spec's event network.
 
 ```typescript
 import { createEventClient } from '@spec.dev/event-client'
-
+env="eth"
 // Create event client.
 const client = createEventClient({ 
     hostname: 'events-dev.spec.dev',
@@ -115,13 +115,13 @@ bin/deploy-state <env>
 3) Build a new image for event-relay
 
 ```bash
-$ bin/build <env>
+$ bin/build
 ```
 
 4) Push that new image
 
 ```bash
-$ bin/push <env>
+$ bin/push
 ```
 
 If you get an auth error, cd out (`cd ..`) into the core directory, source those envs from `.env`, and run `bin/auth_docker`.
@@ -133,5 +133,5 @@ If you get an auth error, cd out (`cd ..`) into the core directory, source those
 6) Deploy
 
 ```bash
-bin/deploy <env>
+bin/deploy
 ```
