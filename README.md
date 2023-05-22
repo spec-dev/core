@@ -43,3 +43,23 @@ The backbone of Spec is its indexing pipeline, which ingests data from a variety
 The infrastructure that end-users interact with follows more of the classic `Client` -> `Server` -> `Database` pattern and resembles the following: 
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/full-stack.png)
+
+# Storage Infrastructure
+
+Spec has 3 postgres databases and 3 redis instances that all work together to power its indexing pipeline and data delivery infrastructure.
+
+## Postgres Databases
+
+### Indexer DB
+
+![](https://dbjzhg7yxqn0y.cloudfront.net/indexerdb.png)
+
+### Shared Tables DB
+
+![](https://dbjzhg7yxqn0y.cloudfront.net/shared-tables.png)
+
+### Core DB
+
+![](https://dbjzhg7yxqn0y.cloudfront.net/coredb.png)
+
+## Redis Instances
