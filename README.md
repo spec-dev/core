@@ -87,12 +87,35 @@ The Indexer database keeps track of index-block jobs as well as any chain reorgs
 * [`indexed_blocks`](/shared/src/lib/indexer/db/entities/IndexedBlock.ts) - A block indexed by Spec.
 * [`reorgs`](/shared/src/lib/indexer/db/entities/Reorg.ts) - A chain reorg.
 
+### Local Setup
+
+Create `spec` user if you haven't already:
+```bash
+$ createuser spec
+```
+
+Create the Indexer database:
+```bash
+$ createdb indexer -O spec
+```
+
+Run migrations:
+```bash
+$ cd shared
+$ npm install
+$ bin/migrate indexer
+```
+
 ## Shared Tables DB
 
 The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables. Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables DB. For example, a Live Object for the Uniswap protocol would exist under the `uniswap` namespace and would have its own corresponding table in the `uniswap` schema.<br>
 [[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=shared-tables;is-cluster=false)
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/shared-tables.png)
+
+### Local Setup
+
+Coming soon...
 
 ## Core DB
 
@@ -115,6 +138,25 @@ The Core database stores all users, namespaces, projects, Live Objects, events, 
 * [`live_object_versions`](/shared/src/lib/core/db/entities/LiveObjectVersion.ts) - Version control for Live Objects.
 * [`live_event_versions`](/shared/src/lib/core/db/entities/LiveEventVersion.ts) - A join-table specifying which event versions are associated with which live object versions, either as inputs or outputs.
 * [`live_call_handlers`](/shared/src/lib/core/db/entities/LiveCallHandler.ts) - A smart contract function whose handler is used as an input to a live object version.
+
+### Local Setup
+
+Create `spec` user if you haven't already:
+```bash
+$ createuser spec
+```
+
+Create the Core database:
+```bash
+$ createdb core -O spec
+```
+
+Run migrations:
+```bash
+$ cd shared
+$ npm install
+$ bin/migrate core
+```
 
 ## Indexer Redis
 
