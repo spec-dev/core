@@ -46,13 +46,20 @@ The infrastructure that end-users interact with follows more of the classic `Cli
 
 # Storage Infrastructure
 
-Spec has 3 postgres databases and 3 redis instances that all work together to power its indexing pipeline and data delivery infrastructure.
+Spec has 3 postgres databases and 3 redis instances that all work together to power its indexing pipeline and infrastructure for data delivery.
 
 ## Postgres Databases
 
+Postgres is used internally to store user data, blockchain primitives, and higher-level Live Object data. All Postgres databases are hosted as RDS instances on AWS.
+
 ### Indexer DB
 
+The Indexer database keeps track of the index-block jobs + any chain reorgs that occur.
+
 ![](https://dbjzhg7yxqn0y.cloudfront.net/indexerdb.png)
+
+* [`indexed_blocks`](/shared/src/lib/indexer/db/entities/IndexedBlock.ts) - A block indexed by Spec.
+* [`reorgs`](/shared/src/lib/indexer/db/entities/Reorg.ts) - A chain reorg.
 
 ### Shared Tables DB
 
