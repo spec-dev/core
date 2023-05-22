@@ -1,4 +1,4 @@
-# Spec Core
+# Spec Core Microservices
 
 Welcome to Spec's core microservices :)
 
