@@ -51,7 +51,7 @@ Spec has 3 postgres databases and 3 redis instances that all work together to po
 ## Indexer DB
 
 The Indexer database keeps track of index-block jobs as well as any chain reorgs that occur.<br>
-[RDS](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=indexer;is-cluster=false)
+[[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=indexer;is-cluster=false)
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/indexerdb.png)
 
@@ -61,14 +61,14 @@ The Indexer database keeps track of index-block jobs as well as any chain reorgs
 ## Shared Tables DB
 
 The Shared Tables database stores all blockchain data. This includes all chain-specific primitives (blocks, transactions, logs, etc.), all cross-chain token data (tokens, balances, etc.), and all Live Object tables (the tables backing every Live Object). Every Live Object on Spec exists under a specific namespace, and each namespace has its own corresponding schema within the Shared Tables database. As an example, all Live Objects for the Uniswap protocol would exist under the `uniswap` namespace, and each would have its own corresponding table in the `uniswap` schema.<br>
-[RDS](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=shared-tables;is-cluster=false)
+[[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=shared-tables;is-cluster=false)
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/shared-tables.png)
 
 ## Core DB
 
 The Core database stores all users, namespaces, projects, Live Objects, events, contracts, and other ecosystem data.<br>
-[RDS](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=core;is-cluster=false)
+[[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=core;is-cluster=false)
 
 ![](https://dbjzhg7yxqn0y.cloudfront.net/coredb.png)
 
@@ -90,17 +90,17 @@ The Core database stores all users, namespaces, projects, Live Objects, events, 
 ## Indexer Redis
 
 The Indexer Redis instance is primarily used for communicating between microservices in the data pipeline, leveraging redis queues, streams, and hashes, and more.<br>
-[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/unclustered-indexer)
+[[Elasticache]](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/unclustered-indexer)
 
 ## Core Redis
 
 The Core Redis instance is primarily used for storing logs sent to it from the various Spec clients (customers running Spec). These logs are stored in Redis streams, which can then be easily pulled down and tailed from the CLI when requested.<br>
-[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
+[[Elasticache]](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
 
 ## ABI Redis
 
 The ABI Redis instance is in charge of mapping smart contracts to their associated ABIs.<br> 
-[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
+[[Elasticache]](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
 
 In practice, this looks something like:
 ```javascript
