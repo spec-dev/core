@@ -89,4 +89,29 @@ The Core database stores all users, namespaces, projects, Live Objects, events, 
 
 ## Indexer Redis
 
+The Indexer Redis instance is primarily used for communicating between microservices in the data pipeline, leveraging redis queues, streams, and hashes, and more.<br>
+[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/unclustered-indexer)
 
+## Core Redis
+
+The Core Redis instance is primarily used for storing logs sent to it from the various Spec clients (customers running Spec). These logs are stored in Redis streams, which can then be easily pulled down and tailed from the CLI when requested.<br>
+[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
+
+## ABI Redis
+
+The ABI Redis instance is in charge of mapping smart contracts to their associated ABIs.<br> 
+[Elasticache](https://us-west-1.console.aws.amazon.com/elasticache/home?region=us-west-1#/redis/core)
+
+In practice, this looks something like:
+```javascript
+{
+    "eth-contracts": {
+        "0x123.": "<abi>",
+        "0x456.": "<abi>"
+    },
+    "polygon-contracts": {
+        "0x789": "<abi>",
+        ...
+    }
+}
+```
