@@ -7,8 +7,8 @@ async function perform(name: string) {
     await CoreDB.initialize()
     logger.info(`Creating namespace ${name}...`)
 
-    await createNamespace(name)
-    logger.info('Success.')
+    const nsp = await createNamespace(name)
+    logger.info('Success. namespace.id = ', nsp.id)
 
     exit(0)
 }
