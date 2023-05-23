@@ -9,7 +9,7 @@ The Core API is Spec's primary API for all application specific resources/action
 Ensure the following Postgres and Redis instances have been set up locally:
 
 * [Core DB](/#local-setup-2)
-* [Shared Tables](#local-setup-1)
+* [Shared Tables](/#local-setup-1)
 * Indexer Redis
 * Core Redis
 * ABI Redis
