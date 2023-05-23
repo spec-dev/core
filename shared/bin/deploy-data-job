@@ -8,9 +8,8 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 shared_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="$1"
-data_job_name="$2"
-data_args="${@:3}"
+data_job_name="$1"
+data_args="${@:2}"
 IFS=$'^' read -rd '' -a args_array <<<"$data_args"
 
 job_cmd="['npm', 'run', 'job', '$data_job_name'"
@@ -22,7 +21,6 @@ job_cmd+="]"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
 $shared_bin_dir/validate_arg "data_job_name" "$data_job_name"
 
 # ======== SET KEY VARS ======== #

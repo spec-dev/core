@@ -10,11 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="$1"
-
-# ======== VALIDATE ARGS ======== #
-
-$shared_bin_dir/validate_arg "env" "$env" "eth|polygon|mumbai"
+env="eth"
 
 # ======== SET KEY VARS ======== #
 

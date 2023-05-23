@@ -9,7 +9,7 @@ set -e # exit if any child script exits with non-zero status
 this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="$1"
+env="eth"
 
 # ======== VALIDATE ARGS ======== #
 
