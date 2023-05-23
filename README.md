@@ -215,7 +215,7 @@ Prerequisites:
 #### 1) Clone the CLI
 
 ```bash
-$ git clone https://github.com/spec-dev/cli
+$ git clone https://github.com/spec-dev/cli && cd cli
 ```
 
 #### 2) Install dependencies
