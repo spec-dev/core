@@ -200,3 +200,63 @@ In practice, this looks something like:
     }
 }
 ```
+
+# Local Development (CLI -> Core API)
+
+Follow the steps below to get up and running with a local version of the CLI, Core API, Delayed Jobs worker, and the databases they interact with.
+
+## CLI
+
+#### 1) Clone the CLI
+
+```bash
+$ git clone https://github.com/spec-dev/cli
+```
+
+#### 2) Install dependencies
+
+```bash
+$ npm install
+```
+
+#### 3) Create a local installation script
+
+```bash
+$ mkdir bin
+$ touch bin/install
+$ chmod u+x bin/*
+```
+
+#### 4) Add the following contents to `bin/install`
+```
+#!/bin/bash
+
+npm run build
+mkdir ./dist/files
+cp -r ./src/files ./dist
+npm install -g . --force
+chmod u+x /usr/local/bin/spec
+deno cache ~/spec/cli/dist/files/testLiveObject.ts
+```
+
+#### 5) Run your installation script
+
+```bash
+$ bin/install
+```
+
+You'll want to re-run this anytime you make changes and want to test them out.
+
+#### 6) Set environment variables to point CLI -> local Core API
+
+```bash
+export SPEC_API_ORIGIN=http://localhost:7777
+```
+
+## Core API
+
+Follow setup instructions [here](/core-api/README.md)
+
+## Delayed Jobs
+
+Follow setup instructions [here](/delayed-jobs/README.md)
