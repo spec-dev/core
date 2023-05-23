@@ -128,6 +128,7 @@ $ createdb shared-tables -O spec
 Run migrations:
 ```bash
 $ cd shared
+$ chmod u+x bin/*
 $ bin/init-shared-tables
 ```
 
