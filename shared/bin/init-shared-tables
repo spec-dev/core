@@ -1,3 +1,5 @@
+#!/bin/bash
+
 psql shared-tables -f sql/create-ethereum-primitives.sql
 psql shared-tables -f sql/create-goerli-primitives.sql
 psql shared-tables -f sql/create-mumbai-primitives.sql
