@@ -10,6 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 shared_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
+env="eth"
 db_folder_name="$1"
 
 # ======== VALIDATE ARGS ======== #
