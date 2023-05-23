@@ -67,7 +67,6 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
-import { logger } from 'ethers'
 
 const web3js = new Web3()
 
