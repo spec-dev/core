@@ -3,11 +3,11 @@ import { exit } from 'process'
 import { CoreDB } from '../lib/core/db/dataSource'
 import { createProject } from '../lib/core/db/services/projectServices'
 
-async function perform(name: string, orgId: number) {
+async function perform(name: string, namespaceId: number) {
     await CoreDB.initialize()
 
     logger.info(`Creating project ${name}...`)
-    const project = await createProject(name, Number(orgId))
+    const project = await createProject(name, Number(namespaceId))
 
     if (!project) {
         logger.info('Failed.')
