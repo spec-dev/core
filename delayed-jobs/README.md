@@ -9,7 +9,7 @@ A delayed job is a long-running process (typically kicked off by a Core API rout
 Ensure the following Postgres and Redis instances have been set up locally:
 
 * [Core DB](/#local-setup-2)
-* [Shared Tables](#local-setup-1)
+* [Shared Tables](/#local-setup-1)
 * Indexer Redis
 * ABI Redis
 
