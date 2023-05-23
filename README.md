@@ -169,6 +169,7 @@ Run migrations:
 ```bash
 $ cd shared
 $ npm install
+$ npm run build
 $ bin/migrate core
 ```
 
