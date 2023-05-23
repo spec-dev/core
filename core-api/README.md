@@ -10,6 +10,7 @@ Ensure the following Postgres and Redis instances have been set up locally:
 
 * [Core DB](/#local-setup-2)
 * [Shared Tables](#local-setup-1)
+* Indexer Redis
 * Core Redis
 * ABI Redis
 
@@ -50,5 +51,5 @@ $ bin/push
 ## Deploy to K8S
 
 ```bash
-$ bin/deploy <eth|goerli|polygon|mumbai>
+$ bin/deploy
 ```

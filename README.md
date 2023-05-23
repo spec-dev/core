@@ -207,6 +207,11 @@ Follow the steps below to get up and running with a local version of the CLI, Co
 
 ## CLI
 
+Prerequisites:
+
+* Install [Deno](https://deno.com/manual@v1.33.1/getting_started/installation)
+* Local Postgres installation
+
 #### 1) Clone the CLI
 
 ```bash
@@ -217,6 +222,7 @@ $ git clone https://github.com/spec-dev/cli
 
 ```bash
 $ npm install
+$ npm install -g @spec.dev/spec
 ```
 
 #### 3) Create a local installation script
@@ -236,7 +242,6 @@ mkdir ./dist/files
 cp -r ./src/files ./dist
 npm install -g . --force
 chmod u+x /usr/local/bin/spec
-deno cache ~/spec/cli/dist/files/testLiveObject.ts
 ```
 
 #### 5) Run your installation script
