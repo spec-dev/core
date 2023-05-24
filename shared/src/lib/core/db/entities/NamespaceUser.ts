@@ -16,7 +16,7 @@ import { ProjectRole } from './ProjectRole'
 export enum NamespaceUserRole {
     Owner = 'owner',
     Admin = 'admin',
-    member = 'member',
+    Member = 'member',
 }
 
 /**
