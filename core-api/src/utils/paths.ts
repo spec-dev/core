@@ -38,7 +38,8 @@ const paths = {
     // Contract Instance paths.
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
     DECODE_CONTRACT_INTERACTIONS: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's' + '/decode',
-
+    REGISTER_CONTRACT_INSTANCE: prefix.CONTRACT_INSTANCE + '/register',
+    
     // Pipeline config paths.
     TOGGLE_PROCESS_JOBS: prefix.ADMIN + prefix.PIPELINE + '/toggle-process-jobs',
     GET_PROCESS_JOBS_STATUS: prefix.ADMIN + prefix.PIPELINE + '/process-jobs',
