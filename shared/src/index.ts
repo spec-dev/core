@@ -248,7 +248,7 @@ export {
 } from './lib/core/db/services/liveCallHandlerServices'
 export {
     createContractInstanceRegistration,
-    getContractInstanceRegistrationStatus,
+    getContractInstanceRegistrationProgress,
     updateContractInstanceRegistrationStatus,
     updateContractInstanceRegistrationCursor,
     contractInstanceRegistrationFailed,

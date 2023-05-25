@@ -5,6 +5,7 @@ import {
     ContractInstanceRegistrationStatus,
 } from '../entities/ContractInstanceRegistration'
 import uuid4 from 'uuid4'
+import { StringKeyMap } from '../../../types'
 
 const contractInstanceRegistrationsRepo = () => CoreDB.getRepository(ContractInstanceRegistration)
 
@@ -28,18 +29,25 @@ export async function createContractInstanceRegistration(
     return contractInstanceRegistration
 }
 
-export async function getContractInstanceRegistrationStatus(
+export async function getContractInstanceRegistrationProgress(
     uid: string
-): Promise<ContractInstanceRegistrationStatus | null> {
+): Promise<StringKeyMap> {
+    let status = null
+    let cursor = null
+    let failed = false
+    let error = null
     try {
         const contractInstanceRegistration = await contractInstanceRegistrationsRepo().findOneBy({
             uid,
         })
-        return contractInstanceRegistration?.status || null
+        status = contractInstanceRegistration?.status || null
+        cursor = contractInstanceRegistration?.cursor || null
+        failed = contractInstanceRegistration?.failed || false
+        error = contractInstanceRegistration?.error || null
     } catch (err) {
         logger.error(`Error finding ContractInstanceRegistration(uid=${uid}: ${err}`)
-        return null
     }
+    return { status, cursor, failed, error }
 }
 
 export async function updateContractInstanceRegistrationStatus(
