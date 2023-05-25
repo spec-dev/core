@@ -47,6 +47,9 @@ export class ContractInstance {
     @JoinColumn({ name: 'contract_id' })
     contract: Contract
 
-    @OneToMany(() => ContractInstanceRegistration, (contractInstanceRegistration) => contractInstanceRegistration.contractInstance)
+    @OneToMany(
+        () => ContractInstanceRegistration,
+        (contractInstanceRegistration) => contractInstanceRegistration.contractInstance
+    )
     contractInstanceRegistrations: ContractInstanceRegistration[]
 }

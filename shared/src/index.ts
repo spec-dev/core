@@ -176,6 +176,10 @@ export { Project } from './lib/core/db/entities/Project'
 export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { LiveCallHandler } from './lib/core/db/entities/LiveCallHandler'
+export {
+    ContractInstanceRegistration,
+    ContractInstanceRegistrationStatus,
+} from './lib/core/db/entities/ContractInstanceRegistration'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -242,7 +246,13 @@ export {
     createLiveCallHandler,
     createLiveCallHandlersWithTx,
 } from './lib/core/db/services/liveCallHandlerServices'
-
+export {
+    createContractInstanceRegistration,
+    getContractInstanceRegistrationStatus,
+    updateContractInstanceRegistrationStatus,
+    updateContractInstanceRegistrationCursor,
+    contractInstanceRegistrationFailed,
+} from './lib/core/db/services/contractInstanceRegistrationServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {

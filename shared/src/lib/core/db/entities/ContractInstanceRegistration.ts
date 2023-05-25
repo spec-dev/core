@@ -26,14 +26,14 @@ export class ContractInstanceRegistration {
 
     @Column()
     @Index({ unique: true })
-    uid: string 
+    uid: string
 
     @Column('int8', { name: 'contract_instance_id' })
     @Index()
     contractInstanceId: number
 
     @Column()
-    status: ContractInstanceRegistrationStatus 
+    status: ContractInstanceRegistrationStatus
 
     @Column({ nullable: true })
     cursor: number
@@ -59,7 +59,10 @@ export class ContractInstanceRegistration {
     })
     updatedAt: Date
 
-    @ManyToOne(() => ContractInstance, (contractInstance) => contractInstance.contractInstanceRegistrations)
+    @ManyToOne(
+        () => ContractInstance,
+        (contractInstance) => contractInstance.contractInstanceRegistrations
+    )
     @JoinColumn({ name: 'contract_instance_id' })
     contractInstance: ContractInstance
 }
