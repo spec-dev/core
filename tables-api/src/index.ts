@@ -165,7 +165,7 @@ app.post(paths.TRANSACTION, async (req, res) => {
 /**
  * Perform a query & stream the results in realtime as a readable stream.
  */
-app.post(paths.STREAM_QUERY, async (req, res) => {
+async function handleStreamQuery(req, res) {
     // Auth the JWT to get RBAC role.
     const claims = authRequest(req)
     const role = claims?.role
@@ -180,8 +180,6 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
     }
-
-    // If  
 
     // Create a query stream and stream the response.
     let stream, conn, keepAliveTimer
@@ -199,6 +197,12 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
         logger.info('Request closed.')
         cleanupStream(stream, conn, keepAliveTimer)
     })
+}
+app.post(paths.STREAM_QUERY, async (req, res) => {
+    return await handleStreamQuery(req, res)
+})
+app.post(paths.HEAD_STREAM_QUERY, async (req, res) => {
+    return await handleStreamQuery(req, res)
 })
 
 ;(async () => {
