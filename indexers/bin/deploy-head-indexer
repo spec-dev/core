@@ -28,6 +28,7 @@ publisher_role_key=$( $shared_bin_dir/env_reader "$env" "PUBLISHER_ROLE_KEY" )
 event_relay_hostname=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_HOSTNAME" )
 head_reporter_queue_key=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_QUEUE_KEY" )
 bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "INDEXER_BUGSNAG_API_KEY" )
+index_perform_max_duration=$( $shared_bin_dir/env_reader "$env" "INDEX_PERFORM_MAX_DURATION" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -73,6 +74,7 @@ $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 $shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
 $shared_bin_dir/assert_env "INDEXER_BUGSNAG_API_KEY" "$bugsnag_api_key"
+$shared_bin_dir/assert_env "INDEX_PERFORM_MAX_DURATION" "$index_perform_max_duration"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -115,7 +117,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
+# image_version=$( $shared_bin_dir/latest_sha )
+image_version="68ae1e4"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -153,6 +156,7 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{INDEX_PERFORM_MAX_DURATION}}|$index_perform_max_duration|g" | \
     sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
     sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )

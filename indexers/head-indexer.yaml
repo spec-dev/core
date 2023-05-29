@@ -90,3 +90,5 @@ spec:
           value: tails
         - name: FORCE_COLOR
           value: "1"         
+        - name: INDEX_PERFORM_MAX_DURATION
+          value: "{{INDEX_PERFORM_MAX_DURATION}}"
