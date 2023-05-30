@@ -181,12 +181,14 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
     }
 
-    // If  
-
     // Create a query stream and stream the response.
+    const usePrimaryDb = req.body?.nearHead === true
     let stream, conn, keepAliveTimer
     try {
-        ;([stream, conn] = await createQueryStream(query as QueryPayload))
+        ;([stream, conn] = await createQueryStream(
+            query as QueryPayload,
+            usePrimaryDb,
+        ))
         keepAliveTimer = streamQuery(stream, conn, res)
     } catch (error) {
         logger.error(error)

@@ -6,26 +6,31 @@ import { Pool } from 'pg'
 import { QueryPayload } from '@spec.dev/qb'
 import QueryStream from 'pg-query-stream'
 
-// Create connection pool.
-export const pool = new Pool({
+const poolConfig = {
     host: config.SHARED_TABLES_DB_HOST,
     port: config.SHARED_TABLES_DB_PORT,
-    user: config.SHARED_TABLES_DB_USERNAME,
-    password: config.SHARED_TABLES_DB_PASSWORD,
+    user: config.IS_READ_ONLY ? config.SHARED_TABLES_READER_USERNAME : config.SHARED_TABLES_DB_USERNAME,
+    password: config.IS_READ_ONLY ? config.SHARED_TABLES_READER_PASSWORD : config.SHARED_TABLES_DB_PASSWORD,
     database: config.SHARED_TABLES_DB_NAME,
     min: 2,
     max: config.SHARED_TABLES_MAX_POOL_SIZE,
     connectionTimeoutMillis: 30000, // 30s
     statement_timeout: config.IS_READ_ONLY ? 300000 : 120000,
-})
-pool.on('error', err => logger.error('PG client error', err))
+}
+const primaryPool = new Pool(poolConfig)
+primaryPool.on('error', err => logger.error('Primary: PG client error', err))
+
+const readerPool = config.IS_READ_ONLY ? new Pool({
+    ...poolConfig,
+    host: config.SHARED_TABLES_READER_HOST,
+}) : null
+readerPool?.on('error', err => logger.error('Reader: PG client error', err))
 
 let schemaRoles = new Set<string>()
-
 export async function loadSchemaRoles() {
     let conn
     try {
-        conn = await pool.connect()
+        conn = await primaryPool.connect()
     } catch (err) {
         conn && conn.release()
         logger.error('Error loading schema roles', err)
@@ -55,9 +60,14 @@ function resolveRole(role?: string): string {
     return schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
 }
 
-async function getPoolConnection(query: QueryPayload | QueryPayload[]) {
+async function getPoolConnection(
+    query: QueryPayload | QueryPayload[],
+    usePrimaryDb: boolean,
+) {
     let conn
     try {
+        console.log('usePrimaryDb', usePrimaryDb, primaryPool, readerPool)
+        const pool = (usePrimaryDb ? primaryPool : readerPool) || primaryPool
         conn = await pool.connect()
     } catch (err) {
         conn && conn.release()
@@ -73,7 +83,7 @@ export async function performQuery(
     attempt: number = 1,
 ): Promise<StringKeyMap[]> {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query)
+    const conn = await getPoolConnection(query, true)
     role = resolveRole(role)
 
     // Perform the query.
@@ -115,7 +125,7 @@ export async function performTx(
     role: string,
     attempt: number = 1,
 ): Promise<StringKeyMap[][]> {
-    const conn = await getPoolConnection(queries)
+    const conn = await getPoolConnection(queries, true)
     role = resolveRole(role)
 
     let results = []
@@ -158,9 +168,9 @@ export async function performTx(
     return responses
 }
 
-export async function createQueryStream(query: QueryPayload) {
+export async function createQueryStream(query: QueryPayload, usePrimaryDb: boolean) {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query)
+    const conn = await getPoolConnection(query, usePrimaryDb)
 
     // Build and return the stream.
     try {
