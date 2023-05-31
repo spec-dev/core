@@ -66,7 +66,6 @@ async function getPoolConnection(
 ) {
     let conn
     try {
-        console.log('usePrimaryDb', usePrimaryDb, primaryPool, readerPool)
         const pool = (usePrimaryDb ? primaryPool : readerPool) || primaryPool
         conn = await pool.connect()
     } catch (err) {
