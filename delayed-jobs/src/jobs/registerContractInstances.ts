@@ -359,7 +359,7 @@ and "address" in (${addresses.map(a => literal(a)).join(', ')})`
 async function publishContractEventLiveObject(namespace: Namespace, payload: PublishLiveObjectVersionPayload) {
     try {
         const liveObjectId = null // just let the live object queries happen in the other service.
-        await publishLiveObjectVersion(namespace, liveObjectId, payload)
+        await publishLiveObjectVersion(namespace, liveObjectId, payload, true)
     } catch (err) {
         logger.error(`Failed to publish live object version ${payload.additionalEventAssociations[0]}.`)
     }
