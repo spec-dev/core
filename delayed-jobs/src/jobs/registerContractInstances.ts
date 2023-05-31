@@ -32,6 +32,8 @@ import {
     chainIds,
     getAbis,
     enqueueDelayedJob,
+    createContractInstanceRegistration,
+    ContractInstanceRegistration
 } from '../../../shared'
 import { EventViewSpec, EventSpec } from '../types'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
@@ -49,11 +51,15 @@ async function registerContractInstances(
     chainId: string, 
     contractPayloads: NewContractPayload[],
     refetchAbis?: boolean,
+    uid?: string
 ) {
+
+    await createContractInstanceRegistration(contractInstanceId, uid)
+
     // Get all unique contract addresses given.
     const allContractAddresses = unique(contractPayloads.map(c => (c.instances || []).map(i => i.address)).flat())
     logger.info(`[${chainId}:${nsp}]: Registering ${allContractAddresses.length} contract instances...`)
-    
+
     // Get chain-specific contract nsp (e.g. "eth.contracts", "polygon.contracts", etc.)
     const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
     if (!chainSpecificContractNsp) {
@@ -459,6 +465,7 @@ export default function job(params: StringKeyMap) {
     const chainId = params.chainId
     const contracts = params.contracts || []
     const refetchAbis = params.refetchAbis || false
+    const uid = params.uid || null
 
     contracts.forEach(c => {
         c.instances.forEach(ci => {
@@ -467,6 +474,6 @@ export default function job(params: StringKeyMap) {
     })
 
     return {
-        perform: async () => registerContractInstances(nsp, chainId, contracts, refetchAbis)
+        perform: async () => registerContractInstances(nsp, chainId, contracts, refetchAbis, uid)
     }
 }

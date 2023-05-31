@@ -35,7 +35,7 @@ export function parseNewContractInstancesPayload(
             return { isValid: false, error: '"name" required for contract' }
         }
 
-        if (!contract.desc) {
+        if (!contract.desc && contract.desc !== '') {
             return { isValid: false, error: '"desc" required for contract' }
         }
 

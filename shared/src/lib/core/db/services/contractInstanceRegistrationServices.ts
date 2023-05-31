@@ -29,9 +29,7 @@ export async function createContractInstanceRegistration(
     return contractInstanceRegistration
 }
 
-export async function getContractInstanceRegistrationProgress(
-    uid: string
-): Promise<StringKeyMap> {
+export async function getContractInstanceRegistrationProgress(uid: string): Promise<StringKeyMap> {
     let status = null
     let cursor = null
     let failed = false
