@@ -716,7 +716,7 @@ async function findStartBlockTimestamp(
             (await SharedTables.query(
                 `select block_timestamp from ${ident(schema)}.${ident(
                     table
-                )} where (${andClauses.join(' or ')}) order by block_number asc limit 1`
+                )} where (${andClauses.join(' or ')}) order by block_timestamp asc limit 1`
             )) || []
         return (results[0] || {})?.block_timestamp || null
     } catch (err) {
