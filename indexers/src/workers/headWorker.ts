@@ -50,6 +50,7 @@ async function runJob(job: Job) {
     let attempt = 1
     let indexer = null
     let timer = null
+    let timeout = null
     let triedToRebuildRpcPoolAsFix = false
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
@@ -59,7 +60,7 @@ async function runJob(job: Job) {
         }
 
         // Set max job timeout timer.
-        const timeout = async () => {
+        timeout = async () => {
             await new Promise((res) => {
                 timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
                 return timer
@@ -85,6 +86,7 @@ async function runJob(job: Job) {
             attempt++
             timer && clearTimeout(timer)
             timer = null
+            timeout = null
             // When all attempts are exhausted, flip the master switch for index jobs 
             // to false, telling all other (potential) parallel index workers to pause.
             if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
@@ -121,6 +123,7 @@ async function runJob(job: Job) {
     timer && clearTimeout(timer)
     timer = null
     indexer = null
+    timeout = null
 
     await jobStatusUpdatePromise
 
