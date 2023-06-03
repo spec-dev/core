@@ -99,11 +99,6 @@ class PolygonIndexer extends AbstractIndexer {
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
 
-        if (this.blockNumber == 43454066) {
-            await this._kickBlockDownstream([], [])
-            return
-        }
-
         if (await this._alreadyIndexedBlock()) {
             this._warn('Current block was already indexed. Stopping.')
             return
@@ -285,6 +280,7 @@ class PolygonIndexer extends AbstractIndexer {
         nftCollections: NftCollection[],
     ) {
         this._info('Saving primitives...')
+        this.saving = true
 
         let attempt = 1
         while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {

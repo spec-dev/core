@@ -64,6 +64,12 @@ async function runJob(job: Job) {
                 timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
                 return timer
             })
+            if (indexer.saving) {
+                await new Promise((res) => {
+                    timer = setTimeout(res, config.INDEX_PERFORM_MAX_DURATION) 
+                    return timer
+                })
+            }
             throw new Error(`[${head.chainId}:${head.blockNumber}] Index job max duration reached.`)
         }
         
