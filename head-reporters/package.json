@@ -22,7 +22,9 @@
         "chalk": "4.1.0",
         "pg-format": "^1.0.4",
         "short-uuid": "^4.2.0",
-        "uuid4": "^2.0.2"
+        "uuid4": "^2.0.2",
+        "web3": "^1.8.0",
+        "web3-eth": "^1.10.0"
     },
     "devDependencies": {
         "@types/node": "^18.0.3",
