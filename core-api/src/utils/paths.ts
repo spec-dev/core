@@ -26,6 +26,7 @@ const paths = {
     // ABI paths.
     ADMIN_ABI: prefix.ADMIN + '/abi',
     ADMIN_ABIS: prefix.ADMIN + '/abis',
+    ABI: '/abi',
 
     // Live Object paths.
     LIVE_OBJECTS: prefix.LIVE_OBJECT + 's',
