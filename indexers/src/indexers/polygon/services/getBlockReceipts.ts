@@ -1,16 +1,10 @@
-import {
-    AlchemyWeb3,
-    TransactionReceipt,
-    TransactionReceiptsParams,
-    TransactionReceiptsResponse,
-} from '@alch/alchemy-web3'
 import { ExternalPolygonReceipt } from '../types'
-import { logger, sleep } from '../../../../../shared'
+import { logger, sleep, StringKeyMap } from '../../../../../shared'
 import config from '../../../config'
+import fetch from 'cross-fetch'
 
 async function getBlockReceipts(
-    web3: AlchemyWeb3,
-    params: TransactionReceiptsParams,
+    hexBlockNumber: string,
     blockNumber: number,
     chainId: string
 ): Promise<ExternalPolygonReceipt[]> {
@@ -18,7 +12,7 @@ async function getBlockReceipts(
     let numAttempts = 0
     try {
         while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
-            receipts = await fetchReceipts(web3, params, blockNumber, chainId)
+            receipts = await fetchReceipts(hexBlockNumber, blockNumber, chainId)
             if (receipts === null) {
                 await sleep(config.NOT_READY_DELAY)
             } else if (receipts.length === 0) {
@@ -32,7 +26,7 @@ async function getBlockReceipts(
             numAttempts += 1
         }
     } catch (err) {
-        throw `Error fetching receipts ${blockNumber}: ${err}`
+        throw `Error fetching receipts for block ${blockNumber}: ${err}`
     }
     receipts = receipts || []
 
@@ -42,34 +36,55 @@ async function getBlockReceipts(
         config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got receipts with logs.`)
     }
 
-    return receipts.map((r) => r as unknown as ExternalPolygonReceipt)
+    return receipts
 }
 
 async function fetchReceipts(
-    web3: AlchemyWeb3,
-    params: TransactionReceiptsParams,
+    hexBlockNumber: string,
     blockNumber: number,
     chainId: string,
-): Promise<TransactionReceipt[] | null> {
-    let resp: TransactionReceiptsResponse
-    let error
+): Promise<ExternalPolygonReceipt[] | null> {
+    let resp, error
     try {
-        resp = await web3.alchemy.getTransactionReceipts(params)
+        resp = await fetch(config.RPC_REST_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                method: 'eth_getBlockReceipts',
+                params: [hexBlockNumber],
+                id: 1,
+                jsonrpc: '2.0',
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        })
     } catch (err) {
         error = err
     }
-    if (!resp) {
+
+    if (error) {
+        logger.error(`[${chainId}:${blockNumber}] Error fetching reciepts: ${error}. Will retry`)
         return null
-    } else if (error) {
-        config.IS_RANGE_MODE || logger.error(
-            `[${chainId}:${blockNumber}] Error fetching receipts for ${
-                (params as any).blockHash || (params as any).blockNumber
-            }: ${error.message}`
+    }
+
+    let data: StringKeyMap = {}
+    try {
+        data = await resp.json()
+    } catch (err) {
+        config.IS_RANGE_MODE ||
+            logger.error(
+                `Error parsing json response while fetching receipts for block ${blockNumber}: ${err}`
+            )
+        data = {}
+    }
+
+    if (data?.error) {
+        logger.error(
+            `[${chainId}:${blockNumber}] Error fetching reciepts: ${data.error?.code} - ${data.error?.message}. Will retry`
         )
         return null
-    } else {
-        return resp.receipts || []
     }
+    if (!data?.result) return null
+
+    return data.result || []
 }
 
 export default getBlockReceipts

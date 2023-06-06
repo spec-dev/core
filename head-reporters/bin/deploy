@@ -95,7 +95,10 @@ image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
+
+# eth/goerli
 image_version="68ae1e4"
+
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
