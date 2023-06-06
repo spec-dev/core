@@ -97,7 +97,10 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
 
 # eth/goerli
-image_version="68ae1e4"
+# image_version="68ae1e4"
+
+# polygon/mumbai
+image_version="87383c0"
 
 image="$registry_image:$image_version"
 
