@@ -9,6 +9,7 @@ rollbackTarget = rollbackTarget !== null && !Number.isNaN(rollbackTarget) ? roll
 
 const hrConfig: StringKeyMap = {
     ...config,
+    ALCHEMY_SUBSCRIPTION_URL: ev('ALCHEMY_SUBSCRIPTION_URL'),
     RPC_SUBSCRIPTION_URL: ev('RPC_SUBSCRIPTION_URL'),
     FORCE_REINDEX: [true, 'true'].includes(ev('FORCE_REINDEX', '').toLowerCase()),
     FORCE_UNCLE_RANGE: forceUncleRange,
