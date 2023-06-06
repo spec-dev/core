@@ -59,7 +59,6 @@ class EvmReporter {
 
     constructor(chainId: string) {
         this.chainId = chainId
-        // this.web3 = createAlchemyWeb3(config.ALCHEMY_SUBSCRIPTION_URL)
         this.web3 = new Web3(new Web3.providers.WebsocketProvider(config.RPC_SUBSCRIPTION_URL, {
             clientConfig: {
                 keepalive: true,
