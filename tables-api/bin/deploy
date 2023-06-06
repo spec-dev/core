@@ -29,6 +29,8 @@ shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DEFAULT_ROLE" )
 shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
+shared_tables_reader_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_USERNAME" )
+shared_tables_reader_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_PASSWORD" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -50,6 +52,8 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_userna
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 $shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_role"
 $shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_USERNAME" "$shared_tables_reader_username"
+$shared_bin_dir/assert_env "SHARED_TABLES_READER_PASSWORD" "$shared_tables_reader_password"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -84,6 +88,8 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
     sed "s|{{SHARED_TABLES_DEFAULT_ROLE}}|$shared_tables_default_role|g" | \
     sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
+    sed "s|{{SHARED_TABLES_READER_USERNAME}}|$shared_tables_reader_username|g" | \
+    sed "s|{{SHARED_TABLES_READER_PASSWORD}}|$shared_tables_reader_password|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{V0_PAYLOAD_WHITELIST}}|$v0_payload_whitelist|g" | \

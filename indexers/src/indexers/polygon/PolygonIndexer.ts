@@ -1,6 +1,5 @@
 import AbstractIndexer from '../AbstractIndexer'
 import Web3 from 'web3'
-import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
 import initTransactions from './services/initTransactions'
@@ -68,13 +67,11 @@ import {
     TRANSFER_BATCH_EVENT_NAME,
 } from '../../utils/standardAbis'
 
-const web3js = new Web3()
-
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 class PolygonIndexer extends AbstractIndexer {
     
-    web3: AlchemyWeb3
+    web3: Web3
 
     block: PolygonBlock = null
 
@@ -90,14 +87,15 @@ class PolygonIndexer extends AbstractIndexer {
 
     ivySmartWalletInitializerWalletCreated: string // hack
 
-    constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
+    constructor(head: NewReportedHead, web3?: Web3) {
         super(head)
-        this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
+        this.web3 = web3 || new Web3(config.RPC_REST_URL)
         this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0.0.1`
     }
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
+
         if (await this._alreadyIndexedBlock()) {
             this._warn('Current block was already indexed. Stopping.')
             return
@@ -198,7 +196,7 @@ class PolygonIndexer extends AbstractIndexer {
         traces = traces.length && (numAbis || numFunctionSigs) 
             ? this._decodeTraces(traces, abis, functionSignatures) 
             : traces
-        logs = logs.length && numAbis ? this._decodeLogs(logs, abis) : logs
+        logs = logs.length ? this._decodeLogs(logs, abis) : logs
 
         // Perform one final block hash mismatch check and error out if so.
         this._ensureAllShareSameBlockHash(block, receipts || [], traces)
@@ -279,6 +277,7 @@ class PolygonIndexer extends AbstractIndexer {
         nftCollections: NftCollection[],
     ) {
         this._info('Saving primitives...')
+        this.saving = true
 
         let attempt = 1
         while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
@@ -854,7 +853,7 @@ class PolygonIndexer extends AbstractIndexer {
         let functionArgs
         try {
             const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
-            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
+            const values = this.web3.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
             functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
         } catch (err) {
             if (err.reason?.includes('out-of-bounds') && 
@@ -914,7 +913,7 @@ class PolygonIndexer extends AbstractIndexer {
         log.topic2 && topics.push(log.topic2)
         log.topic3 && topics.push(log.topic3)
 
-        const decodedArgs = web3js.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
+        const decodedArgs = this.web3.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
         const numArgs = parseInt(decodedArgs.__length__)
 
         const argValues = []
@@ -1086,26 +1085,24 @@ class PolygonIndexer extends AbstractIndexer {
         return resolveBlock(
             this.web3,
             this.blockNumber,
-            this.chainId
+            this.chainId,
         )
     }
 
     async _getBlockReceiptsWithLogs(): Promise<ExternalPolygonReceipt[]> {
         return getBlockReceipts(
-            this.web3,
-            { blockNumber: this.hexBlockNumber },
+            this.hexBlockNumber,
             this.blockNumber,
-            this.chainId
+            this.chainId,
         )
     }
 
     async _waitAndRefetchReceipts(blockHash: string, hasTxs: boolean): Promise<ExternalPolygonReceipt[]> {
         const getReceipts = async () => {
             const receipts = await getBlockReceipts(
-                this.web3,
-                { blockHash },
+                this.hexBlockNumber,
                 this.blockNumber,
-                this.chainId
+                this.chainId,
             )
             // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== blockHash) {

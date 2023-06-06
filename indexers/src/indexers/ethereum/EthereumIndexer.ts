@@ -320,6 +320,7 @@ class EthereumIndexer extends AbstractIndexer {
         erc20TotalSupplyUpdates: StringKeyMap[],
     ) {
         this._info('Saving primitives...')
+        this.saving = true
 
         let attempt = 1
         while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {

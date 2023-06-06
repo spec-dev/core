@@ -50,6 +50,8 @@ class AbstractIndexer {
 
     nftCollections: NftCollection[] = []
 
+    saving: boolean = false
+
     get chainId(): string {
         return this.head.chainId
     }

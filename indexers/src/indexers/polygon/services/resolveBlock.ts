@@ -1,11 +1,11 @@
-import { AlchemyWeb3 } from '@alch/alchemy-web3'
 import { ExternalPolygonBlock } from '../types'
 import { PolygonBlock, logger, sleep } from '../../../../../shared'
 import { externalToInternalBlock } from '../transforms/blockTransforms'
 import config from '../../../config'
+import Web3 from 'web3'
 
 export async function resolveBlock(
-    web3: AlchemyWeb3,
+    web3: Web3,
     blockNumber: number,
     chainId: string,
 ): Promise<[ExternalPolygonBlock, PolygonBlock]> {
@@ -35,7 +35,7 @@ export async function resolveBlock(
 }
 
 export async function fetchBlock(
-    web3: AlchemyWeb3,
+    web3: Web3,
     blockNumber: number,
 ): Promise<ExternalPolygonBlock | null> {
     let externalBlock: ExternalPolygonBlock
