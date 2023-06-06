@@ -14,7 +14,7 @@ async function resolveBlockTraces(
 
     try {
         while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-            externalTraces = await fetchTraces(hexBlockNumber)
+            externalTraces = await fetchTraces(hexBlockNumber, blockNumber, chainId)
             if (externalTraces === null) {
                 await sleep(
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
@@ -37,10 +37,14 @@ async function resolveBlockTraces(
     return externalToInternalTraces(externalTraces, blockNumber, blockHash, chainId)
 }
 
-async function fetchTraces(hexBlockNumber: string): Promise<StringKeyMap[] | null> {
+async function fetchTraces(
+    hexBlockNumber: string,
+    blockNumber: number,
+    chainId: string,
+): Promise<StringKeyMap[] | null> {
     let resp, error
     try {
-        resp = await fetch(config.ALCHEMY_REST_URL, {
+        resp = await fetch(config.RPC_REST_URL, {
             method: 'POST',
             body: JSON.stringify({
                 method: 'debug_traceBlockByNumber',
@@ -70,13 +74,15 @@ async function fetchTraces(hexBlockNumber: string): Promise<StringKeyMap[] | nul
         data = {}
     }
 
-    if (data?.error?.code === -32000 || !data?.result) {
+    if (data?.error) {
+        logger.error(
+            `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry`
+        )
         return null
-    } else if (data?.error) {
-        throw `error fetching traces: ${data.error.code} - ${data.error.message}`
-    } else {
-        return (data.result || []) as StringKeyMap[]
     }
+    if (!data?.result) return null
+
+    return data.result || []
 }
 
 export default resolveBlockTraces
