@@ -32,6 +32,8 @@ spec:
           value: {{RPC_REST_URL}}
         - name: RPC_SUBSCRIPTION_URL
           value: {{RPC_SUBSCRIPTION_URL}}
+        - name: RPC_POOL_ENDPOINTS
+          value: {{RPC_POOL_ENDPOINTS}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME
@@ -84,8 +86,6 @@ spec:
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT
           value: "{{ABI_REDIS_PORT}}"
-        - name: RPC_POOL_ENDPOINTS
-          value: {{RPC_POOL_ENDPOINTS}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FLIP
