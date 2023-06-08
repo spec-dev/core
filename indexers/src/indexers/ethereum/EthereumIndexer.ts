@@ -180,10 +180,11 @@ class EthereumIndexer extends AbstractIndexer {
             ...transactions.filter(tx => !!tx.input).map(tx => tx.input.slice(0, 10)),
             ...traces.filter(trace => !!trace.input).map(trace => trace.input.slice(0, 10)),
         ])
-        const [abis, functionSignatures] = await Promise.all([
+        let [abis, functionSignatures] = await Promise.all([
             getAbis(unique([ ...txToAddresses, ...traceToAddresses, ...logAddresses ]), this.chainId),
             getFunctionSignatures(sigs),
         ])
+        abis = abis || {}
         const numAbis = Object.keys(abis).length
         const numFunctionSigs = Object.keys(functionSignatures).length
 

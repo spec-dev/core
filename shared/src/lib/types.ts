@@ -1,4 +1,5 @@
 import { LiveObjectVersionProperty, LiveObjectVersionConfig } from '..'
+import { Abi } from './abi/types'
 
 export interface NewReportedHead {
     id: number
@@ -29,17 +30,13 @@ export interface DelayedJobSpec {
     params: StringKeyMap
 }
 
-export interface NewContractsPayload {
-    nsp: string
+export interface ContractRegistrationPayload {
     chainId: string
-    contracts: NewContractPayload[]
-    refetchAbis?: boolean
-}
-
-export interface NewContractPayload {
+    nsp: string
     name: string
     desc: string
     instances: NewContractInstancePayload[]
+    abi?: Abi
 }
 
 export interface NewContractInstancePayload {

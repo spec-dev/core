@@ -22,6 +22,7 @@ export const abiRedisKeys = {
     POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
     MUMBAI_CONTRACTS: 'mumbai-contracts',
     MUMBAI_FUNCTION_SIGNATURES: 'mumbai-function-signatures',
+    CONTRACT_GROUPS_PREFIX: 'contract-groups',
 }
 
 const contractsKeyForChainId = (chainId: string): string | null => {
@@ -105,7 +106,7 @@ export async function getAbi(
 export async function getAbis(
     addresses: string[],
     chainId: string = chainIds.ETHEREUM
-): Promise<{ [key: string]: Abi }> {
+): Promise<{ [key: string]: Abi } | null> {
     if (!addresses?.length) return {}
     const nsp = contractsKeyForChainId(chainId)
     if (!nsp) return {}
@@ -122,22 +123,24 @@ export async function getAbis(
         return abis
     } catch (err) {
         logger.error(`Error getting ABIs for addresses ${addresses.join(', ')}: ${err}.`)
-        return {}
+        return null
     }
 }
 
 export async function removeAbis(
     addresses: string[],
     chainId: string = chainIds.ETHEREUM
-): Promise<Abi | null> {
+): Promise<boolean> {
     if (!addresses.length) return
     const nsp = contractsKeyForChainId(chainId)
-    if (!nsp) return null
+    if (!nsp) return true
     try {
         await redis?.hDel(nsp, addresses)
     } catch (err) {
         logger.error(`Error deleting ABIs: ${err}.`)
+        return false
     }
+    return true
 }
 
 export async function getMissingAbiAddresses(
@@ -185,4 +188,36 @@ export async function getFunctionSignatures(
         logger.error(`Error getting function signatures for ${signatures.join(', ')}: ${err}.`)
         return {}
     }
+}
+
+export async function getContractGroupAbi(
+    contractGroup: string,
+    chainId: string = chainIds.ETHEREUM
+): Promise<Abi | null> {
+    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
+    try {
+        const abiStr = (await redis?.hGet(key, contractGroup)) || null
+        return abiStr ? (JSON.parse(abiStr) as Abi) : []
+    } catch (err) {
+        logger.error(`Error getting contract group ABI for ${contractGroup}: ${err}.`)
+        return null
+    }
+}
+
+export async function saveContractGroupAbi(
+    contractGroup: string,
+    groupAbi: Abi,
+    chainId: string = chainIds.ETHEREUM
+) {
+    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
+    try {
+        const map = {
+            [contractGroup]: JSON.stringify(groupAbi),
+        }
+        await redis?.hSet(key, map)
+    } catch (err) {
+        logger.error(`Error saving contract group ABI for ${contractGroup}: ${err}.`)
+        return false
+    }
+    return true
 }
