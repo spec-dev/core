@@ -177,9 +177,9 @@ export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { LiveCallHandler } from './lib/core/db/entities/LiveCallHandler'
 export {
-    ContractInstanceRegistration,
-    ContractInstanceRegistrationStatus,
-} from './lib/core/db/entities/ContractInstanceRegistration'
+    ContractRegistrationJob,
+    ContractRegistrationJobStatus,
+} from './lib/core/db/entities/ContractRegistrationJob'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -209,6 +209,7 @@ export {
 export {
     createContractInstance,
     upsertContractInstancesWithTx,
+    getContractInstancesInGroup,
 } from './lib/core/db/services/contractInstanceServices'
 export { createEvent, getEvent, upsertEventsWithTx } from './lib/core/db/services/eventServices'
 export {
@@ -247,12 +248,12 @@ export {
     createLiveCallHandlersWithTx,
 } from './lib/core/db/services/liveCallHandlerServices'
 export {
-    createContractInstanceRegistration,
-    getContractInstanceRegistrationProgress,
-    updateContractInstanceRegistrationStatus,
-    updateContractInstanceRegistrationCursor,
-    contractInstanceRegistrationFailed,
-} from './lib/core/db/services/contractInstanceRegistrationServices'
+    createContractRegistrationJob,
+    getContractRegistrationJobProgress,
+    updateContractRegistrationJobStatus,
+    updateContractRegistrationJobCursors,
+    contractRegistrationJobFailed,
+} from './lib/core/db/services/contractRegistrationJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {
@@ -265,6 +266,8 @@ export {
     removeAbis,
     getMissingAbiAddresses,
     getFunctionSignatures,
+    getContractGroupAbi,
+    saveContractGroupAbi,
 } from './lib/abi/redis'
 
 export * from './lib/abi/types'
@@ -307,7 +310,6 @@ export {
     doesSharedViewExist,
     MAX_TABLE_NAME_LENGTH,
 } from './lib/utils/pgMeta'
-export * from './lib/utils/views'
 
 export * from './lib/utils/colTypes'
 export { guessColTypeFromPropertyType } from './lib/utils/propertyTypes'
