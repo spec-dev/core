@@ -117,7 +117,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
     return {
         namespace: fullNspComps.nsp,
         name: eventName,
-        version: '0.0.1',
+        version: fullNspComps.version,
         displayName: eventName,
         description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
         properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
