@@ -11,17 +11,12 @@ async function getBlockReceipts(
     let receipts = null
     let numAttempts = 0
     try {
-        while (receipts === null && numAttempts < config.MAX_ATTEMPTS) {
+        while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
             receipts = await fetchReceipts(hexBlockNumber, blockNumber, chainId)
             if (receipts === null) {
-                await sleep(config.NOT_READY_DELAY)
-            } else if (receipts.length === 0) {
-                await sleep(config.NOT_READY_DELAY)
-
-                // Keep trying on empty up to 10 attempts.
-                if (numAttempts <= 10) {
-                    receipts = null
-                }
+                await sleep(
+                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                )
             }
             numAttempts += 1
         }
@@ -44,13 +39,17 @@ async function fetchReceipts(
     blockNumber: number,
     chainId: string,
 ): Promise<ExternalPolygonReceipt[] | null> {
+    const isAlchemy = config.RPC_REST_URL.includes('alchemy')
+    const method = isAlchemy ? 'alchemy_getTransactionReceipts' : 'eth_getBlockReceipts'
+    const params = isAlchemy ? [{ blockNumber: hexBlockNumber }] : [hexBlockNumber]
+
     let resp, error
     try {
         resp = await fetch(config.RPC_REST_URL, {
             method: 'POST',
             body: JSON.stringify({
-                method: 'eth_getBlockReceipts',
-                params: [hexBlockNumber],
+                method,
+                params,
                 id: 1,
                 jsonrpc: '2.0',
             }),
@@ -77,14 +76,14 @@ async function fetchReceipts(
     }
 
     if (data?.error) {
-        logger.error(
+        data.error?.code === -32600 || logger.error(
             `[${chainId}:${blockNumber}] Error fetching reciepts: ${data.error?.code} - ${data.error?.message}. Will retry`
         )
         return null
     }
     if (!data?.result) return null
 
-    return data.result || []
+    return isAlchemy ? data.result.receipts : data.result
 }
 
 export default getBlockReceipts
