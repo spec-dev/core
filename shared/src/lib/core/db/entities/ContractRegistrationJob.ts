@@ -5,22 +5,21 @@ import {
     Index,
     CreateDateColumn,
     UpdateDateColumn,
-    ManyToOne,
-    JoinColumn,
 } from 'typeorm'
-import { ContractInstance } from './ContractInstance'
+import { StringKeyMap } from '../../../types'
 
-export enum ContractInstanceRegistrationStatus {
+export enum ContractRegistrationJobStatus {
     Created = 'created',
-    InProgress = 'in-progress',
+    Decoding = 'decoding',
+    Indexing = 'indexing',
     Complete = 'complete',
 }
 
 /**
- * Contract instance registration jobs
+ * Registration job for a group of contract instances.
  */
-@Entity('contract_instance_registrations')
-export class ContractInstanceRegistration {
+@Entity('contract_registration_jobs')
+export class ContractRegistrationJob {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -28,15 +27,23 @@ export class ContractInstanceRegistration {
     @Index({ unique: true })
     uid: string
 
-    @Column('int8', { name: 'contract_instance_id' })
-    @Index()
-    contractInstanceId: number
-
     @Column()
-    status: ContractInstanceRegistrationStatus
+    nsp: string
 
-    @Column({ nullable: true })
-    cursor: number
+    @Column({ name: 'contract_name' })
+    contractName: string
+
+    @Column('json')
+    addresses: string[]
+
+    @Column({ name: 'chain_id' })
+    chainId: string
+
+    @Column('varchar')
+    status: ContractRegistrationJobStatus
+
+    @Column('jsonb', { nullable: true, default: '{}' })
+    cursors: StringKeyMap
 
     @Column({ default: false })
     failed: boolean
@@ -58,11 +65,4 @@ export class ContractInstanceRegistration {
         onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     updatedAt: Date
-
-    @ManyToOne(
-        () => ContractInstance,
-        (contractInstance) => contractInstance.contractInstanceRegistrations
-    )
-    @JoinColumn({ name: 'contract_instance_id' })
-    contractInstance: ContractInstance
 }

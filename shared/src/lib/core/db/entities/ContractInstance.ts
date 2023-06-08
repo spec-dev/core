@@ -5,11 +5,9 @@ import {
     Index,
     CreateDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from 'typeorm'
 import { Contract } from './Contract'
-import { ContractInstanceRegistration } from './ContractInstanceRegistration'
 
 /**
  * Instances of deployed contracts.
@@ -46,10 +44,4 @@ export class ContractInstance {
     @ManyToOne(() => Contract, (contract) => contract.contractInstances)
     @JoinColumn({ name: 'contract_id' })
     contract: Contract
-
-    @OneToMany(
-        () => ContractInstanceRegistration,
-        (contractInstanceRegistration) => contractInstanceRegistration.contractInstance
-    )
-    contractInstanceRegistrations: ContractInstanceRegistration[]
 }
