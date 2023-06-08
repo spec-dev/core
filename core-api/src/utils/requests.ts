@@ -6,6 +6,7 @@ export const errors = {
     INVALID_CREDENTIALS: 'Invalid credentials',
     NOT_FOUND: 'Resource not found',
     UNAUTHORIZED: 'Unauthorized request',
+    FORBIDDEN: `Permission denied`,
     NO_FILE_PROVIDED: 'No file provided',
     INVALID_FILE_TYPE: 'Invalid file type',
     NO_SPEC_INSTANCE: 'No Spec instance exists for project',
