@@ -155,6 +155,7 @@ export * from './lib/types'
 export * from './lib/utils/date'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
+export * from './lib/utils/standardAbis'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { Contract } from './lib/core/db/entities/Contract'
 export { ContractInstance } from './lib/core/db/entities/ContractInstance'
@@ -267,6 +268,7 @@ export {
     getMissingAbiAddresses,
     getFunctionSignatures,
     getContractGroupAbi,
+    getContractGroupAbis,
     saveContractGroupAbi,
 } from './lib/abi/redis'
 

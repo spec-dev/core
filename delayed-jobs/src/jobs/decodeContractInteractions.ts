@@ -14,12 +14,23 @@ import {
     toChunks,
     sleep,
     contractRegistrationJobFailed,
+    splitLogDataToWords,
+    normalizeEthAddress,
+    hexToNumberString,
     range,
     getBlockEventsSeriesNumber,
     updateContractRegistrationJobStatus,
     ContractRegistrationJobStatus,
     updateContractRegistrationJobCursors,
     getContractRegistrationJobProgress,
+    specialErc20BalanceAffectingAbis,
+    TRANSFER_TOPIC,
+    TRANSFER_SINGLE_TOPIC,
+    TRANSFER_BATCH_TOPIC,
+    TRANSFER_EVENT_NAME,
+    TRANSFER_SINGLE_EVENT_NAME,
+    TRANSFER_BATCH_EVENT_NAME,
+    BATCH_TRANSFER_INPUTS,
 } from '../../../shared'
 import config from '../config'
 import { ident } from 'pg-format'
@@ -769,6 +780,7 @@ function decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKe
 function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): StringKeyMap[] {
     const finalLogs = []
     for (let log of logs) {
+        // Standard contract ABI decoding.
         if (log.address && log.topic0 && abis.hasOwnProperty(log.address)) {
             try {
                 log = decodeLogEvent(log, abis[log.address])
@@ -776,7 +788,29 @@ function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): St
                 logger.warn(`Error decoding log for address ${log.address}: ${err}`)
             }
         }
+        // Try decoding as transfer event if couldn't decode with contract ABI.
+        if (!log.eventName) {
+            try {
+                log = tryDecodingLogAsTransfer(log)
+            } catch (err) {
+                logger.warn(`Error decoding log as transfer (address=${log.address}, topic0=${log.topic0}): ${err}`)
+            }
+        }
+        // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
+        if (!log.eventName && log.address && log.topic0 && log.topic1 && specialErc20BalanceAffectingAbis[log.topic0]) {
+            const abi = specialErc20BalanceAffectingAbis[log.topic0]
+            try {
+                log = decodeLogEvent(log, [abi])
+            } catch (err) {
+                logger.warn(
+                    `Error decoding log with special ERC-20 balance-affecting ABI (${log.topic0}):`,
+                    log,
+                    err
+                )
+            }
+        }
         finalLogs.push(log)
+
     }
     return finalLogs
 }
@@ -787,12 +821,11 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
 
     const argNames = []
     const argTypes = []
-    for (const input of abiItem.inputs || []) {
-        input.name && argNames.push(input.name)
+    const abiInputs = abiItem.inputs || []
+    for (let i = 0; i < abiInputs.length; i++) {
+        const input = abiInputs[i]
+        argNames.push(input.name || `param${i}`)
         argTypes.push(input.type)
-    }
-    if (argNames.length !== argTypes.length) {
-        return log
     }
 
     const topics = []
@@ -834,6 +867,155 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
         )
     }
     return log
+}
+
+function tryDecodingLogAsTransfer(log: StringKeyMap): StringKeyMap {
+    let eventName, eventArgs
+
+    // Transfer
+    if (log.topic0 === TRANSFER_TOPIC) {
+        eventArgs = decodeTransferEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_EVENT_NAME
+    }
+
+    // TransferSingle
+    if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
+        eventArgs = decodeTransferSingleEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_SINGLE_EVENT_NAME
+    }
+
+    // TransferBatch
+    if (log.topic0 === TRANSFER_BATCH_TOPIC) {
+        eventArgs = decodeTransferBatchEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_BATCH_EVENT_NAME
+    }
+
+    if (!eventName) return log
+
+    log.eventName = eventName
+    log.eventArgs = eventArgs as StringKeyMap[]
+
+    return log
+}
+
+export function decodeTransferEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
+    if (topicsWithData.length !== 4) return null
+    
+    let from, to, value
+    try {
+        from = normalizeEthAddress(topicsWithData[1], true, true)
+        to = normalizeEthAddress(topicsWithData[2], true, true)
+        value = hexToNumberString(topicsWithData[3])    
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_EVENT_NAME} event params: ${err}`)
+        return null
+    }
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'value', type: 'uint256', value: value },
+        ]
+    }
+
+    return { from, to, value }
+}
+
+export function decodeTransferSingleEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
+    if (topicsWithData.length !== 6) return null
+    
+    let operator, from, to, id, value 
+    try {
+        operator = normalizeEthAddress(topicsWithData[1], true, true)
+        from = normalizeEthAddress(topicsWithData[2], true, true)
+        to = normalizeEthAddress(topicsWithData[3], true, true)
+        id = hexToNumberString(topicsWithData[4])
+        value = hexToNumberString(topicsWithData[5])
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_SINGLE_EVENT_NAME} event params: ${err}`)
+        return null
+    }
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'operator', type: 'address', value: operator },
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'id', type: 'uint256', value: id },
+            { name: 'value', type: 'uint256', value: value },
+        ]
+    }
+
+    return { operator, from, to, id, value }
+}
+
+export function decodeTransferBatchEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const abiInputs = []
+    for (let i = 0; i < BATCH_TRANSFER_INPUTS.length; i++) {
+        abiInputs.push({ 
+            ...BATCH_TRANSFER_INPUTS[i], 
+            indexed: i < topics.length,
+        })
+    }
+
+    let args
+    try {
+        args = web3.eth.abi.decodeLog(abiInputs as any, log.data, topics)
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_BATCH_EVENT_NAME} event params: ${err} for log`, log)
+        return null
+    }
+
+    const numArgs = parseInt(args.__length__)
+    const argValues = []
+    for (let i = 0; i < numArgs; i++) {
+        const stringIndex = i.toString()
+        if (!args.hasOwnProperty(stringIndex)) continue
+        argValues.push(args[stringIndex])
+    }
+
+    if (argValues.length !== abiInputs.length) {
+        logger.error(`Length mismatch when parsing ${TRANSFER_BATCH_EVENT_NAME} event params: ${argValues}`)
+        return null
+    }
+    
+    const [operator, from, to, ids, values] = [
+        normalizeEthAddress(argValues[0]),
+        normalizeEthAddress(argValues[1]),
+        normalizeEthAddress(argValues[2]),
+        argValues[3] || [],
+        argValues[4] || []
+    ]
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'operator', type: 'address', value: operator },
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'ids', type: 'uint256[]', value: ids },
+            { name: 'values', type: 'uint256[]', value: values },
+        ]
+    }
+
+    return { operator, from, to, ids, values }
 }
 
 async function getAbisForContracts(contractAddresses: string[], chainId: string): Promise<StringKeyMap | null> {

@@ -17,10 +17,16 @@ import {
     uniqueByKeys,
     TokenTransfer,
     snakeToCamel,
+    stripLeadingAndTrailingUnderscores,
     toChunks,
     canBlockBeOperatedOn,
     sleep,
     randomIntegerInRange,
+    ContractInstance,
+    toNamespacedVersion,
+    In,
+    Abi,
+    CoreDB,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -28,6 +34,8 @@ import { Pool } from 'pg'
 import { reportBlockEvents } from '../events'
 import chalk from 'chalk'
 import { ident } from 'pg-format'
+
+const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 class AbstractIndexer {
     head: NewReportedHead
@@ -130,6 +138,252 @@ class AbstractIndexer {
         } catch (err) {
             this._error(err)
             return false
+        }
+    }
+
+    async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
+        let contractInstances = []
+        try {
+            contractInstances = await contractInstancesRepo().find({
+                relations: { contract: { namespace: true } },
+                where: {
+                    address: In(addresses),
+                    chainId: this.chainId,
+                }
+            })
+        } catch (err) {
+            this._error(`Error getting contract_instances: ${err}`)
+            return []
+        }
+        return contractInstances || []        
+    }
+
+    async _getDetectedContractEventSpecs(
+        decodedLogs: StringKeyMap[], 
+        contractInstances: ContractInstance[],
+        namespacedContractGroupAbis: { [key: string]: Abi },
+    ): Promise<StringKeyMap[]> {
+        const contractGroupsHoldingAddress = {}
+        for (const contractInstance of contractInstances) {
+            const address = contractInstance.address
+            const nsp = contractInstance.contract?.namespace?.name
+            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            if (!contractGroupAbi) continue
+        
+            contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
+            contractGroupsHoldingAddress[address].push({
+                nsp,
+                contractGroupAbi,
+                contractInstanceName: contractInstance.name,
+            })
+        }
+        if (!Object.keys(contractGroupsHoldingAddress).length) return []
+
+        const eventSpecs = []
+        for (const decodedLog of decodedLogs) {
+            const { eventName, topic0, address } = decodedLog
+            const contractGroups = contractGroupsHoldingAddress[address] || []
+            if (!contractGroups.length) continue
+
+            for (const { nsp, contractGroupAbi, contractInstanceName } of contractGroups) {
+                const formattedEventData = this._formatLogAsSpecEvent(
+                    decodedLog, 
+                    contractGroupAbi,
+                    contractInstanceName,
+                )
+                if (!formattedEventData) continue
+                const { eventOrigin, data } = formattedEventData
+                eventSpecs.push({
+                    origin: eventOrigin,
+                    name: toNamespacedVersion(nsp, eventName, topic0),
+                    data,
+                })    
+            }
+        }
+        return eventSpecs
+    }
+
+    async _getDetectedContractCallSpecs(
+        decodedTraceCalls: StringKeyMap[], 
+        contractInstances: ContractInstance[],
+        namespacedContractGroupAbis: { [key: string]: Abi },
+    ): Promise<StringKeyMap[]> {
+        const contractGroupsHoldingAddress = {}
+        for (const contractInstance of contractInstances) {
+            const address = contractInstance.address
+            const nsp = contractInstance.contract?.namespace?.name
+            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            if (!contractGroupAbi) continue
+        
+            contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
+            contractGroupsHoldingAddress[address].push({
+                nsp,
+                contractGroupAbi,
+                contractInstanceName: contractInstance.name,
+            })
+        }
+        if (!Object.keys(contractGroupsHoldingAddress).length) return []
+
+        const callSpecs = []
+        for (const decodedTrace of decodedTraceCalls) {
+            const { functionName, input, to } = decodedTrace
+            const signature = input?.slice(0, 10)
+            const contractGroups = contractGroupsHoldingAddress[to] || []
+            if (!contractGroups.length) continue
+
+            for (const { nsp, contractGroupAbi, contractInstanceName } of contractGroups) {
+                const formattedCallData = this._formatTraceAsSpecCall(
+                    decodedTrace, 
+                    signature,
+                    contractGroupAbi,
+                    contractInstanceName,
+                )
+                if (!formattedCallData) continue
+                const { 
+                    callOrigin,
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                } = formattedCallData
+                callSpecs.push({
+                    origin: callOrigin,
+                    name: toNamespacedVersion(nsp, functionName, signature),
+                    inputs,
+                    inputArgs,
+                    outputs,
+                    outputArgs,
+                })
+            }
+        }
+        return callSpecs
+    }
+
+    _formatLogAsSpecEvent(
+        log: StringKeyMap, 
+        contractGroupAbi: Abi,
+        contractInstanceName: string,
+    ): StringKeyMap | null {
+        const eventOrigin = {
+            contractAddress: log.address,
+            transactionHash: log.transactionHash,
+            transactionIndex: log.transactionIndex,
+            logIndex: log.logIndex,
+            signature: log.topic0,
+            blockHash: log.blockHash,
+            blockNumber: Number(log.blockNumber),
+            blockTimestamp: log.blockTimestamp.toISOString(),
+            chainId: this.chainId,
+        }
+        
+        const fixedContractEventProperties = {
+            ...eventOrigin,
+            contractName: contractInstanceName,
+            logIndex: log.logIndex,
+        }
+
+        const groupAbiItem = contractGroupAbi.find(item => item.signature === log.topic0)
+        if (!groupAbiItem) return null
+
+        const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name).filter(v => !!v)
+        const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
+        if (logEventArgs.length !== groupArgNames.length) return null
+
+        const eventProperties = []
+        for (let i = 0; i < logEventArgs.length; i++) {
+            const arg = logEventArgs[i]
+            if (!arg) return null
+
+            const argName = groupArgNames[i]
+            if (!argName) return null
+
+            eventProperties.push({
+                name: snakeToCamel(stripLeadingAndTrailingUnderscores(argName)),
+                value: arg.value,
+            })
+        }
+        
+        // Ensure event arg property names are unique.
+        const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
+        for (const property of eventProperties) {
+            let propertyName = property.name
+            while (seenPropertyNames.has(propertyName)) {
+                propertyName = '_' + propertyName
+            }
+            seenPropertyNames.add(propertyName)
+            property.name = propertyName
+        }
+
+        const data = {
+            ...fixedContractEventProperties
+        }
+        for (const property of eventProperties) {
+            data[property.name] = property.value
+        }
+
+        return { data, eventOrigin }
+    }
+
+    _formatTraceAsSpecCall(
+        trace: StringKeyMap,
+        signature: string,
+        contractGroupAbi: Abi,
+        contractInstanceName: string,
+    ): StringKeyMap {
+        const callOrigin = {
+            contractAddress: trace.to,
+            contractName: contractInstanceName,
+            transactionHash: trace.transactionHash,
+            transactionIndex: trace.transactionIndex,
+            traceIndex: trace.traceIndex,
+            signature,
+            blockHash: trace.blockHash,
+            blockNumber: Number(trace.blockNumber),
+            blockTimestamp: trace.blockTimestamp.toISOString(),
+            chainId: this.chainId,
+        }
+
+        const groupAbiItem = contractGroupAbi.find(item => item.signature === signature)
+        if (!groupAbiItem) return null
+
+        const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name)
+        const functionArgs = (trace.functionArgs || []) as StringKeyMap[]
+        const inputs = {}
+        const inputArgs = []
+        for (let i = 0; i < functionArgs.length; i++) {
+            const arg = functionArgs[i]
+            if (!arg) return null
+
+            const argName = groupArgNames[i]
+            if (argName) {
+                inputs[argName] = arg.value
+            }
+
+            inputArgs.push(arg.value)
+        }
+
+        const groupOutputNames = (groupAbiItem.outputs || []).map(output => output.name)
+        const functionOutputs = (trace.functionOutputs || []) as StringKeyMap[]
+        const outputs = {}
+        const outputArgs = []
+        for (let i = 0; i < functionOutputs.length; i++) {
+            const output = functionOutputs[i]
+            if (!output) return null
+
+            const outputName = groupOutputNames[i]
+            if (outputName) {
+                outputs[outputName] = output.value
+            }
+
+            outputArgs.push(output.value)
+        }
+
+        return {
+            callOrigin,
+            inputs,
+            inputArgs,
+            outputs,
+            outputArgs,
         }
     }
 

@@ -13,15 +13,13 @@ import {
     NftTransfer,
     TokenTransfer,
     EthTraceStatus,
+    TRANSFER_EVENT_NAME,
+    TRANSFER_SINGLE_EVENT_NAME,
+    TRANSFER_BATCH_EVENT_NAME,
 } from '../../../shared'
 import { ident } from 'pg-format'
 import { exit } from 'process'
 import initTokenTransfers from '../services/initTokenTransfers'
-import { 
-    TRANSFER_EVENT_NAME,
-    TRANSFER_SINGLE_EVENT_NAME,
-    TRANSFER_BATCH_EVENT_NAME,
-} from '../utils/standardAbis'
 
 class BackfillTransfersWorker {
 

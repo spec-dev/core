@@ -204,6 +204,29 @@ export async function getContractGroupAbi(
     }
 }
 
+export async function getContractGroupAbis(
+    contractGroups: string[],
+    chainId: string = chainIds.ETHEREUM
+): Promise<{ [key: string]: Abi } | null> {
+    if (!contractGroups?.length) return {}
+    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
+    try {
+        const results = (await redis?.hmGet(key, contractGroups)) || []
+        const abis = {}
+        for (let i = 0; i < contractGroups.length; i++) {
+            const address = contractGroups[i]
+            const abiStr = results[i]
+            if (!abiStr) continue
+            const abi = JSON.parse(abiStr) as Abi
+            abis[address] = abi
+        }
+        return abis
+    } catch (err) {
+        logger.error(`Error getting ABIs for contract groups ${contractGroups.join(', ')}: ${err}.`)
+        return null
+    }
+}
+
 export async function saveContractGroupAbi(
     contractGroup: string,
     groupAbi: Abi,

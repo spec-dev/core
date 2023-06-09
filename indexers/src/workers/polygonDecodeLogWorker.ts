@@ -11,6 +11,12 @@ import {
     formatAbiValueWithType,
     unique,
     IsNull,
+    TRANSFER_TOPIC,
+    TRANSFER_SINGLE_TOPIC,
+    TRANSFER_BATCH_TOPIC,
+    TRANSFER_EVENT_NAME,
+    TRANSFER_SINGLE_EVENT_NAME,
+    TRANSFER_BATCH_EVENT_NAME,
 } from '../../../shared'
 import { exit } from 'process'
 import Web3 from 'web3'
@@ -21,14 +27,6 @@ import {
     decodeTransferSingleEvent, 
     decodeTransferBatchEvent,
 } from '../services/extractTransfersFromLogs'
-import { 
-    TRANSFER_TOPIC,
-    TRANSFER_SINGLE_TOPIC,
-    TRANSFER_BATCH_TOPIC,
-    TRANSFER_EVENT_NAME,
-    TRANSFER_SINGLE_EVENT_NAME,
-    TRANSFER_BATCH_EVENT_NAME,
-} from '../utils/standardAbis'
 
 const web3 = new Web3()
 
