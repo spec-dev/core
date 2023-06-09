@@ -24,8 +24,6 @@ const eventClient = config.CONNECT_TO_EVENT_RELAY
 
 const formatSpecEvent = (eventSpec: StringKeyMap, eventTimestamp: string): StringKeyMap => {
     const { name, data, origin } = eventSpec
-    delete origin.transactionIndex
-    delete origin.logIndex
     return {
         name,
         origin: {
@@ -122,11 +120,6 @@ export async function publishEvents(
         }
     }
 
-    if (!generated) {
-        const { chainId, blockNumber } = finalEvents[0].origin
-        logger.info(`[${chainId}:${blockNumber}] Publishing ${finalEvents.length} origin events...`)
-    }
-
     for (const event of finalEvents) {
         await emit(event, generated)
     }
@@ -137,10 +130,7 @@ export async function publishCalls(callSpecs: StringKeyMap[], eventTimestamp?: s
 
     eventTimestamp = eventTimestamp || (await getDBTimestamp())
     const calls = callSpecs.map((cs) => formatSpecCall(cs, eventTimestamp))
-
-    const { chainId, blockNumber } = calls[0].origin
-    logger.info(`[${chainId}:${blockNumber}] Publishing ${calls.length} contract calls...`)
-
+    
     for (const call of calls) {
         await emit(call)
     }
@@ -152,12 +142,12 @@ export async function publishReorg(id: string, chainId: string, blockNumber: num
 }
 
 export async function emit(event: StringKeyMap, generated?: boolean) {
-    generated &&
-        logger.info(
-            chalk.cyanBright(
-                `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
-            )
+    const color = generated ? 'cyanBright' : 'white'
+    logger.info(
+        chalk[color](
+            `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
         )
+    )
     try {
         await eventClient?.socket.transmitPublish(event.name, event)
     } catch (err) {
