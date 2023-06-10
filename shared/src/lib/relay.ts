@@ -130,7 +130,7 @@ export async function publishCalls(callSpecs: StringKeyMap[], eventTimestamp?: s
 
     eventTimestamp = eventTimestamp || (await getDBTimestamp())
     const calls = callSpecs.map((cs) => formatSpecCall(cs, eventTimestamp))
-    
+
     for (const call of calls) {
         await emit(call)
     }
