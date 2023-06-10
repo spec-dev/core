@@ -65,4 +65,20 @@ export class ContractRegistrationJob {
         onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     updatedAt: Date
+
+    view() {
+        return {
+            uid: this.uid,
+            nsp: this.nsp,
+            contractName: this.contractName,
+            addresses: this.addresses,
+            chainId: this.chainId,
+            status: this.status,
+            cursors: this.cursors,
+            failed: this.failed,
+            error: this.error,
+            createdAt: this.createdAt.toISOString(),
+            updatedAt: this.updatedAt.toISOString(),
+        }
+    }
 }

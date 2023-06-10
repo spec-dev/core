@@ -34,20 +34,12 @@ export async function createContractRegistrationJob(
     return contractRegistrationJob
 }
 
-export async function getContractRegistrationJobProgress(uid: string): Promise<StringKeyMap> {
+export async function getContractRegistrationJob(uid: string): Promise<StringKeyMap> {
     try {
-        const job = ((await contractRegistrationJobsRepo().findOneBy({
-            uid,
-        })) || {}) as ContractRegistrationJob
-        return {
-            status: job.status || null,
-            cursors: job.cursors || null,
-            failed: job.failed || false,
-            error: job.error || null,
-        }
+        return await contractRegistrationJobsRepo().findOneBy({ uid })
     } catch (err) {
         logger.error(`Error finding ContractRegistrationJob(uid=${uid}: ${err}`)
-        return {}
+        return null
     }
 }
 

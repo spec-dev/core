@@ -250,7 +250,7 @@ export {
 } from './lib/core/db/services/liveCallHandlerServices'
 export {
     createContractRegistrationJob,
-    getContractRegistrationJobProgress,
+    getContractRegistrationJob,
     updateContractRegistrationJobStatus,
     updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
