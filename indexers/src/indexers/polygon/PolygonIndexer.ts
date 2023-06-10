@@ -340,7 +340,10 @@ class PolygonIndexer extends AbstractIndexer {
             }
         }
 
-        const contractGroupAbis = await getContractGroupAbis(Array.from(uniqueContractGroups))
+        const contractGroupAbis = await getContractGroupAbis(
+            Array.from(uniqueContractGroups),
+            this.chainId,
+        )
         const namespacedContractGroupAbis = {}
         for (const contractGroup in contractGroupAbis) {
             const abi = contractGroupAbis[contractGroup]
