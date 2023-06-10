@@ -22,7 +22,7 @@ import {
     updateContractRegistrationJobStatus,
     ContractRegistrationJobStatus,
     updateContractRegistrationJobCursors,
-    getContractRegistrationJobProgress,
+    getContractRegistrationJob,
     specialErc20BalanceAffectingAbis,
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
@@ -130,9 +130,12 @@ async function decodeContractInteractions(
     // All contract interactions decoded *for this contract*.
     if (endCursor >= finalEndBlock) {
         logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
+        if (!registrationJobUid) return
+
         await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
-        const cursors = (await getContractRegistrationJobProgress(registrationJobUid)).cursors || {}
+        const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
         const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
+        
         if (decodedAllContractsInRegistrationJob) {
             // TODO: Enqueue new job to index LOVs dependent on these contracts.
             await updateContractRegistrationJobStatus(
