@@ -135,6 +135,10 @@ async function decodeContractInteractions(
         const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
         if (decodedAllContractsInRegistrationJob) {
             // TODO: Enqueue new job to index LOVs dependent on these contracts.
+            await updateContractRegistrationJobStatus(
+                registrationJobUid,
+                ContractRegistrationJobStatus.Complete,
+            )
         }
         return
     }
