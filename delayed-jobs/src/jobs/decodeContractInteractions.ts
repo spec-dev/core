@@ -31,6 +31,7 @@ import {
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
     BATCH_TRANSFER_INPUTS,
+    randomIntegerInRange,
 } from '../../../shared'
 import config from '../config'
 import { ident } from 'pg-format'
@@ -84,17 +85,28 @@ async function decodeContractInteractions(
     // Format tables to query based on chain-specific schema.
     const tables = buildTableRefsForChainId(chainId)
 
+    const onDone = async () => {
+        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
+        await sleep(randomIntegerInRange(100, 500))
+        const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
+        const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
+        if (decodedAllContractsInRegistrationJob) {
+            await updateContractRegistrationJobStatus(
+                registrationJobUid,
+                ContractRegistrationJobStatus.Complete,
+            )
+        }
+    }
+
     // Determine the earliest block in which this contract was interacted with 
     // and use that as the "start" block if no start block was specified.
     startBlock = startBlock === null ? await findStartBlock(tables, contractAddresses) : startBlock
     if (startBlock === null) {
-        logger.error(`No interactions with any of these contracts so far. Stopping.`)
-        registrationJobUid && await updateContractRegistrationJobStatus(
-            registrationJobUid, 
-            ContractRegistrationJobStatus.Complete,
-        )
+        logger.error(`No interactions detected for (${contractAddresses.join(', ')}). Stopping.`)
+        registrationJobUid && await onDone()
         return
     }
+
     // Initial start block for the entire decoding of this contract.
     initialBlock = initialBlock === null ? startBlock : initialBlock
 
@@ -130,19 +142,7 @@ async function decodeContractInteractions(
     // All contract interactions decoded *for this contract*.
     if (endCursor >= finalEndBlock) {
         logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
-        if (!registrationJobUid) return
-
-        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
-        const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
-        const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
-        
-        if (decodedAllContractsInRegistrationJob) {
-            // TODO: Enqueue new job to index LOVs dependent on these contracts.
-            await updateContractRegistrationJobStatus(
-                registrationJobUid,
-                ContractRegistrationJobStatus.Complete,
-            )
-        }
+        registrationJobUid && await onDone()
         return
     }
 
@@ -1042,7 +1042,8 @@ async function findStartBlock(tables: StringKeyMap, contractAddresses: string[])
         findEarliestInteraction(tables.traces, 'to', contractAddresses),
         findEarliestInteraction(tables.logs, 'address', contractAddresses),
     ])
-    return Math.min(...blockNumbers.filter(n => n !== null)) || null
+    const notNullBlockNumbers = blockNumbers.filter(n => n !== null)
+    return notNullBlockNumbers.length ? Math.min(...notNullBlockNumbers) : null
 }
 
 async function findEarliestInteraction(table: string, column: string, addresses: string[]): Promise<number | null> {

@@ -1,7 +1,7 @@
 import { ContractInstance } from '../entities/ContractInstance'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
-import { toSlug } from '../../../utils/formatters'
+import { toNamespaceSlug } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
@@ -59,7 +59,7 @@ export async function getContractInstancesInGroup(nsp: string): Promise<Contract
             where: {
                 contract: {
                     namespace: {
-                        slug: toSlug(nsp),
+                        slug: toNamespaceSlug(nsp),
                     },
                 },
             },

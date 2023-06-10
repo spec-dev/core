@@ -1,7 +1,7 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseGetProjectPayload, parseStreamLogsPayload } from './projectPayloads'
-import { logger, getProject, toSlug } from '../../../../shared'
+import { logger, getProject, toSlug, toNamespaceSlug } from '../../../../shared'
 import { codes, errors, authorizeRequest } from '../../utils/requests'
 import { streamLogs } from '../../services/streamLogs'
 
@@ -29,7 +29,7 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
         where: {
             slug: toSlug(payload.project),
             namespace: {
-                slug: toSlug(payload.namespace),
+                slug: toNamespaceSlug(payload.namespace),
             },
             projectRoles: {
                 namespaceUser: {

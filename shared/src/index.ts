@@ -334,3 +334,5 @@ export {
 
 export { getDBTimestamp, publishEvents, publishCalls, publishReorg, emit } from './lib/relay'
 export { hash } from './lib/utils/hash'
+
+export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'

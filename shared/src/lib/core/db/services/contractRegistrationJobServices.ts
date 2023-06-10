@@ -65,20 +65,22 @@ export async function updateContractRegistrationJobStatus(
 export async function updateContractRegistrationJobCursors(
     uid: string,
     addresses: string[],
-    progess: number
+    progress: number
 ): Promise<boolean> {
     try {
         const updates = {}
         for (const address of addresses) {
-            updates[address] = progess
+            updates[address] = progress
         }
         await CoreDB.query(
-            `update contract_registration_jobs set cursors = cursors || '{$1}' where uid = $2`,
-            [JSON.stringify(updates), uid]
+            `update contract_registration_jobs set cursors = cursors || '${JSON.stringify(
+                updates
+            )}' where uid = $1`,
+            [uid]
         )
     } catch (err) {
         logger.error(
-            `Error setting cursors to ${progess} in ContractRegistrationJob(uid=${uid}) 
+            `Error setting cursors to ${progress} in ContractRegistrationJob(uid=${uid}) 
             for addresses ${addresses.join(', ')}: ${err}`
         )
         return false

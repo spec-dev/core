@@ -37,6 +37,7 @@ import {
     getContractGroupAbi,
     saveContractGroupAbi,
     contractRegistrationJobFailed,
+    unique,
 } from '../../../shared'
 import { EventViewSpec, EventSpec } from '../types'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
@@ -75,7 +76,7 @@ async function registerContractInstances(
     }
 
     const contractAddresses = Array.from(seenAddresses)
-    logger.info(`[${chainId}:${nsp}.${contractName}]: Registering ${contractAddresses.length} contract instances...`)
+    logger.info(`[${chainId}:${nsp}.${contractName}]: Registering ${contractAddresses.length} contract instances: ${contractAddresses.join(', ')}`)
     
     // Create new registration job to track progress.
     try {
@@ -109,7 +110,9 @@ async function registerContractInstances(
     if (existingContractInstances === null) {
         await contractRegistrationJobFailed(uid, errors.GENERAL)
         return
+
     }
+
     const allInstancePayloads = uniqueByKeys([
         ...instances,
         ...existingContractInstances.map(({ address, name, desc }) => ({ address, name, desc })),
@@ -219,7 +222,8 @@ async function resolveAbis(
     const [polishedCrossGroupAbisMap, __] = polishAbis(crossGroupAbisMap)
 
     const crossGroupAbiSignatures = {}
-    for (const address in polishedCrossGroupAbisMap) {
+    const crossGroupAddresses = unique([...addresses, ...Object.keys(polishedCrossGroupAbisMap)])
+    for (const address of crossGroupAddresses) {
         const itemsBySig = {}
         const items = polishedCrossGroupAbisMap[address] || []
         items.forEach(item => {
@@ -292,7 +296,7 @@ async function saveDataModels(
             const contractInstances = await upsertContractInstances(contract.id, contractInstancePayloads, chainId, tx)
             const allGroupContractInstances = uniqueByKeys([
                 ...contractInstances,
-                existingContractInstances,
+                ...existingContractInstances,
             ], ['address']) as ContractInstance[]
 
             // Upsert events with versions for each event abi item.
@@ -497,6 +501,7 @@ async function upsertEvents(
             eventId: event.id,
         }
         eventVersionsData.push(data)
+
         eventSpecs.push({
             eventName: event.name,
             contractName: contract.name,
