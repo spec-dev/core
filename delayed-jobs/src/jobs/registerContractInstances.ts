@@ -28,7 +28,6 @@ import {
     CONTRACT_NAME_COL,
     CONTRACT_ADDRESS_COL,
     namespaceForChainId,
-    chainIds,
     getAbis,
     enqueueDelayedJob,
     getContractInstancesInGroup,
@@ -112,7 +111,6 @@ async function registerContractInstances(
         return
 
     }
-
     const allInstancePayloads = uniqueByKeys([
         ...instances,
         ...existingContractInstances.map(({ address, name, desc }) => ({ address, name, desc })),
@@ -165,16 +163,12 @@ async function registerContractInstances(
         }
     }
     
-    // Kick off job to back-decode all interactions with these contracts.
-    const baseJobParams: StringKeyMap = { chainId, registrationJobUid: uid }
-    if ([chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)) {
-        baseJobParams.queryRangeSize = 100
-        baseJobParams.jobRangeSize = 1000
-    }
+    // Kick-off job to back-decode all contract interactions.
     // Enqueue jobs for individual contracts for database lookup speed reasons.
     for (const contractAddress of contractAddresses) {
         await enqueueDelayedJob('decodeContractInteractions', {
-            ...baseJobParams,
+            chainId, 
+            registrationJobUid: uid,
             contractAddresses: [contractAddress],
         })
     }
@@ -369,7 +363,7 @@ async function upsertView(viewSpec: EventViewSpec, chainId: string): Promise<boo
         eventSig,
     } = viewSpec
 
-    logger.info(`\nUpserting view ${schema}.${name}`)
+    logger.info(`Upserting view ${schema}.${name}`)
 
     const contractNameOptions = [
         ...contractInstances.map(ci => (

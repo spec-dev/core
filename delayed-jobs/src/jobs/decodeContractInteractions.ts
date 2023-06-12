@@ -45,9 +45,11 @@ const web3 = new Web3()
 
 const SAVE_BATCH_SIZE = 2000
 
+const MAX_PARALLEL_PROMISES = 10
+
 const errors = {
-    GENERAL: 'Error decoding contracts',
-    MISSING_ABIS: 'Contract ABI(s) missing',
+    GENERAL: 'Error decoding contracts.',
+    MISSING_ABIS: 'Contract ABI(s) missing.',
 }
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
@@ -88,8 +90,10 @@ async function decodeContractInteractions(
     const onDone = async () => {
         await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
         await sleep(randomIntegerInRange(100, 500))
+
         const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
         const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
+
         if (decodedAllContractsInRegistrationJob) {
             await updateContractRegistrationJobStatus(
                 registrationJobUid,
@@ -216,25 +220,44 @@ async function decodePrimitivesUsingContracts(
         const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
         const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
 
-        const savePromises = []
-        saveTransactions && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
-        saveTraces && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
-        insertNewTraces && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
-        saveLogs && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
-        await Promise.all(savePromises)
+        let savePromises = []
 
         if (saveTransactions) {
+            const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
+            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool)))
             batchTransactions = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (saveTraces) {
+            const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
+            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool)))
             batchTraces = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (insertNewTraces) {
+            const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
+            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chunk, tables.traces, pool)))
             batchNewTraces = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (saveLogs) {
+            const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
+            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool)))
             batchLogs = []
         }
+        await Promise.all(savePromises)
 
         cursor = cursor + queryRangeSize
     }
