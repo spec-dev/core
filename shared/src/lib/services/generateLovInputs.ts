@@ -233,8 +233,6 @@ function buildGenerator(
                     contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
                 if (!contractGroups.length) continue
 
-                console.log(contractGroups, _chainId)
-
                 for (const {
                     name: contractInstanceName,
                     nsp,
