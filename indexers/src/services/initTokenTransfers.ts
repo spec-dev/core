@@ -1,9 +1,26 @@
-import { In, polygonToEthereumTokenMappings, TokenTransferStandard, hashSync, getNativeTokenForChain, ethereumToPolygonTokenMappings, chainIds, getLatestTokenPrices, NULL_ADDRESS, toChunks, SharedTables, Erc20Token, NftCollection, TokenTransfer, StringKeyMap, logger, unique, mapByKey } from '../../../shared'
 import { 
+    In, 
+    polygonToEthereumTokenMappings, 
+    TokenTransferStandard, 
+    hashSync, 
+    getNativeTokenForChain, 
+    ethereumToPolygonTokenMappings, 
+    chainIds, 
+    getLatestTokenPrices, 
+    NULL_ADDRESS, 
+    toChunks, 
+    SharedTables, 
+    Erc20Token, 
+    NftCollection, 
+    TokenTransfer, 
+    StringKeyMap, 
+    logger, 
+    unique,
+    mapByKey,
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
     TRANSFER_BATCH_TOPIC,
-} from '../utils/standardAbis'
+} from '../../../shared'
 import config from '../config'
 import { getERC20TotalSupply } from './contractServices'
 import { BigNumber, FixedNumber, utils } from 'ethers'

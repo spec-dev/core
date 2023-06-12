@@ -99,7 +99,7 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version="68ae1e4"
 
 # polygon/mumbai
-image_version="87383c0"
+image_version="ab9a172"
 
 image="$registry_image:$image_version"
 

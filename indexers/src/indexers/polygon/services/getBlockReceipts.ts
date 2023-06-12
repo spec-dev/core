@@ -76,7 +76,7 @@ async function fetchReceipts(
     }
 
     if (data?.error) {
-        data.error?.code === -32600 || logger.error(
+        [-32600, 32000].includes(data.error?.code) || logger.error(
             `[${chainId}:${blockNumber}] Error fetching reciepts: ${data.error?.code} - ${data.error?.message}. Will retry`
         )
         return null

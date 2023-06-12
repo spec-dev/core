@@ -6,6 +6,7 @@ export const errors = {
     INVALID_CREDENTIALS: 'Invalid credentials',
     NOT_FOUND: 'Resource not found',
     UNAUTHORIZED: 'Unauthorized request',
+    FORBIDDEN: `Permission denied`,
     NO_FILE_PROVIDED: 'No file provided',
     INVALID_FILE_TYPE: 'Invalid file type',
     NO_SPEC_INSTANCE: 'No Spec instance exists for project',
@@ -15,6 +16,7 @@ export const errors = {
     NAMESPACE_MISSING_CODE_URL:
         'Namespace does not have a remote git repository assigned to it yet.',
     VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
+    CONTRACT_INSTANCE_NOT_FOUND: 'Contract instance not found',
 }
 
 export const codes = {

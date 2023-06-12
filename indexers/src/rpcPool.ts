@@ -1,7 +1,6 @@
 import Web3 from 'web3'
 import config from './config'
-import { ERC20_BALANCE_OF_ITEM, ERC1155_BALANCE_OF_ITEM } from './utils/standardAbis'
-import { StringKeyMap, shuffle } from '../../shared'
+import { StringKeyMap, shuffle, ERC20_BALANCE_OF_ITEM, ERC1155_BALANCE_OF_ITEM } from '../../shared'
 
 class RpcPool {
 

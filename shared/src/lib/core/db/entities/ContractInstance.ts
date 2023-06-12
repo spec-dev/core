@@ -6,8 +6,6 @@ import {
     CreateDateColumn,
     ManyToOne,
     JoinColumn,
-    OneToMany,
-    Unique,
 } from 'typeorm'
 import { Contract } from './Contract'
 

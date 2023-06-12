@@ -78,11 +78,11 @@ export async function publishLiveObjectVersion(
     const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
     if (additionalEventVersions === null) return
 
-    // Ensure the version to publish is greater than the existing version.
-    const latestLiveObjectVersion = liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
-    if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
+    // Ensure the version to publish is greater than the existing version (if not contract event live object).
+    const latestLov = !representsContractEvent && liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
+    if (latestLov && !isVersionGt(payload.version, latestLov.version)) {
         logger.error(
-            `Can't publish version ${payload.version} when ${latestLiveObjectVersion.version} already exists.`
+            `Can't publish version ${payload.version} when ${latestLov.version} already exists.`
         )
         return
     }
