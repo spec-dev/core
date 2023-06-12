@@ -314,11 +314,11 @@ Example return structure:
             "inputEventsQueryComps": [
                 "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
-            inputEventIds: Set<[
+            "inputEventIds": Set<[
                 "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
             ]>
             "inputFunctionsQueryComps": [],
-            inputFunctionIds: Set<[]>
+            "inputFunctionIds": Set<[]>
             "timestampCursor": "2022-10-10T05:00:00.000Z"
         }
     }
@@ -512,10 +512,22 @@ export async function getGroupedInputGeneratorQueriesForLovs(
                 groupQueryCursors[chainId].inputFunctionsQueryComps || []
             groupQueryCursors[chainId].timestampCursors =
                 groupQueryCursors[chainId].timestampCursors || []
+            groupQueryCursors[chainId].inputEventIds =
+                groupQueryCursors[chainId].inputEventIds || new Set<string>()
+            groupQueryCursors[chainId].inputFunctionIds =
+                groupQueryCursors[chainId].inputFunctionIds || new Set<string>()
 
             groupQueryCursors[chainId].inputEventsQueryComps.push(...inputEventsQueryComps)
             groupQueryCursors[chainId].inputFunctionsQueryComps.push(...inputFunctionsQueryComps)
             groupQueryCursors[chainId].timestampCursors.push(timestampCursor)
+
+            Array.from(inputEventIds).forEach((eventId) => {
+                groupQueryCursors[chainId].inputEventIds.add(eventId)
+            })
+
+            Array.from(inputFunctionIds).forEach((functionId) => {
+                groupQueryCursors[chainId].inputFunctionIds.add(functionId)
+            })
 
             const uniqueInputIds = [...Array.from(inputEventIds), ...Array.from(inputFunctionIds)]
             uniqueInputIds.forEach((key: string) => {
