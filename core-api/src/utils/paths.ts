@@ -7,6 +7,8 @@ const prefix = {
     LIVE_OBJECT_VERSION: '/live-object-version',
     CONTRACT_INSTANCE: '/contract-instance',
     CONTRACT_REGISTRATION_JOB: '/contract-registration-job',
+    EVENT_VERSION: '/event-version',
+    CALL_VERSION: '/call-version',
     PIPELINE: '/pipeline',
 }
 
@@ -43,7 +45,13 @@ const paths = {
     
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
-    
+
+    // Event Version paths.
+    RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',
+
+    // Call Version paths.
+    RESOLVE_CALL_VERSIONS: prefix.CALL_VERSION + 's' + '/resolve',
+
     // Pipeline config paths.
     TOGGLE_PROCESS_JOBS: prefix.ADMIN + prefix.PIPELINE + '/toggle-process-jobs',
     GET_PROCESS_JOBS_STATUS: prefix.ADMIN + prefix.PIPELINE + '/process-jobs',

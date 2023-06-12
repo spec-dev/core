@@ -146,6 +146,7 @@ export {
     getNativeTokenForChain,
     avgBlockTimesForChainId,
     primitivesForChainId,
+    chainIdForContractNamespace,
 } from './lib/utils/chainIds'
 import config from './lib/config'
 export { config }
@@ -218,6 +219,7 @@ export {
     getEventVersion,
     upsertEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
+    resolveEventVersionNames,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -336,3 +338,4 @@ export { getDBTimestamp, publishEvents, publishCalls, publishReorg, emit } from 
 export { hash } from './lib/utils/hash'
 
 export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'
+export { resolveCallVersionNames } from './lib/services/resolveCallVersionNames'
