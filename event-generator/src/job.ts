@@ -58,12 +58,14 @@ async function perform(data: StringKeyMap) {
     const contractCalls = sortContractCalls(blockCalls)
     const originEvents = formatOriginEvents(blockEvents)
 
-    // Publish all calls & origin events up-front.
+    // Publish all origin events up-front.
     const hasContractCalls = contractCalls.length > 0
     const hasOriginEvents = originEvents.length > 0
     const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
-    hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)
     hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
+    
+    // TBD whether we bring back - depends on added system load vs true customer value.
+    // hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)    
 
     // Get the unique contract call names and unique event names for this batch.
     const uniqueContractCallComps = getUniqueInputEventOrCallComps(contractCalls)
