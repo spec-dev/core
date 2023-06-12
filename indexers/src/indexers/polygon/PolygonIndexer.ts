@@ -29,8 +29,6 @@ import {
     getFunctionSignatures,
     Abi,
     AbiItem,
-    CoreDB,
-    ContractInstance,
     formatAbiValueWithType,
     PolygonTransactionStatus,
     uniqueByKeys,
@@ -61,8 +59,6 @@ import {
     decodeTransferSingleEvent, 
     decodeTransferBatchEvent,
 } from '../../services/extractTransfersFromLogs'
-
-const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 class PolygonIndexer extends AbstractIndexer {
     
