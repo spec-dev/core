@@ -89,7 +89,7 @@ class PolygonIndexer extends AbstractIndexer {
     constructor(head: NewReportedHead, web3?: Web3) {
         super(head)
         this.web3 = web3 || new Web3(config.RPC_REST_URL)
-        this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0.0.1`
+        this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`
     }
 
     async perform(): Promise<StringKeyMap | void> {
