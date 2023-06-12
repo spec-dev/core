@@ -233,6 +233,8 @@ function buildGenerator(
                     contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
                 if (!contractGroups.length) continue
 
+                console.log(contractGroups, _chainId)
+
                 for (const {
                     name: contractInstanceName,
                     nsp,
@@ -593,11 +595,22 @@ export async function getLovInputGeneratorQueries(
     const eventContractInstancesByNamespaceId = {}
     const contractInstanceData = {}
     for (const contractInstance of eventContractInstances) {
+        const nsp = contractInstance.contract.namespace.name
+        if (!isContractNamespace(nsp)) continue
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        if (!contractGroup) continue
+
+        // TODO: Break out above to perform a single redis query using getContractGroupAbis
+        // across all contract groups referenced.
+        const contractGroupAbi = await getContractGroupAbi(contractGroup, contractInstance.chainId)
+        if (!contractGroupAbi) continue
+
         const ciKey = [contractInstance.chainId, contractInstance.address, 'event'].join(':')
         contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
         contractInstanceData[ciKey].push({
             name: contractInstance.name,
             nsp: contractInstance.contract.namespace.name,
+            abi: contractGroupAbi,
         })
         const namespaceId = contractInstance.contract.namespaceId
         if (!eventContractInstancesByNamespaceId.hasOwnProperty(namespaceId)) {
@@ -648,16 +661,26 @@ export async function getLovInputGeneratorQueries(
     for (const inputContractFunction of inputContractFunctions) {
         const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
 
+        const { nsp } = fromNamespacedVersion(callId)
+        if (!isContractNamespace(nsp)) continue
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        if (!contractGroup) continue
+
+        // TODO: Break out above to perform a single redis query using getContractGroupAbis
+        // across all contract groups referenced.
+        const contractGroupAbi = await getContractGroupAbi(contractGroup, chainId)
+        if (!contractGroupAbi) continue
+
         chainInputs[chainId] = chainInputs[chainId] || {}
         chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
         chainInputs[chainId].inputFunctionData.push({ callId, contractAddress })
-        const { nsp } = fromNamespacedVersion(callId)
 
         const ciKey = [chainId, contractAddress, 'call'].join(':')
         contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
         contractInstanceData[ciKey].push({
             name: contractInstanceName,
             nsp,
+            abi: contractGroupAbi,
         })
     }
 
