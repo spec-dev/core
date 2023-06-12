@@ -49,7 +49,7 @@ export async function getLovInputGenerator(
         earliestStartCursor,
         targetBatchSize * shortestBlockTime,
         queryCursors,
-        contractInstanceData,
+        contractInstanceData
     )
 
     return { generator, inputIdsToLovIdsMap, liveObjectVersions }
@@ -76,7 +76,7 @@ export async function generateLovInputsForEventsAndCalls(
         earliestStartCursor,
         targetBatchSize * shortestBlockTime,
         queryCursors,
-        contractInstanceData,
+        contractInstanceData
     )
 
     return { generator, inputGen }
@@ -229,18 +229,23 @@ function buildGenerator(
             const record = camelizeKeys(input)
 
             if (_inputType === 'event') {
-                const contractGroups = contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
+                const contractGroups =
+                    contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
                 if (!contractGroups.length) continue
 
-                for (const { name: contractInstanceName, nsp, abi: contractGroupAbi } of contractGroups) {
+                for (const {
+                    name: contractInstanceName,
+                    nsp,
+                    abi: contractGroupAbi,
+                } of contractGroups) {
                     const fullEventName = toNamespacedVersion(nsp, record.eventName, record.topic0)
                     if (!queryCursors[_chainId].inputEventIds.has(fullEventName)) continue
 
                     const formattedEventData = formatLogAsSpecEvent(
-                        record, 
+                        record,
                         contractGroupAbi,
                         contractInstanceName,
-                        _chainId,
+                        _chainId
                     )
                     if (!formattedEventData) continue
 
@@ -253,30 +258,29 @@ function buildGenerator(
                     })
                 }
             } else {
-                const contractGroups = contractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
+                const contractGroups =
+                    contractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
                 if (!contractGroups.length) continue
 
-                for (const { name: contractInstanceName, nsp, abi: contractGroupAbi } of contractGroups) {
+                for (const {
+                    name: contractInstanceName,
+                    nsp,
+                    abi: contractGroupAbi,
+                } of contractGroups) {
                     const signature = record.input?.slice(0, 10)
                     const fullCallName = toNamespacedVersion(nsp, record.functionName, signature)
                     if (!queryCursors[_chainId].inputFunctionIds.has(fullCallName)) continue
 
                     const formattedCallData = formatTraceAsSpecCall(
-                        record, 
+                        record,
                         signature,
                         contractGroupAbi,
                         contractInstanceName,
-                        _chainId,
+                        _chainId
                     )
                     if (!formattedCallData) continue
 
-                    const { 
-                        callOrigin,
-                        inputs,
-                        inputArgs,
-                        outputs,
-                        outputArgs,
-                    } = formattedCallData
+                    const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
 
                     inputSpecs.push({
                         origin: callOrigin,
@@ -630,8 +634,7 @@ export async function getLovInputGeneratorQueries(
         .flat() as StringKeyMap[]
 
     for (const inputContractFunction of inputContractFunctions) {
-        const { chainId, contractAddress, contractInstanceName, callId } =
-            inputContractFunction
+        const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
 
         chainInputs[chainId] = chainInputs[chainId] || {}
         chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
@@ -769,7 +772,7 @@ function formatLogAsSpecEvent(
     log: StringKeyMap,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string,
+    chainId: string
 ): StringKeyMap {
     const eventOrigin = {
         contractAddress: log.address,
@@ -782,17 +785,17 @@ function formatLogAsSpecEvent(
         blockTimestamp: log.blockTimestamp.toISOString(),
         chainId,
     }
-    
+
     const fixedContractEventProperties = {
         ...eventOrigin,
         contractName: contractInstanceName,
         logIndex: log.logIndex,
     }
 
-    const groupAbiItem = contractGroupAbi.find(item => item.signature === log.topic0)
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
     if (!groupAbiItem) return null
 
-    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name).filter(v => !!v)
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name).filter((v) => !!v)
     const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
     if (logEventArgs.length !== groupArgNames.length) return null
 
@@ -809,7 +812,7 @@ function formatLogAsSpecEvent(
             value: arg.value,
         })
     }
-    
+
     // Ensure event arg property names are unique.
     const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
     for (const property of eventProperties) {
@@ -822,7 +825,7 @@ function formatLogAsSpecEvent(
     }
 
     const data = {
-        ...fixedContractEventProperties
+        ...fixedContractEventProperties,
     }
     for (const property of eventProperties) {
         data[property.name] = property.value
@@ -851,10 +854,10 @@ function formatTraceAsSpecCall(
         chainId: chainId,
     }
 
-    const groupAbiItem = contractGroupAbi.find(item => item.signature === signature)
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === signature)
     if (!groupAbiItem) return null
 
-    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name)
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name)
     const functionArgs = (trace.functionArgs || []) as StringKeyMap[]
     const inputs = {}
     const inputArgs = []
@@ -870,7 +873,7 @@ function formatTraceAsSpecCall(
         inputArgs.push(arg.value)
     }
 
-    const groupOutputNames = (groupAbiItem.outputs || []).map(output => output.name)
+    const groupOutputNames = (groupAbiItem.outputs || []).map((output) => output.name)
     const functionOutputs = (trace.functionOutputs || []) as StringKeyMap[]
     const outputs = {}
     const outputArgs = []

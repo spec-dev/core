@@ -34,7 +34,9 @@ export async function createContractRegistrationJob(
     return contractRegistrationJob
 }
 
-export async function getContractRegistrationJob(uid: string): Promise<StringKeyMap> {
+export async function getContractRegistrationJob(
+    uid: string
+): Promise<ContractRegistrationJob | null> {
     try {
         return await contractRegistrationJobsRepo().findOneBy({ uid })
     } catch (err) {
