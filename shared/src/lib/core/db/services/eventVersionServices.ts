@@ -87,6 +87,7 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
     const fakeVersion = 'fake'
     const uniqueNspNamesSet = new Set<string>()
     const inputComps = []
+
     for (const input of uniqueInputs) {
         const { nsp, name, version } = fromNamespacedVersion(
             input.includes('@') ? input : `${input}@${fakeVersion}`
@@ -104,7 +105,7 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
         const [nsp, name] = v.split(':')
         return { nsp, name }
     })
-    if (!uniqueNspNames.length) return {}
+    if (!uniqueNspNames.length) return { data: {} }
 
     let eventVersions = []
     try {
@@ -113,7 +114,7 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
         logger.error(`Error fetching EventVersions for: ${JSON.stringify(uniqueNspNames)}: ${err}`)
         return { error: 'Error looking up event versions.' }
     }
-    if (!eventVersions.length) return {}
+    if (!eventVersions.length) return { data: {} }
 
     const existingVersionsByNspName = {}
     for (const eventVersion of eventVersions) {
@@ -154,5 +155,5 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
         resolvedNamesMap[givenInput] = toNamespacedVersion(nsp, name, actualVersion)
     }
 
-    return resolvedNamesMap
+    return { data: resolvedNamesMap }
 }

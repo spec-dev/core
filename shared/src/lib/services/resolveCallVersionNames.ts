@@ -9,6 +9,7 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
     const fakeVersion = 'fake'
     const uniqueChainContractGroupsSet = new Set<string>()
     const inputComps = []
+
     for (const input of uniqueInputs) {
         const { nsp, name, version } = fromNamespacedVersion(
             input.includes('@') ? input : `${input}@${fakeVersion}`
@@ -33,7 +34,7 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
         const [chainId, contractGroup] = v.split(':')
         return { chainId, contractGroup }
     })
-    if (!uniqueChainContractGroups.length) return {}
+    if (!uniqueChainContractGroups.length) return { data: {} }
 
     const contractGroupAbis = await Promise.all(
         uniqueChainContractGroups.map(({ chainId, contractGroup }) =>
@@ -95,5 +96,5 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
         resolvedNamesMap[givenInput] = toNamespacedVersion(nsp, name, actualVersion)
     }
 
-    return resolvedNamesMap
+    return { data: resolvedNamesMap }
 }
