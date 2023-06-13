@@ -72,3 +72,5 @@ spec:
           value: TAILS
         - name: FORCE_COLOR
           value: "1" 
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}

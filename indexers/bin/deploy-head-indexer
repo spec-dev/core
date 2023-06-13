@@ -119,9 +119,11 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 
 # eth/goerli
 # image_version="76b9a10"
+# image_version="6e3beeb"
 
 # polygon/mumbai
-image_version="ab9a172"
+# image_version="ab9a172"
+image_version="6e3beeb"
 
 image="$registry_image:$image_version"
 
