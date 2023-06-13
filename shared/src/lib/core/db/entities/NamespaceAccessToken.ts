@@ -9,6 +9,12 @@ import {
 } from 'typeorm'
 import { Namespace } from './Namespace'
 
+export enum NamespaceAccessTokenScope {
+    RegisterContracts = 'contracts:register',
+    PublishLiveObjects = 'live-objects:publish',
+    Internal = 'internal',
+}
+
 /**
  * A particular version of a live object.
  */
