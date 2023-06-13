@@ -4,8 +4,6 @@ import {
     splitLogDataToWords,
     normalizeEthAddress,
     hexToNumberString,
-} from '../../../shared'
-import { 
     TRANSFER_TOPIC,
     TRANSFER_SINGLE_TOPIC,
     TRANSFER_BATCH_TOPIC,
@@ -13,7 +11,7 @@ import {
     TRANSFER_EVENT_NAME,
     TRANSFER_SINGLE_EVENT_NAME,
     TRANSFER_BATCH_EVENT_NAME,
-} from '../utils/standardAbis'
+} from '../../../shared'
 import Web3 from 'web3'
 
 const web3 = new Web3()

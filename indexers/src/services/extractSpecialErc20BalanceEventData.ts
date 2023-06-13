@@ -1,5 +1,4 @@
-import { StringKeyMap } from '../../../shared/dist/main'
-import { specialErc20BalanceAffectingAbis } from '../utils/standardAbis'
+import { StringKeyMap, specialErc20BalanceAffectingAbis } from '../../../shared'
 import { getErc20Tokens } from './initTokenTransfers'
 
 async function extractSpecialErc20BalanceEventData(

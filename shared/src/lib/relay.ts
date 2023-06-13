@@ -24,8 +24,6 @@ const eventClient = config.CONNECT_TO_EVENT_RELAY
 
 const formatSpecEvent = (eventSpec: StringKeyMap, eventTimestamp: string): StringKeyMap => {
     const { name, data, origin } = eventSpec
-    delete origin.transactionIndex
-    delete origin.logIndex
     return {
         name,
         origin: {
@@ -122,7 +120,7 @@ export async function publishEvents(
         }
     }
 
-    if (!generated) {
+    if (!generated && finalEvents.length) {
         const { chainId, blockNumber } = finalEvents[0].origin
         logger.info(`[${chainId}:${blockNumber}] Publishing ${finalEvents.length} origin events...`)
     }

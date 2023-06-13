@@ -5,12 +5,14 @@ import { ContractInstance } from '../core/db/entities/ContractInstance'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
-import { In, SimpleConsoleLogger } from 'typeorm'
+import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
-import { schemaForChainId } from '../utils/chainIds'
+import { Abi } from '../abi/types'
+import { schemaForChainId, isContractNamespace } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
 import { avgBlockTimesForChainId } from '../utils/chainIds'
 import { camelizeKeys } from 'humps'
+import { getContractGroupAbi } from '../abi/redis'
 import {
     toNamespacedVersion,
     snakeToCamel,
@@ -227,29 +229,62 @@ function buildGenerator(
             const record = camelizeKeys(input)
 
             if (_inputType === 'event') {
-                const associatedContractInstances =
+                const contractGroups =
                     contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
-                for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
-                    const { data, eventOrigin } = formatLogAsSpecEvent(
+                if (!contractGroups.length) continue
+
+                for (const {
+                    name: contractInstanceName,
+                    nsp,
+                    abi: contractGroupAbi,
+                } of contractGroups) {
+                    const fullEventName = toNamespacedVersion(nsp, record.eventName, record.topic0)
+                    if (!queryCursors[_chainId].inputEventIds.has(fullEventName)) continue
+
+                    const formattedEventData = formatLogAsSpecEvent(
                         record,
+                        contractGroupAbi,
                         contractInstanceName,
                         _chainId
                     )
+                    if (!formattedEventData) continue
+
+                    const { eventOrigin, data } = formattedEventData
+
                     inputSpecs.push({
                         origin: eventOrigin,
-                        name: toNamespacedVersion(nsp, record.eventName, '0.0.1'),
-                        data: data,
+                        name: fullEventName,
+                        data,
                     })
                 }
             } else {
-                const associatedContractInstances =
+                const contractGroups =
                     contractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
-                for (const { name: contractInstanceName, nsp } of associatedContractInstances) {
-                    const { callOrigin, inputs, inputArgs, outputs, outputArgs } =
-                        formatTraceAsSpecCall(record, contractInstanceName, _chainId)
+                if (!contractGroups.length) continue
+
+                for (const {
+                    name: contractInstanceName,
+                    nsp,
+                    abi: contractGroupAbi,
+                } of contractGroups) {
+                    const signature = record.input?.slice(0, 10)
+                    const fullCallName = toNamespacedVersion(nsp, record.functionName, signature)
+                    if (!queryCursors[_chainId].inputFunctionIds.has(fullCallName)) continue
+
+                    const formattedCallData = formatTraceAsSpecCall(
+                        record,
+                        signature,
+                        contractGroupAbi,
+                        contractInstanceName,
+                        _chainId
+                    )
+                    if (!formattedCallData) continue
+
+                    const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
+
                     inputSpecs.push({
                         origin: callOrigin,
-                        name: [nsp, record.functionName].join('.'),
+                        name: fullCallName,
                         inputs,
                         inputArgs,
                         outputs,
@@ -277,13 +312,17 @@ Example return structure:
     queryCursors: {
         "137": {
             "inputEventsQueryComps": [
-                "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and event_name in ('DefaultProfileSet', 'DispatcherSet'))"
+                "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
+            "inputEventIds": Set<[
+                "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
+            ]>
             "inputFunctionsQueryComps": [],
+            "inputFunctionIds": Set<[]>
             "timestampCursor": "2022-10-10T05:00:00.000Z"
         }
     }
-    // Data about the contract instances associated with all inputS.
+    // Data about the contract instances associated with all inputs.
     contractInstanceData: {
         "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
             {
@@ -304,19 +343,13 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
         eventIds.map((id) => fromNamespacedVersion(id).nsp).filter((nsp) => !!nsp)
     )
     const callNsps = unique(
-        callIds
-            .map((id) => {
-                const split = id.split('.')
-                split.pop() // pop off function name
-                return split.join('.')
-            })
-            .filter((nsp) => !!nsp)
+        callIds.map((id) => fromNamespacedVersion(id).nsp).filter((nsp) => !!nsp)
     )
     const eventNspSet = new Set(eventNsps)
     const callNspSet = new Set(callNsps)
     const allInputNsps = unique([...eventNsps, ...callNsps])
 
-    // Get contract instances for these namespaces.
+    // Get all contract instances in these namespaces.
     let contractInstances
     try {
         contractInstances = await contractInstancesRepo().find({
@@ -336,6 +369,15 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
     const contractInstanceData = {}
     for (const contractInstance of contractInstances) {
         const nsp = contractInstance.contract.namespace.name
+        if (!isContractNamespace(nsp)) continue
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        if (!contractGroup) continue
+
+        // TODO: Break out above to perform a single redis query using getContractGroupAbis
+        // across all contract groups referenced.
+        const contractGroupAbi = await getContractGroupAbi(contractGroup, contractInstance.chainId)
+        if (!contractGroupAbi) continue
+
         const isUsedByEvent = eventNspSet.has(nsp)
         const isUsedByCall = callNspSet.has(nsp)
 
@@ -345,6 +387,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
             contractInstanceData[ciKey].push({
                 name: contractInstance.name,
                 nsp,
+                abi: contractGroupAbi,
             })
             if (!eventContractInstancesByNamespace.hasOwnProperty(nsp)) {
                 eventContractInstancesByNamespace[nsp] = []
@@ -360,6 +403,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
             contractInstanceData[ciKey].push({
                 name: contractInstance.name,
                 nsp,
+                abi: contractGroupAbi,
             })
             if (!callContractInstancesByNamespace.hasOwnProperty(nsp)) {
                 callContractInstancesByNamespace[nsp] = []
@@ -373,8 +417,8 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
 
     const chainInputs = {}
     for (const eventId of eventIds) {
-        const { nsp } = fromNamespacedVersion(eventId)
-        if (!nsp) continue
+        const { nsp, name, version } = fromNamespacedVersion(eventId)
+        if (!nsp || !name || !version) continue
 
         const eventContractInstance = eventContractInstancesByNamespace[nsp] || []
         if (!eventContractInstance.length) continue
@@ -393,25 +437,23 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
     }
 
     const inputContractFunctions = callIds
-        .map((id) => {
-            const split = id.split('.')
-            const functionName = split.pop()
-            const nsp = split.join('.')
+        .map((callId) => {
+            const { nsp, name, version } = fromNamespacedVersion(callId)
+            if (!nsp || !name || !version) return []
             const contractInstancesInfo = callContractInstancesByNamespace[nsp] || []
             return contractInstancesInfo.map((ci) => ({
                 chainId: ci.chainId,
                 contractAddress: ci.contractAddress,
-                functionName: functionName,
-                nsp: nsp,
+                callId,
             }))
         })
         .flat() as StringKeyMap[]
 
     for (const inputContractFunction of inputContractFunctions) {
-        const { chainId, contractAddress, functionName, nsp } = inputContractFunction
+        const { chainId, contractAddress, callId } = inputContractFunction
         chainInputs[chainId] = chainInputs[chainId] || {}
         chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
-        chainInputs[chainId].inputFunctionData.push({ contractAddress, functionName, nsp })
+        chainInputs[chainId].inputFunctionData.push({ callId, contractAddress })
     }
 
     const queryCursors = await buildQueryCursors(chainInputs, startTimestamp)
@@ -470,10 +512,22 @@ export async function getGroupedInputGeneratorQueriesForLovs(
                 groupQueryCursors[chainId].inputFunctionsQueryComps || []
             groupQueryCursors[chainId].timestampCursors =
                 groupQueryCursors[chainId].timestampCursors || []
+            groupQueryCursors[chainId].inputEventIds =
+                groupQueryCursors[chainId].inputEventIds || new Set<string>()
+            groupQueryCursors[chainId].inputFunctionIds =
+                groupQueryCursors[chainId].inputFunctionIds || new Set<string>()
 
             groupQueryCursors[chainId].inputEventsQueryComps.push(...inputEventsQueryComps)
             groupQueryCursors[chainId].inputFunctionsQueryComps.push(...inputFunctionsQueryComps)
             groupQueryCursors[chainId].timestampCursors.push(timestampCursor)
+
+            Array.from(inputEventIds).forEach((eventId) => {
+                groupQueryCursors[chainId].inputEventIds.add(eventId)
+            })
+
+            Array.from(inputFunctionIds).forEach((functionId) => {
+                groupQueryCursors[chainId].inputFunctionIds.add(functionId)
+            })
 
             const uniqueInputIds = [...Array.from(inputEventIds), ...Array.from(inputFunctionIds)]
             uniqueInputIds.forEach((key: string) => {
@@ -539,11 +593,22 @@ export async function getLovInputGeneratorQueries(
     const eventContractInstancesByNamespaceId = {}
     const contractInstanceData = {}
     for (const contractInstance of eventContractInstances) {
+        const nsp = contractInstance.contract.namespace.name
+        if (!isContractNamespace(nsp)) continue
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        if (!contractGroup) continue
+
+        // TODO: Break out above to perform a single redis query using getContractGroupAbis
+        // across all contract groups referenced.
+        const contractGroupAbi = await getContractGroupAbi(contractGroup, contractInstance.chainId)
+        if (!contractGroupAbi) continue
+
         const ciKey = [contractInstance.chainId, contractInstance.address, 'event'].join(':')
         contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
         contractInstanceData[ciKey].push({
             name: contractInstance.name,
             nsp: contractInstance.contract.namespace.name,
+            abi: contractGroupAbi,
         })
         const namespaceId = contractInstance.contract.namespaceId
         if (!eventContractInstancesByNamespaceId.hasOwnProperty(namespaceId)) {
@@ -586,25 +651,34 @@ export async function getLovInputGeneratorQueries(
                 chainId: contractInstance.chainId,
                 contractAddress: contractInstance.address,
                 contractInstanceName: contractInstance.name,
-                functionName: call.functionName,
-                nsp: call.namespace.name,
+                callId: toNamespacedVersion(call.namespace.name, call.functionName, call.version),
             }))
         })
         .flat() as StringKeyMap[]
 
     for (const inputContractFunction of inputContractFunctions) {
-        const { chainId, contractAddress, contractInstanceName, functionName, nsp } =
-            inputContractFunction
+        const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
+
+        const { nsp } = fromNamespacedVersion(callId)
+        if (!isContractNamespace(nsp)) continue
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        if (!contractGroup) continue
+
+        // TODO: Break out above to perform a single redis query using getContractGroupAbis
+        // across all contract groups referenced.
+        const contractGroupAbi = await getContractGroupAbi(contractGroup, chainId)
+        if (!contractGroupAbi) continue
 
         chainInputs[chainId] = chainInputs[chainId] || {}
         chainInputs[chainId].inputFunctionData = chainInputs[chainId].inputFunctionData || []
-        chainInputs[chainId].inputFunctionData.push({ contractAddress, functionName, nsp })
+        chainInputs[chainId].inputFunctionData.push({ callId, contractAddress })
 
         const ciKey = [chainId, contractAddress, 'call'].join(':')
         contractInstanceData[ciKey] = contractInstanceData[ciKey] || []
         contractInstanceData[ciKey].push({
             name: contractInstanceName,
             nsp,
+            abi: contractGroupAbi,
         })
     }
 
@@ -629,31 +703,27 @@ async function buildQueryCursors(
         let inputEventsQueryComps = []
         for (const { eventVersion, eventId, contractAddresses } of inputEvents) {
             if (!contractAddresses.length) continue
-
             inputEventIds.add(
                 eventId ||
                     toNamespacedVersion(eventVersion.nsp, eventVersion.name, eventVersion.version)
             )
-
             contractAddresses.forEach((a) => {
                 uniqueEventContractAddresses.add(a)
             })
-
-            const eventName = eventId ? fromNamespacedVersion(eventId).name : eventVersion.name
-
+            const version = eventId ? fromNamespacedVersion(eventId).version : eventVersion.version
             inputEventsQueryComps.push(
-                `(event_name = ${literal(eventName)} and address in (${contractAddresses
+                `(topic0 = ${literal(version)} and address in (${contractAddresses
                     .map(literal)
                     .join(', ')}))`
             )
         }
         if (uniqueEventContractAddresses.size === 1) {
             const address = Array.from(uniqueEventContractAddresses)[0]
-            const eventNames = inputEvents.map(({ eventVersion, eventId }) =>
-                eventId ? fromNamespacedVersion(eventId).name : eventVersion.name
+            const versions = inputEvents.map(({ eventVersion, eventId }) =>
+                eventId ? fromNamespacedVersion(eventId).version : eventVersion.version
             )
             inputEventsQueryComps = [
-                `(address = ${literal(address)} and event_name in (${eventNames
+                `(address = ${literal(address)} and topic0 in (${versions
                     .map(literal)
                     .join(', ')}))`,
             ]
@@ -663,10 +733,11 @@ async function buildQueryCursors(
         const inputFunctionData = chainInputs[chainId].inputFunctionData || []
         const inputFunctionIds = new Set<string>()
         const inputFunctionsQueryComps = []
-        for (const { functionName, contractAddress, nsp } of inputFunctionData) {
-            inputFunctionIds.add([nsp, functionName].join('.'))
+        for (const { callId, contractAddress } of inputFunctionData) {
+            const { name } = fromNamespacedVersion(callId)
+            inputFunctionIds.add(callId)
             inputFunctionsQueryComps.push(
-                `(function_name = ${literal(functionName)} and "to" = ${literal(contractAddress)})`
+                `(function_name = ${literal(name)} and "to" = ${literal(contractAddress)})`
             )
         }
 
@@ -716,7 +787,7 @@ async function findStartBlockTimestamp(
             (await SharedTables.query(
                 `select block_timestamp from ${ident(schema)}.${ident(
                     table
-                )} where (${andClauses.join(' or ')}) order by block_number asc limit 1`
+                )} where (${andClauses.join(' or ')}) order by block_timestamp asc limit 1`
             )) || []
         return (results[0] || {})?.block_timestamp || null
     } catch (err) {
@@ -732,6 +803,7 @@ async function findStartBlockTimestamp(
 
 function formatLogAsSpecEvent(
     log: StringKeyMap,
+    contractGroupAbi: Abi,
     contractInstanceName: string,
     chainId: string
 ): StringKeyMap {
@@ -740,10 +812,11 @@ function formatLogAsSpecEvent(
         transactionHash: log.transactionHash,
         transactionIndex: log.transactionIndex,
         logIndex: log.logIndex,
+        signature: log.topic0,
         blockHash: log.blockHash,
         blockNumber: Number(log.blockNumber),
         blockTimestamp: log.blockTimestamp.toISOString(),
-        chainId: chainId,
+        chainId,
     }
 
     const fixedContractEventProperties = {
@@ -752,12 +825,23 @@ function formatLogAsSpecEvent(
         logIndex: log.logIndex,
     }
 
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
+    if (!groupAbiItem) return null
+
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name).filter((v) => !!v)
     const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
+    if (logEventArgs.length !== groupArgNames.length) return null
+
     const eventProperties = []
-    for (const arg of logEventArgs) {
-        if (!arg.name) continue
+    for (let i = 0; i < logEventArgs.length; i++) {
+        const arg = logEventArgs[i]
+        if (!arg) return null
+
+        const argName = groupArgNames[i]
+        if (!argName) return null
+
         eventProperties.push({
-            name: snakeToCamel(stripLeadingAndTrailingUnderscores(arg.name)),
+            name: snakeToCamel(stripLeadingAndTrailingUnderscores(argName)),
             value: arg.value,
         })
     }
@@ -785,6 +869,8 @@ function formatLogAsSpecEvent(
 
 function formatTraceAsSpecCall(
     trace: StringKeyMap,
+    signature: string,
+    contractGroupAbi: Abi,
     contractInstanceName: string,
     chainId: string
 ): StringKeyMap {
@@ -794,27 +880,45 @@ function formatTraceAsSpecCall(
         transactionHash: trace.transactionHash,
         transactionIndex: trace.transactionIndex,
         traceIndex: trace.traceIndex,
+        signature,
         blockHash: trace.blockHash,
         blockNumber: Number(trace.blockNumber),
         blockTimestamp: trace.blockTimestamp.toISOString(),
         chainId: chainId,
     }
 
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === signature)
+    if (!groupAbiItem) return null
+
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name)
+    const functionArgs = (trace.functionArgs || []) as StringKeyMap[]
     const inputs = {}
     const inputArgs = []
-    for (const arg of (trace.functionArgs || []) as StringKeyMap[]) {
-        if (arg.name) {
-            inputs[arg.name] = arg.value
+    for (let i = 0; i < functionArgs.length; i++) {
+        const arg = functionArgs[i]
+        if (!arg) return null
+
+        const argName = groupArgNames[i]
+        if (argName) {
+            inputs[argName] = arg.value
         }
+
         inputArgs.push(arg.value)
     }
 
+    const groupOutputNames = (groupAbiItem.outputs || []).map((output) => output.name)
+    const functionOutputs = (trace.functionOutputs || []) as StringKeyMap[]
     const outputs = {}
     const outputArgs = []
-    for (const output of (trace.functionOutputs || []) as StringKeyMap[]) {
-        if (output.name) {
-            outputs[output.name] = output.value
+    for (let i = 0; i < functionOutputs.length; i++) {
+        const output = functionOutputs[i]
+        if (!output) return null
+
+        const outputName = groupOutputNames[i]
+        if (outputName) {
+            outputs[outputName] = output.value
         }
+
         outputArgs.push(output.value)
     }
 

@@ -2,8 +2,9 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { fromNamespacedVersion } from '../../../utils/formatters'
+import { fromNamespacedVersion, toNamespacedVersion, unique } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
+import { isContractNamespace } from '../../../utils/chainIds'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -60,7 +61,7 @@ export async function getEventVersionsByNamespacedVersions(
         logger.error(
             `Error fetching EventVersions for namespacedVersions: ${validNamespacedVersions.join(
                 ', '
-            )}`
+            )}: ${err}`
         )
         return []
     }
@@ -79,4 +80,80 @@ export async function upsertEventVersionsWithTx(data: StringKeyMap[], tx: any) {
             .returning('*')
             .execute()
     ).generatedMaps
+}
+
+export async function resolveEventVersionNames(inputs: string[]): Promise<StringKeyMap> {
+    const uniqueInputs = unique(inputs).filter((v) => !!v)
+    const fakeVersion = 'fake'
+    const uniqueNspNamesSet = new Set<string>()
+    const inputComps = []
+
+    for (const input of uniqueInputs) {
+        const { nsp, name, version } = fromNamespacedVersion(
+            input.includes('@') ? input : `${input}@${fakeVersion}`
+        )
+        if (!nsp || !name || !version || !isContractNamespace(nsp)) continue
+        inputComps.push({
+            nsp,
+            name,
+            version: version === fakeVersion ? '' : version,
+        })
+        uniqueNspNamesSet.add([nsp, name].join(':'))
+    }
+
+    const uniqueNspNames = Array.from(uniqueNspNamesSet).map((v) => {
+        const [nsp, name] = v.split(':')
+        return { nsp, name }
+    })
+    if (!uniqueNspNames.length) return { data: {} }
+
+    let eventVersions = []
+    try {
+        eventVersions = await eventVersionsRepo().find({ where: uniqueNspNames })
+    } catch (err) {
+        logger.error(`Error fetching EventVersions for: ${JSON.stringify(uniqueNspNames)}: ${err}`)
+        return { error: 'Error looking up event versions.' }
+    }
+    if (!eventVersions.length) return { data: {} }
+
+    const existingVersionsByNspName = {}
+    for (const eventVersion of eventVersions) {
+        const { nsp, name, version } = eventVersion
+        const key = [nsp, name].join('.')
+        existingVersionsByNspName[key] = existingVersionsByNspName[key] || []
+        existingVersionsByNspName[key].push(version)
+    }
+
+    const resolvedNamesMap = {}
+    for (const { nsp, name, version } of inputComps) {
+        const key = [nsp, name].join('.')
+        const existingVersions = existingVersionsByNspName[key] || []
+        const numExistingVersions = existingVersions.length
+
+        // No registered event versions were found for this nsp+name.
+        if (!numExistingVersions) continue
+
+        // Multiple versions exist but no exact version was specified.
+        if (numExistingVersions > 1 && !version) {
+            return {
+                data: {
+                    error:
+                        `Ambigious event reference "${key}"\n` +
+                        `Multiple versions exist...Choose from one of the following:\n` +
+                        `${existingVersions
+                            .map((v) => `- ${toNamespacedVersion(nsp, name, v)}`)
+                            .join('\n')}`,
+                },
+            }
+        }
+
+        // Version was specified but not registered.
+        if (version && !existingVersions.includes(version)) continue
+
+        const actualVersion = version || existingVersions[0]
+        const givenInput = version ? toNamespacedVersion(nsp, name, version) : key
+        resolvedNamesMap[givenInput] = toNamespacedVersion(nsp, name, actualVersion)
+    }
+
+    return { data: resolvedNamesMap }
 }

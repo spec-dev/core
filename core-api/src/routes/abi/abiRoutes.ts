@@ -2,7 +2,7 @@ import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseGetAbiPayload } from './abiPayloads'
 import { codes, errors, authorizeRequest } from '../../utils/requests'
-import { enqueueDelayedJob, getAbi, saveAbis } from '../../../../shared'
+import { enqueueDelayedJob, getAbi, saveAbis, getContractGroupAbi } from '../../../../shared'
 
 /**
  * Get an ABI by chainId:address
@@ -17,9 +17,12 @@ import { enqueueDelayedJob, getAbi, saveAbis } from '../../../../shared'
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    // Get abi for chainId:address
-    const { chainId, address } = payload
-    const abi = await getAbi(address, chainId)
-    
+    // Get abi for group:chainId
+    const { chainId, group } = payload
+    const abi = await getContractGroupAbi(
+        group,
+        chainId
+    )
+    console.log('heresd123x', abi)
     return res.status(codes.SUCCESS).json({ abi })
 })

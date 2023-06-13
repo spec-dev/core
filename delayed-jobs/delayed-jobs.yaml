@@ -70,3 +70,5 @@ spec:
           value: {{MUMBAI_ALCHEMY_REST_URL}}
         - name: FLIP
           value: TAILS
+        - name: FORCE_COLOR
+          value: "1" 

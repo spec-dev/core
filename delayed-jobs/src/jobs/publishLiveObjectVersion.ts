@@ -51,6 +51,7 @@ export async function publishLiveObjectVersion(
     namespace: StringKeyMap,
     liveObjectId: number | null,
     payload: PublishLiveObjectVersionPayload,
+    representsContractEvent?: boolean,
 ) {
     // Create nsp.name@version formatted string for live object version.
     const namespacedLiveObjectVersion = toNamespacedVersion(
@@ -77,11 +78,11 @@ export async function publishLiveObjectVersion(
     const additionalEventVersions = await resolveEventVersions(payload.additionalEventAssociations)
     if (additionalEventVersions === null) return
 
-    // Ensure the version to publish is greater than the existing version.
-    const latestLiveObjectVersion = liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
-    if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
+    // Ensure the version to publish is greater than the existing version (if not contract event live object).
+    const latestLov = !representsContractEvent && liveObjectId && await getLatestLiveObjectVersion(liveObjectId)
+    if (latestLov && !isVersionGt(payload.version, latestLov.version)) {
         logger.error(
-            `Can't publish version ${payload.version} when ${latestLiveObjectVersion.version} already exists.`
+            `Can't publish version ${payload.version} when ${latestLov.version} already exists.`
         )
         return
     }
@@ -118,6 +119,7 @@ export async function publishLiveObjectVersion(
         inputEventVersions,
         inputCallNamespaceIds,
         additionalEventVersions,
+        representsContractEvent,
     )
     if (!saved) return
 
@@ -280,6 +282,7 @@ async function saveDataModels(
     inputEventVersions: EventVersion[],
     inputCallNamespaceIds: number[],
     additionalEventVersions: EventVersion[],
+    representsContractEvent?: boolean
 ): Promise<boolean> {
     try {
         await CoreDB.manager.transaction(async (tx) => {
@@ -295,27 +298,30 @@ async function saveDataModels(
                 tx,
             )
 
-            // LiveObjectUpserted event.
-            const event = ((await upsertEventsWithTx([{
-                namespaceId: namespace.id,
-                name: `${payload.name}Upserted`,
-            }], tx)) || {})[0]
+            // Only create the <Name>Upserted event for non-contract event live objects.
+            if (!representsContractEvent) {
+                // LiveObjectUpserted event.
+                const event = ((await upsertEventsWithTx([{
+                    namespaceId: namespace.id,
+                    name: `${payload.name}Upserted`,
+                }], tx)) || {})[0]
 
-            // LiveObjectUpserted event version
-            const eventVersion = ((await upsertEventVersionsWithTx([{
-                eventId: event.id,
-                nsp: namespace.name,
-                name: event.name,
-                version: payload.version,
-            }], tx)) || {})[0]
+                // LiveObjectUpserted event version
+                const eventVersion = ((await upsertEventVersionsWithTx([{
+                    eventId: event.id,
+                    nsp: namespace.name,
+                    name: event.name,
+                    version: payload.version,
+                }], tx)) || {})[0]
 
-            // LiveObjectUpserted live event version.
-            if (eventVersion) {
-                await createLiveEventVersionsWithTx([{
-                    liveObjectVersionId,
-                    eventVersionId: eventVersion.id,
-                    isInput: false,
-                }], tx)
+                // LiveObjectUpserted live event version.
+                if (eventVersion) {
+                    await createLiveEventVersionsWithTx([{
+                        liveObjectVersionId,
+                        eventVersionId: eventVersion.id,
+                        isInput: false,
+                    }], tx)
+                }
             }
 
             // Input live event versions.

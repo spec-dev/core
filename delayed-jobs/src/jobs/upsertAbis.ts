@@ -57,7 +57,10 @@ async function upsertAbis(
 ) {
     logger.info(`Processing ${addresses.length} addresses to pull ABIs for....`)
 
-    const addressesAlreadyWithAbis = new Set(Object.keys(await getAbis(addresses, chainId)))
+    const existingAbis = await getAbis(addresses, chainId)
+    if (existingAbis === null) return
+
+    const addressesAlreadyWithAbis = new Set(Object.keys(existingAbis))
     const newAddresses = addresses.filter(a => !addressesAlreadyWithAbis.has(a))
 
     if (!newAddresses.length && !overwriteWithStarscan) {
@@ -463,8 +466,6 @@ function decodeUpgradedEventForImplementationAddress(abiItem: AbiItem, log: Stri
     log.topic1 && topics.push(log.topic1)
     log.topic2 && topics.push(log.topic2)
     log.topic3 && topics.push(log.topic3)
-
-    console.log(log)
 
     let decodedArgs
     try {

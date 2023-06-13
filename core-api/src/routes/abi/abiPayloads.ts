@@ -3,7 +3,7 @@ import { supportedChainIds } from '../../../../shared'
 
 export interface GetAbiPayload {
     chainId: string
-    address: string
+    group: string
 }
 
 export function parseGetAbiPayload(data: StringKeyMap): ValidatedPayload<GetAbiPayload> {
@@ -11,19 +11,19 @@ export function parseGetAbiPayload(data: StringKeyMap): ValidatedPayload<GetAbiP
     if (!id) {
         return { isValid: false, error: '"id" required' }
     }
-    
+
     const comps = id.split(':')
     if (comps.length !== 2) {
-        return { isValid: false, error: '"id" must be in <chainId>:<address> format' }
+        return { isValid: false, error: '"id" must be in <group>:<chainId> format' }
     }
 
-    const [chainId, address] = comps
+    const [chainId, group] = comps
     if (!supportedChainIds.has(chainId)) {
         return { isValid: false, error: `Invalid "chainId": ${chainId}` }
     }
 
     return {
         isValid: true,
-        payload: { chainId, address: address.toLowerCase() },
+        payload: { chainId, group },
     }
 }

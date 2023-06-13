@@ -1,7 +1,8 @@
 export interface AbiItemInput {
     type: string
     name?: string
-    indexed?: boolean
+    indexed?: boolean,
+    internalType?: string
 }
 
 export interface AbiItemOutput {
@@ -12,6 +13,7 @@ export interface AbiItemOutput {
 export enum AbiItemType {
     Function = 'function',
     Event = 'event',
+    Constructor = 'constructor',
 }
 
 export enum AbiItemStateMutability {
@@ -20,16 +22,16 @@ export enum AbiItemStateMutability {
     View = 'view',
 }
 
-export interface AbiItem {
-    name: string
-    type: AbiItemType
-    inputs: AbiItemInput[]
-    signature: string
-    constant?: boolean
-    outputs?: AbiItemOutput[]
-    payable?: boolean
-    stateMutability?: AbiItemStateMutability
-    anonymous?: boolean
-}
+    export interface AbiItem {
+        name: string
+        type: AbiItemType
+        inputs: AbiItemInput[]
+        signature: string
+        constant?: boolean
+        outputs?: AbiItemOutput[]
+        payable?: boolean
+        stateMutability?: AbiItemStateMutability
+        anonymous?: boolean,
+    }
 
 export type Abi = AbiItem[]
