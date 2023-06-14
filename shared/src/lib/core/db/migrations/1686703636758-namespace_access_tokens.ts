@@ -19,6 +19,9 @@ export class namespaceAccessTokens1686703636758 implements MigrationInterface {
         await queryRunner.query(
             `ALTER TABLE "namespace_access_tokens" DROP CONSTRAINT "FK_fbc7906daf10d5f3c6b6c461485"`
         )
+        await queryRunner.query(
+            `DROP INDEX "public"."IDX_f6311cf460d5a9e14c71f8fba1"`
+        )
         await queryRunner.query(`DROP TABLE "namespace_access_tokens"`)
     }
 }

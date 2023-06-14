@@ -59,6 +59,3 @@ export async function userHasNamespacePermissions(
 
     return { canAccess, namespaceUser }
 }
-
-// TODO: auth route
-// export async function tokenHasNamespacePermissions()

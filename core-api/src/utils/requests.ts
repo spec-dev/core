@@ -53,10 +53,10 @@ export async function authorizeRequestForNamespace(req, res, namespaceName: stri
         headers[config.NAMESPACE_AUTH_HEADER_NAME] || headers[config.NAMESPACE_AUTH_HEADER_NAME.toLowerCase()]
 
     if (namespaceAuthHeader) {
-        const namespaceAccessToken = await getNamespaceAccessToken(namespaceAuthHeader)
-        const hasPerms = namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+        const namespaceAccessToken = await getNamespaceAccessToken(namespaceAuthHeader, namespaceName)
+        const hasPerms = namespaceAccessToken && namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
         if (!hasPerms) {
-            res.status(codes.UNAUTHORIZED).json({ error: errors.UNAUTHORIZED })
+            res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false
         }
         return true

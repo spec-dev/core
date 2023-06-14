@@ -16,7 +16,7 @@ export enum NamespaceAccessTokenScope {
 }
 
 /**
- * A particular version of a live object.
+ * A token that grants permission to perform a certain set of actions on a Namespace.
  */
 @Entity('namespace_access_tokens')
 export class NamespaceAccessToken {
