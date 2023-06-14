@@ -48,7 +48,6 @@ export class NamespaceAccessToken {
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'expires_at',
-        nullable: true,
     })
     expiresAt: Date
 }

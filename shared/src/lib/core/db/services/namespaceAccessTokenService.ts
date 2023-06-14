@@ -32,7 +32,7 @@ export async function createNamespaceAccessToken(
         return
     }
     namespaceAccessToken.scopes = scopes
-
+    namespaceAccessToken.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365) // 1 year
     try {
         await namespaceAccessTokens().save(namespaceAccessToken)
     } catch (err) {
