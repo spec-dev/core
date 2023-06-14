@@ -23,6 +23,5 @@ import { enqueueDelayedJob, getAbi, saveAbis, getContractGroupAbi } from '../../
         group,
         chainId
     )
-    console.log('heresd123x', abi)
     return res.status(codes.SUCCESS).json({ abi })
 })
