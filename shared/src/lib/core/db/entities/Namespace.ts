@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany } from 'typeorm'
 import { Contract } from './Contract'
-import { NamescapeAccessToken } from './NamespaceAccessToken'
+import { NamespaceAccessToken } from './NamespaceAccessToken'
 import { Event } from './Event'
 import { LiveObject } from './LiveObject'
 import { LiveCallHandler } from './LiveCallHandler'
@@ -55,8 +55,8 @@ export class Namespace {
     @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.namespace)
     liveCallHandlers: LiveCallHandler[]
 
-    @OneToMany(() => NamescapeAccessToken, (namescapeAccessToken) => namescapeAccessToken.namespace)
-    namespaceAccessTokens: NamescapeAccessToken[]
+    @OneToMany(() => NamespaceAccessToken, (namescapeAccessToken) => namescapeAccessToken.namespace)
+    namespaceAccessTokens: NamespaceAccessToken[]
 
     publicView(): StringKeyMap {
         return {

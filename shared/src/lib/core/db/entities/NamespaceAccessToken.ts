@@ -5,7 +5,7 @@ import {
     Index,
     ManyToOne,
     JoinColumn,
-    CreateDateColumn
+    CreateDateColumn,
 } from 'typeorm'
 import { Namespace } from './Namespace'
 
@@ -19,7 +19,7 @@ export enum NamespaceAccessTokenScope {
  * A particular version of a live object.
  */
 @Entity('namespace_access_tokens')
-export class NamescapeAccessToken {
+export class NamespaceAccessToken {
     @PrimaryGeneratedColumn()
     id: number
 
@@ -43,14 +43,12 @@ export class NamescapeAccessToken {
         name: 'created_at',
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
-    @Column()
     createdAt: Date
-    
+
     @CreateDateColumn({
         type: 'timestamptz',
-        name: 'expires_at'
-        // default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`, how do we set this?
+        name: 'expires_at',
+        nullable: true,
     })
-    @Column()
     expiresAt: Date
 }
