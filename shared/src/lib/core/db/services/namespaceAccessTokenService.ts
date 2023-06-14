@@ -28,7 +28,7 @@ export async function createNamespaceAccessToken(
             Object.values(NamespaceAccessTokenScope).includes(item as NamespaceAccessTokenScope)
         )
     if (!isSupportedScope) {
-        logger.error(`Invalid scopes: ${scopes}`)
+        logger.error(`Invalid scopes for: ${scopes}`)
         return
     }
     namespaceAccessToken.scopes = scopes
