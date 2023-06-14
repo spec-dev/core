@@ -8,10 +8,10 @@ export interface EventViewSpec {
     contractInstances: ContractInstance[]
     namespace: Namespace
     eventName: string
+    eventSig: string
 }
 
 export interface EventSpec {
-    eventUid: string
     eventName: string
     contractName: string
     contractInstances: ContractInstance[]

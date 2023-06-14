@@ -207,7 +207,7 @@ In practice, this looks something like:
 
 Follow the steps below to get up and running with a local version of the CLI, Core API, Delayed Jobs worker, and the databases they interact with.
 
-## CLI
+### CLI
 
 Prerequisites:
 
@@ -260,10 +260,10 @@ You'll want to re-run this anytime you make changes and want to test them out.
 export SPEC_API_ORIGIN=http://localhost:7777
 ```
 
-## Core API
+### Core API
 
 Follow setup instructions [here](/core-api/README.md)
 
-## Delayed Jobs
+### Delayed Jobs
 
 Follow setup instructions [here](/delayed-jobs/README.md)

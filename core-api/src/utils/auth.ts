@@ -1,5 +1,5 @@
 import { AGServerSocket } from 'socketcluster-server'
-import { logger, ClaimRole, CoreDB, Project, StringKeyMap, NamespaceUser, toSlug, NamespaceUserRole } from '../../../shared'
+import { logger, ClaimRole, CoreDB, Project, StringKeyMap, NamespaceUser, toNamespaceSlug, NamespaceUserRole } from '../../../shared'
 
 const projects = () => CoreDB.getRepository(Project)
 const namespaceUsers = () => CoreDB.getRepository(NamespaceUser)
@@ -38,7 +38,7 @@ export async function userHasNamespacePermissions(
             where: {
                 userId: userId,
                 namespace: {
-                    slug: toSlug(nsp),
+                    slug: toNamespaceSlug(nsp),
                 },
             },
         })

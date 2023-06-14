@@ -6,7 +6,7 @@ import { Namespace } from './Namespace'
  * A contract function call that's used as an input to a Live Object Version.
  */
 @Entity('live_call_handlers')
-@Index(['functionName', 'namespaceId', 'liveObjectVersionId'], { unique: true })
+@Index(['liveObjectVersionId', 'namespaceId', 'functionName', 'version'], { unique: true })
 @Index(['functionName', 'namespaceId'])
 @Index(['liveObjectVersionId'])
 export class LiveCallHandler {
@@ -15,6 +15,9 @@ export class LiveCallHandler {
 
     @Column({ name: 'function_name' })
     functionName: string
+
+    @Column({ nullable: true })
+    version: string
 
     @Column({ name: 'namespace_id' })
     namespaceId: number

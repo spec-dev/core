@@ -60,6 +60,7 @@ export const namespaceForChainId = {
     [chainIds.POLYGON]: chainSpecificNamespaces.POLYGON,
     [chainIds.MUMBAI]: chainSpecificNamespaces.MUMBAI,
 }
+const chainIdForNamespace = invert(namespaceForChainId)
 
 export const chainIdLiveObjectVersionPropertyOptions = [
     chainIds.ETHEREUM,
@@ -101,11 +102,6 @@ export const primitivesForChainId = {
             ...p,
             table: [schemaForChainId[chainIds.ETHEREUM], p.table].join('.'),
         })),
-        // {
-        //     table: [schemaForChainId[chainIds.ETHEREUM], 'latest_interactions'].join('.'),
-        //     appendOnly: false,
-        //     crossChain: false,
-        // },
         ...tokenPrimitives,
     ],
     [chainIds.GOERLI]: [
@@ -144,6 +140,12 @@ export const isContractNamespace = (nsp: string): boolean => {
         }
     }
     return false
+}
+
+export const chainIdForContractNamespace = (nsp: string): string | null => {
+    const splitNsp = nsp.split('.')
+    if (splitNsp[1] !== 'contracts') return null
+    return chainIdForNamespace[splitNsp[0]] || null
 }
 
 export const getNativeTokenForChain = (chainId: string): Erc20Token | null => {

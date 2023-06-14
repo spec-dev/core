@@ -1,4 +1,4 @@
-import { ValidatedPayload, StringKeyMap, NewContractsPayload } from '../../../types'
+import { ValidatedPayload, StringKeyMap } from '../../../types'
 import { supportedChainIds } from '../../../../../shared'
 
 interface DecodeContractInteractionsPayload {
@@ -12,7 +12,7 @@ interface DecodeContractInteractionsPayload {
 
 export function parseNewContractInstancesPayload(
     data: StringKeyMap
-): ValidatedPayload<NewContractsPayload> {
+): ValidatedPayload<StringKeyMap> {
     const nsp = data?.nsp
     const chainId = data?.chainId
     const contracts = data?.contracts || []

@@ -32,9 +32,17 @@ async function generateInputRangeData(
         ? await getCachedInputGenForStreamId(streamId) 
         : null
 
-    if (cachedInputGen && from) {
+    if (cachedInputGen) {
         for (const chainId in cachedInputGen.queryCursors || {}) {
-            cachedInputGen.queryCursors[chainId].timestampCursor = from
+            cachedInputGen.queryCursors[chainId].inputEventIds = new Set(
+                cachedInputGen.queryCursors[chainId].inputEventIds || []
+            )
+            cachedInputGen.queryCursors[chainId].inputFunctionIds = new Set(
+                cachedInputGen.queryCursors[chainId].inputFunctionIds || []
+            )
+            if (from) {
+                cachedInputGen.queryCursors[chainId].timestampCursor = from
+            }
         }
     }
 
@@ -88,6 +96,10 @@ async function generateInputRangeData(
     // After first request.
     if (!cachedInputGen && inputGen && cursor) {
         streamId = streamId || uuid4()
+        for (const chainId in inputGen.queryCursors || {}) {
+            inputGen.queryCursors[chainId].inputEventIds = Array.from(inputGen.queryCursors[chainId].inputEventIds)
+            inputGen.queryCursors[chainId].inputFunctionIds = Array.from(inputGen.queryCursors[chainId].inputFunctionIds)
+        }
         await setCachedInputGenForStreamId(streamId, inputGen)
     }
 

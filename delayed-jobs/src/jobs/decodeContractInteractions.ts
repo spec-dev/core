@@ -13,7 +13,25 @@ import {
     mapByKey,
     toChunks,
     sleep,
+    contractRegistrationJobFailed,
+    splitLogDataToWords,
+    normalizeEthAddress,
+    hexToNumberString,
     range,
+    getBlockEventsSeriesNumber,
+    updateContractRegistrationJobStatus,
+    ContractRegistrationJobStatus,
+    updateContractRegistrationJobCursors,
+    getContractRegistrationJob,
+    specialErc20BalanceAffectingAbis,
+    TRANSFER_TOPIC,
+    TRANSFER_SINGLE_TOPIC,
+    TRANSFER_BATCH_TOPIC,
+    TRANSFER_EVENT_NAME,
+    TRANSFER_SINGLE_EVENT_NAME,
+    TRANSFER_BATCH_EVENT_NAME,
+    BATCH_TRANSFER_INPUTS,
+    randomIntegerInRange,
 } from '../../../shared'
 import config from '../config'
 import { ident } from 'pg-format'
@@ -26,6 +44,13 @@ import processTransactionTraces from '../services/processTransactionTraces'
 const web3 = new Web3()
 
 const SAVE_BATCH_SIZE = 2000
+
+const MAX_PARALLEL_PROMISES = 10
+
+const errors = {
+    GENERAL: 'Error decoding contracts.',
+    MISSING_ABIS: 'Contract ABI(s) missing.',
+}
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -40,27 +65,54 @@ const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
 async function decodeContractInteractions(
     chainId: string, 
     contractAddresses: string[],
+    initialBlock: number | null,
     startBlock: number | null,
     queryRangeSize: number,
     jobRangeSize: number,
-    finalEndBlock: number,
+    registrationJobUid?: string,
 ) {
     logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
-    
+    registrationJobUid && await updateContractRegistrationJobStatus(
+        registrationJobUid, 
+        ContractRegistrationJobStatus.Decoding,
+    )
+
     // Get map of contract abis.
     const abisMap = await getAbisForContracts(contractAddresses, chainId)
-    if (!abisMap) return
+    if (!abisMap) {
+        registrationJobUid && await contractRegistrationJobFailed(registrationJobUid, errors.MISSING_ABIS)
+        return
+    }
     
     // Format tables to query based on chain-specific schema.
     const tables = buildTableRefsForChainId(chainId)
 
+    const onDone = async () => {
+        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
+        await sleep(randomIntegerInRange(100, 500))
+
+        const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
+        const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
+
+        if (decodedAllContractsInRegistrationJob) {
+            await updateContractRegistrationJobStatus(
+                registrationJobUid,
+                ContractRegistrationJobStatus.Complete,
+            )
+        }
+    }
+
     // Determine the earliest block in which this contract was interacted with 
     // and use that as the "start" block if no start block was specified.
-    startBlock = startBlock || await findStartBlock(tables, contractAddresses)
+    startBlock = startBlock === null ? await findStartBlock(tables, contractAddresses) : startBlock
     if (startBlock === null) {
-        logger.error(`No interactions with any of these contracts so far. Stopping.`)
+        logger.error(`No interactions detected for (${contractAddresses.join(', ')}). Stopping.`)
+        registrationJobUid && await onDone()
         return
     }
+
+    // Initial start block for the entire decoding of this contract.
+    initialBlock = initialBlock === null ? startBlock : initialBlock
 
     // Create connection pool.
     const pool = new Pool({
@@ -75,6 +127,7 @@ async function decodeContractInteractions(
 
     // Decode all transactions, traces, and logs that 
     // involve any of these contracts in this block range.
+    const finalEndBlock = await getBlockEventsSeriesNumber(chainId)
     const endCursor = await decodePrimitivesUsingContracts(
         chainId,
         contractAddresses,
@@ -83,15 +136,17 @@ async function decodeContractInteractions(
         startBlock,
         queryRangeSize,
         jobRangeSize,
+        initialBlock,
         finalEndBlock,
         pool,
+        registrationJobUid,
     )
-
     await pool.end()
 
-    // All contract interactions decoded.
+    // All contract interactions decoded *for this contract*.
     if (endCursor >= finalEndBlock) {
-        logger.info(`Fully decoded contract interactions (${contractAddresses.join(', ')})`)
+        logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
+        registrationJobUid && await onDone()
         return
     }
 
@@ -99,10 +154,11 @@ async function decodeContractInteractions(
     await enqueueDelayedJob('decodeContractInteractions', {
         chainId, 
         contractAddresses,
+        initialBlock,
         startBlock: endCursor,
         queryRangeSize,
         jobRangeSize,
-        finalEndBlock,
+        registrationJobUid,
     })
 }
 
@@ -114,15 +170,13 @@ async function decodePrimitivesUsingContracts(
     startBlock: number,
     queryRangeSize: number,
     jobRangeSize: number,
+    initialBlock: number,
     finalEndBlock: number,
     pool: Pool,
+    registrationJobUid: string,
 ): Promise<number> {
     const onPolygon = [chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)
     const stopAtBlock = Math.min(startBlock + jobRangeSize, finalEndBlock)
-    const jobUid = short.generate()
-    logger.info(`[${chainId}:${jobUid}] Decoding contracts ${startBlock} --> ${stopAtBlock}:\n${
-        contractAddresses.map(address => `   - ${address}`).join('\n')
-    }\n`)
 
     let batchTransactions = []
     let batchTraces = []
@@ -130,10 +184,19 @@ async function decodePrimitivesUsingContracts(
     let batchLogs = []
     let cursor = startBlock
 
+    const completed = startBlock - initialBlock
+    const range = finalEndBlock - initialBlock
+    let progress = completed / range
+
+    logger.info(`[${chainId}] Decoding ${startBlock} --> ${stopAtBlock}:\n${
+        contractAddresses.map(address => `   - ${address}`).join('\n')
+    }\n`)
+
     while (cursor < stopAtBlock) {
+        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, progress)
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
-        logger.info(`[${chainId}:${jobUid}] ${start} --> ${end}...`)
+        logger.info(`[${chainId}] ${start} --> ${end}...`)
     
         let [transactions, traces, logs] = await Promise.all([
             decodeTransactions(start, end, contractAddresses, abisMap, tables),
@@ -157,25 +220,44 @@ async function decodePrimitivesUsingContracts(
         const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
         const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
 
-        const savePromises = []
-        saveTransactions && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
-        saveTraces && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
-        insertNewTraces && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
-        saveLogs && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
-        await Promise.all(savePromises)
+        let savePromises = []
 
         if (saveTransactions) {
+            const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
+            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool)))
             batchTransactions = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (saveTraces) {
+            const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
+            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool)))
             batchTraces = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (insertNewTraces) {
+            const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
+            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chunk, tables.traces, pool)))
             batchNewTraces = []
         }
+        if (savePromises.length > MAX_PARALLEL_PROMISES) {
+            await Promise.all(savePromises)
+            savePromises = []
+        }
+
         if (saveLogs) {
+            const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
+            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool)))
             batchLogs = []
         }
+        await Promise.all(savePromises)
 
         cursor = cursor + queryRangeSize
     }
@@ -728,6 +810,7 @@ function decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKe
 function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): StringKeyMap[] {
     const finalLogs = []
     for (let log of logs) {
+        // Standard contract ABI decoding.
         if (log.address && log.topic0 && abis.hasOwnProperty(log.address)) {
             try {
                 log = decodeLogEvent(log, abis[log.address])
@@ -735,7 +818,29 @@ function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): St
                 logger.warn(`Error decoding log for address ${log.address}: ${err}`)
             }
         }
+        // Try decoding as transfer event if couldn't decode with contract ABI.
+        if (!log.eventName) {
+            try {
+                log = tryDecodingLogAsTransfer(log)
+            } catch (err) {
+                logger.warn(`Error decoding log as transfer (address=${log.address}, topic0=${log.topic0}): ${err}`)
+            }
+        }
+        // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
+        if (!log.eventName && log.address && log.topic0 && log.topic1 && specialErc20BalanceAffectingAbis[log.topic0]) {
+            const abi = specialErc20BalanceAffectingAbis[log.topic0]
+            try {
+                log = decodeLogEvent(log, [abi])
+            } catch (err) {
+                logger.warn(
+                    `Error decoding log with special ERC-20 balance-affecting ABI (${log.topic0}):`,
+                    log,
+                    err
+                )
+            }
+        }
         finalLogs.push(log)
+
     }
     return finalLogs
 }
@@ -746,12 +851,11 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
 
     const argNames = []
     const argTypes = []
-    for (const input of abiItem.inputs || []) {
-        input.name && argNames.push(input.name)
+    const abiInputs = abiItem.inputs || []
+    for (let i = 0; i < abiInputs.length; i++) {
+        const input = abiInputs[i]
+        argNames.push(input.name || `param${i}`)
         argTypes.push(input.type)
-    }
-    if (argNames.length !== argTypes.length) {
-        return log
     }
 
     const topics = []
@@ -795,8 +899,157 @@ function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
     return log
 }
 
+function tryDecodingLogAsTransfer(log: StringKeyMap): StringKeyMap {
+    let eventName, eventArgs
+
+    // Transfer
+    if (log.topic0 === TRANSFER_TOPIC) {
+        eventArgs = decodeTransferEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_EVENT_NAME
+    }
+
+    // TransferSingle
+    if (log.topic0 === TRANSFER_SINGLE_TOPIC) {
+        eventArgs = decodeTransferSingleEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_SINGLE_EVENT_NAME
+    }
+
+    // TransferBatch
+    if (log.topic0 === TRANSFER_BATCH_TOPIC) {
+        eventArgs = decodeTransferBatchEvent(log, true)
+        if (!eventArgs) return log
+        eventName = TRANSFER_BATCH_EVENT_NAME
+    }
+
+    if (!eventName) return log
+
+    log.eventName = eventName
+    log.eventArgs = eventArgs as StringKeyMap[]
+
+    return log
+}
+
+export function decodeTransferEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
+    if (topicsWithData.length !== 4) return null
+    
+    let from, to, value
+    try {
+        from = normalizeEthAddress(topicsWithData[1], true, true)
+        to = normalizeEthAddress(topicsWithData[2], true, true)
+        value = hexToNumberString(topicsWithData[3])    
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_EVENT_NAME} event params: ${err}`)
+        return null
+    }
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'value', type: 'uint256', value: value },
+        ]
+    }
+
+    return { from, to, value }
+}
+
+export function decodeTransferSingleEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
+    if (topicsWithData.length !== 6) return null
+    
+    let operator, from, to, id, value 
+    try {
+        operator = normalizeEthAddress(topicsWithData[1], true, true)
+        from = normalizeEthAddress(topicsWithData[2], true, true)
+        to = normalizeEthAddress(topicsWithData[3], true, true)
+        id = hexToNumberString(topicsWithData[4])
+        value = hexToNumberString(topicsWithData[5])
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_SINGLE_EVENT_NAME} event params: ${err}`)
+        return null
+    }
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'operator', type: 'address', value: operator },
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'id', type: 'uint256', value: id },
+            { name: 'value', type: 'uint256', value: value },
+        ]
+    }
+
+    return { operator, from, to, id, value }
+}
+
+export function decodeTransferBatchEvent(
+    log: StringKeyMap, 
+    formatAsEventArgs: boolean = false,
+): StringKeyMap | StringKeyMap[] | null {
+    const topics = [log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const abiInputs = []
+    for (let i = 0; i < BATCH_TRANSFER_INPUTS.length; i++) {
+        abiInputs.push({ 
+            ...BATCH_TRANSFER_INPUTS[i], 
+            indexed: i < topics.length,
+        })
+    }
+
+    let args
+    try {
+        args = web3.eth.abi.decodeLog(abiInputs as any, log.data, topics)
+    } catch (err) {
+        logger.error(`Error extracting ${TRANSFER_BATCH_EVENT_NAME} event params: ${err} for log`, log)
+        return null
+    }
+
+    const numArgs = parseInt(args.__length__)
+    const argValues = []
+    for (let i = 0; i < numArgs; i++) {
+        const stringIndex = i.toString()
+        if (!args.hasOwnProperty(stringIndex)) continue
+        argValues.push(args[stringIndex])
+    }
+
+    if (argValues.length !== abiInputs.length) {
+        logger.error(`Length mismatch when parsing ${TRANSFER_BATCH_EVENT_NAME} event params: ${argValues}`)
+        return null
+    }
+    
+    const [operator, from, to, ids, values] = [
+        normalizeEthAddress(argValues[0]),
+        normalizeEthAddress(argValues[1]),
+        normalizeEthAddress(argValues[2]),
+        argValues[3] || [],
+        argValues[4] || []
+    ]
+
+    if (formatAsEventArgs) {
+        return [
+            { name: 'operator', type: 'address', value: operator },
+            { name: 'from', type: 'address', value: from },
+            { name: 'to', type: 'address', value: to },
+            { name: 'ids', type: 'uint256[]', value: ids },
+            { name: 'values', type: 'uint256[]', value: values },
+        ]
+    }
+
+    return { operator, from, to, ids, values }
+}
+
 async function getAbisForContracts(contractAddresses: string[], chainId: string): Promise<StringKeyMap | null> {
-    const abisMap = await getAbis(contractAddresses, chainId)
+    const abisMap = (await getAbis(contractAddresses, chainId)) || {}
     const withAbis = new Set(Object.keys(abisMap))
     if (withAbis.size !== contractAddresses.length) {
         const missing = contractAddresses.filter(a => !withAbis.has(a))
@@ -812,7 +1065,8 @@ async function findStartBlock(tables: StringKeyMap, contractAddresses: string[])
         findEarliestInteraction(tables.traces, 'to', contractAddresses),
         findEarliestInteraction(tables.logs, 'address', contractAddresses),
     ])
-    return Math.min(...blockNumbers.filter(n => n !== null)) || null
+    const notNullBlockNumbers = blockNumbers.filter(n => n !== null)
+    return notNullBlockNumbers.length ? Math.min(...notNullBlockNumbers) : null
 }
 
 async function findEarliestInteraction(table: string, column: string, addresses: string[]): Promise<number | null> {
@@ -832,18 +1086,28 @@ async function findEarliestInteraction(table: string, column: string, addresses:
 export default function job(params: StringKeyMap) {
     const chainId = params.chainId
     const contractAddresses = params.contractAddresses || []
+    const initialBlock = params.hasOwnProperty('initialBlock') ? params.initialBlock : null
     const startBlock = params.hasOwnProperty('startBlock') ? params.startBlock : null
     const queryRangeSize = params.queryRangeSize || config.QUERY_BLOCK_RANGE_SIZE
     const jobRangeSize = params.jobRangeSize || config.JOB_BLOCK_RANGE_SIZE
-    const finalEndBlock = params.finalEndBlock
+    const registrationJobUid = params.registrationJobUid
+
     return {
-        perform: async () => decodeContractInteractions(
-            chainId, 
-            contractAddresses, 
-            startBlock,
-            queryRangeSize,
-            jobRangeSize,
-            finalEndBlock,
-        )
+        perform: async () => {
+            try {
+                await decodeContractInteractions(
+                    chainId, 
+                    contractAddresses, 
+                    initialBlock,
+                    startBlock,
+                    queryRangeSize,
+                    jobRangeSize,
+                    registrationJobUid,
+                )
+            } catch (err) {
+                logger.error(err)
+                registrationJobUid && await contractRegistrationJobFailed(registrationJobUid, errors.GENERAL)
+            }
+        }
     }
 }

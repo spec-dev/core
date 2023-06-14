@@ -5,7 +5,7 @@ metadata:
   labels:
     app: delayed-jobs
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: delayed-jobs
@@ -70,3 +70,7 @@ spec:
           value: {{MUMBAI_ALCHEMY_REST_URL}}
         - name: FLIP
           value: TAILS
+        - name: FORCE_COLOR
+          value: "1" 
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}

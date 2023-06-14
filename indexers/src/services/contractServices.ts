@@ -1,12 +1,20 @@
-import { StringKeyMap, logger, nullPromise, toChunks, Erc20Token, NftCollection, NftStandard, sleep, TokenTransfer, Erc20Balance, NftBalance, TokenTransferStandard, NULL_ADDRESS } from '../../../shared'
-import { selectorsFromBytecode } from '@shazow/whatsabi'
-import { BigNumber, utils } from 'ethers'
-import config from '../config'
-import {
+import { 
+    StringKeyMap, 
+    logger, 
+    nullPromise, 
+    toChunks, 
+    Erc20Token, 
+    NftCollection, 
+    NftStandard,
+    sleep,
+    TokenTransfer,
+    Erc20Balance,
+    NftBalance,
+    TokenTransferStandard,
+    NULL_ADDRESS,
     ERC20_NAME_ITEM,
     ERC20_SYMBOL_ITEM,
     ERC20_DECIMALS_ITEM,
-    ERC20_BALANCE_OF_ITEM,
     ERC20_TOTAL_SUPPLY_ITEM,
     ERC721_BALANCE_OF_ITEM,
     ERC721_OWNER_OF_ITEM,
@@ -16,10 +24,12 @@ import {
     ERC721_NAME_ITEM,
     ERC721_SYMBOL_ITEM,
     ERC721_TOTAL_SUPPLY_ITEM,
-    ERC1155_BALANCE_OF_ITEM,
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
-} from '../utils/standardAbis'
+} from '../../../shared'
+import { selectorsFromBytecode } from '@shazow/whatsabi'
+import { BigNumber, utils } from 'ethers'
+import config from '../config'
 import { getRpcPool } from '../rpcPool'
 
 const errors = {
