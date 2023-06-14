@@ -189,9 +189,10 @@ export {
     getNamespaces,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
-
-export { createNamespaceAccessToken } from './lib/core/db/services/namespaceAccessTokenService'
-
+export {
+    createNamespaceAccessToken,
+    getNamespaceAccessToken,
+} from './lib/core/db/services/namespaceAccessTokenService'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'

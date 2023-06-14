@@ -45,26 +45,6 @@ export async function createNamespaceAccessToken(
     return namespaceAccessToken
 }
 
-export async function upsertNamespaceAccessToken(
-    data: StringKeyMap,
-    tx: any
-): Promise<NamespaceAccessToken | null> {
-    const conflictCols = ['namespace_id', 'name']
-    const updateCols = ['display_name', 'desc']
-    return (
-        (
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(NamespaceAccessToken)
-                .values(data)
-                .orUpdate(updateCols, conflictCols)
-                .returning('*')
-                .execute()
-        ).generatedMaps[0] || null
-    )
-}
-
 export async function getNamespaceAccessToken(uid: string): Promise<NamespaceAccessToken | null> {
     let namespaceAccessToken
 

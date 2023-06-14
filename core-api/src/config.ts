@@ -29,6 +29,7 @@ const coreApiConfig: StringKeyMap = {
     // Auth
     AUTH_HEADER_NAME: 'Spec-Auth-Token',
     USER_AUTH_HEADER_NAME: 'Spec-User-Auth-Token',
+    NAMESPACE_AUTH_HEADER_NAME: 'Spec-Namespace-Auth-Token',
     ADMIN_AUTH_HEADER_NAME: 'Spec-Admin-Auth-Token',
     CORE_API_ADMIN_TOKEN: ev('CORE_API_ADMIN_TOKEN'),
 

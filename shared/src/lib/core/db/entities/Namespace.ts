@@ -55,7 +55,7 @@ export class Namespace {
     @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.namespace)
     liveCallHandlers: LiveCallHandler[]
 
-    @OneToMany(() => NamespaceAccessToken, (namescapeAccessToken) => namescapeAccessToken.namespace)
+    @OneToMany(() => NamespaceAccessToken, (namespaceAccessToken) => namespaceAccessToken.namespace)
     namespaceAccessTokens: NamespaceAccessToken[]
 
     publicView(): StringKeyMap {
