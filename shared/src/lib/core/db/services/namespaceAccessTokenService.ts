@@ -36,7 +36,10 @@ export async function createNamespaceAccessToken(
     return namespaceAccessToken
 }
 
-export async function getNamespaceAccessToken(uid: string, nsp: string): Promise<NamespaceAccessToken | null> {
+export async function getNamespaceAccessToken(
+    uid: string,
+    nsp: string
+): Promise<NamespaceAccessToken | null> {
     let namespaceAccessToken
 
     try {
