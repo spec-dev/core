@@ -189,7 +189,10 @@ export {
     getNamespaces,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
-export { NamespaceAccessTokenScope } from './lib/core/db/entities/NamespaceAccessToken'
+export {
+    NamespaceAccessToken,
+    NamespaceAccessTokenScope,
+} from './lib/core/db/entities/NamespaceAccessToken'
 export {
     createNamespaceAccessToken,
     getNamespaceAccessToken,
