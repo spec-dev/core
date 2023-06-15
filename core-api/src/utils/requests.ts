@@ -1,4 +1,5 @@
-import { User, deserializeToken, getSession, verifyJWT } from '../../../shared'
+import { User, deserializeToken, getSession, verifyJWT, getNamespaceAccessToken } from '../../../shared'
+import { userHasNamespacePermissions } from './auth'
 import config from '../config'
 
 export const errors = {
@@ -27,6 +28,43 @@ export const codes = {
     NOT_FOUND: 404,
     INTERNAL_SERVER_ERROR: 500,
 }
+
+export async function authorizeRequestForNamespace(req, res, namespaceName: string, allowedScopes: string[]): Promise<boolean> {
+    const headers = req.headers || {}
+
+    // Get user auth header token.
+    const userAuthHeader =
+        headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
+    
+    // user auth token authorization
+    if (userAuthHeader) {
+        const user = await authorizeRequest(req, res)
+        // Check if user has permissions to access namespace.
+        const { canAccess } = await userHasNamespacePermissions(user.id, namespaceName)
+        if (!canAccess) {
+            res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
+            return false
+        }
+        return true
+    }
+
+    // Get namespace auth header token.
+    const namespaceAuthHeader =
+        headers[config.NAMESPACE_AUTH_HEADER_NAME] || headers[config.NAMESPACE_AUTH_HEADER_NAME.toLowerCase()]
+
+    if (namespaceAuthHeader) {
+        const namespaceAccessToken = await getNamespaceAccessToken(namespaceAuthHeader, namespaceName)
+        const hasPerms = namespaceAccessToken && namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+        if (!hasPerms) {
+            res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
+            return false
+        }
+        return true
+    }
+
+    return false
+}
+
 
 export async function authorizeRequest(req, res): Promise<User | null> {
     const headers = req.headers || {}
