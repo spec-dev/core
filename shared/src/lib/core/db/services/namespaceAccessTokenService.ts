@@ -17,13 +17,11 @@ export async function createNamespaceAccessToken(
 
     const isSupportedScope = scopes
         .split(',')
-        .some((item) =>
+        .every((item) =>
             Object.values(NamespaceAccessTokenScope).includes(item as NamespaceAccessTokenScope)
         )
-    if (!isSupportedScope) {
-        logger.error(`Invalid scopes for: ${scopes}`)
-        return
-    }
+    if (!isSupportedScope) throw `Invalid scopes for: ${scopes}`
+
     namespaceAccessToken.scopes = scopes
     namespaceAccessToken.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365) // 1 year
     try {
