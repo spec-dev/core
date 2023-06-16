@@ -43,6 +43,8 @@ export async function streamLogs(projectUid, tail, env, req, res) {
         hasEnqueuedAnObject = true
     }
 
+    tail = parseInt(tail)
+    tail = (Number.isNaN(tail) || tail < 0) ? config.TRAILING_LOGS_BATCH_SIZE : tail
     const trailingLogs = await getLastXLogs(streamKey, tail)
     trailingLogs.forEach((log) => enqueueLog(log))
 

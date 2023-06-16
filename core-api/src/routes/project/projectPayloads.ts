@@ -1,4 +1,5 @@
 import { ValidatedPayload, StringKeyMap } from '../../types'
+import config from '../../config'
 
 export interface GetProjectPayload {
     project: string // slug
@@ -7,8 +8,8 @@ export interface GetProjectPayload {
 
 export interface StreamLogsPayload {
     id: string
-    tail: number
-    env: string | null
+    tail?: number
+    env?: string | null
 }
 
 export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<GetProjectPayload> {
@@ -29,11 +30,19 @@ export function parseGetProjectPayload(data: StringKeyMap): ValidatedPayload<Get
 
 export function parseStreamLogsPayload(data: StringKeyMap): ValidatedPayload<StreamLogsPayload> {
     const id = data?.id
+    let tail = config.TRAILING_LOGS_BATCH_SIZE
     if (!id) {
         return { isValid: false, error: '"id" key required' }
     }
+    if (data?.hasOwnProperty('tail')) {
+        tail = parseInt(data.tail)
+        if (isNaN(tail) || tail < 0) {
+            return { isValid: false, error: `"tail" must be a non-zero integer` }
+        }
+    }
+    tail = Math.min(tail, config.MAX_TRAILING_LOGS_BATCH_SIZE)
     return {
         isValid: true,
-        payload: { id, tail: data.tail, env: data?.env || null },
+        payload: { id, tail: tail, env: data?.env || null },
     }
 }

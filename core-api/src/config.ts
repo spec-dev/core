@@ -39,6 +39,7 @@ const coreApiConfig: StringKeyMap = {
     S3_REGION: ev('S3_REGION'),
 
     TRAILING_LOGS_BATCH_SIZE: 20,
+    MAX_TRAILING_LOGS_BATCH_SIZE: 1000,
 
     TEST_DATA_BATCH_MAX_TIME: 5000, // ms
     TEST_DATA_BATCH_SIZE_SOFT_LIMIT: 10000, // records
