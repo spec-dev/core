@@ -7,6 +7,7 @@ export interface GetProjectPayload {
 
 export interface StreamLogsPayload {
     id: string
+    tail: number
     env: string | null
 }
 
@@ -33,6 +34,6 @@ export function parseStreamLogsPayload(data: StringKeyMap): ValidatedPayload<Str
     }
     return {
         isValid: true,
-        payload: { id, env: data?.env || null },
+        payload: { id, tail: data.tail, env: data?.env || null },
     }
 }
