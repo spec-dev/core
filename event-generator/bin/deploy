@@ -106,10 +106,9 @@ template=$( cat "$template_path" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
+    sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
-    sed "s|{{SHARED_TABLES_DEFAULT_ROLE}}|$shared_tables_default_role|g" | \
-    sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating event-generator job resources..."

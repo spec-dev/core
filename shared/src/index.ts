@@ -115,6 +115,8 @@ export {
     removeLovFailure,
     setGeneratedEventsCursor,
     getGeneratedEventsCursors,
+    saveAdditionalContractsToGenerateInputsFor,
+    getAdditionalContractsToGenerateInputsFor,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'

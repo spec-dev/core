@@ -164,34 +164,39 @@ export async function addContractInstancesToGroup(
 
     // Decode any interactions with these new contract addresses at the given block number.
     const tables = buildTableRefsForChainId(chainId)
+    
     const [transactions, traces, logs] = await Promise.all([
         decodeTransactions(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
         decodeTraces(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
         decodeLogs(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
     ])
+
     const decodeErr = (table) => `[${chainId}:${atBlockNumber}] Failed to decode ${table}` 
     if (transactions === null) throw decodeErr(tables.transactions)
     if (traces === null) throw decodeErr(tables.traces)
     if (logs === null) throw decodeErr(tables.logs)
+
     await Promise.all([
         bulkSaveTransactions(transactions.filter(t => !t._alreadyDecoded), tables.transactions, pool, true),
         bulkSaveTraces(traces.filter(t => !t._alreadyDecoded), tables.traces, pool, true),
         bulkSaveLogs(logs.filter(l => !l._alreadyDecoded), tables.logs, pool, true),
     ])
 
-    // Get all transactions for this block so we can quickly 
-    // check whether a transaction succeeded or not (by hash).
-    let blockTransactions = []
+    // Get all transactions for the logs in this block so we can quickly 
+    // check whether a log succeeded or not (by tx hash).
+    const logTxHashes = unique(logs.map(log => log.transactionHash))
+    const phs = logTxHashes.map((_, i) => `$${i + 1}`).join(', ')
+    let logTxs = []
     try {
-        blockTransactions = await SharedTables.query(
-            `select * from ${tables.transactions} where block_number = $1`,
-            [atBlockNumber]
-        )
+        logTxs = logTxHashes.length ? await SharedTables.query(
+            `select * from ${tables.transactions} where "hash" in (${phs})`,
+            logTxHashes,
+        ) : []
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
     const txSuccess = {}
-    for (const tx of blockTransactions) {
+    for (const tx of logTxs) {
         txSuccess[tx.hash] = tx.status != 0
     }
 

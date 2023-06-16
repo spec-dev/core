@@ -4,8 +4,11 @@ import { Abi } from '../abi/types'
 import { StringKeyMap } from '../types'
 import { SharedTables } from '../shared-tables/db/dataSource'
 import { Pool } from 'pg'
+import config from '../config'
 import short from 'short-uuid'
 import { camelizeKeys } from 'humps'
+import { sleep } from '../utils/time'
+import { randomIntegerInRange } from '../utils/math'
 import Web3 from 'web3'
 import { specialErc20BalanceAffectingAbis } from '../utils/standardAbis'
 import { 
@@ -32,7 +35,8 @@ export async function bulkSaveTransactions(
     transactions: StringKeyMap[], 
     table: string, 
     pool: Pool, 
-    shouldThrow?: boolean,
+    shouldThrow: boolean = false,
+    attempt: number = 1,
 ) {
     if (!transactions?.length) return
     logger.info(`Saving ${transactions.length} decoded transactions...`)
@@ -56,6 +60,7 @@ export async function bulkSaveTransactions(
     const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(', ')}`
 
     const client = await pool.connect()
+    let error
     try {
         await client.query('BEGIN')
         await client.query(
@@ -66,16 +71,38 @@ export async function bulkSaveTransactions(
             `UPDATE ${table} SET function_name = ${tempTableName}.function_name, function_args = ${tempTableName}.function_args FROM ${tempTableName} WHERE ${table}."hash" = ${tempTableName}.hash`
         )
         await client.query('COMMIT')
-    } catch (e) {
+    } catch (err) {
         await client.query('ROLLBACK')
-        logger.error(e)
-        if (shouldThrow) throw e
+        logger.error(err)
+        error = err
     } finally {
         client.release()
     }
+    if (!error) return
+
+    const message = error.message || error.toString() || ''
+    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveTransactions(
+            transactions,
+            table,
+            pool,
+            shouldThrow,
+            attempt + 1,
+        )
+    }
+
+    if (shouldThrow) throw error
 }
 
-export async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool: Pool, shouldThrow?: boolean) {
+export async function bulkSaveTraces(
+    traces: StringKeyMap[], 
+    table: string, 
+    pool: Pool, 
+    shouldThrow: boolean = false,
+    attempt: number = 1,
+) {
     if (!traces?.length) return
     logger.info(`Saving ${traces.length} decoded traces...`)
 
@@ -103,6 +130,7 @@ export async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool
     const insertQuery = `INSERT INTO ${tempTableName} (id, function_name, function_args, function_outputs) VALUES ${insertPlaceholders.join(', ')}`
 
     const client = await pool.connect()
+    let error
     try {
         await client.query('BEGIN')
         await client.query(
@@ -113,16 +141,38 @@ export async function bulkSaveTraces(traces: StringKeyMap[], table: string, pool
             `UPDATE ${table} SET function_name = ${tempTableName}.function_name, function_args = ${tempTableName}.function_args, function_outputs = ${tempTableName}.function_outputs FROM ${tempTableName} WHERE ${table}."id" = ${tempTableName}.id`
         )
         await client.query('COMMIT')
-    } catch (e) {
+    } catch (err) {
         await client.query('ROLLBACK')
-        logger.error(e)
-        if (shouldThrow) throw e
+        logger.error(err)
+        error = err
     } finally {
         client.release()
     }
+    if (!error) return
+
+    const message = error.message || error.toString() || ''
+    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveTraces(
+            traces,
+            table,
+            pool,
+            shouldThrow,
+            attempt + 1,
+        )
+    }
+
+    if (shouldThrow) throw error
 }
 
-export async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Pool, shouldThrow?: boolean) {
+export async function bulkSaveLogs(
+    logs: StringKeyMap[], 
+    table: string, 
+    pool: Pool, 
+    shouldThrow: boolean = false,
+    attempt: number = 1,
+) {
     if (!logs?.length) return
     logger.info(`Saving ${logs.length} decoded logs...`)
 
@@ -145,6 +195,7 @@ export async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Po
     const insertQuery = `INSERT INTO ${tempTableName} (log_index, transaction_hash, event_name, event_args) VALUES ${insertPlaceholders.join(', ')}`
 
     const client = await pool.connect()
+    let error
     try {
         await client.query('BEGIN')
         await client.query(
@@ -155,13 +206,29 @@ export async function bulkSaveLogs(logs: StringKeyMap[], table: string, pool: Po
             `UPDATE ${table} SET event_name = ${tempTableName}.event_name, event_args = ${tempTableName}.event_args FROM ${tempTableName} WHERE ${table}."log_index" = ${tempTableName}.log_index AND ${table}."transaction_hash" = ${tempTableName}.transaction_hash`
         )
         await client.query('COMMIT')
-    } catch (e) {
+    } catch (err) {
         await client.query('ROLLBACK')
-        logger.error(e)
-        if (shouldThrow) throw e
+        logger.error(err)
+        error = err
     } finally {
         client.release()
     }
+    if (!error) return
+
+    const message = error.message || error.toString() || ''
+    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveLogs(
+            logs,
+            table,
+            pool,
+            shouldThrow,
+            attempt + 1,
+        )
+    }
+
+    if (shouldThrow) throw error
 }
 
 /**

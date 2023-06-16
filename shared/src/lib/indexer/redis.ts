@@ -42,6 +42,7 @@ export const keys = {
     LIVE_OBJECT_TABLES: 'live-object-tables',
     LIVE_OBJECT_VERSION_FAILURES: 'lov-failures',
     GENERATED_EVENTS_CURSOR: 'generated-events-cursor',
+    ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX: 'additional-contract-inputs',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -226,7 +227,7 @@ export async function saveBlockEvents(
     try {
         await redis?.hSet(key, [blockNumber.toString(), JSON.stringify(events)])
     } catch (err) {
-        throw `Error saving block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error saving block events (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -239,7 +240,7 @@ export async function getBlockEvents(
         const results = (await redis?.hmGet(key, blockNumber.toString())) || []
         return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap[]
     } catch (err) {
-        throw `Error getting block events (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error getting block events (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -252,7 +253,7 @@ export async function deleteBlockEvents(chainId: string, blockNumbers: number | 
         await redis?.hDel(key, numbers)
     } catch (err) {
         logger.error(
-            `Error deleting block events (chainId=${chainId}, blockNubers=${numbers.join(
+            `Error deleting block events (chainId=${chainId}, blockNumbers=${numbers.join(
                 ', '
             )}): ${err}`
         )
@@ -266,7 +267,7 @@ export async function saveBlockCalls(chainId: string, blockNumber: number, calls
     try {
         await redis?.hSet(key, [blockNumber.toString(), JSON.stringify(calls)])
     } catch (err) {
-        throw `Error saving block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error saving block calls (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -276,7 +277,7 @@ export async function getBlockCalls(chainId: string, blockNumber: number): Promi
         const results = (await redis?.hmGet(key, blockNumber.toString())) || []
         return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap[]
     } catch (err) {
-        throw `Error getting block calls (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error getting block calls (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -289,7 +290,7 @@ export async function deleteBlockCalls(chainId: string, blockNumbers: number | n
         await redis?.hDel(key, numbers)
     } catch (err) {
         logger.error(
-            `Error deleting block calls (chainId=${chainId}, blockNuber=${numbers.join(
+            `Error deleting block calls (chainId=${chainId}, blockNumber=${numbers.join(
                 ', '
             )}): ${err}`
         )
@@ -317,7 +318,7 @@ export async function setBlockEventsSeriesNumber(chainId: string, blockNumber: n
             await redis?.del(key)
         }
     } catch (err) {
-        throw `Error setting block events series number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error setting block events series number (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -337,7 +338,7 @@ export async function freezeBlockOperationsAtOrAbove(chainId: string, blockNumbe
             })
         )
     } catch (err) {
-        throw `Error freezing block operations above number (chainId=${chainId}, blockNuber=${blockNumber}): ${err}`
+        throw `Error freezing block operations above number (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
     }
 }
 
@@ -919,5 +920,45 @@ export async function getGeneratedEventsCursors(): Promise<StringKeyMap> {
     } catch (err) {
         logger.error(`Error getting generated events cursors: ${err}`)
         return {}
+    }
+}
+
+export async function saveAdditionalContractsToGenerateInputsFor(
+    newContractRegistrations: StringKeyMap[],
+    blockNumbers: number[],
+    chainId: string,
+): Promise<boolean> {
+    if (!newContractRegistrations?.length) return true
+    const stringified = JSON.stringify(newContractRegistrations)
+    const data = {}
+    blockNumbers.forEach(number => {
+        data[number.toString()] = stringified
+    })
+    const key = [config.ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX, chainId].join('-')
+    try {
+        await redis?.hSet(key, data)
+    } catch (err) {
+        logger.error(
+            `Error saving additional contracts to generate inputs for (chainId=${chainId}, blockNumbers=${blockNumbers.join(',')}): ${err}`
+        )
+        return false
+    }
+    return true
+
+}
+
+export async function getAdditionalContractsToGenerateInputsFor(
+    chainId: string,
+    blockNumber: number,
+): Promise<StringKeyMap[] | null> {
+    const key = [config.ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX, chainId].join('-')
+    try {
+        const results = (await redis?.hmGet(key, blockNumber.toString())) || []
+        return (results?.length ? JSON.parse(results[0]) : []) as StringKeyMap[]
+    } catch (err) {
+        logger.error(
+            `Error getting additional contracts to generate inputs for (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
+        )
+        return null
     }
 }
