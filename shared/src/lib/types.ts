@@ -1,5 +1,5 @@
-import { LiveObjectVersionProperty, LiveObjectVersionConfig } from '..'
-import { Abi } from './abi/types'
+import { LiveObjectVersionProperty, LiveObjectVersionConfig, ContractInstance, Namespace } from '..'
+import { Abi, AbiItem } from './abi/types'
 
 export interface NewReportedHead {
     id: number
@@ -56,4 +56,24 @@ export interface PublishLiveObjectVersionPayload {
     inputEvents: string[]
     inputCalls: string[]
     additionalEventAssociations?: string[]
+}
+
+export interface ContractEventViewSpec {
+    schema: string
+    name: string
+    columnNames: string[]
+    numEventArgs: number
+    contractInstances: ContractInstance[]
+    namespace: Namespace
+    eventName: string
+    eventSig: string
+}
+
+export interface ContractEventSpec {
+    eventName: string
+    contractName: string
+    contractInstances: ContractInstance[]
+    namespace: Namespace
+    abiItem: AbiItem
+    namespacedVersion: string
 }

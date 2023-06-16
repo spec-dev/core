@@ -45,6 +45,7 @@
         "short-uuid": "^4.2.0",
         "typeorm": "0.3.7",
         "uuid4": "^2.0.2",
+        "web3": "^1.8.0",
         "web3-utils": "^1.7.4"
     },
     "devDependencies": {

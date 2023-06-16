@@ -2,7 +2,7 @@ import { createClient } from 'redis'
 import config from '../config'
 import logger from '../logger'
 import { Abi, AbiItem } from './types'
-import { StringMap } from '../types'
+import { StringMap, StringKeyMap } from '../types'
 import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
 
@@ -55,6 +55,18 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
     }
 }
 
+function stringify(abi: any): string | null {
+    if (!abi) return null
+    let abiStr
+    try {
+        abiStr = JSON.stringify(abi)
+    } catch (err) {
+        logger.error(`Error stringifying abi for: ${abi} - ${err}`)
+        return null
+    }
+    return abiStr
+}
+
 export async function saveFunctionSignatures(
     sigsMap: StringMap,
     chainId: string = chainIds.ETHEREUM
@@ -69,6 +81,18 @@ export async function saveFunctionSignatures(
         return false
     }
     return true
+}
+
+export async function saveAbisMap(abisMap: StringKeyMap, chainId: string): Promise<boolean> {
+    const stringified: StringMap = {}
+    for (const address in abisMap) {
+        const abi = abisMap[address]
+        const abiStr = stringify(abi)
+        if (!abiStr) continue
+        stringified[address] = abiStr
+    }
+    if (!Object.keys(stringified).length) return true
+    return await saveAbis(stringified, chainId)
 }
 
 export async function saveAbis(

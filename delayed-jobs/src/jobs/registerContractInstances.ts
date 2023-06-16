@@ -10,23 +10,16 @@ import {
     uniqueByKeys,
     CoreDB,
     contractNamespaceForChainId,
-    hash,
     upsertNamespaceWithTx,
     upsertContractWithTx,
     upsertContractInstancesWithTx,
     upsertEventsWithTx,
     upsertEventVersionsWithTx,
     toNamespacedVersion,
-    schemaForChainId,
-    MAX_TABLE_NAME_LENGTH,
-    buildContractEventAsLiveObjectVersionPayload,
     PublishLiveObjectVersionPayload,
-    camelToSnake,
+    designDataModelsFromEventSpec,
     specGithubRepoUrl,
-    SharedTables,
-    CHAIN_ID_COL,
-    CONTRACT_NAME_COL,
-    CONTRACT_ADDRESS_COL,
+    upsertContractEventView,
     namespaceForChainId,
     getAbis,
     enqueueDelayedJob,
@@ -37,16 +30,12 @@ import {
     saveContractGroupAbi,
     contractRegistrationJobFailed,
     unique,
-} from '../../../shared'
-import { EventViewSpec, EventSpec } from '../types'
-import { publishLiveObjectVersion } from './publishLiveObjectVersion'
-import { ident, literal } from 'pg-format'
-import { 
-    fetchAbis, 
-    providers, 
-    polishAbis,
     saveAbisMap,
-} from './upsertAbis'
+    polishAbis,
+    ContractEventSpec,
+} from '../../../shared'
+import { publishLiveObjectVersion } from './publishLiveObjectVersion'
+import { fetchAbis, providers } from './upsertAbis'
 import uuid4 from 'uuid4'
 
 const errors = {
@@ -109,7 +98,6 @@ async function registerContractInstances(
     if (existingContractInstances === null) {
         await contractRegistrationJobFailed(uid, errors.GENERAL)
         return
-
     }
     const allInstancePayloads = uniqueByKeys([
         ...instances,
@@ -155,7 +143,7 @@ async function registerContractInstances(
 
     // Upsert views and live object versions for each contract event.
     for (const { viewSpec, lovSpec } of dataModelSpecs) {
-        let success = await upsertView(viewSpec, chainId)
+        let success = await upsertContractEventView(viewSpec, chainId)
         success = success ? await publishContractEventLiveObject(viewSpec.namespace, lovSpec) : false
         if (!success) {
             await contractRegistrationJobFailed(uid, errors.LIVE_OBJECTS)
@@ -273,7 +261,7 @@ async function saveDataModels(
     contractInstancePayloads: NewContractInstancePayload[],
     existingContractInstances: ContractInstance[],
     eventAbiItems: AbiItem[],
-): Promise<EventSpec[] | null> {
+): Promise<ContractEventSpec[] | null> {
     let eventSpecs = []
     try {
         await CoreDB.manager.transaction(async (tx) => {
@@ -303,117 +291,6 @@ async function saveDataModels(
         return null
     }
     return eventSpecs
-}
-
-function designDataModelsFromEventSpec(
-    eventSpec: EventSpec,
-    nsp: string,
-    chainId: string,
-):{
-    viewSpec: EventViewSpec,
-    lovSpec: PublishLiveObjectVersionPayload,
-} {
-    const eventParams = eventSpec.abiItem.inputs || []
-    const viewSchema = schemaForChainId[chainId]
-    const viewName = createEventVersionViewName(eventSpec, nsp)
-    const viewPath = [viewSchema, viewName].join('.')
-
-    // Package what's needed to publish a live object version of this contract event.
-    const lovSpec = buildContractEventAsLiveObjectVersionPayload(
-        nsp,
-        eventSpec.contractName,
-        eventSpec.eventName,
-        eventSpec.namespacedVersion,
-        chainId,
-        eventParams,
-        viewPath,
-    )
-
-    // Package what's needed to create a Postgres view of this contract event.
-    const viewSpec = {
-        schema: viewSchema,
-        name: viewName,
-        columnNames: lovSpec.properties.map(p => camelToSnake(p.name)),
-        numEventArgs: eventParams.length,
-        contractInstances: eventSpec.contractInstances,
-        namespace: eventSpec.namespace,
-        eventName: eventSpec.eventName,
-        eventSig: eventSpec.abiItem.signature,
-    }
-    
-    return { viewSpec, lovSpec }
-}
-
-function createEventVersionViewName(eventSpec: EventSpec, nsp: string): string {
-    const { contractName, eventName, abiItem } = eventSpec
-    const shortSig = abiItem.signature.slice(0, 10)
-    const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
-    return viewName.length >= MAX_TABLE_NAME_LENGTH
-        ? [nsp, hash(viewName).slice(0, 10)].join('_').toLowerCase()
-        : viewName
-}
-
-async function upsertView(viewSpec: EventViewSpec, chainId: string): Promise<boolean> {
-    const {
-        schema,
-        name,
-        columnNames,
-        numEventArgs,
-        contractInstances,
-        eventSig,
-    } = viewSpec
-
-    logger.info(`Upserting view ${schema}.${name}`)
-
-    const contractNameOptions = [
-        ...contractInstances.map(ci => (
-            `when address = ${literal(ci.address)} then ${literal(ci.name)}`
-        )),
-        `else 'unknown'`
-    ].map(l => `        ${l}`).join('\n')
-
-    const selectLines = []
-    for (let i = 0; i < columnNames.length; i++) {
-        const columnName = columnNames[i]
-        const isEventArgColumn = i < numEventArgs
-        let line = columnName
-
-        if (isEventArgColumn) {
-            line = `event_args -> ${i} -> 'value' as ${ident(columnName)}`
-        }
-        else if (columnName === CONTRACT_NAME_COL) {
-            line = `case\n${contractNameOptions}\n    end ${ident(columnName)}`
-        }
-        else if (columnName === CHAIN_ID_COL) {
-            line = `unnest(array[${literal(chainId)}]) as ${ident(columnName)}`
-        }
-        else if (columnName === CONTRACT_ADDRESS_COL) {
-            line = `address as ${ident(columnName)}`
-        }
-        if (i < columnNames.length - 1) {
-            line += ','
-        }
-        selectLines.push(line)
-    }
-
-    const select = selectLines.map(l => `    ${l}`).join('\n')
-    const addresses = contractInstances.map(ci => ci.address)
-    const upsertViewSql = 
-`create or replace view ${ident(schema)}.${ident(name)} as 
-select
-${select} 
-from ${ident(schema)}."logs" 
-where "topic0" = ${literal(eventSig)}
-and "address" in (${addresses.map(a => literal(a)).join(', ')})`
-
-    try {
-        await SharedTables.query(upsertViewSql)
-    } catch (err) {
-        logger.error(`Error upserting view ${schema}.${name}: ${err}`)
-        return false
-    }
-
-    return true
 }
 
 async function publishContractEventLiveObject(
@@ -465,7 +342,7 @@ async function upsertEvents(
     contractInstances: ContractInstance[],
     eventAbiItems: Abi,
     tx: any,
-): Promise<EventSpec[]> {
+): Promise<ContractEventSpec[]> {
     if (!contractInstances.length) return []
     const namespace = contract.namespace
 
@@ -495,7 +372,6 @@ async function upsertEvents(
             eventId: event.id,
         }
         eventVersionsData.push(data)
-
         eventSpecs.push({
             eventName: event.name,
             contractName: contract.name,

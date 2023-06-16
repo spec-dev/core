@@ -875,6 +875,7 @@ function formatTraceAsSpecCall(
     chainId: string
 ): StringKeyMap {
     const callOrigin = {
+        _id: trace.id,
         contractAddress: trace.to,
         contractName: contractInstanceName,
         transactionHash: trace.transactionHash,

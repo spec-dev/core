@@ -1,6 +1,8 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
 import { StringKeyMap } from '../types'
+import { Abi } from '../abi/types'
 import humps from 'humps'
+import Web3 from 'web3'
 import { ident } from 'pg-format'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -9,6 +11,8 @@ export const NULL_32_BYTE_HASH =
 export const NULL_BYTE_DATE = '0x'
 
 const ABI_INPUT_PLACEHOLDER_PREFIX = '___ph-'
+
+const web3 = new Web3()
 
 export const identPath = (value: string): string =>
     value
@@ -424,4 +428,184 @@ export const shuffle = (arr: any[]) => {
         ;[arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]]
     }
     return arr
+}
+
+export function createAbiItemSignature(item: StringKeyMap): string | null {
+    switch (item.type) {
+        case 'function':
+        case 'constructor':
+            return web3.eth.abi.encodeFunctionSignature(item as any)
+        case 'event':
+            return web3.eth.abi.encodeEventSignature(item as any)
+        default:
+            return null
+    }
+}
+
+export function polishAbis(abis: StringKeyMap): StringKeyMap[] {
+    const abisMap = {}
+    const funcSigHashesMap = {}
+
+    for (const address in abis) {
+        const abi = abis[address]
+        const newAbi = []
+
+        for (const item of abi) {
+            let signature = item.signature
+            if (signature) {
+                newAbi.push(item)
+            } else {
+                signature = createAbiItemSignature(item)
+                if (signature) {
+                    newAbi.push({ ...item, signature })
+                } else {
+                    newAbi.push(item)
+                }
+            }
+
+            if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
+                funcSigHashesMap[signature] = {
+                    name: item.name,
+                    type: item.type,
+                    inputs: minimizeAbiInputs(item.inputs),
+                    signature,
+                }
+            }
+        }
+
+        abisMap[address] = newAbi
+    }
+
+    return [abisMap, funcSigHashesMap]
+}
+
+export function formatLogAsSpecEvent(
+    log: StringKeyMap, 
+    contractGroupAbi: Abi,
+    contractInstanceName: string,
+    chainId: string,
+): StringKeyMap | null {
+    const eventOrigin = {
+        contractAddress: log.address,
+        transactionHash: log.transactionHash,
+        transactionIndex: log.transactionIndex,
+        logIndex: log.logIndex,
+        signature: log.topic0,
+        blockHash: log.blockHash,
+        blockNumber: Number(log.blockNumber),
+        blockTimestamp: log.blockTimestamp.toISOString(),
+        chainId,
+    }
+    
+    const fixedContractEventProperties = {
+        ...eventOrigin,
+        contractName: contractInstanceName,
+        logIndex: log.logIndex,
+    }
+
+    const groupAbiItem = contractGroupAbi.find(item => item.signature === log.topic0)
+    if (!groupAbiItem) return null
+
+    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name).filter(v => !!v)
+    const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
+    if (logEventArgs.length !== groupArgNames.length) return null
+
+    const eventProperties = []
+    for (let i = 0; i < logEventArgs.length; i++) {
+        const arg = logEventArgs[i]
+        if (!arg) return null
+
+        const argName = groupArgNames[i]
+        if (!argName) return null
+
+        eventProperties.push({
+            name: snakeToCamel(stripLeadingAndTrailingUnderscores(argName)),
+            value: arg.value,
+        })
+    }
+    
+    // Ensure event arg property names are unique.
+    const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
+    for (const property of eventProperties) {
+        let propertyName = property.name
+        while (seenPropertyNames.has(propertyName)) {
+            propertyName = '_' + propertyName
+        }
+        seenPropertyNames.add(propertyName)
+        property.name = propertyName
+    }
+
+    const data = {
+        ...fixedContractEventProperties
+    }
+    for (const property of eventProperties) {
+        data[property.name] = property.value
+    }
+
+    return { data, eventOrigin }
+}
+
+export function formatTraceAsSpecCall(
+    trace: StringKeyMap,
+    signature: string,
+    contractGroupAbi: Abi,
+    contractInstanceName: string,
+    chainId: string,
+): StringKeyMap {
+    const callOrigin = {
+        _id: trace.id,
+        contractAddress: trace.to,
+        contractName: contractInstanceName,
+        transactionHash: trace.transactionHash,
+        transactionIndex: trace.transactionIndex,
+        traceIndex: trace.traceIndex,
+        signature,
+        blockHash: trace.blockHash,
+        blockNumber: Number(trace.blockNumber),
+        blockTimestamp: trace.blockTimestamp.toISOString(),
+        chainId,
+    }
+
+    const groupAbiItem = contractGroupAbi.find(item => item.signature === signature)
+    if (!groupAbiItem) return null
+
+    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name)
+    const functionArgs = (trace.functionArgs || []) as StringKeyMap[]
+    const inputs = {}
+    const inputArgs = []
+    for (let i = 0; i < functionArgs.length; i++) {
+        const arg = functionArgs[i]
+        if (!arg) return null
+
+        const argName = groupArgNames[i]
+        if (argName) {
+            inputs[argName] = arg.value
+        }
+
+        inputArgs.push(arg.value)
+    }
+
+    const groupOutputNames = (groupAbiItem.outputs || []).map(output => output.name)
+    const functionOutputs = (trace.functionOutputs || []) as StringKeyMap[]
+    const outputs = {}
+    const outputArgs = []
+    for (let i = 0; i < functionOutputs.length; i++) {
+        const output = functionOutputs[i]
+        if (!output) return null
+
+        const outputName = groupOutputNames[i]
+        if (outputName) {
+            outputs[outputName] = output.value
+        }
+
+        outputArgs.push(output.value)
+    }
+
+    return {
+        callOrigin,
+        inputs,
+        inputArgs,
+        outputs,
+        outputArgs,
+    }
 }

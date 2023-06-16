@@ -270,6 +270,7 @@ export { In, Not, IsNull, Brackets } from 'typeorm'
 export {
     redis as abiRedis,
     abiRedisKeys,
+    saveAbisMap,
     saveAbis,
     saveFunctionSignatures,
     getAbi,
@@ -347,3 +348,25 @@ export { hash } from './lib/utils/hash'
 
 export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'
 export { resolveCallVersionNames } from './lib/services/resolveCallVersionNames'
+export { designDataModelsFromEventSpec } from './lib/services/designDataModelsFromEventSpecs'
+export { upsertContractEventView } from './lib/services/upsertContractEventView'
+export {
+    bulkSaveTransactions,
+    bulkSaveTraces,
+    bulkSaveLogs,
+    decodeTransactions,
+    decodeTraces,
+    decodeLogs,
+    findContractInteractionsInBlockRange,
+    findContractLogsInBlockRange,
+    decodeFunctionCalls,
+    decodeFunctionCall,
+    decodeFunctionArgs,
+    decodeLogEvents,
+    decodeLogEvent,
+    tryDecodingLogAsTransfer,
+    decodeTransferEvent,
+    decodeTransferSingleEvent,
+    decodeTransferBatchEvent,
+} from './lib/services/decodeServices'
+export { addContractInstancesToGroup } from './lib/services/addContractInstancesToGroup'

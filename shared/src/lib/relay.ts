@@ -36,6 +36,7 @@ const formatSpecEvent = (eventSpec: StringKeyMap, eventTimestamp: string): Strin
 
 const formatSpecCall = (callSpec: StringKeyMap, eventTimestamp: string): StringKeyMap => {
     const { name, origin, inputs, inputArgs, outputs, outputArgs } = callSpec
+    delete origin._id
     delete origin.transactionIndex
     delete origin.traceIndex
     return {
