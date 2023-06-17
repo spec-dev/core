@@ -146,6 +146,7 @@ export {
     getNativeTokenForChain,
     avgBlockTimesForChainId,
     primitivesForChainId,
+    chainIdForContractNamespace,
 } from './lib/utils/chainIds'
 import config from './lib/config'
 export { config }
@@ -155,6 +156,7 @@ export * from './lib/types'
 export * from './lib/utils/date'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
+export * from './lib/utils/standardAbis'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { Contract } from './lib/core/db/entities/Contract'
 export { ContractInstance } from './lib/core/db/entities/ContractInstance'
@@ -176,6 +178,10 @@ export { Project } from './lib/core/db/entities/Project'
 export { ProjectRole, ProjectRoleName } from './lib/core/db/entities/ProjectRole'
 export { Deployment, DeploymentStatus } from './lib/core/db/entities/Deployment'
 export { LiveCallHandler } from './lib/core/db/entities/LiveCallHandler'
+export {
+    ContractRegistrationJob,
+    ContractRegistrationJobStatus,
+} from './lib/core/db/entities/ContractRegistrationJob'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -183,6 +189,14 @@ export {
     getNamespaces,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
+export {
+    NamespaceAccessToken,
+    NamespaceAccessTokenScope,
+} from './lib/core/db/entities/NamespaceAccessToken'
+export {
+    createNamespaceAccessToken,
+    getNamespaceAccessToken,
+} from './lib/core/db/services/namespaceAccessTokenService'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
 export { getProject } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
@@ -205,6 +219,7 @@ export {
 export {
     createContractInstance,
     upsertContractInstancesWithTx,
+    getContractInstancesInGroup,
 } from './lib/core/db/services/contractInstanceServices'
 export { createEvent, getEvent, upsertEventsWithTx } from './lib/core/db/services/eventServices'
 export {
@@ -212,6 +227,7 @@ export {
     getEventVersion,
     upsertEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
+    resolveEventVersionNames,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -242,7 +258,13 @@ export {
     createLiveCallHandler,
     createLiveCallHandlersWithTx,
 } from './lib/core/db/services/liveCallHandlerServices'
-
+export {
+    createContractRegistrationJob,
+    getContractRegistrationJob,
+    updateContractRegistrationJobStatus,
+    updateContractRegistrationJobCursors,
+    contractRegistrationJobFailed,
+} from './lib/core/db/services/contractRegistrationJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {
@@ -255,6 +277,9 @@ export {
     removeAbis,
     getMissingAbiAddresses,
     getFunctionSignatures,
+    getContractGroupAbi,
+    getContractGroupAbis,
+    saveContractGroupAbi,
 } from './lib/abi/redis'
 
 export * from './lib/abi/types'
@@ -297,7 +322,6 @@ export {
     doesSharedViewExist,
     MAX_TABLE_NAME_LENGTH,
 } from './lib/utils/pgMeta'
-export * from './lib/utils/views'
 
 export * from './lib/utils/colTypes'
 export { guessColTypeFromPropertyType } from './lib/utils/propertyTypes'
@@ -320,3 +344,6 @@ export {
 
 export { getDBTimestamp, publishEvents, publishCalls, publishReorg, emit } from './lib/relay'
 export { hash } from './lib/utils/hash'
+
+export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'
+export { resolveCallVersionNames } from './lib/services/resolveCallVersionNames'

@@ -14,7 +14,7 @@ env="$1"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|eth-dev|goerli|polygon|mumbai"
 
 # ======== SET KEY VARS ======== #
 
@@ -28,7 +28,6 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
-$shared_bin_dir/assert_env "EVENT_SORTER_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"

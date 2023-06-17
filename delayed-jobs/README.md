@@ -33,7 +33,7 @@ export MUMBAISCAN_API_KEY=GM39IS4H1W78RGKIIUTA329FUIIUTNRJXI
 
 #### 3) Make sure Postgres and Redis are both running
 
-#### 4) Make sure you've run `npm run build` from inside the [shared](/shared/) folder in the root directory of this projet.
+#### 4) Make sure you've run `npm run build` from inside the [shared](/shared/) folder in the root directory of this project.
 
 ## Run
 

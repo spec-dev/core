@@ -32,9 +32,6 @@ import {
     getDBTimestamp,
 } from '../../shared'
 
-/**
- *  TODO: Consolidate logic between contract calls and events.
- */
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
 
@@ -61,16 +58,18 @@ async function perform(data: StringKeyMap) {
     const contractCalls = sortContractCalls(blockCalls)
     const originEvents = formatOriginEvents(blockEvents)
 
-    // Publish all calls & origin events up-front.
+    // Publish all origin events up-front.
     const hasContractCalls = contractCalls.length > 0
     const hasOriginEvents = originEvents.length > 0
     const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
-    hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)
     hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
+    
+    // TBD whether we bring back - depends on added system load vs true customer value.
+    // hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)    
 
     // Get the unique contract call names and unique event names for this batch.
-    const uniqueContractCallComps = getUniqueContractCallComps(contractCalls)
-    const uniqueEventVersionComps = getUniqueEventVersionComps(originEvents)
+    const uniqueContractCallComps = getUniqueInputEventOrCallComps(contractCalls)
+    const uniqueEventVersionComps = getUniqueInputEventOrCallComps(originEvents)
 
     // Get the failing namespaces and tables to avoid generating events for.
     const [cachedFailingNsps, cachedFailingTables] = await Promise.all([
@@ -98,7 +97,10 @@ async function perform(data: StringKeyMap) {
     ])
 
     const pluckLovIds = (toLovsMap: StringKeyMap) => Object.values(toLovsMap)
-        .map(entries => (entries || []).map(entry => entry.lovId).filter(v => !!v)).flat()
+        .map(entries => (entries || [])
+        .map(entry => entry.lovId)
+        .filter(v => !!v))
+        .flat()
 
     const uniqueLovIds = unique([
         ...pluckLovIds(inputContractCallsToLovs),
@@ -122,7 +124,7 @@ async function perform(data: StringKeyMap) {
     // Group origin events by live object version namespace. Then within each namespace, 
     // group the events even further if their adjacent events share the same live object version.
     const callGroups = groupCallsByLovNamespace(contractCalls, inputContractCallsToLovs)
-    const eventGroups = groupEventsByLovNamespace(originEvents, inputEventVersionsToLovs )
+    const eventGroups = groupEventsByLovNamespace(originEvents, inputEventVersionsToLovs)
 
     // Merge call groups and event groups by live object version namespace.
     const seenLovNsps = new Set<string>()
@@ -218,9 +220,9 @@ async function generateLiveObjectEventsForNamespace(
     blockNumber: number,
 ) {
     const tablesApiTokens = {}
-
     const lovIds = []
     const generatedEvents = []
+    
     for (const inputGroup of inputGroups) {
         const { lovId, lovUrl, lovTableSchema, events, calls } = inputGroup
         lovIds.push(lovId)
@@ -599,13 +601,13 @@ async function getLiveObjectVersionToContractCallMappings(
     // Map contract calls to the live object versions that depend on them.
     const inputContractCallsToLovs = {}
     for (const result of lovResults) {
-        const { nsp, functionName, lovNsp, lovId, lovUrl, lovTablePath } = result
+        const { nsp, name, version, lovNsp, lovId, lovUrl, lovTablePath } = result
         if (failingNamespaces.has(nsp) || failingTables.has(lovTablePath)) continue
-        const callName = [nsp, functionName].join('.')
-        if (!inputContractCallsToLovs.hasOwnProperty(callName)) {
-            inputContractCallsToLovs[callName] = []
+        const callVersion = toNamespacedVersion(nsp, name, version)
+        if (!inputContractCallsToLovs.hasOwnProperty(callVersion)) {
+            inputContractCallsToLovs[callVersion] = []
         }
-        inputContractCallsToLovs[callName].push({
+        inputContractCallsToLovs[callVersion].push({
             lovNsp,
             lovId: Number(lovId),
             lovUrl,
@@ -689,15 +691,16 @@ async function getLiveObjectVersionsThroughLiveCallHandlers(
     const bindings = []
 
     let i = 1
-    for (const { nsp, functionName } of contractCallComps) {
-        andClauses.push(`(namespaces.name = $${i} and live_call_handlers.function_name = $${i + 1})`)
-        bindings.push(...[nsp, functionName])
-        i += 2
+    for (const { nsp, name, version } of contractCallComps) {
+        andClauses.push(`(namespaces.name = $${i} and live_call_handlers.function_name = $${i + 1} and live_call_handlers.version = $${i + 2})`)
+        bindings.push(...[nsp, name, version])
+        i += 3
     }
 
     const sql = `select
 namespaces.name as nsp,
-live_call_handlers.function_name as function_name,
+live_call_handlers.function_name as name,
+live_call_handlers.version as version,
 live_object_versions.nsp as lov_nsp,
 live_object_versions.id as lov_id,
 live_object_versions.url as lov_url,
@@ -826,23 +829,12 @@ function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
     ))
 }
 
-function getUniqueEventVersionComps(originEvents: StringKeyMap[]): StringKeyMap[] {
+function getUniqueInputEventOrCallComps(inputs: StringKeyMap[]): StringKeyMap[] {
     return uniqueByKeys(
-        originEvents
-            .map(e => fromNamespacedVersion(e.name))
-            .filter(e => !!e.nsp && !!e.name && !!e.version),
+        inputs
+            .map(i => fromNamespacedVersion(i.name))
+            .filter(i => !!i.nsp && !!i.name && !!i.version),
         ['nsp', 'name', 'version']
-    )
-}
-
-function getUniqueContractCallComps(contractCalls: StringKeyMap[]): StringKeyMap[] {
-    return uniqueByKeys(
-        contractCalls.map(call => {
-            const splitCallName = call.name.split('.')
-            const functionName = splitCallName.pop()
-            return { nsp: splitCallName.join('.'), functionName }
-        }),
-        ['nsp', 'functionName']
     )
 }
 

@@ -18,17 +18,15 @@ import {
     formatAbiValueWithType,
     Abi,
     NULL_ADDRESS,
-} from '../../../shared'
-import { ident } from 'pg-format'
-import { exit } from 'process'
-import { decodeTransferEvent } from '../services/extractTransfersFromLogs'
-import { 
     TRANSFER_TOPIC,
     WETH_DEPOSIT_TOPIC,
     WETH_WITHDRAWAL_TOPIC,
     specialErc20BalanceAffectingAbis,
     TRANSFER_EVENT_NAME,
-} from '../utils/standardAbis'
+} from '../../../shared'
+import { ident } from 'pg-format'
+import { exit } from 'process'
+import { decodeTransferEvent } from '../services/extractTransfersFromLogs'
 import Web3 from 'web3'
 
 const web3js = new Web3()

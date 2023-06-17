@@ -1,6 +1,6 @@
 import { StringKeyMap } from '../../shared'
 export { StringKeyMap }
-export { StringMap, NewContractsPayload, PublishLiveObjectVersionPayload } from '../../shared'
+export { StringMap, ContractRegistrationPayload, PublishLiveObjectVersionPayload } from '../../shared'
 
 export interface ValidatedPayload<T> {
     isValid: boolean

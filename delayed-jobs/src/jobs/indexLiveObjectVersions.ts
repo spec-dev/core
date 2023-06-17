@@ -13,7 +13,6 @@ import {
     In,
     unique,
     SharedTables,
-    range,
     getGeneratedEventsCursors,
 } from '../../../shared'
 import config from '../config'

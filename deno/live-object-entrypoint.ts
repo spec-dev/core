@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.78'
+import { PublishEventQueue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.83'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -21,6 +21,7 @@ const headerNames = {
 }
 
 const config = {
+    // @ts-ignore
     JWT_SECRET: Deno.env.get('JWT_SECRET'),
     JWT_ROLE: 'internal',
 }
@@ -96,7 +97,7 @@ serve(async (req: Request) => {
     // Process input calls/events in series.
     const allPublishedEvents = []
     for (let i = 0; i < inputs.length; i++) {
-        const input = inputs[i]
+        const input = inputs[i] as any
         input.origin.blockNumber = BigInt.from(input.origin.blockNumber)
 
         // Create the live object with a single event queue instance to capture published events.

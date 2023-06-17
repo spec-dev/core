@@ -1,6 +1,7 @@
 import { ContractInstance } from '../entities/ContractInstance'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
+import { toNamespaceSlug } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
@@ -45,4 +46,26 @@ export async function upsertContractInstancesWithTx(
             .returning('*')
             .execute()
     ).generatedMaps
+}
+
+export async function getContractInstancesInGroup(nsp: string): Promise<ContractInstance[] | null> {
+    try {
+        return await contractInstancesRepo().find({
+            relations: {
+                contract: {
+                    namespace: true,
+                },
+            },
+            where: {
+                contract: {
+                    namespace: {
+                        slug: toNamespaceSlug(nsp),
+                    },
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error finding ContractInstances in namespace ${nsp}: ${err}`)
+        return null
+    }
 }

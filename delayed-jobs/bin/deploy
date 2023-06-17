@@ -23,6 +23,7 @@ polygon_alchemy_rest_url=$( $shared_bin_dir/env_reader "polygon" "ALCHEMY_REST_U
 mumbai_alchemy_rest_url=$( $shared_bin_dir/env_reader "mumbai" "ALCHEMY_REST_URL" )
 event_generators_jwt=$( $shared_bin_dir/env_reader "$env" "EVENT_GENERATORS_JWT" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "DELAYED_JOBS_BUGSNAG_API_KEY" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -57,6 +58,7 @@ $shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url
 $shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
 $shared_bin_dir/assert_env "EVENT_GENERATORS_JWT" "$event_generators_jwt"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
+$shared_bin_dir/assert_env "DELAYED_JOBS_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -92,13 +94,14 @@ image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
- 
+
 template_path="$delayed_jobs_dir/delayed-jobs.yaml"
 
 # Create the config template.
 template=$( cat "$template_path" | \
     sed "s|{{IMAGE}}|$image|g" | \
     sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
     sed "s|{{EVENT_GENERATORS_JWT}}|$event_generators_jwt|g"  | \
     sed "s|{{DENO_DEPLOY_TOKEN}}|$deno_deploy_token|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
