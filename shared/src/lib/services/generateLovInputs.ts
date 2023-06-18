@@ -7,12 +7,14 @@ import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
 import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
+import { Pool } from 'pg'
 import { Abi } from '../abi/types'
 import { schemaForChainId, isContractNamespace } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
 import { avgBlockTimesForChainId } from '../utils/chainIds'
 import { camelizeKeys } from 'humps'
 import { getContractGroupAbi } from '../abi/redis'
+import { bulkSaveLogs, bulkSaveTraces, decodeFunctionCall, decodeLogEvents } from './decodeServices'
 import {
     toNamespacedVersion,
     snakeToCamel,
@@ -34,36 +36,50 @@ export async function getLovInputGenerator(
 ): Promise<any> {
     const inputGen = await getGroupedInputGeneratorQueriesForLovs(lovIds, startTimestamp)
     if (!inputGen) return null
+
     const {
         groupQueryCursors: queryCursors,
         groupContractInstanceData: contractInstanceData,
         inputIdsToLovIdsMap,
         liveObjectVersions,
     } = inputGen
+
     if (!Object.keys(queryCursors).length) return null
 
     const [earliestStartCursor, shortestBlockTime] =
         getSmallestStartCursorAndBlockTime(queryCursors)
 
+    const indexingContractFactoryLov = !!(
+        Object.values(liveObjectVersions) as LiveObjectVersion[]
+    ).find((lov) => lov.config?.isContractFactory === true)
+
     const generator = buildGenerator(
         earliestStartCursor,
         targetBatchSize * shortestBlockTime,
         queryCursors,
-        contractInstanceData
+        contractInstanceData,
+        indexingContractFactoryLov
     )
 
-    return { generator, inputIdsToLovIdsMap, liveObjectVersions }
+    return { generator, inputIdsToLovIdsMap, liveObjectVersions, indexingContractFactoryLov }
 }
 
 export async function generateLovInputsForEventsAndCalls(
     events: string[],
     calls: string[],
+    isContractFactory: boolean,
     startTimestamp: string | null = null,
     targetBatchSize: number,
     inputGen: StringKeyMap | null = null
 ) {
     inputGen =
-        inputGen || (await getInputGeneratorQueriesForEventsAndCalls(events, calls, startTimestamp))
+        inputGen ||
+        (await getInputGeneratorQueriesForEventsAndCalls(
+            events,
+            calls,
+            isContractFactory,
+            startTimestamp
+        ))
     if (!inputGen) return null
 
     const { queryCursors, contractInstanceData } = inputGen
@@ -102,71 +118,71 @@ function buildGenerator(
     earliestStartCursor: Date,
     batchSizeInSeconds: number,
     queryCursors: StringKeyMap,
-    contractInstanceData: StringKeyMap
+    contractInstanceData: StringKeyMap,
+    indexingContractFactoryLov: boolean = false
 ): Function {
-    const generator = async (startBlockDate?: Date) => {
+    const generator = async (startBlockDate?: Date, pool?: Pool) => {
         startBlockDate = startBlockDate || earliestStartCursor
         const endBlockDate = addSeconds(startBlockDate, batchSizeInSeconds)
 
-        const chainIdsToQueryForInputs = []
+        const chainsToQuery = []
         for (const chainId in queryCursors) {
             const timestampCursor = queryCursors[chainId].timestampCursor
             if (timestampCursor < endBlockDate) {
-                chainIdsToQueryForInputs.push(chainId)
+                chainsToQuery.push(chainId)
             }
         }
 
         const chainInputPromises = []
-        for (const chainId of chainIdsToQueryForInputs) {
+        for (const chainId of chainsToQuery) {
             const schema = schemaForChainId[chainId]
             const { inputEventsQueryComps, inputFunctionsQueryComps } = queryCursors[chainId]
             const startPgDateStr = formatPgDateString(startBlockDate, false)
             const endPgDateTime = formatPgDateString(endBlockDate, false)
-            chainInputPromises.push(
-                ...[
-                    inputEventsQueryComps.length
-                        ? SharedTables.query(
-                              `select * from ${ident(schema)}.${ident(
-                                  'logs'
-                              )} where (${inputEventsQueryComps.join(
-                                  ' or '
-                              )}) and block_timestamp >= $1 and block_timestamp < $2`,
-                              [startPgDateStr, endPgDateTime]
-                          )
-                        : [],
-                    inputFunctionsQueryComps.length
-                        ? SharedTables.query(
-                              `select * from ${ident(schema)}.${ident(
-                                  'traces'
-                              )} where (${inputFunctionsQueryComps.join(
-                                  ' or '
-                              )}) and block_timestamp >= $1 and block_timestamp < $2`,
-                              [startPgDateStr, endPgDateTime]
-                          )
-                        : [],
-                ]
-            )
-        }
 
+            const eventInputsQuery = inputEventsQueryComps.length
+                ? SharedTables.query(
+                      `select * from ${ident(schema)}.${ident(
+                          'logs'
+                      )} where (${inputEventsQueryComps.join(
+                          ' or '
+                      )}) and block_timestamp >= $1 and block_timestamp < $2`,
+                      [startPgDateStr, endPgDateTime]
+                  )
+                : []
+
+            const callInputsQuery = inputFunctionsQueryComps.length
+                ? SharedTables.query(
+                      `select * from ${ident(schema)}.${ident(
+                          'traces'
+                      )} where (${inputFunctionsQueryComps.join(
+                          ' or '
+                      )}) and block_timestamp >= $1 and block_timestamp < $2`,
+                      [startPgDateStr, endPgDateTime]
+                  )
+                : []
+
+            chainInputPromises.push(...[eventInputsQuery, callInputsQuery])
+        }
         let chainInputs = await Promise.all(chainInputPromises)
 
         const uniqueTxHashes = {}
         for (let i = 0; i < chainInputs.length; i++) {
-            const chainId = chainIdsToQueryForInputs[Math.floor(i / 2)]
+            const chainId = chainsToQuery[Math.floor(i / 2)]
             const inputType = i % 2 === 0 ? 'event' : 'call'
             uniqueTxHashes[chainId] = uniqueTxHashes[chainId] || new Set()
 
             for (let j = 0; j < chainInputs[i].length; j++) {
-                chainInputs[i][j]._inputType = inputType
-                chainInputs[i][j]._chainId = chainId
+                chainInputs[i][j].inputType = inputType
+                chainInputs[i][j].chainId = chainId
                 const txHash = chainInputs[i][j].transaction_hash
                 txHash && uniqueTxHashes[chainId].add(txHash)
             }
         }
 
         const successfulTxHashes = {}
-        const promises = []
-        for (const chainId of chainIdsToQueryForInputs) {
+        let promises = []
+        for (const chainId of chainsToQuery) {
             const wrapper = async () => {
                 const schema = schemaForChainId[chainId]
                 const txHashesSet = uniqueTxHashes[chainId]
@@ -191,46 +207,55 @@ function buildGenerator(
             promises.push(wrapper())
         }
         await Promise.all(promises)
+        promises = null
 
         const inputs = chainInputs.flat()
-        const successfulInputs = []
+        let successfulInputs = []
         for (const input of inputs) {
-            const chainId = input._chainId
+            const { chainId, inputType } = input
             const txHash = input.transaction_hash
 
             // Empty transaction hashes (polygon).
-            if (input._inputType === 'call' && !txHash && input.status !== EthTraceStatus.Failure) {
-                successfulInputs.push(input)
+            if (inputType === 'call' && !txHash && input.status !== EthTraceStatus.Failure) {
+                successfulInputs.push(camelizeKeys(input))
                 continue
             }
             if (!successfulTxHashes[chainId] || !successfulTxHashes[chainId].has(txHash)) {
                 continue
             }
-            if (input._inputType === 'call' && input.status === EthTraceStatus.Failure) {
+            if (inputType === 'call' && input.status === EthTraceStatus.Failure) {
                 continue
             }
-            successfulInputs.push(input)
+            successfulInputs.push(camelizeKeys(input))
+        }
+
+        if (indexingContractFactoryLov && pool) {
+            successfulInputs = await decodeInputsIfNotAlready(
+                [...successfulInputs],
+                contractInstanceData,
+                pool
+            )
         }
 
         const sortedInputs = successfulInputs.sort(
             (a, b) =>
-                a.block_timestamp - b.block_timestamp ||
-                Number(a._chainId) - Number(b._chainId) ||
-                Number(a._transaction_index) - Number(b._transaction_index) ||
-                Number(a._inputType === 'event' ? a.log_index : a.trace_index) -
-                    Number(b._inputType === 'event' ? b.log_index : b.trace_index)
+                a.blockTimestamp - b.blockTimestamp ||
+                Number(a.chainId) - Number(b.chainId) ||
+                Number(a.transactionIndex) - Number(b.transactionIndex) ||
+                Number(a.inputType === 'event' ? a.logIndex : a.traceIndex) -
+                    Number(b.inputType === 'event' ? b.logIndex : b.traceIndex)
         )
 
         const inputSpecs = []
-        for (const input of sortedInputs) {
-            const { _chainId, _inputType } = input
-            delete input._chainId
-            delete input._inputType
-            const record = camelizeKeys(input)
+        for (let input of sortedInputs) {
+            const { chainId, inputType } = input
+            delete input.chainId
+            delete input.inputType
+            const record = input
 
-            if (_inputType === 'event') {
+            if (inputType === 'event') {
                 const contractGroups =
-                    contractInstanceData[[_chainId, record.address, 'event'].join(':')] || []
+                    contractInstanceData[[chainId, record.address, 'event'].join(':')] || []
                 if (!contractGroups.length) continue
 
                 for (const {
@@ -239,13 +264,13 @@ function buildGenerator(
                     abi: contractGroupAbi,
                 } of contractGroups) {
                     const fullEventName = toNamespacedVersion(nsp, record.eventName, record.topic0)
-                    if (!queryCursors[_chainId].inputEventIds.has(fullEventName)) continue
+                    if (!queryCursors[chainId].inputEventIds.has(fullEventName)) continue
 
                     const formattedEventData = formatLogAsSpecEvent(
                         record,
                         contractGroupAbi,
                         contractInstanceName,
-                        _chainId
+                        chainId
                     )
                     if (!formattedEventData) continue
 
@@ -259,7 +284,7 @@ function buildGenerator(
                 }
             } else {
                 const contractGroups =
-                    contractInstanceData[[_chainId, record.to, 'call'].join(':')] || []
+                    contractInstanceData[[chainId, record.to, 'call'].join(':')] || []
                 if (!contractGroups.length) continue
 
                 for (const {
@@ -269,14 +294,14 @@ function buildGenerator(
                 } of contractGroups) {
                     const signature = record.input?.slice(0, 10)
                     const fullCallName = toNamespacedVersion(nsp, record.functionName, signature)
-                    if (!queryCursors[_chainId].inputFunctionIds.has(fullCallName)) continue
+                    if (!queryCursors[chainId].inputFunctionIds.has(fullCallName)) continue
 
                     const formattedCallData = formatTraceAsSpecCall(
                         record,
                         signature,
                         contractGroupAbi,
                         contractInstanceName,
-                        _chainId
+                        chainId
                     )
                     if (!formattedCallData) continue
 
@@ -327,8 +352,10 @@ Example return structure:
         "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
             {
                 "name": "LensHubProxy",
-                "nsp": "polygon.contracts.lens.LensHubProxy"
-            }
+                "nsp": "polygon.contracts.lens.LensHubProxy",
+                "abi": [...contractGroupAbi...]
+            },
+            ...
         ]
     }
 }
@@ -336,6 +363,7 @@ Example return structure:
 export async function getInputGeneratorQueriesForEventsAndCalls(
     eventIds: string[],
     callIds: string[],
+    isContractFactory: boolean,
     startTimestamp: string | null = null
 ) {
     // Get unique list of nsps across all events and calls.
@@ -456,7 +484,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
         chainInputs[chainId].inputFunctionData.push({ callId, contractAddress })
     }
 
-    const queryCursors = await buildQueryCursors(chainInputs, startTimestamp)
+    const queryCursors = await buildQueryCursors(chainInputs, startTimestamp, isContractFactory)
 
     return { queryCursors, contractInstanceData }
 }
@@ -658,7 +686,6 @@ export async function getLovInputGeneratorQueries(
 
     for (const inputContractFunction of inputContractFunctions) {
         const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
-
         const { nsp } = fromNamespacedVersion(callId)
         if (!isContractNamespace(nsp)) continue
         const contractGroup = nsp.split('.').slice(2).join('.')
@@ -682,14 +709,19 @@ export async function getLovInputGeneratorQueries(
         })
     }
 
-    const queryCursors = await buildQueryCursors(chainInputs, startTimestamp)
+    const queryCursors = await buildQueryCursors(
+        chainInputs,
+        startTimestamp,
+        liveObjectVersion.config?.isContractFactory === true
+    )
 
     return { queryCursors, contractInstanceData, liveObjectVersion }
 }
 
 async function buildQueryCursors(
     chainInputs: StringKeyMap,
-    startTimestamp?: string
+    startTimestamp: string | null,
+    isContractFactory: boolean
 ): Promise<StringKeyMap> {
     const queryCursors = {}
     for (const chainId in chainInputs) {
@@ -739,6 +771,10 @@ async function buildQueryCursors(
             inputFunctionsQueryComps.push(
                 `(function_name = ${literal(name)} and "to" = ${literal(contractAddress)})`
             )
+            isContractFactory &&
+                inputFunctionsQueryComps.push(
+                    `(function_name is null and "to" = ${literal(contractAddress)})`
+                )
         }
 
         const schema = schemaForChainId[chainId]
@@ -774,6 +810,78 @@ async function buildQueryCursors(
     }
 
     return queryCursors
+}
+
+async function decodeInputsIfNotAlready(
+    inputs: StringKeyMap[],
+    contractInstanceData: StringKeyMap,
+    pool: Pool
+): Promise<StringKeyMap[]> {
+    const decodedInputs = []
+    const logsToSaveByChainId = {}
+    const tracesToSaveByChainId = {}
+
+    for (const input of inputs) {
+        const chainId = input.chainId
+        const isEvent = input.inputType === 'event'
+        const isDecoded = isEvent ? !!input.eventName : !!input.functionName
+        if (isDecoded) {
+            decodedInputs.push(input)
+            continue
+        }
+
+        const contractAddress = isEvent ? input.address : input.to
+        const ciKey = [chainId, contractAddress, input.inputType].join(':')
+        const abis = (contractInstanceData[ciKey] || []).map((d) => d.abi || [])
+        if (!abis.length) continue
+
+        let decodedInput
+        for (const abi of abis) {
+            if (isEvent) {
+                const log = decodeLogEvents([input], { [contractAddress]: abi })[0]
+                if (log.eventName) {
+                    decodedInput = log
+                    break
+                }
+            } else {
+                const trace = decodeFunctionCall(input, abi)
+                if (trace.functionName) {
+                    decodedInput = trace
+                    break
+                }
+            }
+        }
+        if (!decodedInput) continue
+
+        decodedInputs.push(decodedInput)
+
+        if (isEvent) {
+            logsToSaveByChainId[chainId] = logsToSaveByChainId[chainId] || []
+            logsToSaveByChainId[chainId].push(decodedInput)
+        } else {
+            tracesToSaveByChainId[chainId] = tracesToSaveByChainId[chainId] || []
+            tracesToSaveByChainId[chainId].push(decodedInput)
+        }
+    }
+
+    try {
+        const savePromises = []
+        for (const chainId in logsToSaveByChainId) {
+            const schema = schemaForChainId[chainId]
+            const tablePath = [schema, 'logs'].join('.')
+            savePromises.push(bulkSaveLogs(logsToSaveByChainId[chainId], tablePath, pool, true))
+        }
+        for (const chainId in tracesToSaveByChainId) {
+            const schema = schemaForChainId[chainId]
+            const tablePath = [schema, 'traces'].join('.')
+            savePromises.push(bulkSaveTraces(tracesToSaveByChainId[chainId], tablePath, pool, true))
+        }
+        savePromises.length && (await Promise.all(savePromises))
+    } catch (err) {
+        throw `Failed to decode inputs on-the-fly: ${err}`
+    }
+
+    return decodedInputs
 }
 
 async function findStartBlockTimestamp(

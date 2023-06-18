@@ -11,7 +11,7 @@ import { sleep } from '../utils/time'
 import { randomIntegerInRange } from '../utils/math'
 import Web3 from 'web3'
 import { specialErc20BalanceAffectingAbis } from '../utils/standardAbis'
-import { 
+import {
     TRANSFER_TOPIC,
     TRANSFER_EVENT_NAME,
     TRANSFER_SINGLE_TOPIC,
@@ -20,9 +20,9 @@ import {
     TRANSFER_BATCH_EVENT_NAME,
     BATCH_TRANSFER_INPUTS,
 } from '../utils/standardAbis'
-import { 
-    ensureNamesExistOnAbiInputs, 
-    groupAbiInputsWithValues, 
+import {
+    ensureNamesExistOnAbiInputs,
+    groupAbiInputsWithValues,
     formatAbiValueWithType,
     splitLogDataToWords,
     normalizeEthAddress,
@@ -32,11 +32,11 @@ import {
 const web3 = new Web3()
 
 export async function bulkSaveTransactions(
-    transactions: StringKeyMap[], 
-    table: string, 
-    pool: Pool, 
+    transactions: StringKeyMap[],
+    table: string,
+    pool: Pool,
     shouldThrow: boolean = false,
-    attempt: number = 1,
+    attempt: number = 1
 ) {
     if (!transactions?.length) return
     logger.info(`Saving ${transactions.length} decoded transactions...`)
@@ -56,8 +56,10 @@ export async function bulkSaveTransactions(
         insertBindings.push(...[tx.hash, tx.functionName, functionArgs])
         i += 3
     }
-    
-    const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(', ')}`
+
+    const insertQuery = `INSERT INTO ${tempTableName} (hash, function_name, function_args) VALUES ${insertPlaceholders.join(
+        ', '
+    )}`
 
     const client = await pool.connect()
     let error
@@ -81,27 +83,26 @@ export async function bulkSaveTransactions(
     if (!error) return
 
     const message = error.message || error.toString() || ''
-    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
-        await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTransactions(
-            transactions,
-            table,
-            pool,
-            shouldThrow,
-            attempt + 1,
+    if (
+        attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK &&
+        message.toLowerCase().includes('deadlock')
+    ) {
+        logger.error(
+            `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveTransactions(transactions, table, pool, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
 }
 
 export async function bulkSaveTraces(
-    traces: StringKeyMap[], 
-    table: string, 
-    pool: Pool, 
+    traces: StringKeyMap[],
+    table: string,
+    pool: Pool,
     shouldThrow: boolean = false,
-    attempt: number = 1,
+    attempt: number = 1
 ) {
     if (!traces?.length) return
     logger.info(`Saving ${traces.length} decoded traces...`)
@@ -119,7 +120,8 @@ export async function bulkSaveTraces(
         }
         let functionOutputs
         try {
-            functionOutputs = trace.functionOutputs === null ? null : JSON.stringify(trace.functionOutputs)
+            functionOutputs =
+                trace.functionOutputs === null ? null : JSON.stringify(trace.functionOutputs)
         } catch (e) {
             continue
         }
@@ -127,7 +129,9 @@ export async function bulkSaveTraces(
         insertBindings.push(...[trace.id, trace.functionName, functionArgs, functionOutputs])
         i += 4
     }
-    const insertQuery = `INSERT INTO ${tempTableName} (id, function_name, function_args, function_outputs) VALUES ${insertPlaceholders.join(', ')}`
+    const insertQuery = `INSERT INTO ${tempTableName} (id, function_name, function_args, function_outputs) VALUES ${insertPlaceholders.join(
+        ', '
+    )}`
 
     const client = await pool.connect()
     let error
@@ -151,27 +155,26 @@ export async function bulkSaveTraces(
     if (!error) return
 
     const message = error.message || error.toString() || ''
-    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
-        await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTraces(
-            traces,
-            table,
-            pool,
-            shouldThrow,
-            attempt + 1,
+    if (
+        attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK &&
+        message.toLowerCase().includes('deadlock')
+    ) {
+        logger.error(
+            `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveTraces(traces, table, pool, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
 }
 
 export async function bulkSaveLogs(
-    logs: StringKeyMap[], 
-    table: string, 
-    pool: Pool, 
+    logs: StringKeyMap[],
+    table: string,
+    pool: Pool,
     shouldThrow: boolean = false,
-    attempt: number = 1,
+    attempt: number = 1
 ) {
     if (!logs?.length) return
     logger.info(`Saving ${logs.length} decoded logs...`)
@@ -192,7 +195,9 @@ export async function bulkSaveLogs(
         i += 4
     }
 
-    const insertQuery = `INSERT INTO ${tempTableName} (log_index, transaction_hash, event_name, event_args) VALUES ${insertPlaceholders.join(', ')}`
+    const insertQuery = `INSERT INTO ${tempTableName} (log_index, transaction_hash, event_name, event_args) VALUES ${insertPlaceholders.join(
+        ', '
+    )}`
 
     const client = await pool.connect()
     let error
@@ -216,16 +221,15 @@ export async function bulkSaveLogs(
     if (!error) return
 
     const message = error.message || error.toString() || ''
-    if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-        logger.error(`Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
-        await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveLogs(
-            logs,
-            table,
-            pool,
-            shouldThrow,
-            attempt + 1,
+    if (
+        attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK &&
+        message.toLowerCase().includes('deadlock')
+    ) {
+        logger.error(
+            `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
+        await sleep(randomIntegerInRange(50, 500))
+        return await bulkSaveLogs(logs, table, pool, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
@@ -233,27 +237,35 @@ export async function bulkSaveLogs(
 
 /**
  * Get all transactions sent *to* any of these contracts in this block range.
-*/
+ */
 export async function decodeTransactions(
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
     abisMap: StringKeyMap,
     tables: StringKeyMap,
-    includeDecodedResults?: boolean,
+    includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     const transactions = await findContractInteractionsInBlockRange(
         tables.transactions,
-        ['hash', 'input', 'to', 'transaction_index', 'block_number', 'block_hash', 'block_timestamp'],
+        [
+            'hash',
+            'input',
+            'to',
+            'transaction_index',
+            'block_number',
+            'block_hash',
+            'block_timestamp',
+        ],
         startBlock,
         endBlock,
         contractAddresses,
-        includeDecodedResults,
+        includeDecodedResults
     )
     if (transactions === null) return null
 
     if (includeDecodedResults) {
-        transactions.forEach(tx => {
+        transactions.forEach((tx) => {
             if (tx.functionName) {
                 tx._alreadyDecoded = true
             }
@@ -265,14 +277,14 @@ export async function decodeTransactions(
 
 /**
  * Get all traces calls *to* any of these contracts in this block range.
-*/
+ */
 export async function decodeTraces(
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
     abisMap: StringKeyMap,
     tables: StringKeyMap,
-    includeDecodedResults?: boolean,
+    includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     const traces = await findContractInteractionsInBlockRange(
         tables.traces,
@@ -280,14 +292,14 @@ export async function decodeTraces(
         startBlock,
         endBlock,
         contractAddresses,
-        includeDecodedResults,
+        includeDecodedResults
     )
     if (traces === null) return null
 
-    const calls = traces.filter(trace => trace.traceType === 'call')
+    const calls = traces.filter((trace) => trace.traceType === 'call')
 
     if (includeDecodedResults) {
-        calls.forEach(call => {
+        calls.forEach((call) => {
             if (call.functionName) {
                 call._alreadyDecoded = true
             }
@@ -306,19 +318,19 @@ export async function decodeLogs(
     contractAddresses: string[],
     abisMap: StringKeyMap,
     tables: StringKeyMap,
-    includeDecodedResults?: boolean,
+    includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     const logs = await findContractLogsInBlockRange(
         tables.logs,
         startBlock,
         endBlock,
         contractAddresses,
-        includeDecodedResults,
+        includeDecodedResults
     )
     if (logs === null) return null
 
     if (includeDecodedResults) {
-        logs.forEach(log => {
+        logs.forEach((log) => {
             if (log.eventName) {
                 log._alreadyDecoded = true
             }
@@ -334,13 +346,15 @@ export async function findContractInteractionsInBlockRange(
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
-    includeDecodedResults?: boolean,
+    includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     let i = 0
-    const addressPlaceholders = contractAddresses.map(() => {
-        i++
-        return `$${i}`
-    }).join(', ')
+    const addressPlaceholders = contractAddresses
+        .map(() => {
+            i++
+            return `$${i}`
+        })
+        .join(', ')
 
     const bindings = [...contractAddresses, startBlock]
     let suffixClause = `"block_number" = $${i + 1}`
@@ -354,13 +368,21 @@ export async function findContractInteractionsInBlockRange(
     }
 
     try {
-        return camelizeKeys((await SharedTables.query(
-            `select ${columns.map(ident).join(', ')} from ${table} where "to" in (${addressPlaceholders}) and ${suffixClause}`,
-            bindings,
-        )) || []) as StringKeyMap[]
+        return camelizeKeys(
+            (await SharedTables.query(
+                `select ${columns
+                    .map(ident)
+                    .join(
+                        ', '
+                    )} from ${table} where "to" in (${addressPlaceholders}) and ${suffixClause}`,
+                bindings
+            )) || []
+        ) as StringKeyMap[]
     } catch (err) {
         logger.error(
-            `Failed to query ${table} for block_number range (${startBlock} -> ${endBlock}): ${JSON.stringify(err)}`
+            `Failed to query ${table} for block_number range (${startBlock} -> ${endBlock}): ${JSON.stringify(
+                err
+            )}`
         )
         return null
     }
@@ -371,17 +393,19 @@ export async function findContractLogsInBlockRange(
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
-    includeDecodedResults?: boolean,
+    includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     let i = 0
-    const addressPlaceholders = contractAddresses.map(() => {
-        i++
-        return `$${i}`
-    }).join(', ')
+    const addressPlaceholders = contractAddresses
+        .map(() => {
+            i++
+            return `$${i}`
+        })
+        .join(', ')
 
     const bindings = [...contractAddresses, startBlock]
     let suffixClause = `"block_number" = $${i + 1}`
-    
+
     if (startBlock !== endBlock) {
         bindings.push(endBlock)
         suffixClause = `"block_number" >= $${i + 1} and "block_number" <= $${i + 2}`
@@ -392,13 +416,17 @@ export async function findContractLogsInBlockRange(
     }
 
     try {
-        return camelizeKeys((await SharedTables.query(
-            `select * from ${table} where "address" in (${addressPlaceholders}) and ${suffixClause}`,
-            bindings,
-        )) || []) as StringKeyMap[]
+        return camelizeKeys(
+            (await SharedTables.query(
+                `select * from ${table} where "address" in (${addressPlaceholders}) and ${suffixClause}`,
+                bindings
+            )) || []
+        ) as StringKeyMap[]
     } catch (err) {
         logger.error(
-            `Failed to query ${table} for block_number range (${startBlock} -> ${endBlock}): ${JSON.stringify(err)}`
+            `Failed to query ${table} for block_number range (${startBlock} -> ${endBlock}): ${JSON.stringify(
+                err
+            )}`
         )
         return null
     }
@@ -406,11 +434,16 @@ export async function findContractLogsInBlockRange(
 
 export function decodeFunctionCalls(
     records: StringKeyMap[],
-    abisMap: { [key: string]: Abi },
+    abisMap: { [key: string]: Abi }
 ): StringKeyMap[] {
     const final = []
     for (let record of records) {
-        if (record.functionName || !record.to || !abisMap.hasOwnProperty(record.to) || !record.input) {
+        if (
+            record.functionName ||
+            !record.to ||
+            !abisMap.hasOwnProperty(record.to) ||
+            !record.input
+        ) {
             final.push(record)
             continue
         }
@@ -425,7 +458,7 @@ export function decodeFunctionCall(record: StringKeyMap, abi: Abi): StringKeyMap
     const inputData = record.input?.slice(10) || ''
     if (!inputSig) return record
 
-    const abiItem = abi.find(item => item.signature === inputSig)
+    const abiItem = abi.find((item) => item.signature === inputSig)
     if (!abiItem) return record
 
     record.functionName = abiItem.name
@@ -454,7 +487,8 @@ export function decodeFunctionCall(record: StringKeyMap, abi: Abi): StringKeyMap
     }
 
     // Decode function outputs (only traces can have these).
-    if (abiItem.outputs?.length && !!record.output && record.output.length > 2) { // 0x
+    if (abiItem.outputs?.length && !!record.output && record.output.length > 2) {
+        // 0x
         let functionOutputs
         try {
             functionOutputs = decodeFunctionArgs(abiItem.outputs, record.output.slice(2))
@@ -478,17 +512,21 @@ export function decodeFunctionCall(record: StringKeyMap, abi: Abi): StringKeyMap
     return record
 }
 
-export function decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): StringKeyMap[] | null {
+export function decodeFunctionArgs(
+    inputs: StringKeyMap[],
+    inputData: string
+): StringKeyMap[] | null {
     let functionArgs
     try {
         const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
         const values = web3.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
         functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
     } catch (err) {
-        if (err.reason?.includes('out-of-bounds') && 
-            err.code === 'BUFFER_OVERRUN' && 
+        if (
+            err.reason?.includes('out-of-bounds') &&
+            err.code === 'BUFFER_OVERRUN' &&
             inputData.length % 64 === 0 &&
-            inputs.length > (inputData.length / 64)
+            inputs.length > inputData.length / 64
         ) {
             const numInputsToUse = inputData.length / 64
             return decodeFunctionArgs(inputs.slice(0, numInputsToUse), inputData)
@@ -498,7 +536,10 @@ export function decodeFunctionArgs(inputs: StringKeyMap[], inputData: string): S
     return functionArgs || []
 }
 
-export function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi }): StringKeyMap[] {
+export function decodeLogEvents(
+    logs: StringKeyMap[],
+    abis: { [key: string]: Abi }
+): StringKeyMap[] {
     const finalLogs = []
     for (let log of logs) {
         if (log.eventName) {
@@ -520,12 +561,20 @@ export function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi
             try {
                 log = tryDecodingLogAsTransfer(log)
             } catch (err) {
-                logger.warn(`Error decoding log as transfer (address=${log.address}, topic0=${log.topic0}): ${err}`)
+                logger.warn(
+                    `Error decoding log as transfer (address=${log.address}, topic0=${log.topic0}): ${err}`
+                )
             }
         }
 
         // Try decoding with any special, non-standard, ERC-20 events that may affect balances.
-        if (!log.eventName && log.address && log.topic0 && log.topic1 && specialErc20BalanceAffectingAbis[log.topic0]) {
+        if (
+            !log.eventName &&
+            log.address &&
+            log.topic0 &&
+            log.topic1 &&
+            specialErc20BalanceAffectingAbis[log.topic0]
+        ) {
             const abi = specialErc20BalanceAffectingAbis[log.topic0]
             try {
                 log = decodeLogEvent(log, [abi])
@@ -537,15 +586,14 @@ export function decodeLogEvents(logs: StringKeyMap[], abis: { [key: string]: Abi
                 )
             }
         }
-        
-        finalLogs.push(log)
 
+        finalLogs.push(log)
     }
     return finalLogs
 }
 
 export function decodeLogEvent(log: StringKeyMap, abi: Abi): StringKeyMap {
-    const abiItem = abi.find(item => item.signature === log.topic0)
+    const abiItem = abi.find((item) => item.signature === log.topic0)
     if (!abiItem) return log
 
     const argNames = []
@@ -631,18 +679,18 @@ export function tryDecodingLogAsTransfer(log: StringKeyMap): StringKeyMap {
 }
 
 export function decodeTransferEvent(
-    log: StringKeyMap, 
-    formatAsEventArgs: boolean = false,
+    log: StringKeyMap,
+    formatAsEventArgs: boolean = false
 ): StringKeyMap | StringKeyMap[] | null {
-    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter((t) => t !== null)
     const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
     if (topicsWithData.length !== 4) return null
-    
+
     let from, to, value
     try {
         from = normalizeEthAddress(topicsWithData[1], true, true)
         to = normalizeEthAddress(topicsWithData[2], true, true)
-        value = hexToNumberString(topicsWithData[3])    
+        value = hexToNumberString(topicsWithData[3])
     } catch (err) {
         logger.error(`Error extracting ${TRANSFER_EVENT_NAME} event params: ${err}`)
         return null
@@ -660,14 +708,14 @@ export function decodeTransferEvent(
 }
 
 export function decodeTransferSingleEvent(
-    log: StringKeyMap, 
-    formatAsEventArgs: boolean = false,
+    log: StringKeyMap,
+    formatAsEventArgs: boolean = false
 ): StringKeyMap | StringKeyMap[] | null {
-    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topics = [log.topic0, log.topic1, log.topic2, log.topic3].filter((t) => t !== null)
     const topicsWithData = [...topics, ...splitLogDataToWords(log.data)]
     if (topicsWithData.length !== 6) return null
-    
-    let operator, from, to, id, value 
+
+    let operator, from, to, id, value
     try {
         operator = normalizeEthAddress(topicsWithData[1], true, true)
         from = normalizeEthAddress(topicsWithData[2], true, true)
@@ -693,14 +741,14 @@ export function decodeTransferSingleEvent(
 }
 
 export function decodeTransferBatchEvent(
-    log: StringKeyMap, 
-    formatAsEventArgs: boolean = false,
+    log: StringKeyMap,
+    formatAsEventArgs: boolean = false
 ): StringKeyMap | StringKeyMap[] | null {
-    const topics = [log.topic1, log.topic2, log.topic3].filter(t => t !== null)
+    const topics = [log.topic1, log.topic2, log.topic3].filter((t) => t !== null)
     const abiInputs = []
     for (let i = 0; i < BATCH_TRANSFER_INPUTS.length; i++) {
-        abiInputs.push({ 
-            ...BATCH_TRANSFER_INPUTS[i], 
+        abiInputs.push({
+            ...BATCH_TRANSFER_INPUTS[i],
             indexed: i < topics.length,
         })
     }
@@ -709,7 +757,10 @@ export function decodeTransferBatchEvent(
     try {
         args = web3.eth.abi.decodeLog(abiInputs as any, log.data, topics)
     } catch (err) {
-        logger.error(`Error extracting ${TRANSFER_BATCH_EVENT_NAME} event params: ${err} for log`, log)
+        logger.error(
+            `Error extracting ${TRANSFER_BATCH_EVENT_NAME} event params: ${err} for log`,
+            log
+        )
         return null
     }
 
@@ -722,16 +773,18 @@ export function decodeTransferBatchEvent(
     }
 
     if (argValues.length !== abiInputs.length) {
-        logger.error(`Length mismatch when parsing ${TRANSFER_BATCH_EVENT_NAME} event params: ${argValues}`)
+        logger.error(
+            `Length mismatch when parsing ${TRANSFER_BATCH_EVENT_NAME} event params: ${argValues}`
+        )
         return null
     }
-    
+
     const [operator, from, to, ids, values] = [
         normalizeEthAddress(argValues[0]),
         normalizeEthAddress(argValues[1]),
         normalizeEthAddress(argValues[2]),
         argValues[3] || [],
-        argValues[4] || []
+        argValues[4] || [],
     ]
 
     if (formatAsEventArgs) {

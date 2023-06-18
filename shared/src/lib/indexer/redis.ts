@@ -926,12 +926,12 @@ export async function getGeneratedEventsCursors(): Promise<StringKeyMap> {
 export async function saveAdditionalContractsToGenerateInputsFor(
     newContractRegistrations: StringKeyMap[],
     blockNumbers: number[],
-    chainId: string,
+    chainId: string
 ): Promise<boolean> {
     if (!newContractRegistrations?.length) return true
     const stringified = JSON.stringify(newContractRegistrations)
     const data = {}
-    blockNumbers.forEach(number => {
+    blockNumbers.forEach((number) => {
         data[number.toString()] = stringified
     })
     const key = [config.ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX, chainId].join('-')
@@ -939,17 +939,18 @@ export async function saveAdditionalContractsToGenerateInputsFor(
         await redis?.hSet(key, data)
     } catch (err) {
         logger.error(
-            `Error saving additional contracts to generate inputs for (chainId=${chainId}, blockNumbers=${blockNumbers.join(',')}): ${err}`
+            `Error saving additional contracts to generate inputs for (chainId=${chainId}, blockNumbers=${blockNumbers.join(
+                ','
+            )}): ${err}`
         )
         return false
     }
     return true
-
 }
 
 export async function getAdditionalContractsToGenerateInputsFor(
     chainId: string,
-    blockNumber: number,
+    blockNumber: number
 ): Promise<StringKeyMap[] | null> {
     const key = [config.ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX, chainId].join('-')
     try {

@@ -103,11 +103,11 @@ async function decodeContractInteractions(
 
     // Create connection pool.
     const pool = new Pool({
-        host : config.SHARED_TABLES_DB_HOST,
-        port : config.SHARED_TABLES_DB_PORT,
-        user : config.SHARED_TABLES_DB_USERNAME,
-        password : config.SHARED_TABLES_DB_PASSWORD,
-        database : config.SHARED_TABLES_DB_NAME,
+        host: config.SHARED_TABLES_DB_HOST,
+        port: config.SHARED_TABLES_DB_PORT,
+        user: config.SHARED_TABLES_DB_USERNAME,
+        password: config.SHARED_TABLES_DB_PASSWORD,
+        database: config.SHARED_TABLES_DB_NAME,
         max: config.SHARED_TABLES_MAX_POOL_SIZE,
     })
     pool.on('error', err => logger.error('PG client error', err))

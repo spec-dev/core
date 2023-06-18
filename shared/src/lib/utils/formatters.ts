@@ -463,7 +463,11 @@ export function polishAbis(abis: StringKeyMap): StringKeyMap[] {
                 }
             }
 
-            if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
+            if (
+                ['function', 'constructor'].includes(item.type) &&
+                signature &&
+                !funcSigHashesMap.hasOwnProperty(signature)
+            ) {
                 funcSigHashesMap[signature] = {
                     name: item.name,
                     type: item.type,
@@ -480,10 +484,10 @@ export function polishAbis(abis: StringKeyMap): StringKeyMap[] {
 }
 
 export function formatLogAsSpecEvent(
-    log: StringKeyMap, 
+    log: StringKeyMap,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string,
+    chainId: string
 ): StringKeyMap | null {
     const eventOrigin = {
         contractAddress: log.address,
@@ -496,17 +500,17 @@ export function formatLogAsSpecEvent(
         blockTimestamp: log.blockTimestamp.toISOString(),
         chainId,
     }
-    
+
     const fixedContractEventProperties = {
         ...eventOrigin,
         contractName: contractInstanceName,
         logIndex: log.logIndex,
     }
 
-    const groupAbiItem = contractGroupAbi.find(item => item.signature === log.topic0)
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
     if (!groupAbiItem) return null
 
-    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name).filter(v => !!v)
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name).filter((v) => !!v)
     const logEventArgs = (log.eventArgs || []) as StringKeyMap[]
     if (logEventArgs.length !== groupArgNames.length) return null
 
@@ -523,7 +527,7 @@ export function formatLogAsSpecEvent(
             value: arg.value,
         })
     }
-    
+
     // Ensure event arg property names are unique.
     const seenPropertyNames = new Set(Object.keys(fixedContractEventProperties))
     for (const property of eventProperties) {
@@ -536,7 +540,7 @@ export function formatLogAsSpecEvent(
     }
 
     const data = {
-        ...fixedContractEventProperties
+        ...fixedContractEventProperties,
     }
     for (const property of eventProperties) {
         data[property.name] = property.value
@@ -550,7 +554,7 @@ export function formatTraceAsSpecCall(
     signature: string,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string,
+    chainId: string
 ): StringKeyMap {
     const callOrigin = {
         _id: trace.id,
@@ -566,10 +570,10 @@ export function formatTraceAsSpecCall(
         chainId,
     }
 
-    const groupAbiItem = contractGroupAbi.find(item => item.signature === signature)
+    const groupAbiItem = contractGroupAbi.find((item) => item.signature === signature)
     if (!groupAbiItem) return null
 
-    const groupArgNames = (groupAbiItem.inputs || []).map(input => input.name)
+    const groupArgNames = (groupAbiItem.inputs || []).map((input) => input.name)
     const functionArgs = (trace.functionArgs || []) as StringKeyMap[]
     const inputs = {}
     const inputArgs = []
@@ -585,7 +589,7 @@ export function formatTraceAsSpecCall(
         inputArgs.push(arg.value)
     }
 
-    const groupOutputNames = (groupAbiItem.outputs || []).map(output => output.name)
+    const groupOutputNames = (groupAbiItem.outputs || []).map((output) => output.name)
     const functionOutputs = (trace.functionOutputs || []) as StringKeyMap[]
     const outputs = {}
     const outputArgs = []

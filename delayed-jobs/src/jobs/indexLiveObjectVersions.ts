@@ -14,8 +14,12 @@ import {
     unique,
     SharedTables,
     getGeneratedEventsCursors,
+    addContractInstancesToGroup,
+    isValidAddress,
+    supportedChainIds,
 } from '../../../shared'
 import config from '../config'
+import { Pool } from 'pg'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000
@@ -41,22 +45,34 @@ export async function indexLiveObjectVersions(
         timer = null
     }, maxJobTime)
 
+    // Create connection pool.
+    const pool = new Pool({
+        host: config.SHARED_TABLES_DB_HOST,
+        port: config.SHARED_TABLES_DB_PORT,
+        user: config.SHARED_TABLES_DB_USERNAME,
+        password: config.SHARED_TABLES_DB_PASSWORD,
+        database: config.SHARED_TABLES_DB_NAME,
+        max: config.SHARED_TABLES_MAX_POOL_SIZE,
+    })
+    pool.on('error', err => logger.error('PG client error', err))
+
     let cursor = null
     try {
-        // Get lov input generator.
-        const { generator: generateFrom, inputIdsToLovIdsMap, liveObjectVersions } = (
-            await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)
-        ) || {}
+        // Create input generator.
+        let { 
+            generator: generateFrom, 
+            inputIdsToLovIdsMap, 
+            liveObjectVersions,
+            indexingContractFactoryLov,
+        } = (await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
 
         // Before/setup logic.
         if (iteration === 1) {
-            // Set op-tracking floors to the head of each chain to prevent ops from 
-            // being tracked for the potentially massive # of historical records
-            // about to be indexed.
+            // Set op-tracking floors to the head of each chain to prevent ops from being tracked 
+            // for a potentially massive number of historical records about to be indexed.
             if (updateOpTrackingFloor) {
-                lovTables = lovTables.length ? lovTables : await getTablesForLovs(lovIds)
-                await updateOpTrackingFloors(lovTables)
+                await updateOpTrackingFloors(lovTables.length ? lovTables : await getTablesForLovs(lovIds))
             }
 
             // Set live object version statuses to indexing.
@@ -64,19 +80,73 @@ export async function indexLiveObjectVersions(
                 lovIds, 
                 LiveObjectVersionStatus.Indexing,
             )
-            
-            // Slight break for race conditions with lovs potentially being saved elsewhere.
-            await sleep(1000)
         }
 
         // Index live object versions.
+        let inputsFilter = new Set<string>()
+        let contractRegistrationSequenceCount = 0
         while (true) {
-            const results = await generateFrom(cursor)
-            const inputs = results.inputs || []
-            await processInputs(lovIds, inputs, inputIdsToLovIdsMap, liveObjectVersions, cursor)
+            // Get next batch of inputs from this cursor (datetime) and filter out inputs already 
+            // seen (if new contracts were registered half-way through the previous batch.
+            const results = await generateFrom(cursor, pool)
+            const inputs = (results.inputs || []).filter(input => !inputsFilter.has(uniqueInputKey(input)))
+            inputsFilter = new Set<string>()
+
+            // Send the inputs to the live objects running on Deno.
+            const {
+                groupContractInstancesToRegister,
+                processedInputs,
+                blockNumber,
+                chainId,
+            } = await processInputs(
+                lovIds, 
+                inputs, 
+                inputIdsToLovIdsMap, 
+                liveObjectVersions, 
+                indexingContractFactoryLov,
+                cursor,
+            )
+
+            // If new contracts were registered at some point in this batch...
+            if (groupContractInstancesToRegister?.length) {
+                contractRegistrationSequenceCount++
+                if (contractRegistrationSequenceCount > (config.MAX_CONTRACT_REGISTRATION_STACK_HEIGHT * targetBatchSize)) {
+                    throw `[${chainId}:${blockNumber}:${cursor}] Contract factory additions hit max number of loops.`
+                }
+        
+                try {
+                    await Promise.all(groupContractInstancesToRegister.map(({ group, addresses }) => (
+                        addContractInstancesToGroup(
+                            addresses,
+                            chainId,
+                            group,
+                            blockNumber,
+                            pool,
+                        )
+                    )))
+                } catch (err) {
+                    throw `[${chainId}:${blockNumber}:${cursor}] IndexLOV ${lovIds.join(', ')} Failed to register new contracts ${JSON.stringify(groupContractInstancesToRegister)}: ${err}`
+                }
+
+                // Recreate the generator after registering new contracts
+                // because this will change the generator's queries.
+                ;({ 
+                    generator: generateFrom,
+                    inputIdsToLovIdsMap,
+                    liveObjectVersions,
+                    indexingContractFactoryLov,
+                } = (await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)) || {})
+                if (!generateFrom) throw `Failed to recreate LOV input generator`
+                
+                inputsFilter = processedInputs
+                continue
+            }
+
+            contractRegistrationSequenceCount = 0
             cursor = results.nextStartDate
             if (!cursor || timer === null) break
         }
+        generateFrom = null
     } catch (err) {
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
@@ -91,12 +161,13 @@ export async function indexLiveObjectVersions(
         return
     }
 
+    // Only used if an interations cap is enforced.
     if (maxIterations && iteration >= maxIterations) {
-        logger.info(`[${lovIds.join(', ')}] Completed all ${maxIterations} iterations.`)
+        logger.info(`[${lovIds.join(', ')}] Completed max ${maxIterations} iterations.`)
         return
     }
 
-    logger.info(`[${lovIds.join(', ')}] Enqueueing next indexer interation ${iteration}.`)
+    logger.info(`[${lovIds.join(', ')}] Enqueueing next indexer iteration ${iteration + 1}.`)
 
     // Iterate.
     await enqueueDelayedJob('indexLiveObjectVersions', {
@@ -175,25 +246,71 @@ async function processInputs(
     inputs: StringKeyMap[],
     inputIdsToLovIdsMap: StringKeyMap,
     liveObjectVersions: StringKeyMap,
+    indexingContractFactoryLov: boolean,
     cursor: Date,
-) {
-    if (!inputs.length) return
-    logger.info(`[${lovIds.join(', ')} - ${cursor?.toISOString()}] Processing ${inputs.length} inputs...`)
-    const groupedInputs = createGroupInputs(inputs, inputIdsToLovIdsMap)
-    for (const batchInputs of groupedInputs) {
-        const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
-        await Promise.all(lovIds.map(lovId => sendInputsToLov(batchInputs, liveObjectVersions[lovId])))
+): Promise<StringKeyMap> {
+    if (!inputs.length) return {}
+    logger.info(`[${lovIds.join(', ')} - ${cursor?.toISOString()}] Processing ${inputs.length} inputs`)
+
+    if (indexingContractFactoryLov) {
+        const processedInputs = new Set<string>()
+
+        for (const input of inputs) {
+            const { chainId, blockNumber } = input.origin
+            processedInputs.add(uniqueInputKey(input))
+            const lovIds = inputIdsToLovIdsMap[input.name] || []
+            if (!lovIds.length) continue
+
+            const newContractInstances = (await Promise.all(lovIds.map(lovId => (
+                sendInputsToLov([input], liveObjectVersions[lovId], [])
+            )))).flat()
+            if (!newContractInstances.length) continue
+
+            const registerContractInstancesByGroup = {}
+            for (const { address, group } of newContractInstances) {
+                registerContractInstancesByGroup[group] = registerContractInstancesByGroup[group] || []
+                registerContractInstancesByGroup[group].push(address)
+            }
+            const groupContractInstancesToRegister = []
+            for (const group in registerContractInstancesByGroup) {
+                groupContractInstancesToRegister.push({
+                    group,
+                    addresses: unique(registerContractInstancesByGroup[group]),
+                })
+            }
+
+            return {
+                groupContractInstancesToRegister,
+                processedInputs,
+                blockNumber,
+                chainId,
+            }
+        }
+    } else {
+        for (const batchInputs of createGroupInputs(inputs, inputIdsToLovIdsMap)) {
+            const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
+            if (!lovIds.length) continue
+            await Promise.all(lovIds.map(lovId => sendInputsToLov(batchInputs, liveObjectVersions[lovId], [])))
+        }
     }
+    return {}
 }
 
-function createGroupInputs(inputs: StringKeyMap[], inputIdsToLovIdsMap: StringKeyMap): StringKeyMap[][] {
+function createGroupInputs(
+    inputs: StringKeyMap[], 
+    inputIdsToLovIdsMap: StringKeyMap,
+): StringKeyMap[][] {
     const groupInputs = []
     let batch = []
     let prevLovId = null
-    for (const input of inputs) {
-        const lovIds = inputIdsToLovIdsMap[input.name] || []
-        if (!lovIds) continue
+    const maxBatchSize = 100
 
+    for (const input of inputs) {
+        // Get the live object version ids that are dependent on this input.
+        const lovIds = inputIdsToLovIdsMap[input.name] || []
+        if (!lovIds?.length) continue
+
+        // Never batch inputs that have more than 1 LOV dependent on them.
         if (lovIds.length > 1) {
             batch.length && groupInputs.push(batch)
             groupInputs.push([input])
@@ -202,12 +319,15 @@ function createGroupInputs(inputs: StringKeyMap[], inputIdsToLovIdsMap: StringKe
             continue
         }
 
+        // Start new batch.
         if (!prevLovId) {
             batch = [input]
             prevLovId = lovIds[0]
             continue
         }
 
+        // Different LOV than last iteration, so close 
+        // out this batch and start a new one.
         if (lovIds[0] !== prevLovId) {
             batch.length && groupInputs.push(batch)
             batch = [input]
@@ -215,9 +335,11 @@ function createGroupInputs(inputs: StringKeyMap[], inputIdsToLovIdsMap: StringKe
             continue
         }
 
+        // Same LOV as last iteration -- batch these.
         batch.push(input)
 
-        if (batch.length > 100) {
+        // Don't wanna send Deno too many inputs at once.
+        if (batch.length > maxBatchSize) {
             groupInputs.push(batch)
             batch = []
         }
@@ -229,15 +351,21 @@ function createGroupInputs(inputs: StringKeyMap[], inputIdsToLovIdsMap: StringKe
 async function sendInputsToLov(
     inputs: StringKeyMap[],
     liveObjectVersion: StringKeyMap,
+    newContractInstancesQueue: StringKeyMap[],
     attempts: number = 0,
-) {
+): Promise<StringKeyMap[]> {
     const { id, url } = liveObjectVersion
     const tablesApiToken = newTablesJWT(liveObjectVersion.config.table.split('.')[0], 600000)
 
+    // Prep both auth headers. One for the event generator function itself, 
+    // and one for the event generator to make calls to the Tables API.
     const headers = {
         [config.EVENT_GEN_AUTH_HEADER_NAME]: config.EVENT_GENERATORS_JWT,
         [config.TABLES_AUTH_HEADER_NAME]: tablesApiToken,
     }
+
+    const abortController = new AbortController()
+    const timer = setTimeout(() => abortController.abort(), config.EVENT_GEN_RESPONSE_TIMEOUT)
 
     let resp
     try {
@@ -245,40 +373,105 @@ async function sendInputsToLov(
             method: 'POST',
             headers,
             body: JSON.stringify(inputs),
+            signal: abortController.signal,
         })
     } catch (err) {
-        logger.error(`Request error to ${url} (lovId=${id}): ${err}`)
-        if (attempts <= 10) {
-            await sleep(2000)
-            return sendInputsToLov(inputs, liveObjectVersion, attempts + 1)
+        clearTimeout(timer)
+        const error = `Request error to ${url} (lovId=${id}): ${err}. Attempt ${attempts}/${10}`
+        logger.error(error)
+
+        if (attempts <= 50) {
+            await sleep(1000)
+            return sendInputsToLov(
+                inputs,
+                liveObjectVersion,
+                newContractInstancesQueue,
+                attempts + 1,
+            )
         } else {
             throw err
         }
     }
+    clearTimeout(timer)
 
-    let respData
+    let result: any = {}
     try {
-        respData = (await resp?.json()) || []
+        result = (await resp?.json()) || {}
     } catch (err) {
-        logger.error(`Failed to parse JSON response (lovId=${id}): ${err}`
+        result = {}
+        logger.error(
+            `Failed to parse JSON response (lovId=${id}): ${err} - 
+            inputs: ${JSON.stringify(inputs, null, 4)}`
         )
     }
+    const newContractInstances = result.newContractInstances || []
+
     if (resp?.status !== 200) {
-        const msg = `Request to ${url} (lovId=${id}) failed with status ${resp?.status}: ${
-            JSON.stringify(respData || {})
-        }.`
+        const msg = `Request to ${url} (lovId=${id}) failed with status ${resp?.status}`
         logger.error(msg)
-        if (attempts <= 10) {
-            await sleep(2000)
+        if (attempts <= 50) {
+            await sleep(1000)
             let retryInputs = inputs
-            if (resp.status == 500 && respData && respData.hasOwnProperty('index')) {
-                retryInputs = retryInputs.slice(Number(respData.index))
+            let newContractInstancesToRegister = []
+
+            if (resp.status == 500 && result.hasOwnProperty('index')) {
+                retryInputs = retryInputs.slice(Number(result.index))
+                newContractInstancesToRegister = newContractInstances
             }
-            return sendInputsToLov(retryInputs, liveObjectVersion, attempts + 1)
+
+            newContractInstancesQueue.push(...newContractInstancesToRegister)
+
+            return sendInputsToLov(
+                retryInputs, 
+                liveObjectVersion, 
+                newContractInstancesQueue, 
+                attempts + 1,
+            )
         } else {
             throw msg
         }
     }
+
+    // Filter contract instances by those that are allowed to be registered.
+    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances]
+    const validContractInstancesToRegister = []
+    const inputChainId = inputs[0].origin.chainId
+    for (let { address, group, chainId } of givenContractInstancesToRegister) {
+        address = address?.toLowerCase()
+        if (!isValidAddress(address)) {
+            throw `Contract factory - Invalid address ${address} given from lovId=${id}`
+        }
+        
+        chainId = chainId?.toString()
+        if (!supportedChainIds.has(chainId)) {
+            throw `Contract factory - Invalid chainId ${chainId} given from lovId=${id}`
+        }
+
+        if (chainId !== inputChainId) {
+            throw `Contract factory - ChainId mismatch: ${chainId} vs. ${inputChainId} (lovId=${id})`
+        }
+
+        const splitGroup = (group || '').split('.')
+        if (splitGroup !== 2) {
+            throw `Contract factory - Invalid group "${group}" given from lovId=${id}`
+        }
+
+        if (splitGroup[0] !== liveObjectVersion.nsp) {
+            throw `Contract factory - Not allowed to register contracts under namespace ${splitGroup[0]}. lovId=${id} is only allowed to register contracts under its own namespace, ${liveObjectVersion.nsp}.`
+        }
+
+        validContractInstancesToRegister.push({ address, group })
+    }
+
+    return validContractInstancesToRegister
+}
+
+function uniqueInputKey(input: StringKeyMap): string {
+    const origin = input.origin
+    const isContractCall = input.hasOwnProperty('inputs')
+    return isContractCall
+        ? [origin._id, input.name].join(':')
+        : [origin.transactionHash, origin.logIndex, input.name].join(':')
 }
 
 export default function job(params: StringKeyMap) {

@@ -8,10 +8,10 @@ import { MAX_TABLE_NAME_LENGTH } from '../utils/pgMeta'
 export function designDataModelsFromEventSpec(
     eventSpec: ContractEventSpec,
     nsp: string,
-    chainId: string,
-):{
-    viewSpec: ContractEventViewSpec,
-    lovSpec: PublishLiveObjectVersionPayload,
+    chainId: string
+): {
+    viewSpec: ContractEventViewSpec
+    lovSpec: PublishLiveObjectVersionPayload
 } {
     const eventParams = eventSpec.abiItem.inputs || []
     const viewSchema = schemaForChainId[chainId]
@@ -26,21 +26,21 @@ export function designDataModelsFromEventSpec(
         eventSpec.namespacedVersion,
         chainId,
         eventParams,
-        viewPath,
+        viewPath
     )
 
     // Package what's needed to create a Postgres view of this contract event.
     const viewSpec = {
         schema: viewSchema,
         name: viewName,
-        columnNames: lovSpec.properties.map(p => camelToSnake(p.name)),
+        columnNames: lovSpec.properties.map((p) => camelToSnake(p.name)),
         numEventArgs: eventParams.length,
         contractInstances: eventSpec.contractInstances,
         namespace: eventSpec.namespace,
         eventName: eventSpec.eventName,
         eventSig: eventSpec.abiItem.signature,
     }
-    
+
     return { viewSpec, lovSpec }
 }
 

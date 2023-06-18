@@ -1,7 +1,17 @@
 import { StringKeyMap } from '../types'
 import { contractNamespaceForChainId, schemaForChainId } from '../utils/chainIds'
-import { unique, toNamespacedVersion, uniqueByKeys, polishAbis, formatLogAsSpecEvent, formatTraceAsSpecCall } from '../utils/formatters'
-import { getContractInstancesInGroup, upsertContractInstancesWithTx } from '../core/db/services/contractInstanceServices'
+import {
+    unique,
+    toNamespacedVersion,
+    uniqueByKeys,
+    polishAbis,
+    formatLogAsSpecEvent,
+    formatTraceAsSpecCall,
+} from '../utils/formatters'
+import {
+    getContractInstancesInGroup,
+    upsertContractInstancesWithTx,
+} from '../core/db/services/contractInstanceServices'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
 import { AbiItemType } from '../abi/types'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
@@ -10,9 +20,9 @@ import { upsertContractEventView } from './upsertContractEventView'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
 import { ident } from 'pg-format'
 import { Pool } from 'pg'
-import { 
-    decodeTransactions, 
-    decodeTraces, 
+import {
+    decodeTransactions,
+    decodeTraces,
     decodeLogs,
     bulkSaveTransactions,
     bulkSaveTraces,
@@ -36,15 +46,15 @@ export async function addContractInstancesToGroup(
     group: string,
     atBlockNumber: number,
     pool: Pool,
-    existingBlockEvents: StringKeyMap[],
-    existingBlockCalls: StringKeyMap[],
+    existingBlockEvents: StringKeyMap[] = [],
+    existingBlockCalls: StringKeyMap[] = []
 ): Promise<StringKeyMap> {
     if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
 
     // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
     const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
     if (!chainSpecificContractNsp) throw `No contract namespace for chain id: ${chainId}`
-    
+
     // Ex: "eth.contracts.gitcoin.GovernorAlpha"
     const fullNsp = [chainSpecificContractNsp, group].join('.')
 
@@ -61,9 +71,11 @@ export async function addContractInstancesToGroup(
     const namespace = contract.namespace
 
     // Filter out given addresses already in the group.
-    const existingContractInstanceAddresses = new Set(existingContractInstances.map(ci => ci.address))
-    const newAddresses = unique(addresses.map(a => a.toLowerCase())).filter(
-        address => !existingContractInstanceAddresses.has(address)
+    const existingContractInstanceAddresses = new Set(
+        existingContractInstances.map((ci) => ci.address)
+    )
+    const newAddresses = unique(addresses.map((a) => a.toLowerCase())).filter(
+        (address) => !existingContractInstanceAddresses.has(address)
     )
     if (!newAddresses.length) {
         return { newEventSpecs: [], newCallSpecs: [] }
@@ -82,7 +94,7 @@ export async function addContractInstancesToGroup(
     for (const address in polishedExistingNewAddressAbisMap) {
         const itemsBySig = {}
         const items = polishedExistingNewAddressAbisMap[address] || []
-        items.forEach(item => {
+        items.forEach((item) => {
             itemsBySig[item.signature] = item
         })
         newAddressAbiSignatures[address] = itemsBySig
@@ -97,7 +109,7 @@ export async function addContractInstancesToGroup(
             }
         }
     }
-    
+
     // Save all abis for the new individual addresses.
     const newAddressAbisMap = {}
     for (const address in newAddressAbiSignatures) {
@@ -110,30 +122,33 @@ export async function addContractInstancesToGroup(
     try {
         await CoreDB.manager.transaction(async (tx) => {
             newContractInstances = await upsertContractInstancesWithTx(
-                newAddresses.map(address => ({
+                newAddresses.map((address) => ({
                     chainId,
                     address,
                     contractId: contract.id,
                     name: contract.name,
                     desc: '',
                 })),
-                tx,
+                tx
             )
         })
     } catch (err) {
-        throw `[${fullNsp}] Failed to create new contract instance while adding to group ${newAddresses.join(', ')}: ${err}`
+        throw `[${fullNsp}] Failed to create new contract instance while adding to group ${newAddresses.join(
+            ', '
+        )}: ${err}`
     }
-    const allGroupContractInstances = uniqueByKeys([
-        ...newContractInstances,
-        ...existingContractInstances,
-    ], ['address']) as ContractInstance[]
+    const allGroupContractInstances = uniqueByKeys(
+        [...newContractInstances, ...existingContractInstances],
+        ['address']
+    ) as ContractInstance[]
 
     // Build contract event specs from the group's ABI.
-    const eventAbiItems = groupAbi.filter(item => (
-        item.type === AbiItemType.Event &&
-        !!item.name &&
-        !!(item.inputs?.every(input => !!input.name))
-    ))
+    const eventAbiItems = groupAbi.filter(
+        (item) =>
+            item.type === AbiItemType.Event &&
+            !!item.name &&
+            !!item.inputs?.every((input) => !!input.name)
+    )
     const contractEventSpecs = []
     for (const abiItem of eventAbiItems) {
         contractEventSpecs.push({
@@ -142,18 +157,14 @@ export async function addContractInstancesToGroup(
             allGroupContractInstances,
             namespace,
             abiItem,
-            namespacedVersion: toNamespacedVersion(
-                namespace.name, 
-                abiItem.name, 
-                abiItem.signature,
-            ),
+            namespacedVersion: toNamespacedVersion(namespace.name, abiItem.name, abiItem.signature),
         })
     }
 
     // Package what's needed to turn these contract events into views.
-    const dataModelSpecs = contractEventSpecs.map(contractEventSpec => (
+    const dataModelSpecs = contractEventSpecs.map((contractEventSpec) =>
         designDataModelsFromEventSpec(contractEventSpec, group.split('.')[0], chainId)
-    ))
+    )
 
     // Upsert contract event views to incorporate the new addresses.
     for (const { viewSpec } of dataModelSpecs) {
@@ -164,34 +175,58 @@ export async function addContractInstancesToGroup(
 
     // Decode any interactions with these new contract addresses at the given block number.
     const tables = buildTableRefsForChainId(chainId)
-    
+
     const [transactions, traces, logs] = await Promise.all([
-        decodeTransactions(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
+        decodeTransactions(
+            atBlockNumber,
+            atBlockNumber,
+            newAddresses,
+            newAddressAbisMap,
+            tables,
+            true
+        ),
         decodeTraces(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
         decodeLogs(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
     ])
 
-    const decodeErr = (table) => `[${chainId}:${atBlockNumber}] Failed to decode ${table}` 
+    const decodeErr = (table) => `[${chainId}:${atBlockNumber}] Failed to decode ${table}`
     if (transactions === null) throw decodeErr(tables.transactions)
     if (traces === null) throw decodeErr(tables.traces)
     if (logs === null) throw decodeErr(tables.logs)
 
     await Promise.all([
-        bulkSaveTransactions(transactions.filter(t => !t._alreadyDecoded), tables.transactions, pool, true),
-        bulkSaveTraces(traces.filter(t => !t._alreadyDecoded), tables.traces, pool, true),
-        bulkSaveLogs(logs.filter(l => !l._alreadyDecoded), tables.logs, pool, true),
+        bulkSaveTransactions(
+            transactions.filter((t) => !t._alreadyDecoded),
+            tables.transactions,
+            pool,
+            true
+        ),
+        bulkSaveTraces(
+            traces.filter((t) => !t._alreadyDecoded),
+            tables.traces,
+            pool,
+            true
+        ),
+        bulkSaveLogs(
+            logs.filter((l) => !l._alreadyDecoded),
+            tables.logs,
+            pool,
+            true
+        ),
     ])
 
-    // Get all transactions for the logs in this block so we can quickly 
+    // Get all transactions for the logs in this block so we can quickly
     // check whether a log succeeded or not (by tx hash).
-    const logTxHashes = unique(logs.map(log => log.transactionHash))
+    const logTxHashes = unique(logs.map((log) => log.transactionHash))
     const phs = logTxHashes.map((_, i) => `$${i + 1}`).join(', ')
     let logTxs = []
     try {
-        logTxs = logTxHashes.length ? await SharedTables.query(
-            `select * from ${tables.transactions} where "hash" in (${phs})`,
-            logTxHashes,
-        ) : []
+        logTxs = logTxHashes.length
+            ? await SharedTables.query(
+                  `select * from ${tables.transactions} where "hash" in (${phs})`,
+                  logTxHashes
+              )
+            : []
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
@@ -201,22 +236,22 @@ export async function addContractInstancesToGroup(
     }
 
     // Successful & decoded logs/traces associated with the new addresses.
-    const decodedSuccessfulLogs = logs.filter(log => (
-        txSuccess[log.transactionHash] && !!log.eventName
-    ))
-    const decodedSuccessfulTraceCalls = traces.filter(trace => (
-        trace.status !== 0 && !!trace.functionName
-    ))
+    const decodedSuccessfulLogs = logs.filter(
+        (log) => txSuccess[log.transactionHash] && !!log.eventName
+    )
+    const decodedSuccessfulTraceCalls = traces.filter(
+        (trace) => trace.status !== 0 && !!trace.functionName
+    )
 
     // Get unique sets of events and calls that have already gone out.
     const existingBlockEventIds = new Set<string>()
-    existingBlockEvents.forEach(event => {
+    existingBlockEvents.forEach((event) => {
         const origin = event.origin
         if (!origin.transactionHash || !origin.hasOwnProperty('logIndex')) return
         existingBlockEventIds.add([origin.transactionHash, origin.logIndex, event.name].join(':'))
     })
     const existingBlockCallIds = new Set<string>()
-    existingBlockCalls.forEach(call => {
+    existingBlockCalls.forEach((call) => {
         call.origin._id && existingBlockCallIds.add([call.origin._id, call.name].join(':'))
     })
 
@@ -228,7 +263,12 @@ export async function addContractInstancesToGroup(
         const uniqueEventKey = [transactionHash, logIndex, name].join(':')
         if (existingBlockEventIds.has(uniqueEventKey)) continue
 
-        const formattedEventData = formatLogAsSpecEvent(decodedLog, groupAbi, contract.name, chainId)
+        const formattedEventData = formatLogAsSpecEvent(
+            decodedLog,
+            groupAbi,
+            contract.name,
+            chainId
+        )
         if (!formattedEventData) continue
 
         const { eventOrigin, data } = formattedEventData
@@ -236,7 +276,7 @@ export async function addContractInstancesToGroup(
             origin: eventOrigin,
             data,
             name,
-        })    
+        })
     }
 
     // New block calls generated *for this contract group* due to one of the new addresses.
@@ -249,20 +289,14 @@ export async function addContractInstancesToGroup(
         if (existingBlockCallIds.has(uniqueCallKey)) continue
 
         const formattedCallData = formatTraceAsSpecCall(
-            decodedTrace, 
+            decodedTrace,
             signature,
             groupAbi,
             contract.name,
-            chainId,
+            chainId
         )
         if (!formattedCallData) continue
-        const { 
-            callOrigin,
-            inputs,
-            inputArgs,
-            outputs,
-            outputArgs,
-        } = formattedCallData
+        const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
         newCallSpecs.push({
             origin: callOrigin,
             name: toNamespacedVersion(fullNsp, functionName, signature),
