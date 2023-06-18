@@ -35,13 +35,13 @@ import {
     ContractEventSpec,
 } from '../../../shared'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
-import { fetchAbis, providers } from './upsertAbis'
 import uuid4 from 'uuid4'
 
 const errors = {
-    GENERAL: 'Error registering contracts',
-    ABIS: 'Failed to resolve contract ABIs',
-    LIVE_OBJECTS: 'Error creating Live Objects for contract events'
+    GENERAL: 'Error registering contracts.',
+    ABI_RESOLUTION_FAILED: 'Failed to resolve contract ABIs.',
+    NO_GROUP_ABI: 'No ABI exists for the contract group yet.',
+    LIVE_OBJECTS: 'Error creating Live Objects for contract events.'
 }
 
 async function registerContractInstances(
@@ -105,9 +105,9 @@ async function registerContractInstances(
     ], ['address']) as NewContractInstancePayload[]
 
     // Resolve and merge ABIs for all contract instances in this group.
-    const groupAbi = await resolveAbis(chainId, contractGroup, allInstancePayloads, abi)
-    if (groupAbi === null) {
-        await contractRegistrationJobFailed(uid, errors.ABIS)
+    const { groupAbi, error } = await resolveAbis(chainId, contractGroup, allInstancePayloads, abi)
+    if (error) {
+        await contractRegistrationJobFailed(uid, error)
         return
     }
 
@@ -167,14 +167,14 @@ async function resolveAbis(
     contractGroup: string,
     instances: NewContractInstancePayload[],
     givenAbi?: Abi,
-): Promise<Abi | null> {
+): Promise<StringKeyMap> {
     const addresses = instances.map(i => i.address)
     const [crossGroupAbisMap, existingGroupAbi] = await Promise.all([
         getAbis(addresses, chainId),
         getContractGroupAbi(contractGroup, chainId)
     ])
     if (crossGroupAbisMap === null || existingGroupAbi === null) {
-        return null
+        return { error: errors.ABI_RESOLUTION_FAILED }
     }
 
     // If an ABI is given, assign it to all addresses.
@@ -186,17 +186,16 @@ async function resolveAbis(
         addresses.forEach(address => {
             abisMap[address] = givenAbi
         })
-    } else {
-        // Fetch ABIs from <ether>scan.
-        logger.info(`Fetching ABIs for ${addresses.join(', ')}...`)
-        const abisMap = await fetchAbis(addresses, providers.STARSCAN, chainId)
-
-        // Ensure an ABI was found for each address.
-        const unverifiedAbiAddresses = addresses.filter(a => !abisMap.hasOwnProperty(a))
-        if (unverifiedAbiAddresses.length) {
-            logger.error(`ABIs not verified for contracts: ${unverifiedAbiAddresses.join(', ')}`)
-            return null
-        }
+    }
+    // If no ABI is given and no group ABI exists yet, error out.
+    else if (!existingGroupAbi.length) {
+        return { error: errors.NO_GROUP_ABI }
+    }
+    // Assign current group abi to given addresses.
+    else {
+        addresses.forEach(address => {
+            abisMap[address] = existingGroupAbi
+        })
     }
 
     // Polish all ABIs (to add signatures).
@@ -250,7 +249,7 @@ async function resolveAbis(
         saveContractGroupAbi(contractGroup, newGroupAbi, chainId)
     ])
 
-    return newGroupAbi
+    return { groupAbi: newGroupAbi }
 }
 
 async function saveDataModels(
