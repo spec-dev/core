@@ -43,6 +43,6 @@ export function parseStreamLogsPayload(data: StringKeyMap): ValidatedPayload<Str
     tail = Math.min(tail, config.MAX_TRAILING_LOGS_BATCH_SIZE)
     return {
         isValid: true,
-        payload: { id, tail: tail, env: data?.env || null },
+        payload: { id, tail, env: data?.env || null },
     }
 }
