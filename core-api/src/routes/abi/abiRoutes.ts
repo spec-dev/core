@@ -2,7 +2,7 @@ import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseGetAbiPayload } from './abiPayloads'
 import { codes, errors, authorizeRequest } from '../../utils/requests'
-import { enqueueDelayedJob, getAbi, saveAbis, getContractGroupAbi } from '../../../../shared'
+import { getContractGroupAbi } from '../../../../shared'
 
 /**
  * Get the ABI for a contract group on a specific chain.
