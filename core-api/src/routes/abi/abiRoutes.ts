@@ -5,7 +5,7 @@ import { codes, errors, authorizeRequest } from '../../utils/requests'
 import { enqueueDelayedJob, getAbi, saveAbis, getContractGroupAbi } from '../../../../shared'
 
 /**
- * Get an ABI by chainId:address
+ * Get the ABI for a contract group on a specific chain.
  */
  app.get(paths.ABI, async (req, res) => {
     const user = await authorizeRequest(req, res)
@@ -17,7 +17,6 @@ import { enqueueDelayedJob, getAbi, saveAbis, getContractGroupAbi } from '../../
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    // Get abi for group:chainId
     const { chainId, group } = payload
     const abi = await getContractGroupAbi(
         group,

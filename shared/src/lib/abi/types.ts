@@ -22,16 +22,16 @@ export enum AbiItemStateMutability {
     View = 'view',
 }
 
-    export interface AbiItem {
-        name: string
-        type: AbiItemType
-        inputs: AbiItemInput[]
-        signature: string
-        constant?: boolean
-        outputs?: AbiItemOutput[]
-        payable?: boolean
-        stateMutability?: AbiItemStateMutability
-        anonymous?: boolean,
-    }
+export interface AbiItem {
+    name: string
+    type: AbiItemType
+    inputs: AbiItemInput[]
+    signature: string
+    constant?: boolean
+    outputs?: AbiItemOutput[]
+    payable?: boolean
+    stateMutability?: AbiItemStateMutability
+    anonymous?: boolean,
+}
 
 export type Abi = AbiItem[]

@@ -195,7 +195,6 @@ export async function getContractGroupAbi(
     chainId: string = chainIds.ETHEREUM
 ): Promise<Abi | null> {
     const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
-    console.log('key', key)
     try {
         const abiStr = (await redis?.hGet(key, contractGroup)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : []
