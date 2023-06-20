@@ -34,6 +34,7 @@ import {
     addContractInstancesToGroup,
     saveAdditionalContractsToGenerateInputsFor,
     getAdditionalContractsToGenerateInputsFor,
+    getHighestBlock,
     range,
 } from '../../shared'
 import { Pool } from 'pg'
@@ -233,14 +234,22 @@ async function perform(data: StringKeyMap) {
     }
 
     // Note that these contracts should be included as "additional" contracts to 
-    // generate inputs for from <this block> -> <current head> so that block inputs 
-    // already aggregated that weren't able to use the newly registered contracts 
-    // yet will incorporate those additions.
+    // generate inputs for from <this block> -> <current head + buffer> so that block inputs 
+    // already aggregated that weren't able to use the newly registered contracts yet
+    // will incorporate those additions.
     if (newContractRegistrations.length) {
-        const latestBlockNumber = await getLargestBlockNumber()
+        const [largestNumberInSharedTables, largestNumberInIndexerDB] = await Promise.all([
+            getLargestBlockNumberFromSharedTables(),
+            getLargestBlockNumberFromIndexerDB(),
+        ])
+        const ceiling = Math.max(
+            (largestNumberInSharedTables || 0) + 1,
+            (largestNumberInIndexerDB || 0),
+            blockNumber + 1,
+        )
         await saveAdditionalContractsToGenerateInputsFor(
             newContractRegistrations,
-            range(blockNumber, latestBlockNumber + 1),
+            range(blockNumber, ceiling),
             config.CHAIN_ID,
         )
     }
@@ -995,7 +1004,7 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     }
 }
 
-async function getLargestBlockNumber(): Promise<number> {
+async function getLargestBlockNumberFromSharedTables(): Promise<number | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
@@ -1004,7 +1013,15 @@ async function getLargestBlockNumber(): Promise<number> {
         ))[0] || {}
         return result.number ? Number(result.number) : null
     } catch (err) {
-        throw `Error finding largest block number for ${tablePath}: ${err}`
+        throw `Error finding largest block number in SharedTables for ${tablePath}: ${err}`
+    }
+}
+
+async function getLargestBlockNumberFromIndexerDB(): Promise<number | null> {
+    try {
+        return (await getHighestBlock(config.CHAIN_ID))?.number
+    } catch (err) {
+        throw `Error finding largest block number in IndexerDB for chain ${config.CHAIN_ID}: ${err}`
     }
 }
 
