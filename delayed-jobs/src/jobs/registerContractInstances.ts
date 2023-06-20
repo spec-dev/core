@@ -152,7 +152,7 @@ async function registerContractInstances(
     }
     
     // Kick-off job to back-decode all contract interactions.
-    // Enqueue jobs for individual contracts for database lookup speed reasons.
+    // Enqueue jobs 1 contract at a time for database lookup reasons (may adjust in future).
     for (const contractAddress of contractAddresses) {
         await enqueueDelayedJob('decodeContractInteractions', {
             chainId, 

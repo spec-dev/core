@@ -183,7 +183,6 @@ async function decodePrimitivesUsingContracts(
         await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, progress)
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
-        logger.info(`[${chainId}] ${start} --> ${end}...`)
     
         let [transactions, traces, logs] = await Promise.all([
             decodeTransactions(start, end, contractAddresses, abisMap, tables),
