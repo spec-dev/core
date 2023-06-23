@@ -42,7 +42,6 @@ $shared_bin_dir/assert_env "TABLES_API_PORT" "$port"
 $shared_bin_dir/assert_env "TABLES_API_STREAM_BATCH_SIZE" "$stream_batch_size"
 $shared_bin_dir/assert_env "ACM_WILDCARD_CERT_ARM" "$cert_arm"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
-$shared_bin_dir/assert_env "V0_PAYLOAD_WHITELIST" "$v0_payload_whitelist"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"

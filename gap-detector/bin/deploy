@@ -42,8 +42,6 @@ mumbai_head_reporter_queue_key=$( $shared_bin_dir/env_reader "mumbai" "HEAD_REPO
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "GAP_DETECTOR_BUGSNAG_API_KEY" "$bugsnag_api_key"
-
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"

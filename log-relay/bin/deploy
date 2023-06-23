@@ -39,7 +39,6 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 $shared_bin_dir/assert_env "SOCKETCLUSTER_PORT" "$port"
 $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
-$shared_bin_dir/assert_env "LOG_RELAY_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
