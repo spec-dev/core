@@ -1,22 +1,40 @@
+import { supportedChainIds } from '../../../../shared/src'
 import config from '../../config'
 import { StringKeyMap, ValidatedPayload } from '../../types'
 
 export interface SearchLiveObjectPayload {
     query: string
-    filter: string
+    filters: object
     offset: number
     limit: number
 }
 
 export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPayload<SearchLiveObjectPayload> {
-
     const query = data?.query
-    const filter = data?.filter
+    const filters = JSON.parse(data?.filters) || {}
     const offset = data?.offset || 0
-    let limit = data?.limit && data.limit <= 1000 ? data.limit : config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE
+
+    // Validate chain ids.
+    const chainIds = (filters.chainIds || []).filter(id => !!id)
+    if (chainIds.length) {
+        const invalidChainIds = chainIds.filter((id) => !supportedChainIds.has(id))
+        if (invalidChainIds.length) {
+            return { isValid: false, error: `Invalid chain ids: ${invalidChainIds.join(', ')}` }
+        }
+    }
+
+    // Validate limit.
+    let limit = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE
+    if (data?.limit) {
+        limit = parseInt(data.limit)
+        if (isNaN(limit) || limit < 0) {
+            return { isValid: false, error: `"limit" must be a non-zero integer` }
+        }
+    }
+    limit = Math.min(limit, 1000)
 
     return {
         isValid: true,
-        payload: { query, filter, offset, limit },
+        payload: { query, filters, offset, limit },
     }
 }

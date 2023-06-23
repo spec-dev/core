@@ -1,12 +1,12 @@
-CREATE OR REPLACE VIEW liveObject_version_namespace_view AS
+CREATE OR REPLACE VIEW live_object_version_namespace_view AS
 SELECT DISTINCT ON (lv.live_object_id)
-    l.id AS liveObject_id, 
-    l.uid AS liveObject_uid, 
-    l.name AS liveObject_name,
-    l.display_name AS liveObject_display_name,
-    l.desc AS liveObject_desc,
-    l.has_icon AS liveObject_has_icon, 
-    l.namespace_id AS liveObject_namespace_id, 
+    l.id AS live_object_id, 
+    l.uid AS live_object_uid, 
+    l.name AS live_object_name,
+    l.display_name AS live_object_display_name,
+    l.desc AS live_object_desc,
+    l.has_icon AS live_object_has_icon, 
+    l.namespace_id AS live_object_namespace_id, 
     lv.id AS version_id,
     lv.uid AS version_uid, 
     lv.nsp AS version_nsp, 
