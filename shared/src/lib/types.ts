@@ -64,6 +64,7 @@ export interface ContractEventViewSpec {
     columnNames: string[]
     numEventArgs: number
     contractInstances: ContractInstance[]
+    contractName: string
     namespace: Namespace
     eventName: string
     eventSig: string
@@ -76,4 +77,5 @@ export interface ContractEventSpec {
     namespace: Namespace
     abiItem: AbiItem
     namespacedVersion: string
+    chainId: string
 }

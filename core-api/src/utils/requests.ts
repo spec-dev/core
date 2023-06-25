@@ -54,7 +54,11 @@ export async function authorizeRequestForNamespace(req, res, namespaceName: stri
 
     if (namespaceAuthHeader) {
         const namespaceAccessToken = await getNamespaceAccessToken(namespaceAuthHeader, namespaceName)
-        const hasPerms = namespaceAccessToken && namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+        const hasPerms = (
+            namespaceAccessToken && 
+            (new Date(namespaceAccessToken.expiresAt) > new Date()) &&
+            namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+        )
         if (!hasPerms) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false

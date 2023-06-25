@@ -4,24 +4,16 @@ import {
     NewContractInstancePayload,
     Abi,
     ContractInstance,
-    Contract,
-    Namespace,
     AbiItemType,
     uniqueByKeys,
     CoreDB,
     contractNamespaceForChainId,
-    upsertNamespaceWithTx,
-    upsertContractWithTx,
     upsertContractInstancesWithTx,
-    upsertEventsWithTx,
-    upsertEventVersionsWithTx,
-    toNamespacedVersion,
-    PublishLiveObjectVersionPayload,
     designDataModelsFromEventSpec,
-    specGithubRepoUrl,
     upsertContractEventView,
-    namespaceForChainId,
     getAbis,
+    upsertContractAndNamespace,
+    upsertContractEvents,
     enqueueDelayedJob,
     getContractInstancesInGroup,
     createContractRegistrationJob,
@@ -32,9 +24,9 @@ import {
     unique,
     saveAbisMap,
     polishAbis,
+    publishContractEventLiveObject,
     ContractEventSpec,
 } from '../../../shared'
-import { publishLiveObjectVersion } from './publishLiveObjectVersion'
 import uuid4 from 'uuid4'
 
 const errors = {
@@ -281,7 +273,7 @@ async function saveDataModels(
             ], ['address']) as ContractInstance[]
 
             // Upsert events with versions for each event abi item.
-            eventSpecs = await upsertEvents(contract, allGroupContractInstances, eventAbiItems, tx)
+            eventSpecs = await upsertContractEvents(contract, allGroupContractInstances, eventAbiItems, chainId, tx)
         })
     } catch (err) {
         logger.error(
@@ -290,34 +282,6 @@ async function saveDataModels(
         return null
     }
     return eventSpecs
-}
-
-async function publishContractEventLiveObject(
-    namespace: Namespace, 
-    payload: PublishLiveObjectVersionPayload,
-): Promise<boolean> {
-    try {
-        const liveObjectId = null // just let the live object queries happen in the other service.
-        await publishLiveObjectVersion(namespace, liveObjectId, payload, true)
-    } catch (err) {
-        logger.error(`Failed to publish live object version ${payload.additionalEventAssociations[0]}.`)
-        return false
-    }
-
-    return true
-}
-
-async function upsertContractAndNamespace(
-    fullNsp: string, // "eth.contracts.gitcoin.GovernorAlpha"
-    contractName: string, // "GovernorAlpha"
-    contractDesc: string,
-    chainId: string,
-    tx: any,
-): Promise<Contract> {
-    const namespace = await upsertNamespaceWithTx(fullNsp, specGithubRepoUrl(namespaceForChainId[chainId]), tx)
-    const contract = await upsertContractWithTx(namespace.id, contractName, contractDesc, tx)
-    contract.namespace = namespace
-    return contract
 }
 
 async function upsertContractInstances(
@@ -334,55 +298,6 @@ async function upsertContractInstances(
         contractId,
     }))
     return await upsertContractInstancesWithTx(contractInstancesData, tx)
-}
-
-async function upsertEvents(
-    contract: Contract,
-    contractInstances: ContractInstance[],
-    eventAbiItems: Abi,
-    tx: any,
-): Promise<ContractEventSpec[]> {
-    if (!contractInstances.length) return []
-    const namespace = contract.namespace
-
-    // Upsert events for each event abi item.
-    const eventsData = uniqueByKeys(eventAbiItems.map(abiItem => ({
-        namespaceId: namespace.id,
-        name: abiItem.name,
-        desc: 'contract event',
-        isContractEvent: true,
-    })), ['name'])
-    
-    const events = await upsertEventsWithTx(eventsData, tx)
-    const eventsMap = {}
-    for (const event of events) {
-        eventsMap[event.name] = event
-    }
-
-    // Upsert event versions for each abi item.
-    const eventSpecs = []
-    const eventVersionsData = []
-    for (const abiItem of eventAbiItems) {
-        const event = eventsMap[abiItem.name]
-        const data = {
-            nsp: namespace.name,
-            name: event.name,
-            version: abiItem.signature,
-            eventId: event.id,
-        }
-        eventVersionsData.push(data)
-        eventSpecs.push({
-            eventName: event.name,
-            contractName: contract.name,
-            contractInstances,
-            namespace,
-            abiItem,
-            namespacedVersion: toNamespacedVersion(data.nsp, data.name, data.version),
-        })
-    }
-    await upsertEventVersionsWithTx(eventVersionsData, tx)
-
-    return eventSpecs
 }
 
 export default function job(params: StringKeyMap) {

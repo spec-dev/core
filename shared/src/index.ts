@@ -351,7 +351,6 @@ export { hash } from './lib/utils/hash'
 export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'
 export { resolveCallVersionNames } from './lib/services/resolveCallVersionNames'
 export { designDataModelsFromEventSpec } from './lib/services/designDataModelsFromEventSpecs'
-export { upsertContractEventView } from './lib/services/upsertContractEventView'
 export {
     bulkSaveTransactions,
     bulkSaveTraces,
@@ -372,3 +371,11 @@ export {
     decodeTransferBatchEvent,
 } from './lib/services/decodeServices'
 export { addContractInstancesToGroup } from './lib/services/addContractInstancesToGroup'
+export { createContractGroup } from './lib/services/createContractGroup'
+export {
+    upsertContractAndNamespace,
+    upsertContractEvents,
+    upsertContractEventView,
+    publishContractEventLiveObject,
+} from './lib/services/contractEventServices'
+export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'

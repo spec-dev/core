@@ -12,6 +12,7 @@ export function designDataModelsFromEventSpec(
 ): {
     viewSpec: ContractEventViewSpec
     lovSpec: PublishLiveObjectVersionPayload
+    chainId: string
 } {
     const eventParams = eventSpec.abiItem.inputs || []
     const viewSchema = schemaForChainId[chainId]
@@ -35,13 +36,14 @@ export function designDataModelsFromEventSpec(
         name: viewName,
         columnNames: lovSpec.properties.map((p) => camelToSnake(p.name)),
         numEventArgs: eventParams.length,
+        contractName: eventSpec.contractName,
         contractInstances: eventSpec.contractInstances,
         namespace: eventSpec.namespace,
         eventName: eventSpec.eventName,
         eventSig: eventSpec.abiItem.signature,
     }
 
-    return { viewSpec, lovSpec }
+    return { viewSpec, lovSpec, chainId }
 }
 
 function createEventVersionViewName(eventSpec: ContractEventSpec, nsp: string): string {

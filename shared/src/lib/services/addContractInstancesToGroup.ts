@@ -7,16 +7,18 @@ import {
     polishAbis,
     formatLogAsSpecEvent,
     formatTraceAsSpecCall,
+    toNamespaceSlug,
 } from '../utils/formatters'
 import {
     getContractInstancesInGroup,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
+import { supportedChainIds, chainIdForContractNamespace } from '../utils/chainIds'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
 import { AbiItemType } from '../abi/types'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
 import { CoreDB } from '../core/db/dataSource'
-import { upsertContractEventView } from './upsertContractEventView'
+import { upsertContractEventView } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
 import { ident } from 'pg-format'
 import { Pool } from 'pg'
@@ -29,6 +31,8 @@ import {
     bulkSaveLogs,
 } from './decodeServices'
 import { SharedTables } from '../shared-tables/db/dataSource'
+import { getNamespaces } from '../core/db/services/namespaceServices'
+import { createContractGroup } from './createContractGroup'
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -57,6 +61,10 @@ export async function addContractInstancesToGroup(
 
     // Ex: "eth.contracts.gitcoin.GovernorAlpha"
     const fullNsp = [chainSpecificContractNsp, group].join('.')
+
+    // Ensure this contract group already exists for at least one chain.
+    // If not, create it for this chain using the group abi of another chain. 
+    await upsertContractGroupForChainId(chainId, group, fullNsp)
 
     // Find other existing contract instances in this group,
     // and make sure it already has at least one entry.
@@ -311,4 +319,43 @@ export async function addContractInstancesToGroup(
     }
 
     return { newEventSpecs, newCallSpecs }
+}
+
+async function upsertContractGroupForChainId(
+    chainId: string,
+    group: string,
+    fullNsp: string,
+) {
+    // Get all existing chain-specific contract namespaces for this group.
+    const allContractNsps = Array.from(supportedChainIds).map(chainId => 
+        [contractNamespaceForChainId(chainId), group].join('.')
+    )
+    const namespaces = await getNamespaces(allContractNsps)
+
+    // If the contract group already exists for this chain id, do nothing.
+    // Otherwise, use an adjacent chain id's namespace for this group to find the group's ABI.
+    let otherChainNsp
+    for (const namespace of namespaces) {
+        if (namespace.slug === toNamespaceSlug(fullNsp)) return
+        otherChainNsp = namespace
+    }
+    if (!otherChainNsp) throw `Contract group "${group}" isn't registered for any chain.`
+
+    // Get chain id of adjacent group to use for ABI lookup.
+    const otherChainContractNsp = otherChainNsp.name.split('.').slice(0, 2).join('.')
+    const otherChainId = chainIdForContractNamespace[otherChainContractNsp]
+    if (!otherChainId) throw `Error finding chain id for contract namespace: ${otherChainContractNsp}`
+
+    // Get group ABI.
+    const groupAbi = await getContractGroupAbi(group, otherChainId)
+    if (groupAbi === null) throw `Error finding group ABI for "${group}" for chain ${otherChainId}`
+
+    // Create contract group for the new target chain id.
+    const [nsp, name] = group.split('.')
+    await createContractGroup(
+        nsp,
+        name,
+        [chainId],
+        groupAbi,
+    )
 }
