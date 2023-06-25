@@ -35,11 +35,12 @@ export async function bulkSaveTransactions(
     transactions: StringKeyMap[],
     table: string,
     pool: Pool,
+    log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
 ) {
     if (!transactions?.length) return
-    logger.info(`Saving ${transactions.length} decoded transactions...`)
+    log && logger.info(`Saving ${transactions.length} decoded transactions...`)
 
     const tempTableName = `tx_${short.generate()}`
     const insertPlaceholders = []
@@ -91,7 +92,7 @@ export async function bulkSaveTransactions(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTransactions(transactions, table, pool, shouldThrow, attempt + 1)
+        return await bulkSaveTransactions(transactions, table, pool, log, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
@@ -101,11 +102,12 @@ export async function bulkSaveTraces(
     traces: StringKeyMap[],
     table: string,
     pool: Pool,
+    log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
 ) {
     if (!traces?.length) return
-    logger.info(`Saving ${traces.length} decoded traces...`)
+    log && logger.info(`Saving ${traces.length} decoded traces...`)
 
     const tempTableName = `trace_${short.generate()}`
     const insertPlaceholders = []
@@ -163,7 +165,7 @@ export async function bulkSaveTraces(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTraces(traces, table, pool, shouldThrow, attempt + 1)
+        return await bulkSaveTraces(traces, table, pool, log, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
@@ -173,11 +175,12 @@ export async function bulkSaveLogs(
     logs: StringKeyMap[],
     table: string,
     pool: Pool,
+    log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
 ) {
     if (!logs?.length) return
-    logger.info(`Saving ${logs.length} decoded logs...`)
+    log && logger.info(`Saving ${logs.length} decoded logs...`)
 
     const tempTableName = `logs_${short.generate()}`
     const insertPlaceholders = []
@@ -229,7 +232,7 @@ export async function bulkSaveLogs(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveLogs(logs, table, pool, shouldThrow, attempt + 1)
+        return await bulkSaveLogs(logs, table, pool, log, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error

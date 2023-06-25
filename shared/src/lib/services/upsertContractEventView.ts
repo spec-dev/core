@@ -6,11 +6,12 @@ import { SharedTables } from '../shared-tables/db/dataSource'
 
 export async function upsertContractEventView(
     viewSpec: ContractEventViewSpec,
-    chainId: string
+    chainId: string,
+    log?: boolean
 ): Promise<boolean> {
     const { schema, name, columnNames, numEventArgs, contractInstances, eventSig } = viewSpec
 
-    logger.info(`Upserting view ${schema}.${name}`)
+    log && logger.info(`Upserting view ${schema}.${name}`)
 
     const contractNameOptions = [
         ...contractInstances.map(

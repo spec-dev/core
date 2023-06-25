@@ -51,6 +51,10 @@ indexer_db_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PORT" )
 indexer_db_username=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_USERNAME" )
 indexer_db_password=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_PASSWORD" )
 
+# ABI Redis
+abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
+abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
+
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
@@ -85,6 +89,10 @@ $shared_bin_dir/assert_env "INDEXER_DB_HOST" "$indexer_db_host"
 $shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
 $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
+
+# ABI Redis
+$shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
+$shared_bin_dir/assert_env "ABI_REDIS_PORT" "$abi_redis_port"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -123,6 +131,8 @@ template=$( cat "$template_path" | \
     sed "s|{{INDEXER_DB_PORT}}|$indexer_db_port|g" | \
     sed "s|{{INDEXER_DB_USERNAME}}|$indexer_db_username|g" | \
     sed "s|{{INDEXER_DB_PASSWORD}}|$indexer_db_password|g" | \
+    sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
+    sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \

@@ -5,6 +5,7 @@ import { StringKeyMap, StringMap } from '../types'
 import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
 import { toDate } from '../utils/date'
+import { unique } from '../utils/formatters'
 
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 
@@ -929,13 +930,38 @@ export async function saveAdditionalContractsToGenerateInputsFor(
     chainId: string
 ): Promise<boolean> {
     if (!newContractRegistrations?.length) return true
-    const stringified = JSON.stringify(newContractRegistrations)
-    const data = {}
-    blockNumbers.forEach((number) => {
-        data[number.toString()] = stringified
-    })
+
     const key = [config.ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX, chainId].join('-')
     try {
+        const existing = (
+            (await redis?.hmGet(
+                key,
+                blockNumbers.map((n) => n.toString())
+            )) || []
+        ).map((result) => {
+            return result ? JSON.parse(result) : null
+        })
+
+        const data = {}
+        for (let i = 0; i < blockNumbers.length; i++) {
+            const blockNumber = blockNumbers[i]
+            const existingRegistrations = existing[i] || []
+            const allRegistrations = [...existingRegistrations, ...newContractRegistrations]
+            const registrationsMap = {}
+            for (const { group, addresses } of allRegistrations) {
+                registrationsMap[group] = registrationsMap[group] || []
+                registrationsMap[group].push(...addresses)
+            }
+            const uniqueRegistrations = []
+            for (const group in registrationsMap) {
+                uniqueRegistrations.push({
+                    group,
+                    addresses: unique(registrationsMap[group]),
+                })
+            }
+            data[blockNumber.toString()] = JSON.stringify(uniqueRegistrations)
+        }
+
         await redis?.hSet(key, data)
     } catch (err) {
         logger.error(

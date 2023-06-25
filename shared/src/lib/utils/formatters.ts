@@ -4,6 +4,7 @@ import { Abi } from '../abi/types'
 import humps from 'humps'
 import Web3 from 'web3'
 import { ident } from 'pg-format'
+import { toDate } from './date'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -82,7 +83,7 @@ export const numberToHex = (value: any) => {
     return nth(value as any)
 }
 
-export const hexToNumber = (value: any) => {
+export const hexToNumber = (value: any): any => {
     if (typeof value !== 'string') {
         return null
     }
@@ -90,7 +91,7 @@ export const hexToNumber = (value: any) => {
     return htn(value)
 }
 
-export const hexToNumberString = (value: any) => {
+export const hexToNumberString = (value: any): any => {
     if (typeof value !== 'string') {
         return null
     }
@@ -419,6 +420,11 @@ export const toNumber = (val: any): number | null => {
     return Number.isNaN(num) ? null : num
 }
 
+export const toSafeISOString = (val: any): string | null => {
+    const d = toDate(val)
+    return d ? d.toISOString() : null
+}
+
 export const shuffle = (arr: any[]) => {
     let currentIndex = arr.length
     let randomIndex: number
@@ -497,7 +503,7 @@ export function formatLogAsSpecEvent(
         signature: log.topic0,
         blockHash: log.blockHash,
         blockNumber: Number(log.blockNumber),
-        blockTimestamp: log.blockTimestamp.toISOString(),
+        blockTimestamp: toSafeISOString(log.blockTimestamp),
         chainId,
     }
 
@@ -566,7 +572,7 @@ export function formatTraceAsSpecCall(
         signature,
         blockHash: trace.blockHash,
         blockNumber: Number(trace.blockNumber),
-        blockTimestamp: trace.blockTimestamp.toISOString(),
+        blockTimestamp: toSafeISOString(trace.blockTimestamp),
         chainId,
     }
 

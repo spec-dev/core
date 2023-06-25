@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { Queue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.83'
+import { Queue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.88'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 

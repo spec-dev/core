@@ -96,8 +96,6 @@ export async function indexLiveObjectVersions(
             const {
                 groupContractInstancesToRegister,
                 processedInputs,
-                blockNumber,
-                chainId,
             } = await processInputs(
                 lovIds, 
                 inputs, 
@@ -111,21 +109,21 @@ export async function indexLiveObjectVersions(
             if (groupContractInstancesToRegister?.length) {
                 contractRegistrationSequenceCount++
                 if (contractRegistrationSequenceCount > (config.MAX_CONTRACT_REGISTRATION_STACK_HEIGHT * targetBatchSize)) {
-                    throw `[${chainId}:${blockNumber}:${cursor}] Contract factory additions hit max number of loops.`
+                    throw `[${cursor}] Contract factory additions hit max number of loops.`
                 }
-        
                 try {
-                    await Promise.all(groupContractInstancesToRegister.map(({ group, addresses }) => (
-                        addContractInstancesToGroup(
+                    await Promise.all(groupContractInstancesToRegister.map(({ group, addresses, chainId, blockNumber }) => {
+                        logger.info(`[${chainId}] Registering ${addresses.length} contracts to "${group}"...`)
+                        return addContractInstancesToGroup(
                             addresses,
                             chainId,
                             group,
                             blockNumber,
                             pool,
                         )
-                    )))
+                    }))
                 } catch (err) {
-                    throw `[${chainId}:${blockNumber}:${cursor}] IndexLOV ${lovIds.join(', ')} Failed to register new contracts ${JSON.stringify(groupContractInstancesToRegister)}: ${err}`
+                    throw `[:${cursor}] IndexLOV ${lovIds.join(', ')} Failed to register new contracts ${JSON.stringify(groupContractInstancesToRegister)}: ${err}`
                 }
 
                 // Recreate the generator after registering new contracts
@@ -137,8 +135,9 @@ export async function indexLiveObjectVersions(
                     indexingContractFactoryLov,
                 } = (await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)) || {})
                 if (!generateFrom) throw `Failed to recreate LOV input generator`
-                
+
                 inputsFilter = processedInputs
+                logger.info(`Repeating from cursor ${cursor} with ${processedInputs.size} processed inputs.`)
                 continue
             }
 
@@ -254,45 +253,58 @@ async function processInputs(
 
     if (indexingContractFactoryLov) {
         const processedInputs = new Set<string>()
+        const allNewContractInstances = []
 
         for (const input of inputs) {
             const { chainId, blockNumber } = input.origin
             processedInputs.add(uniqueInputKey(input))
+            
             const lovIds = inputIdsToLovIdsMap[input.name] || []
             if (!lovIds.length) continue
 
             const newContractInstances = (await Promise.all(lovIds.map(lovId => (
                 sendInputsToLov([input], liveObjectVersions[lovId], [])
             )))).flat()
-            if (!newContractInstances.length) continue
 
-            const registerContractInstancesByGroup = {}
-            for (const { address, group } of newContractInstances) {
-                registerContractInstancesByGroup[group] = registerContractInstancesByGroup[group] || []
-                registerContractInstancesByGroup[group].push(address)
-            }
-            const groupContractInstancesToRegister = []
-            for (const group in registerContractInstancesByGroup) {
-                groupContractInstancesToRegister.push({
-                    group,
-                    addresses: unique(registerContractInstancesByGroup[group]),
-                })
-            }
-
-            return {
-                groupContractInstancesToRegister,
-                processedInputs,
-                blockNumber,
+            allNewContractInstances.push(...newContractInstances.map(({ address, group }) => ({
+                address,
+                group,
                 chainId,
-            }
+                blockNumber,
+            })))
         }
-    } else {
-        for (const batchInputs of createGroupInputs(inputs, inputIdsToLovIdsMap)) {
-            const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
-            if (!lovIds.length) continue
-            await Promise.all(lovIds.map(lovId => sendInputsToLov(batchInputs, liveObjectVersions[lovId], [])))
+
+        const registerContractInstancesByGroup = {}
+        for (const { address, group, chainId, blockNumber } of allNewContractInstances) {
+            const key = [group, chainId, blockNumber].join(':')
+            registerContractInstancesByGroup[key] = registerContractInstancesByGroup[key] || []
+            registerContractInstancesByGroup[key].push(address)
+        }
+
+        const groupContractInstancesToRegister = []
+        for (const key in registerContractInstancesByGroup) {
+            const [group, chainId, blockNumber] = key.split(':')
+            const addresses = registerContractInstancesByGroup[key]
+            groupContractInstancesToRegister.push({
+                group,
+                chainId,
+                blockNumber,
+                addresses,
+            })
+        }
+
+        return {
+            groupContractInstancesToRegister,
+            processedInputs,
         }
     }
+
+    for (const batchInputs of createGroupInputs(inputs, inputIdsToLovIdsMap)) {
+        const lovIds = inputIdsToLovIdsMap[batchInputs[0].name] || []
+        if (!lovIds.length) continue
+        await Promise.all(lovIds.map(lovId => sendInputsToLov(batchInputs, liveObjectVersions[lovId], [])))
+    }
+
     return {}
 }
 
@@ -433,7 +445,7 @@ async function sendInputsToLov(
     }
 
     // Filter contract instances by those that are allowed to be registered.
-    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances]
+    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances].flat()
     const validContractInstancesToRegister = []
     const inputChainId = inputs[0].origin.chainId
     for (let { address, group, chainId } of givenContractInstancesToRegister) {
@@ -452,7 +464,7 @@ async function sendInputsToLov(
         }
 
         const splitGroup = (group || '').split('.')
-        if (splitGroup !== 2) {
+        if (splitGroup.length !== 2) {
             throw `Contract factory - Invalid group "${group}" given from lovId=${id}`
         }
 
@@ -481,7 +493,7 @@ export default function job(params: StringKeyMap) {
     const iteration = params.iteration || 1
     const maxIterations = params.maxIterations || null
     const maxJobTime = params.maxJobTime || DEFAULT_MAX_JOB_TIME
-    const targetBatchSize = params.targetBatchSize || DEFAULT_TARGET_BLOCK_BATCH_SIZE
+    const targetBatchSize = params.targetBatchSize || 100
     const shouldGenerateEvents = params.shouldGenerateEvents === true
     const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
 

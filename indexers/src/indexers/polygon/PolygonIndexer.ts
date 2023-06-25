@@ -378,7 +378,6 @@ class PolygonIndexer extends AbstractIndexer {
             (tokenEventSpecs?.nfts || []).map(es => originEvents.tokens.NewNFTBalance(es))
         )).filter(v => !!v)
 
-        // Publish to Spec's event network.
         const allEventSpecs = [
             ...contractEventSpecs,
             ...newSmartWalletEventSpecs,

@@ -154,7 +154,7 @@ export async function addContractInstancesToGroup(
         contractEventSpecs.push({
             eventName: abiItem.name,
             contractName: contract.name,
-            allGroupContractInstances,
+            contractInstances: allGroupContractInstances,
             namespace,
             abiItem,
             namespacedVersion: toNamespacedVersion(namespace.name, abiItem.name, abiItem.signature),
@@ -199,18 +199,21 @@ export async function addContractInstancesToGroup(
             transactions.filter((t) => !t._alreadyDecoded),
             tables.transactions,
             pool,
+            false,
             true
         ),
         bulkSaveTraces(
             traces.filter((t) => !t._alreadyDecoded),
             tables.traces,
             pool,
+            false,
             true
         ),
         bulkSaveLogs(
             logs.filter((l) => !l._alreadyDecoded),
             tables.logs,
             pool,
+            false,
             true
         ),
     ])

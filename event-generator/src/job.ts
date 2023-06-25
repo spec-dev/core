@@ -55,12 +55,12 @@ async function perform(data: StringKeyMap) {
 
     // Ensure re-org hasn't occurred that would affect progress.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
 
     console.log('')
-    logger.info(`Generating calls & events for block ${blockNumber}...`)
+    logger.info(`[${config.CHAIN_ID}:${blockNumber}] Generating calls & events...`)
 
     // Get the calls & events for this block number from redis.
     let [blockCalls, blockEvents] = await Promise.all([
@@ -244,7 +244,7 @@ async function perform(data: StringKeyMap) {
         ])
         const ceiling = Math.max(
             (largestNumberInSharedTables || 0) + 1,
-            (largestNumberInIndexerDB || 0),
+            (largestNumberInIndexerDB || 0) + 1,
             blockNumber + 1,
         )
         await saveAdditionalContractsToGenerateInputsFor(
@@ -403,7 +403,7 @@ async function generateLiveObjectEventsForNamespace(
             addresses: unique(registerContractInstancesByGroup[group]),
         })
     }
- 
+
     return groupContractInstancesToRegister
 }
 
@@ -593,7 +593,7 @@ async function generateLiveObjectEvents(
     }
 
     // Filter contract instances by those that are allowed to be registered.
-    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances]
+    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances].flat()
     const validContractInstancesToRegister = []
     for (let { address, group, chainId } of givenContractInstancesToRegister) {
         address = address?.toLowerCase()
@@ -614,7 +614,7 @@ async function generateLiveObjectEvents(
         }
 
         const splitGroup = (group || '').split('.')
-        if (splitGroup !== 2) {
+        if (splitGroup.length !== 2) {
             logger.error(`[${blockNumber}] Contract factory - Invalid group "${group}" given from lovId=${lovId}`)
             continue
         }

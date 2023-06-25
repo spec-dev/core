@@ -143,7 +143,7 @@ async function registerContractInstances(
 
     // Upsert views and live object versions for each contract event.
     for (const { viewSpec, lovSpec } of dataModelSpecs) {
-        let success = await upsertContractEventView(viewSpec, chainId)
+        let success = await upsertContractEventView(viewSpec, chainId, true)
         success = success ? await publishContractEventLiveObject(viewSpec.namespace, lovSpec) : false
         if (!success) {
             await contractRegistrationJobFailed(uid, errors.LIVE_OBJECTS)

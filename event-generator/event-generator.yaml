@@ -78,4 +78,8 @@ spec:
           value: {{INDEXER_DB_USERNAME}}
         - name: INDEXER_DB_PASSWORD
           value: {{INDEXER_DB_PASSWORD}}
+        - name: ABI_REDIS_HOST
+          value: {{ABI_REDIS_HOST}}
+        - name: ABI_REDIS_PORT
+          value: "{{ABI_REDIS_PORT}}"
 

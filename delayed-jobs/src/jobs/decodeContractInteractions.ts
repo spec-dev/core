@@ -213,7 +213,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveTransactions) {
             const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
-            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool)))
+            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool, true)))
             batchTransactions = []
         }
         if (savePromises.length > MAX_PARALLEL_PROMISES) {
@@ -223,7 +223,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveTraces) {
             const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool)))
+            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool, true)))
             batchTraces = []
         }
         if (savePromises.length > MAX_PARALLEL_PROMISES) {
@@ -243,7 +243,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveLogs) {
             const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
-            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool)))
+            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool, true)))
             batchLogs = []
         }
         await Promise.all(savePromises)
@@ -252,10 +252,10 @@ async function decodePrimitivesUsingContracts(
     }
 
     const savePromises = []
-    batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool))
-    batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool))
+    batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool, true))
+    batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool, true))
     batchNewTraces.length && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
-    batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool))
+    batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool, true))
     savePromises.length && await Promise.all(savePromises)
 
     return cursor
