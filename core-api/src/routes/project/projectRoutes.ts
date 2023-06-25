@@ -79,7 +79,7 @@ app.get(paths.PROJECT_LOGS, async (req, res) => {
 
     // Stream logs as a response.
     try {
-        await streamLogs(project.uid, payload.env, req, res)
+        await streamLogs(project.uid, payload.tail, payload.env, req, res)
     } catch (error) {
         logger.error(error)
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })

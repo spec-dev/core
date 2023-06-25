@@ -2,7 +2,7 @@ import { logger, tailLogs, getLastXLogs, sleep } from '../../../shared'
 import { codes } from '../utils/requests'
 import config from '../config'
 
-export async function streamLogs(projectUid, env, req, res) {
+export async function streamLogs(projectUid, tail, env, req, res) {
     const keySuffix = env && env !== 'prod' ? `-${env}` : ''
     const streamKey = `${projectUid}${keySuffix}`
 
@@ -43,7 +43,9 @@ export async function streamLogs(projectUid, env, req, res) {
         hasEnqueuedAnObject = true
     }
 
-    const trailingLogs = await getLastXLogs(streamKey, config.TRAILING_LOGS_BATCH_SIZE)
+    tail = parseInt(tail)
+    tail = (isNaN(tail) || tail < 0) ? config.TRAILING_LOGS_BATCH_SIZE : tail
+    const trailingLogs = await getLastXLogs(streamKey, tail)
     trailingLogs.forEach((log) => enqueueLog(log))
 
     keepAliveTimer = setInterval(() => {

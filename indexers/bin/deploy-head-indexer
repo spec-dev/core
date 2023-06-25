@@ -71,7 +71,6 @@ $shared_bin_dir/assert_env "RPC_POOL_ENDPOINTS" "$rpc_pool_endpoints"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 $shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
-$shared_bin_dir/assert_env "INDEXER_BUGSNAG_API_KEY" "$bugsnag_api_key"
 $shared_bin_dir/assert_env "INDEX_PERFORM_MAX_DURATION" "$index_perform_max_duration"
 
 # Indexer Redis

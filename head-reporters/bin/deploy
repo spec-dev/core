@@ -56,7 +56,6 @@ shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
 $shared_bin_dir/assert_env "HEAD_REPORTER_QUEUE_KEY" "$head_reporter_queue_key"
-$shared_bin_dir/assert_env "HEAD_REPORTER_BUGSNAG_API_KEY" "$bugsnag_api_key"
 $shared_bin_dir/assert_env "PUBLISHER_ROLE_KEY" "$publisher_role_key"
 $shared_bin_dir/assert_env "EVENT_RELAY_HOSTNAME" "$event_relay_hostname"
 
@@ -93,14 +92,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "HEAD_REPORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-
-# eth/goerli
-# image_version="68ae1e4"
-
-# polygon/mumbai
-image_version="ab9a172"
-
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

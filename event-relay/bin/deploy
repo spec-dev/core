@@ -53,7 +53,6 @@ $shared_bin_dir/assert_env "SOCKETCLUSTER_LOG_LEVEL" "$log_level"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 $shared_bin_dir/assert_env "USE_EVENT_RELAY_SCC_CLUSTER" "$use_scc_cluster"
 $shared_bin_dir/assert_env "SCC_STATE_SERVER_PORT" "$scc_state_server_port"
-$shared_bin_dir/assert_env "EVENT_RELAY_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"

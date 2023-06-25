@@ -69,7 +69,6 @@ export async function authorizeRequestForNamespace(req, res, namespaceName: stri
     return false
 }
 
-
 export async function authorizeRequest(req, res): Promise<User | null> {
     const headers = req.headers || {}
 
