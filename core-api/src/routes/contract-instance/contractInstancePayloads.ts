@@ -15,7 +15,7 @@ export function parseContractRegistrationPayload(
         return { isValid: false, error: `Invalid "chainId": ${chainId}` }
     }
 
-    if (!data.nsp) {
+    if (!nsp) {
         return { isValid: false, error: '"nsp" required' }
     }
 

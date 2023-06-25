@@ -2,7 +2,7 @@ import {
     logger,
     StringKeyMap,
     StringMap,
-    saveAbis,
+    saveAbisMap,
     saveFunctionSignatures,
     Abi,
     AbiItem,
@@ -12,9 +12,10 @@ import {
     EthContract,
     SharedTables,
     functionSignatureToAbiInputs,
-    minimizeAbiInputs,
+    createAbiItemSignature,
     chainIds,
     schemaForChainId,
+    polishAbis,
     range,
     getAbis,
 } from '../../../shared'
@@ -346,74 +347,6 @@ async function fetchAbiFromSamczsun(contract: any, attempt: number = 1): Promise
     }
 
     return abi
-}
-
-export function polishAbis(abis: StringKeyMap): StringKeyMap[] {
-    const abisMap = {}
-    const funcSigHashesMap = {}
-
-    for (const address in abis) {
-        const abi = abis[address]
-        const newAbi = []
-
-        for (const item of abi) {
-            let signature = item.signature
-            if (signature) {
-                newAbi.push(item)
-            } else {
-                signature = createAbiItemSignature(item)
-                if (signature) {
-                    newAbi.push({ ...item, signature })
-                } else {
-                    newAbi.push(item)
-                }
-            }
-
-            if (['function', 'constructor'].includes(item.type) && signature && !funcSigHashesMap.hasOwnProperty(signature)) {
-                funcSigHashesMap[signature] = {
-                    name: item.name,
-                    type: item.type,
-                    inputs: minimizeAbiInputs(item.inputs),
-                    signature,
-                }
-            }
-        }
-
-        abisMap[address] = newAbi
-    }
-
-    return [abisMap, funcSigHashesMap]
-}
-
-function createAbiItemSignature(item: StringKeyMap): string | null {
-    switch (item.type) {
-        case 'function':
-        case 'constructor':
-            return web3.eth.abi.encodeFunctionSignature(item as any)
-        case 'event':
-            return web3.eth.abi.encodeEventSignature(item as any)
-        default:
-            return null
-    }
-}
-
-export async function saveAbisMap(abisMap: StringKeyMap, chainId: string) {
-    const stringified: StringMap = {}
-
-    for (const address in abisMap) {
-        const abi = abisMap[address]
-        const abiStr = stringify(abi)
-        if (!abiStr) continue
-        stringified[address] = abiStr
-    }
-    if (!Object.keys(stringified).length) {
-        return
-    }
-
-    if (!(await saveAbis(stringified, chainId))) {
-        logger.error(`Failed to save ABI batch.`)
-        return
-    }
 }
 
 export async function saveFuncSigHashes(funcSigHashes: StringKeyMap) {

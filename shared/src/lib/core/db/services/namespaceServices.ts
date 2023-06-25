@@ -23,7 +23,7 @@ export async function createNamespace(name: string): Promise<Namespace | null> {
 
 export async function getNamespace(name: string): Promise<Namespace | null> {
     try {
-        return await namespaces().findOneBy({ name })
+        return await namespaces().findOneBy({ slug: toNamespaceSlug(name) })
     } catch (err) {
         logger.error(`Error while querying for Namespace by name ${name}: ${err}`)
         return null
@@ -32,7 +32,9 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
 
 export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
     try {
-        return await namespaces().find({ where: { name: In(names) } })
+        return await namespaces().find({
+            where: { slug: In(names.map((n) => toNamespaceSlug(n))) },
+        })
     } catch (err) {
         logger.error(`Error getting Namespaces by names ${names.join(', ')}: ${err}`)
         return null

@@ -40,4 +40,5 @@ export interface GenerateTestInputsPayload {
     recent: boolean
     allTime: boolean
     streamId: string | null
+    isContractFactory: boolean
 }
