@@ -1,7 +1,7 @@
 export interface AbiItemInput {
     type: string
     name?: string
-    indexed?: boolean,
+    indexed?: boolean
     internalType?: string
 }
 
@@ -31,7 +31,7 @@ export interface AbiItem {
     outputs?: AbiItemOutput[]
     payable?: boolean
     stateMutability?: AbiItemStateMutability
-    anonymous?: boolean,
+    anonymous?: boolean
 }
 
 export type Abi = AbiItem[]
