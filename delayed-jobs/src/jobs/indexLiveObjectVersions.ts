@@ -40,7 +40,7 @@ export async function indexLiveObjectVersions(
     setLovToLiveAfter: boolean,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
-
+    
     let timer = setTimeout(() => {
         timer = null
     }, maxJobTime)
