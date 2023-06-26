@@ -58,7 +58,6 @@ $shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url
 $shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
 $shared_bin_dir/assert_env "EVENT_GENERATORS_JWT" "$event_generators_jwt"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
-$shared_bin_dir/assert_env "DELAYED_JOBS_BUGSNAG_API_KEY" "$bugsnag_api_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"

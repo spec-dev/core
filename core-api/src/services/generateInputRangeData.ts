@@ -48,14 +48,16 @@ async function generateInputRangeData(
 
     const events = payload.inputs.events || []
     const calls = payload.inputs.calls || []
-    
+    const isContractFactory = payload.isContractFactory
+
     let timer, inputGen
     let cursor = from
     const batchInputs = []
     try {
         const genInfo = await generateLovInputsForEventsAndCalls(
             events, 
-            calls, 
+            calls,
+            isContractFactory,
             from,
             config.TEST_DATA_BLOCK_RANGE_SIZE,
             cachedInputGen,

@@ -13,7 +13,7 @@ const upsertQueue = () => {
             port: config.INDEXER_REDIS_PORT,
         },
         defaultJobOptions: {
-            attempts: 2,
+            attempts: 1,
             backoff: {
                 type: 'fixed',
                 delay: 1000,

@@ -71,7 +71,7 @@ if (config.SOCKETCLUSTER_LOG_LEVEL >= 1) {
 }
 
 logger.info(
-    `[${config.SCC_INSTANCE_ID}]: SocketCluster listening on port ${config.SOCKETCLUSTER_PORT}...`
+    `[${config.SCC_INSTANCE_ID}]: Core API listening on port ${config.SOCKETCLUSTER_PORT}...`
 )
 
 // Log warnings.

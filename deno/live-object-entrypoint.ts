@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
-import { PublishEventQueue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.83'
+import { Queue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.88'
 import LiveObject from './spec.ts'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 
@@ -96,13 +96,16 @@ serve(async (req: Request) => {
 
     // Process input calls/events in series.
     const allPublishedEvents = []
+    const allNewContractInstances = []
     for (let i = 0; i < inputs.length; i++) {
         const input = inputs[i] as any
         input.origin.blockNumber = BigInt.from(input.origin.blockNumber)
 
-        // Create the live object with a single event queue instance to capture published events.
-        const publishedEventQueue = new PublishEventQueue()
-        const liveObject = new LiveObject(publishedEventQueue)
+        // Create the live object with a single event queue instance to capture published events
+        // and a single contract registration queue to capture new contracts to be registered.
+        const publishedEventQueue = new Queue()
+        const contractRegistrationQueue = new Queue()
+        const liveObject = new LiveObject(publishedEventQueue, contractRegistrationQueue)
         liveObject._tablesApiToken = tablesApiToken
 
         // Check whether the input is an event or a call.
@@ -118,13 +121,19 @@ serve(async (req: Request) => {
             console.error(err)
             return resp({ 
                 error: err?.message || err, 
-                index: i, 
+                index: i,
                 publishedEvents: allPublishedEvents,
+                newContractInstances: allNewContractInstances,
             }, codes.INTERNAL_SERVER_ERROR)
         }
         allPublishedEvents.push(liveObject._publishedEvents)
+        allNewContractInstances.push(liveObject._newContractInstances)
     }
 
-    // Return all generated events to be published.
-    return resp(allPublishedEvents)
+    // Return the generated events to be published 
+    // and any new contract instances to be registered.
+    return resp({
+        publishedEvents: allPublishedEvents,
+        newContractInstances: allNewContractInstances,
+    })
 })

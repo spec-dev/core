@@ -115,6 +115,8 @@ export {
     removeLovFailure,
     setGeneratedEventsCursor,
     getGeneratedEventsCursors,
+    saveAdditionalContractsToGenerateInputsFor,
+    getAdditionalContractsToGenerateInputsFor,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -270,6 +272,7 @@ export { In, Not, IsNull, Brackets } from 'typeorm'
 export {
     redis as abiRedis,
     abiRedisKeys,
+    saveAbisMap,
     saveAbis,
     saveFunctionSignatures,
     getAbi,
@@ -347,3 +350,32 @@ export { hash } from './lib/utils/hash'
 
 export { createNamespaceUser } from './lib/core/db/services/namespaceUserServices'
 export { resolveCallVersionNames } from './lib/services/resolveCallVersionNames'
+export { designDataModelsFromEventSpec } from './lib/services/designDataModelsFromEventSpecs'
+export {
+    bulkSaveTransactions,
+    bulkSaveTraces,
+    bulkSaveLogs,
+    decodeTransactions,
+    decodeTraces,
+    decodeLogs,
+    findContractInteractionsInBlockRange,
+    findContractLogsInBlockRange,
+    decodeFunctionCalls,
+    decodeFunctionCall,
+    decodeFunctionArgs,
+    decodeLogEvents,
+    decodeLogEvent,
+    tryDecodingLogAsTransfer,
+    decodeTransferEvent,
+    decodeTransferSingleEvent,
+    decodeTransferBatchEvent,
+} from './lib/services/decodeServices'
+export { addContractInstancesToGroup } from './lib/services/addContractInstancesToGroup'
+export { createContractGroup } from './lib/services/createContractGroup'
+export {
+    upsertContractAndNamespace,
+    upsertContractEvents,
+    upsertContractEventView,
+    publishContractEventLiveObject,
+} from './lib/services/contractEventServices'
+export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'

@@ -14,6 +14,7 @@ export function parseGenerateTestInputsPayload(
     const recent = !!data?.recent
     const allTime = !!data?.allTime
     const streamId = data?.streamId
+    const isContractFactory = data?.isContractFactory || false
 
     if (!inputs || (!inputs.events?.length && !inputs.calls?.length)) {
         return { isValid: false, error: 'No inputs given' }
@@ -85,6 +86,7 @@ export function parseGenerateTestInputsPayload(
             recent,
             allTime,
             streamId,
+            isContractFactory,
         } as GenerateTestInputsPayload,
     }
 }
