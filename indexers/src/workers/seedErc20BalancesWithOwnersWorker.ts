@@ -130,7 +130,6 @@ class SeedErc20BalancesWithOwnersWorker {
         const [_, conflictCols] = fullErc20BalanceUpsertConfig()
         const conflictColStatement = conflictCols.map(ident).join(', ')
         erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
-        console.log(erc20Balances.slice(0, 10))
         try {
             await SharedTables
                 .createQueryBuilder()
