@@ -28,137 +28,231 @@ import {
     markLovFailure,
     getLovFailure,
     publishEvents, 
-    publishCalls,
     getDBTimestamp,
+    isValidAddress,
+    supportedChainIds,
+    addContractInstancesToGroup,
+    saveAdditionalContractsToGenerateInputsFor,
+    getAdditionalContractsToGenerateInputsFor,
+    getHighestBlock,
+    range,
 } from '../../shared'
+import { Pool } from 'pg'
+
+// Create connection pool.
+const pool = new Pool({
+    host: config.SHARED_TABLES_DB_HOST,
+    port: config.SHARED_TABLES_DB_PORT,
+    user: config.SHARED_TABLES_DB_USERNAME,
+    password: config.SHARED_TABLES_DB_PASSWORD,
+    database: config.SHARED_TABLES_DB_NAME,
+    max: config.SHARED_TABLES_MAX_POOL_SIZE,
+})
+pool.on('error', err => logger.error('PG client error', err))
 
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
 
     // Ensure re-org hasn't occurred that would affect progress.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
 
     console.log('')
-    logger.info(`Generating calls & events for block ${blockNumber}...`)
+    logger.info(`[${config.CHAIN_ID}:${blockNumber}] Generating calls & events...`)
 
     // Get the calls & events for this block number from redis.
     let [blockCalls, blockEvents] = await Promise.all([
         getBlockCalls(config.CHAIN_ID, blockNumber),
         getBlockEvents(config.CHAIN_ID, blockNumber),
     ])
+
+    // Get any recent contract registrations that need to be double checked for potentially missed inputs.
+    const recentContractRegistrations = (await getAdditionalContractsToGenerateInputsFor(
+        config.CHAIN_ID,
+        blockNumber,
+    )) || []
+    if (recentContractRegistrations.length) {
+        const additionalInputs = await generateBlockInputsForNewlyRegisteredContracts(
+            recentContractRegistrations,
+            blockNumber,
+            blockEvents,
+            blockCalls,
+        )
+        blockCalls.push(...additionalInputs.newBlockCalls)
+        blockEvents.push(...additionalInputs.newBlockEvents)
+    }
+
     if (!blockCalls?.length && !blockEvents?.length) {
         logger.warn(`No calls or events originated in block ${blockNumber}.`)
         return
     }
 
-    // Format/sort the calls & events.
-    const contractCalls = sortContractCalls(blockCalls)
-    const originEvents = formatOriginEvents(blockEvents)
-
-    // Publish all origin events up-front.
-    const hasContractCalls = contractCalls.length > 0
-    const hasOriginEvents = originEvents.length > 0
-    const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
-    hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
-    
-    // TBD whether we bring back - depends on added system load vs true customer value.
-    // hasContractCalls && await publishContractCalls(contractCalls, blockNumber, eventTimestamp)    
-
-    // Get the unique contract call names and unique event names for this batch.
-    const uniqueContractCallComps = getUniqueInputEventOrCallComps(contractCalls)
-    const uniqueEventVersionComps = getUniqueInputEventOrCallComps(originEvents)
-
-    // Get the failing namespaces and tables to avoid generating events for.
-    const [cachedFailingNsps, cachedFailingTables] = await Promise.all([
-        getFailingNamespaces(config.CHAIN_ID),
-        getFailingTables(config.CHAIN_ID),
-    ])
-    const failingNamespaces = new Set(cachedFailingNsps)
-    const failingTables = new Set(cachedFailingTables)
-
-    // Map the contract calls and event versions to the 
-    // live object versions that depend on them as inputs.
-    const [inputContractCallsToLovs, inputEventVersionsToLovs] = await Promise.all([
-        getLiveObjectVersionToContractCallMappings(
-            uniqueContractCallComps,
-            failingNamespaces,
-            failingTables,
-            blockNumber,
-        ),
-        getLiveObjectVersionToEventVersionMappings(
-            uniqueEventVersionComps,
-            failingNamespaces,
-            failingTables,
-            blockNumber,
-        ),
-    ])
-
-    const pluckLovIds = (toLovsMap: StringKeyMap) => Object.values(toLovsMap)
-        .map(entries => (entries || [])
-        .map(entry => entry.lovId)
-        .filter(v => !!v))
-        .flat()
-
-    const uniqueLovIds = unique([
-        ...pluckLovIds(inputContractCallsToLovs),
-        ...pluckLovIds(inputEventVersionsToLovs),
-    ])
-
-    // Map live object versions to the event versions they are allowed to generate (i.e. outputs).
-    const generatedEventVersionResults = await getGeneratedEventVersionsForLovs(
-        uniqueLovIds,
-        blockNumber,
-    )
-    const generatedEventVersionsWhitelist = {}
-    for (const { nsp, name, version, lovId } of generatedEventVersionResults) {
-        const numericLovId = Number(lovId)
-        if (!generatedEventVersionsWhitelist.hasOwnProperty(numericLovId)) {
-            generatedEventVersionsWhitelist[numericLovId] = new Set()
-        }
-        generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
-    }
-
-    // Group origin events by live object version namespace. Then within each namespace, 
-    // group the events even further if their adjacent events share the same live object version.
-    const callGroups = groupCallsByLovNamespace(contractCalls, inputContractCallsToLovs)
-    const eventGroups = groupEventsByLovNamespace(originEvents, inputEventVersionsToLovs)
-
-    // Merge call groups and event groups by live object version namespace.
-    const seenLovNsps = new Set<string>()
-    const inputGroups = {}
-    for (const lovNsp in eventGroups) {
-        const eventEntries = eventGroups[lovNsp] || []
-        const callEntries = callGroups[lovNsp] || []
-        inputGroups[lovNsp] = [...callEntries, ...eventEntries]
-        seenLovNsps.add(lovNsp)
-    }
-    for (const lovNsp in callGroups) {
-        if (seenLovNsps.has(lovNsp)) continue
-        inputGroups[lovNsp] = callGroups[lovNsp] || []
-    }
-
-    // One last check before event generation.
-    if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-event-gen.`))
-        return
-    }
-
-    // Generate Live Object events for each namespace group in parallel.
-    const promises = []
+    const existingBlockCalls = [...blockCalls]
+    const existingBlockEvents = [...blockEvents]
+    const newContractRegistrations = []
     const failedLovIds = new Set<number>()
-    for (const lovNsp in inputGroups) {
-        promises.push(generateLiveObjectEventsForNamespace(
-            lovNsp,
-            inputGroups[lovNsp],
-            generatedEventVersionsWhitelist,
-            failedLovIds,
+    let i = 0
+    while (true) {
+        i++
+        // Format/sort the calls & events.
+        const contractCalls = sortContractCalls(blockCalls)
+        const originEvents = formatOriginEvents(blockEvents)
+
+        // Publish all origin events up-front.
+        const hasContractCalls = contractCalls.length > 0
+        const hasOriginEvents = originEvents.length > 0
+        const eventTimestamp = (hasContractCalls || hasOriginEvents) ? await getDBTimestamp() : null
+        hasOriginEvents && await publishOriginEvents(originEvents, blockNumber, eventTimestamp)
+        
+        // Get the unique contract call names and unique event names for this batch.
+        const uniqueContractCallComps = getUniqueInputEventOrCallComps(contractCalls)
+        const uniqueEventVersionComps = getUniqueInputEventOrCallComps(originEvents)
+
+        // Get the failing namespaces and tables to avoid generating events for.
+        const [cachedFailingNsps, cachedFailingTables] = await Promise.all([
+            getFailingNamespaces(config.CHAIN_ID),
+            getFailingTables(config.CHAIN_ID),
+        ])
+        const failingNamespaces = new Set(cachedFailingNsps)
+        const failingTables = new Set(cachedFailingTables)
+
+        // Map the contract calls and event versions to the 
+        // live object versions that depend on them as inputs.
+        const [inputContractCallsToLovs, inputEventVersionsToLovs] = await Promise.all([
+            getLiveObjectVersionToContractCallMappings(
+                uniqueContractCallComps,
+                failingNamespaces,
+                failingTables,
+                blockNumber,
+            ),
+            getLiveObjectVersionToEventVersionMappings(
+                uniqueEventVersionComps,
+                failingNamespaces,
+                failingTables,
+                blockNumber,
+            ),
+        ])
+
+        const pluckLovIds = (toLovsMap: StringKeyMap) => Object.values(toLovsMap)
+            .map(entries => (entries || [])
+            .map(entry => entry.lovId)
+            .filter(v => !!v))
+            .flat()
+
+        const uniqueLovIds = unique([
+            ...pluckLovIds(inputContractCallsToLovs),
+            ...pluckLovIds(inputEventVersionsToLovs),
+        ])
+
+        // Map live object versions to the event versions they are allowed to generate (i.e. outputs).
+        const generatedEventVersionResults = await getGeneratedEventVersionsForLovs(
+            uniqueLovIds,
             blockNumber,
-        ))
+        )
+        const generatedEventVersionsWhitelist = {}
+        for (const { nsp, name, version, lovId } of generatedEventVersionResults) {
+            const numericLovId = Number(lovId)
+            if (!generatedEventVersionsWhitelist.hasOwnProperty(numericLovId)) {
+                generatedEventVersionsWhitelist[numericLovId] = new Set()
+            }
+            generatedEventVersionsWhitelist[numericLovId].add(toNamespacedVersion(nsp, name, version))
+        }
+
+        // Group origin events by live object version namespace. Then within each namespace, 
+        // group the events even further if their adjacent events share the same live object version.
+        const callGroups = groupCallsByLovNamespace(contractCalls, inputContractCallsToLovs)
+        const eventGroups = groupEventsByLovNamespace(originEvents, inputEventVersionsToLovs)
+
+        // Merge call groups and event groups by live object version namespace.
+        const seenLovNsps = new Set<string>()
+        const inputGroups = {}
+        for (const lovNsp in eventGroups) {
+            const eventEntries = eventGroups[lovNsp] || []
+            const callEntries = callGroups[lovNsp] || []
+
+            // TODO: Merge these back into the correct tx-based order 
+            inputGroups[lovNsp] = [...callEntries, ...eventEntries]
+
+            seenLovNsps.add(lovNsp)
+        }
+        for (const lovNsp in callGroups) {
+            if (seenLovNsps.has(lovNsp)) continue
+            inputGroups[lovNsp] = callGroups[lovNsp] || []
+        }
+
+        // One last check before event generation.
+        if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
+            logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-event-gen.`))
+            return
+        }
+
+        // Generate live object events and (potentially) new 
+        // contracts to register for each namespace.
+        const promises = []
+        for (const lovNsp in inputGroups) {
+            promises.push(generateLiveObjectEventsForNamespace(
+                lovNsp,
+                inputGroups[lovNsp],
+                generatedEventVersionsWhitelist,
+                failedLovIds,
+                blockNumber,
+            ))
+        }
+        
+        // New contracts to register created via the factory pattern.
+        const groupContractInstancesToRegister = (await Promise.all(promises)).flat()
+        newContractRegistrations.push(...groupContractInstancesToRegister)
+
+        // Get any input events/calls that would have been generated 
+        // *this block* by any of the newly registered contracts.
+        const { newBlockEvents, newBlockCalls } = await generateBlockInputsForNewlyRegisteredContracts(
+            groupContractInstancesToRegister,
+            blockNumber,
+            existingBlockEvents,
+            existingBlockCalls,
+        )
+        if (!newBlockEvents.length && !newBlockCalls.length) break
+
+        // Prevent infinite loops.
+        if (i > config.MAX_CONTRACT_REGISTRATION_STACK_HEIGHT) {
+            logger.notify(`[${config.CHAIN_ID}:${blockNumber}] Contract factory additions hit max number of loops.`)
+            logger.warn(`Remaining block events: ${JSON.stringify(newBlockEvents)}`)
+            logger.warn(`Remaining block calls: ${JSON.stringify(newBlockCalls)}`)
+            break
+        }
+
+        // Fully curated lists that persist across loop iterations.
+        existingBlockEvents.push(...newBlockEvents)
+        existingBlockCalls.push(...newBlockCalls)
+
+        // Set these and run event generation again using the new 
+        // events/calls generated from the contracts just registered.
+        blockEvents = newBlockEvents
+        blockCalls = newBlockCalls
     }
-    await Promise.all(promises)
+
+    // Note that these contracts should be included as "additional" contracts to 
+    // generate inputs for from <this block> -> <current head + buffer> so that block inputs 
+    // already aggregated that weren't able to use the newly registered contracts yet
+    // will incorporate those additions.
+    if (newContractRegistrations.length) {
+        const [largestNumberInSharedTables, largestNumberInIndexerDB] = await Promise.all([
+            getLargestBlockNumberFromSharedTables(),
+            getLargestBlockNumberFromIndexerDB(),
+        ])
+        const ceiling = Math.max(
+            (largestNumberInSharedTables || 0) + 1,
+            (largestNumberInIndexerDB || 0) + 1,
+            blockNumber + 1,
+        )
+        await saveAdditionalContractsToGenerateInputsFor(
+            newContractRegistrations,
+            range(blockNumber, ceiling),
+            config.CHAIN_ID,
+        )
+    }
 
     // One last check before deleting calls/events from cache.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
@@ -170,6 +264,38 @@ async function perform(data: StringKeyMap) {
         deleteBlockCalls(config.CHAIN_ID, blockNumber),
         deleteBlockEvents(config.CHAIN_ID, blockNumber),
     ])
+}
+
+async function generateBlockInputsForNewlyRegisteredContracts(
+    groupContractInstancesToRegister: StringKeyMap[],
+    blockNumber: number,
+    existingBlockEvents: StringKeyMap[],
+    existingBlockCalls: StringKeyMap[],
+): Promise<StringKeyMap> {
+    const newBlockEvents = []
+    const newBlockCalls = []
+
+    for (const { group, addresses } of groupContractInstancesToRegister) {
+        try {
+            const { newEventSpecs, newCallSpecs } = await addContractInstancesToGroup(
+                addresses,
+                config.CHAIN_ID,
+                group,
+                blockNumber,
+                pool,
+                existingBlockEvents,
+                existingBlockCalls,
+            )
+            newBlockEvents.push(...(newEventSpecs || []))
+            newBlockCalls.push(...(newCallSpecs || []))
+        } catch (err) {
+            logger.error(
+                `[${config.CHAIN_ID}:${blockNumber}] Failed to add contract instances ${addresses.join(', ')} to group "${group}": ${err}`
+            )
+        }
+    }
+
+    return { newBlockEvents, newBlockCalls }
 }
 
 function formatOriginEvents(blockEvents: StringKeyMap[]): StringKeyMap[] {
@@ -200,35 +326,23 @@ async function publishOriginEvents(
     }
 }
 
-async function publishContractCalls(
-    entries: StringKeyMap[],
-    blockNumber: number,
-    eventTimestamp: string,
-) {
-    try {
-        await publishCalls(entries, eventTimestamp)
-    } catch (err) {
-        throw `Failed to publish contract calls for block ${blockNumber}: ${err}`
-    }
-}
-
 async function generateLiveObjectEventsForNamespace(
     nsp: string,
     inputGroups: StringKeyMap[],
     generatedEventVersionsWhitelist: StringKeyMap,
     failedLovIds: Set<number>,
     blockNumber: number,
-) {
+): Promise<StringKeyMap[]> {
     const tablesApiTokens = {}
     const lovIds = []
-    const generatedEvents = []
+    const results = []
     
     for (const inputGroup of inputGroups) {
         const { lovId, lovUrl, lovTableSchema, events, calls } = inputGroup
         lovIds.push(lovId)
 
         if (failedLovIds.has(lovId)) {
-            generatedEvents.push([])
+            results.push({})
             continue
         }
 
@@ -239,7 +353,7 @@ async function generateLiveObjectEventsForNamespace(
             tablesApiTokens[lovTableSchema] = newTablesApiToken(lovTableSchema)
         }
 
-        generatedEvents.push(await generateLiveObjectEventsWithProtection(
+        results.push(await generateLiveObjectEventsWithProtection(
             nsp,
             lovId,
             lovUrl,
@@ -252,25 +366,45 @@ async function generateLiveObjectEventsForNamespace(
     }
 
     const eventsToPublish = []
+    const contractInstancesToRegister = []
     for (let i = 0; i < lovIds.length; i++) {
         const lovId = lovIds[i]
         if (failedLovIds.has(lovId)) continue
-        eventsToPublish.push(...generatedEvents[i])
+        const result = results[i] || {}
+        const publishedEvents = result.publishedEvents || []
+        const newContractInstances = result.newContractInstances || []
+        eventsToPublish.push(...publishedEvents)
+        contractInstancesToRegister.push(...newContractInstances)
     }
-    if (!eventsToPublish.length) return
 
     // Check before publishing.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
-        logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
+        logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
         return
     }
 
     // Publish generated events on-the-fly as they come back.
     try {
-        await publishEvents(eventsToPublish, true)
+        eventsToPublish.length && await publishEvents(eventsToPublish, true)
     } catch (err) {
         throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
     }
+
+    // Group contract instances to register by their destination group.
+    const registerContractInstancesByGroup = {}
+    for (const { address, group } of contractInstancesToRegister) {
+        registerContractInstancesByGroup[group] = registerContractInstancesByGroup[group] || []
+        registerContractInstancesByGroup[group].push(address)
+    }
+    const groupContractInstancesToRegister = []
+    for (const group in registerContractInstancesByGroup) {
+        groupContractInstancesToRegister.push({
+            group,
+            addresses: unique(registerContractInstancesByGroup[group]),
+        })
+    }
+
+    return groupContractInstancesToRegister
 }
 
 export async function generateLiveObjectEventsWithProtection(
@@ -282,9 +416,10 @@ export async function generateLiveObjectEventsWithProtection(
     inputs: StringKeyMap[],
     tablesApiToken: string,
     blockNumber: number,
-): Promise<StringKeyMap[]> {
+): Promise<StringKeyMap> {
     try {
         const eventsQueue = []
+        const newContractInstancesQueue = []
         return await generateLiveObjectEvents(
             lovNsp,
             lovId,
@@ -294,6 +429,7 @@ export async function generateLiveObjectEventsWithProtection(
             tablesApiToken,
             blockNumber,
             eventsQueue,
+            newContractInstancesQueue,
             inputs,
         )
     } catch (err) {
@@ -305,7 +441,7 @@ export async function generateLiveObjectEventsWithProtection(
         const blockTimestamp = await getBlockTimestamp(blockNumber)
         blockTimestamp && await markLovFailure(lovId, blockTimestamp)
         failedLovIds.add(lovId)
-        return []
+        return {}
     }
 }   
 
@@ -318,9 +454,10 @@ async function generateLiveObjectEvents(
     tablesApiToken: string,
     blockNumber: number,
     eventsQueue: StringKeyMap[],
+    newContractInstancesQueue: StringKeyMap[],
     allInputs: StringKeyMap[],
     attempts: number = 0,
-): Promise<StringKeyMap[]> {
+): Promise<StringKeyMap> {
     // Prep both auth headers. One for the event generator function itself, 
     // and one for the event generator to make calls to the Tables API.
     const headers = {
@@ -356,6 +493,7 @@ async function generateLiveObjectEvents(
                 tablesApiToken,
                 blockNumber,
                 eventsQueue,
+                newContractInstancesQueue,
                 allInputs,
                 attempts + 1,
             )
@@ -366,32 +504,40 @@ async function generateLiveObjectEvents(
     clearTimeout(timer)
 
     // Get the live object events generated from the response.
-    let generatedEventGroups = []
+    let result: any = {}
     try {
-        generatedEventGroups = (await resp?.json()) || []
+        result = (await resp?.json()) || {}
     } catch (err) {
+        result = {}
         logger.error(
             `[${blockNumber}] Failed to parse JSON response (lovId=${lovId}): ${err} - 
             inputs: ${JSON.stringify(inputs, null, 4)}`
         )
     }
+
+    const publishedEvents = result.publishedEvents || []
+    const newContractInstances = result.newContractInstances || []
+
     if (resp?.status !== 200) {
         const msg = (
             `[${blockNumber}] Request to ${lovUrl} (lovId=${lovId}) failed with status ${resp?.status}: 
-            ${JSON.stringify(generatedEventGroups || {})}.`
+            ${JSON.stringify(publishedEvents)}.`
         )
         logger.error(msg)
         if (attempts <= 50) {
             await sleep(1000)
-            const respData = generatedEventGroups as StringKeyMap
-
             let retryInputs = inputs
             let successfullyPublishedEvents = []
-            if (resp.status == 500 && respData && respData.hasOwnProperty('index')) {
-                retryInputs = retryInputs.slice(Number(respData.index))
-                successfullyPublishedEvents = respData.publishedEvents || []
+            let newContractInstancesToRegister = []
+
+            if (resp.status == 500 && result.hasOwnProperty('index')) {
+                retryInputs = retryInputs.slice(Number(result.index))
+                successfullyPublishedEvents = publishedEvents
+                newContractInstancesToRegister = newContractInstances
             }
+
             eventsQueue.push(...successfullyPublishedEvents)
+            newContractInstancesQueue.push(...newContractInstancesToRegister)
 
             return generateLiveObjectEvents(
                 lovNsp,
@@ -402,6 +548,7 @@ async function generateLiveObjectEvents(
                 tablesApiToken,
                 blockNumber,
                 eventsQueue,
+                newContractInstancesQueue,
                 allInputs,
                 attempts + 1,
             )
@@ -410,7 +557,7 @@ async function generateLiveObjectEvents(
         }
     }
 
-    generatedEventGroups = [...eventsQueue, ...generatedEventGroups]
+    const generatedEventGroups = [...eventsQueue, ...publishedEvents]
 
     // Filter generated events by those that are allowed to be created / registered with Spec.
     acceptedOutputEvents = acceptedOutputEvents || new Set()
@@ -444,7 +591,49 @@ async function generateLiveObjectEvents(
         }
         i++
     }
-    return liveObjectEvents
+
+    // Filter contract instances by those that are allowed to be registered.
+    const givenContractInstancesToRegister = [...newContractInstancesQueue, ...newContractInstances].flat()
+    const validContractInstancesToRegister = []
+    for (let { address, group, chainId } of givenContractInstancesToRegister) {
+        address = address?.toLowerCase()
+        if (!isValidAddress(address)) {
+            logger.error(`[${blockNumber}] Contract factory - Invalid address ${address} given from lovId=${lovId}`)
+            continue
+        }
+        
+        chainId = chainId?.toString()
+        if (!supportedChainIds.has(chainId)) {
+            logger.error(`[${blockNumber}] Contract factory - Invalid chainId ${chainId} given from lovId=${lovId}`)
+            continue
+        }
+
+        if (chainId !== config.CHAIN_ID) {
+            logger.error(`[${blockNumber}] Contract factory - ChainId mismatch: ${chainId} vs. ${config.CHAIN_ID} (lovId=${lovId})`)
+            continue
+        }
+
+        const splitGroup = (group || '').split('.')
+        if (splitGroup.length !== 2) {
+            logger.error(`[${blockNumber}] Contract factory - Invalid group "${group}" given from lovId=${lovId}`)
+            continue
+        }
+
+        if (splitGroup[0] !== lovNsp) {
+            logger.error(
+                `[${blockNumber}] Contract factory - Not allowed to register contracts under namespace ${splitGroup[0]}. 
+                lovId=${lovId} is only allowed to register contracts under its own namespace, ${lovNsp}.`
+            )
+            continue
+        }
+
+        validContractInstancesToRegister.push({ address, group })
+    }
+
+    return {
+        publishedEvents: liveObjectEvents,
+        newContractInstances: validContractInstancesToRegister,
+    }
 }
 
 function groupCallsByLovNamespace(
@@ -812,6 +1001,27 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     } catch (err) {
         logger.error(err)
         return null
+    }
+}
+
+async function getLargestBlockNumberFromSharedTables(): Promise<number | null> {
+    const schema = schemaForChainId[config.CHAIN_ID]
+    const tablePath = [schema, 'blocks'].join('.')
+    try {
+        const result = (await SharedTables.query(
+            `select number from ${identPath(tablePath)} order by number desc limit 1`
+        ))[0] || {}
+        return result.number ? Number(result.number) : null
+    } catch (err) {
+        throw `Error finding largest block number in SharedTables for ${tablePath}: ${err}`
+    }
+}
+
+async function getLargestBlockNumberFromIndexerDB(): Promise<number | null> {
+    try {
+        return (await getHighestBlock(config.CHAIN_ID))?.number
+    } catch (err) {
+        throw `Error finding largest block number in IndexerDB for chain ${config.CHAIN_ID}: ${err}`
     }
 }
 

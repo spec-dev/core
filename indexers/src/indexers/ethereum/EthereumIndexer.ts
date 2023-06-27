@@ -391,16 +391,16 @@ class EthereumIndexer extends AbstractIndexer {
             ))
         )
 
-        // tokens.NewWethBalances
-        const wethBalances = (this.erc20Balances || []).filter(b => (
-            (b.chainId === chainIds.ETHEREUM && b.tokenAddress === '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2') ||
-            (b.chainId === chainIds.GOERLI && b.tokenAddress === '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6')
-        ))
-        wethBalances.length && originEventSpecs.push(
-            ...(toChunks(wethBalances, config.MAX_EVENTS_LENGTH).map(balances => 
-                originEvents.tokens.NewWethBalances(balances, eventOrigin)
-            ))
-        )
+        // // tokens.NewWethBalances
+        // const wethBalances = (this.erc20Balances || []).filter(b => (
+        //     (b.chainId === chainIds.ETHEREUM && b.tokenAddress === '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2') ||
+        //     (b.chainId === chainIds.GOERLI && b.tokenAddress === '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6')
+        // ))
+        // wethBalances.length && originEventSpecs.push(
+        //     ...(toChunks(wethBalances, config.MAX_EVENTS_LENGTH).map(balances => 
+        //         originEvents.tokens.NewWethBalances(balances, eventOrigin)
+        //     ))
+        // )
 
         // Decode contract events and function calls.
         const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)

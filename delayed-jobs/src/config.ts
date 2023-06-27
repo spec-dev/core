@@ -14,6 +14,7 @@ const delayedJobsConfig: StringKeyMap = {
     EVENT_GEN_AUTH_HEADER_NAME: 'Spec-Auth-Token',
     EVENT_GENERATORS_JWT: ev('EVENT_GENERATORS_JWT'),
     TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
+    MAX_CONTRACT_REGISTRATION_STACK_HEIGHT: 100,
 }
 
 export default delayedJobsConfig

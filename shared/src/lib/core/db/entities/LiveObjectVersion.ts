@@ -33,6 +33,7 @@ export interface LiveObjectVersionConfig {
     table: string
     chains?: StringKeyMap
     tableName?: string
+    isContractFactory?: boolean
 }
 
 export enum LiveObjectVersionStatus {

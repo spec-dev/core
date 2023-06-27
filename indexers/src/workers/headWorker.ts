@@ -102,7 +102,6 @@ async function runJob(job: Job) {
                 break
             }
 
-            logger.error(err)
             logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
 
             if (attempt > 2 && !triedToRebuildRpcPoolAsFix) {
