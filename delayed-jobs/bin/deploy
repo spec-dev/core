@@ -49,11 +49,6 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "DENO_DEPLOY_TOKEN" "$deno_deploy_token"
-$shared_bin_dir/assert_env "ETHERSCAN_API_KEY" "$etherscan_api_key"
-$shared_bin_dir/assert_env "GOERLISCAN_API_KEY" "$goerliscan_api_key"
-$shared_bin_dir/assert_env "POLYGONSCAN_API_KEY" "$polygonscan_api_key"
-$shared_bin_dir/assert_env "MUMBAISCAN_API_KEY" "$mumbaiscan_api_key"
 $shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url"
 $shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
 $shared_bin_dir/assert_env "EVENT_GENERATORS_JWT" "$event_generators_jwt"
