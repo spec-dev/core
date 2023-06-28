@@ -28,6 +28,7 @@ import { getValidateBlocksWorker } from './validateBlocksWorker'
 import { getFindInvalidPrimitivesWorker } from './findInvalidPrimitivesWorker'
 import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwnersWorker'
 import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
+import { getSeedNativeErc20BalancesWithOwnersWorker } from './seedNativeErc20BalancesWithOwnersWorker'
 import { getTrimAbisWorker } from './trimAbisWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
@@ -102,6 +103,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'stb') {
         return getSeedErc20BalancesWithOwnersWorker()
+    } 
+    if (config.RANGE_WORKER_TYPE === 'sntb') {
+        return getSeedNativeErc20BalancesWithOwnersWorker()
     } 
     if (config.RANGE_WORKER_TYPE === 'atb') {
         return getAssignErc20BalancesWorker()
