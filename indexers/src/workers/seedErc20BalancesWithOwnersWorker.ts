@@ -92,9 +92,11 @@ class SeedErc20BalancesWithOwnersWorker {
         // Get potential erc20 transfer logs for this block range.
         const logs = this._decodeLogsIfNeeded(await this._getTransferLogsForBlockRange(start, end))
         if (!logs.length) return
+        logger.info(`    ${logs.length} logs`)
 
         // Get all unique contract addresses across logs.
         const contractAddresses = unique(logs.map(log => log.address))
+        logger.info(`    ${contractAddresses.length} contract addresses`)
 
         // Find ERC-20 tokens for contract addresses.
         const erc20TokensByAddress = await this._getErc20TokensForAddresses(contractAddresses)
@@ -115,6 +117,8 @@ class SeedErc20BalancesWithOwnersWorker {
                 this.tokenOwners[[token.address, ownerAddress].join(':')] = this._formatEmptyBalance(ownerAddress, token)
             }
         }
+
+        logger.info(`    Count: ${Object.keys(this.tokenOwners).length}`)
 
         // Upsert empty balances.
         if (Object.keys(this.tokenOwners).length > 4000) {
@@ -179,21 +183,27 @@ class SeedErc20BalancesWithOwnersWorker {
     async _getErc20TokensForAddresses(addresses: string[]) {
         const tokens = []
         const remainingAddresses = []
+        let i = 0
         for (const address of addresses) {
             const cachedToken = this.cachedTokens.get(address)
             if (cachedToken) {
+                i++
                 tokens.push(cachedToken)
             } else {
                 remainingAddresses.push(address)
             }
         }
 
+        i && logger.info(`    ${i} cached tokens`)
+
         if (remainingAddresses.length) {
             const persistedTokens = (await erc20TokensRepo().find({
                 select: { address: true, name: true, symbol: true, decimals: true },
                 where: { address: In(remainingAddresses), chainId: this.chainId },
             })) || []
-    
+
+            persistedTokens.length && logger.info(`    ${persistedTokens.length} persisted tokens`)
+
             persistedTokens.forEach(token => {
                 this.cachedTokens.set(token.address, token)
                 tokens.push(token)
