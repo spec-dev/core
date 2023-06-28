@@ -69,7 +69,7 @@ export function parseDecodeContractInteractionsPayload(
     data: StringKeyMap
 ): ValidatedPayload<DecodeContractInteractionsPayload> {
     const chainId = data?.chainId
-    const contractAddresses = (data?.contractAddresses || []).map(a => a.toLowerCase())
+    const contractAddresses = (data?.contractAddresses || []).map((a) => a.toLowerCase())
     const finalEndBlock = data?.finalEndBlock
     const queryRangeSize = data?.queryRangeSize
     const jobRangeSize = data?.jobRangeSize

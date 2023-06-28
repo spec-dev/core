@@ -3,6 +3,7 @@ import paths from '../../utils/paths'
 import { parseCreateContractGroupPayload } from './contractPayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
 import { getNamespace, NamespaceAccessTokenScope, createContractGroup } from '../../../../shared'
+import getContractGroup from '../../services/getContractGroup'
 
 /**
  * Create a new, empty contract group.
@@ -22,7 +23,10 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
     }
 
     // Authorize request for given namespace using either user auth header or namespace auth header.
-    const allowedScopes = [NamespaceAccessTokenScope.RegisterContracts, NamespaceAccessTokenScope.Internal]
+    const allowedScopes = [
+        NamespaceAccessTokenScope.RegisterContracts,
+        NamespaceAccessTokenScope.Internal,
+    ]
     if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // Try to create the new group.
@@ -35,12 +39,11 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
     return res.status(codes.SUCCESS).json({ error: null })
 })
 
-
 /**
  * Get contract group where object is { [chainId]: addresses[]}
  */
 app.get(paths.CONTRACT_GROUP, async (req, res) => {
-    console.log('req.query', req.query)
+    await getContractGroup(req.query.group as string)
 
     // // Parse & validate payload.
     // const { payload, isValid, error } = parseContractRegistrationPayload(req.body)

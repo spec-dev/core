@@ -17,6 +17,6 @@ export function parseGetContractRegistrationJobPayload(
         isValid: true,
         payload: {
             uid,
-        }
+        },
     }
 }

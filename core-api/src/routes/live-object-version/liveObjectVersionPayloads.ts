@@ -24,23 +24,26 @@ export function parseGenerateTestInputsPayload(
     const invalidChainIds = chainIds.filter((id) => !supportedChainIds.has(id))
     if (invalidChainIds.length) {
         return { isValid: false, error: `Invalid chain ids: ${invalidChainIds.join(', ')}` }
-    } 
+    }
 
     fromBlock = fromBlock ? toNumber(fromBlock) : null
     toBlock = toBlock ? toNumber(toBlock) : null
     from = from ? toDate(from) : null
     to = to ? toDate(to) : null
-    
+
     if (fromBlock !== null && fromBlock < 0) {
         return { isValid: false, error: `"fromBlock" can't be negative` }
     }
     if (toBlock !== null && toBlock < 0) {
         return { isValid: false, error: `"toBlock" can't be negative` }
     }
-    
+
     // Prevent days and block ranges from meshing.
     if ((fromBlock || toBlock) && recent) {
-        return { isValid: false, error: `"recent" can't be used together with "fromBlock" or "toBlock"` }
+        return {
+            isValid: false,
+            error: `"recent" can't be used together with "fromBlock" or "toBlock"`,
+        }
     }
     if (from && to && recent) {
         return { isValid: false, error: `"recent" can't be used together with "from" or "to"` }
@@ -51,10 +54,13 @@ export function parseGenerateTestInputsPayload(
     if ((fromBlock || toBlock) && (from || to) && allTime) {
         return { isValid: false, error: `Can't specify a range when using "allTime"` }
     }
-    
+
     // Only 1 chain can be specified when using block ranges.
     if ((fromBlock || toBlock) && chainIds.length > 1) {
-        return { isValid: false, error: `Can only use "fromBlock" and "toBlock" with a single chain.` }
+        return {
+            isValid: false,
+            error: `Can only use "fromBlock" and "toBlock" with a single chain.`,
+        }
     }
 
     // Ensure ranges only move forwards in time or in series.

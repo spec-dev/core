@@ -1,6 +1,9 @@
 import { app } from '../../express'
 import paths from '../../../utils/paths'
-import { parsePublishLiveObjectVersionPayload, parseIndexLiveObjectVersionsPayload } from './liveObjectVersionPayloads'
+import {
+    parsePublishLiveObjectVersionPayload,
+    parseIndexLiveObjectVersionsPayload,
+} from './liveObjectVersionPayloads'
 import { codes, errors, authorizeAdminRequest } from '../../../utils/requests'
 import {
     enqueueDelayedJob,
@@ -62,7 +65,7 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
 /**
  * Index live object versions.
  */
- app.post(paths.INDEX_LIVE_OBJECT_VERSIONS, async (req, res) => {
+app.post(paths.INDEX_LIVE_OBJECT_VERSIONS, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.

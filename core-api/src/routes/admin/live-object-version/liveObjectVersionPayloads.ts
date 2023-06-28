@@ -2,7 +2,7 @@ import { ValidatedPayload, StringKeyMap, PublishLiveObjectVersionPayload } from 
 import { isValidVersionFormat } from '../../../../../shared'
 
 interface IndexLiveObjectVersionsPayload {
-    lovIds: number[],
+    lovIds: number[]
     startTimestamp?: string
     maxIterations?: number
     targetBatchSize?: number
@@ -128,6 +128,6 @@ export function parseIndexLiveObjectVersionsPayload(
 
     return {
         isValid: true,
-        payload: { lovIds, startTimestamp, maxIterations, targetBatchSize }
+        payload: { lovIds, startTimestamp, maxIterations, targetBatchSize },
     }
 }

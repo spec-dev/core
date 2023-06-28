@@ -23,7 +23,7 @@ export function parseCreateContractGroupPayload(
     const invalidChainIds = chainIds.filter((id) => !supportedChainIds.has(id))
     if (invalidChainIds.length) {
         return { isValid: false, error: `Invalid chain ids: ${invalidChainIds.join(', ')}` }
-    } 
+    }
 
     if (!nsp) {
         return { isValid: false, error: '"nsp" required' }
