@@ -20,6 +20,7 @@ import {
     unique,
     WETH_WITHDRAWAL_TOPIC,
     In,
+    EthTransactionStatus,
     specialErc20BalanceAffectingAbis,
     TRANSFER_EVENT_NAME,
     Erc20Token,
@@ -66,8 +67,6 @@ class SeedErc20BalancesWithOwnersWorker {
     }
 
     async run() {
-        logger.info(`Starting seed erc20 balances worker...`)
-
         await this._getBlock()
         if (!this.block) throw 'No block set'
 
@@ -93,12 +92,10 @@ class SeedErc20BalancesWithOwnersWorker {
 
         // Get potential erc20 transfer logs for this block range.
         const logs = this._decodeLogsIfNeeded(await this._getTransferLogsForBlockRange(start, end))
-        logger.info(`    ${logs.length} logs`)
         if (!logs.length) return
 
         // Get all unique contract addresses across logs.
         const contractAddresses = unique(logs.map(log => log.address))
-        logger.info(`    ${contractAddresses.length} contract addresses`)
 
         // Find ERC-20 tokens for contract addresses.
         const erc20TokensByAddress = await this._getErc20TokensForAddresses(contractAddresses)
@@ -119,8 +116,6 @@ class SeedErc20BalancesWithOwnersWorker {
                 this.tokenOwners[[token.address, ownerAddress].join(':')] = this._formatEmptyBalance(ownerAddress, token)
             }
         }
-
-        logger.info(`    Count: ${Object.keys(this.tokenOwners).length}`)
 
         // Upsert empty balances.
         if (Object.keys(this.tokenOwners).length > 4000) {
@@ -157,32 +152,27 @@ class SeedErc20BalancesWithOwnersWorker {
 
     async _getTransferLogsForBlockRange(start: number, end: number): Promise<StringKeyMap[]> {
         const schema = schemaForChainId[config.CHAIN_ID]
-        const tablePath = [ident(schema), ident('logs')].join('.')
-        const results = await SharedTables.query(
-            `select * from ${tablePath} where block_number >= $1 and block_number <= $2 and topic0 in ($3, $4, $5)`,
+        const results = await SharedTables.query(`
+            select
+                l.address as address,
+                l.topic0 as topic0,
+                l.topic1 as topic1,
+                l.topic2 as topic2,
+                l.topic3 as topic3,
+                l.data as data,
+                l.event_name as event_name,
+                l.event_args as event_args,
+                t.status as status
+            from ${schema}.logs l
+            inner join ${schema}.transactions t on l.transaction_hash = t.hash
+            where 
+                l.block_number >= $1
+                and l.block_number <= $2
+                and l.topic0 in ($3, $4, $5)
+            `,
             [start, end, TRANSFER_TOPIC, WETH_DEPOSIT_TOPIC, WETH_WITHDRAWAL_TOPIC]
         )
-
-        const logs = camelizeKeys(results || []) as StringKeyMap[]
-        if (!logs.length) {
-            logger.warn(`No transfer logs this range...`)
-            return []
-        }
-
-        const uniqueTxHashes = unique(logs.map(log => log.transactionHash))
-        const placeholders = []
-        let i = 1
-        for (const _ of uniqueTxHashes) {
-            placeholders.push(`$${i}`)
-            i++
-        }
-        
-        const successfulTxHashes = new Set((await SharedTables.query(
-            `select hash from ${ident(schema)}.${ident('transactions')} where hash in (${placeholders.join(', ')}) and status != $${i}`,
-            [...uniqueTxHashes, 0]
-        )).map(tx => tx.hash))
-
-        return logs.filter(log => log.address && successfulTxHashes.has(log.transactionHash))
+        return camelizeKeys(results || []).filter(log => log.address && log.status != EthTransactionStatus.Failure)
     }
 
     async _getErc20TokensForAddresses(addresses: string[]) {
@@ -199,15 +189,11 @@ class SeedErc20BalancesWithOwnersWorker {
             }
         }
 
-        i && logger.info(`    ${i} cached tokens`)
-
         if (remainingAddresses.length) {
             const persistedTokens = (await erc20TokensRepo().find({
                 select: { address: true, name: true, symbol: true, decimals: true },
                 where: { address: In(remainingAddresses), chainId: this.chainId },
             })) || []
-
-            persistedTokens.length && logger.info(`    ${persistedTokens.length} persisted tokens`)
 
             persistedTokens.forEach(token => {
                 this.cachedTokens.set(token.address, token)
