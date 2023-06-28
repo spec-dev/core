@@ -66,6 +66,8 @@ class SeedErc20BalancesWithOwnersWorker {
     }
 
     async run() {
+        logger.info(`Starting seed erc20 balances worker...`)
+
         await this._getBlock()
         if (!this.block) throw 'No block set'
 
@@ -91,8 +93,8 @@ class SeedErc20BalancesWithOwnersWorker {
 
         // Get potential erc20 transfer logs for this block range.
         const logs = this._decodeLogsIfNeeded(await this._getTransferLogsForBlockRange(start, end))
-        if (!logs.length) return
         logger.info(`    ${logs.length} logs`)
+        if (!logs.length) return
 
         // Get all unique contract addresses across logs.
         const contractAddresses = unique(logs.map(log => log.address))
@@ -162,7 +164,10 @@ class SeedErc20BalancesWithOwnersWorker {
         )
 
         const logs = camelizeKeys(results || []) as StringKeyMap[]
-        if (!logs.length) return []
+        if (!logs.length) {
+            logger.warn(`No transfer logs this range...`)
+            return []
+        }
 
         const uniqueTxHashes = unique(logs.map(log => log.transactionHash))
         const placeholders = []
@@ -173,8 +178,8 @@ class SeedErc20BalancesWithOwnersWorker {
         }
         
         const successfulTxHashes = new Set((await SharedTables.query(
-            `select hash from ${ident(schema)}.${ident('transactions')} where hash in (${placeholders.join(', ')}) and status != 0`,
-            uniqueTxHashes,
+            `select hash from ${ident(schema)}.${ident('transactions')} where hash in (${placeholders.join(', ')}) and status != $${i}`,
+            [...uniqueTxHashes, 0]
         )).map(tx => tx.hash))
 
         return logs.filter(log => log.address && successfulTxHashes.has(log.transactionHash))
