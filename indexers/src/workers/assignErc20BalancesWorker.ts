@@ -5,7 +5,6 @@ import {
     StringKeyMap,
     camelizeKeys,
     toChunks,
-    chainIds,
     Erc20Balance,
     In,
     sleep,
@@ -27,17 +26,9 @@ class AssignErc20BalancesWorker {
 
     chainId: string
 
-    token: StringKeyMap
-
-    ownerAddresses: Set<string> = new Set()
-
-    erc20Balances: Erc20Balance[] = []
-
     updates: StringKeyMap[] = []
 
     deletes: number[] = []
-
-    latestBlock: StringKeyMap | null = null
 
     pool: Pool
 
@@ -47,16 +38,6 @@ class AssignErc20BalancesWorker {
         this.offset = from
         this.groupSize = groupSize || 1
         this.chainId = config.CHAIN_ID
-        this.token = {
-            address: this.chainId === chainIds.ETHEREUM
-                ? '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
-                : '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6',
-            name: 'Wrapped Ether',
-            symbol: 'WETH',
-            decimals: 18,
-        }
-
-        // Create connection pool.
         this.pool = new Pool({
             host : config.SHARED_TABLES_DB_HOST,
             port : config.SHARED_TABLES_DB_PORT,
@@ -96,8 +77,6 @@ class AssignErc20BalancesWorker {
 
         const emptyBalances = await this._getEmptyBalances()
         if (!emptyBalances.length) return false
-
-        logger.info(`Got ${emptyBalances.length}`)
         
         const groups = toChunks(emptyBalances, 30)
         const erc20BalanceValues = []
@@ -105,9 +84,9 @@ class AssignErc20BalancesWorker {
             for (const group of groups) {
                 erc20BalanceValues.push(...(await Promise.all(group.map(erc20Balance => (
                     getERC20TokenBalance(
-                        this.token.address, 
+                        erc20Balance.tokenAddress,
                         erc20Balance.ownerAddress,
-                        this.token.decimals,
+                        erc20Balance.tokenDecimals,
                     )
                 )))))
                 await sleep(15)
@@ -118,12 +97,8 @@ class AssignErc20BalancesWorker {
 
         const updates = []
         const deletes = []
-        let lastRound = false
         for (let i = 0; i < emptyBalances.length; i++) {
             const { id } = emptyBalances[i]
-            if (this.to && id > this.to) {
-                lastRound = true
-            }
             const balanceValue = erc20BalanceValues[i]
             if (balanceValue === null || balanceValue === 0 || balanceValue === '0') {
                 deletes.push(id)
@@ -147,7 +122,7 @@ class AssignErc20BalancesWorker {
             this.deletes = []
         }
 
-        return !lastRound
+        return true
     }
 
     async _update(updates: StringKeyMap[]) {
@@ -199,16 +174,11 @@ class AssignErc20BalancesWorker {
     }
 
     async _getEmptyBalances(): Promise<StringKeyMap[]> {
-        try {
-            const results = (await SharedTables.query(
-                `select id, owner_address from tokens.weth_balance where chain_id = $1 and balance is null limit 1000`,
-                [config.CHAIN_ID]
-            ))
-            return camelizeKeys(results) as StringKeyMap[]
-        } catch (err) {
-            logger.error(`Error getting logs`, err)
-            return []
-        }
+        const results = (await SharedTables.query(
+            `select * from tokens.erc20_balance where chain_id = $1 and balance is null limit 1000`,
+            [config.CHAIN_ID]
+        ))
+        return camelizeKeys(results) as StringKeyMap[]
     }
 }
 
