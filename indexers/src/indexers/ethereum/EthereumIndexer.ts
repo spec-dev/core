@@ -325,7 +325,7 @@ class EthereumIndexer extends AbstractIndexer {
                         this._upsertTraces(traces, tx),
                         this._upsertContracts(contracts, tx),
                         this._upsertErc20Tokens(erc20Tokens, tx),
-                        this._upsertErc20Balances(erc20Balances, tx),
+                        this._upsertErc20Balances([], tx),
                         this._upsertNftCollections(nftCollections, tx),
                         this._upsertTokenTransfers(tokenTransfers, tx),
                     ])
