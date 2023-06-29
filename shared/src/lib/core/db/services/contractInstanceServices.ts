@@ -82,8 +82,6 @@ export async function getContractInstancesInGroup(group: string): Promise<String
         fullNamespaceNames.push(toNamespaceSlug(fullPath))
     }
 
-    console.log(fullNamespaceNames, 'fullNamespaceNames')
-
     const contractInstance: ContractInstance[] = await contractInstancesRepo().find({
         relations: {
             contract: {
