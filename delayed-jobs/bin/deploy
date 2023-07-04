@@ -49,8 +49,8 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
-$shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url"
-$shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
+#$shared_bin_dir/assert_env "POLYGON_ALCHEMY_REST_URL" "$polygon_alchemy_rest_url"
+#$shared_bin_dir/assert_env "MUMBAI_ALCHEMY_REST_URL" "$mumbai_alchemy_rest_url"
 $shared_bin_dir/assert_env "EVENT_GENERATORS_JWT" "$event_generators_jwt"
 $shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
 
