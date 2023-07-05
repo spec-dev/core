@@ -20,15 +20,33 @@ export class Namespace {
     @Index({ unique: true })
     name: string
 
+    @Column({ name: 'display_name', nullable: true })
+    displayName: string
+
     @Column()
     @Index({ unique: true })
     slug: string
 
+    @Column({ nullable: true })
+    desc: string 
+
+    @Column({ name: 'short_desc', nullable: true })
+    shortDesc: string
+
     @Column({ name: 'code_url', nullable: true })
     codeUrl: string
 
+    @Column({ name: 'website_url', nullable: true }) 
+    websiteUrl: string
+
+    @Column({ name: 'twitter_url', nullable: true }) 
+    twitterUrl: string
+
     @Column({ name: 'has_icon', nullable: true })
     hasIcon: boolean
+
+    @Column({ nullable: true })
+    verified: boolean
 
     @CreateDateColumn({
         type: 'timestamptz',
@@ -36,6 +54,9 @@ export class Namespace {
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
+
+    @Column({ name: 'joined_at', nullable: true }) 
+    joinedAt: Date
 
     @OneToMany(() => NamespaceUser, (namespaceUser) => namespaceUser.namespace)
     namespaceUsers: NamespaceUser[]
