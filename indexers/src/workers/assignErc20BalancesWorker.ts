@@ -143,7 +143,7 @@ class AssignErc20BalancesWorker {
             // Create temp table and insert updates + primary key data.
             await client.query('BEGIN')
             await client.query(
-                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, balance character varying) ON COMMIT DROP`
+                `CREATE TEMP TABLE ${tempTableName} (id bigint primary key, balance character varying) ON COMMIT DROP`
             )
 
             // Bulk insert the updated records to the temp table.
