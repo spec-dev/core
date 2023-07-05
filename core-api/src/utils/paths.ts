@@ -11,6 +11,7 @@ const prefix = {
     CALL_VERSION: '/call-version',
     PIPELINE: '/pipeline',
     CONTRACT: '/contract',
+    NAMESPACE: '/namespace',
 }
 
 const paths = {
@@ -64,6 +65,10 @@ const paths = {
     BLOCK_OPS_CEILING: prefix.ADMIN + prefix.PIPELINE + '/block-ops-ceiling',
     LOV_FAILURE: prefix.ADMIN + prefix.PIPELINE + '/lov-failure',
     ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
+
+    // Namespace paths.
+    FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
+    CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
 }
 
 export default paths

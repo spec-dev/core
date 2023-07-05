@@ -41,6 +41,15 @@ export async function getNamespaces(names: string[]): Promise<Namespace[] | null
     }
 }
 
+export async function getNamespacesBySlug(slugs: string[]): Promise<Namespace[] | null> {
+    try {
+        return await namespaces().find({ where: { slug: In(slugs) } })
+    } catch (err) {
+        logger.error(`Error getting Namespaces by slugs ${slugs.join(', ')}: ${err}`)
+        return null
+    }
+}
+
 export async function upsertNamespaceWithTx(
     name: string,
     codeUrl: string,
