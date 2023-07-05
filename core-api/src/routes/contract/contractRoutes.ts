@@ -1,8 +1,8 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseCreateContractGroupPayload } from './contractPayloads'
+import { parseCreateContractGroupPayload, parseGetContractGroupPayload } from './contractPayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
-import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup } from '../../../../shared'
+import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup, StringKeyMap } from '../../../../shared'
 
 /**
  * Create a new, empty contract group.
@@ -39,9 +39,19 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
 })
 
 /**
- * Get contract group where object is { [chainId]: addresses[]}
+ * Get contract group where object is { [chainId]: ContractInstance[] }
  */
 app.get(paths.CONTRACT_GROUP, async (req, res) => {
-    const instances = await getContractInstancesInGroup(req.query.group as string)
-    return res.status(codes.SUCCESS).json({ ok: true, instances })
+    const { payload, isValid, error } = parseGetContractGroupPayload(req.query)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    let instances: StringKeyMap = {}
+    try {
+        instances = await getContractInstancesInGroup(payload.group)
+    } catch (error) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })    
+    }
+    return res.status(codes.SUCCESS).json({ error: null, instances })
 })

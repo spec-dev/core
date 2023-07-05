@@ -77,28 +77,34 @@ export async function getContractInstancesInNamespace(
 export async function getContractInstancesInGroup(group: string): Promise<StringKeyMap> {
     const fullNamespaceNames: string[] = []
     for (const supportedChainId of supportedChainIds) {
-        const nspForChainId = await contractNamespaceForChainId(supportedChainId)
+        const nspForChainId = contractNamespaceForChainId(supportedChainId)
         const fullPath = `${nspForChainId}.${group}`
         fullNamespaceNames.push(toNamespaceSlug(fullPath))
     }
 
-    const contractInstance: ContractInstance[] = await contractInstancesRepo().find({
-        relations: {
-            contract: {
-                namespace: true,
-            },
-        },
-        where: {
-            contract: {
-                namespace: {
-                    slug: In(fullNamespaceNames),
+    let contractInstances: ContractInstance[] = []
+    try {
+        contractInstances = await contractInstancesRepo().find({
+            relations: {
+                contract: {
+                    namespace: true,
                 },
             },
-        },
-    })
+            where: {
+                contract: {
+                    namespace: {
+                        slug: In(fullNamespaceNames),
+                    },
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error finding ContractInstances in group ${group}: ${err}`)
+        return null
+    }
 
     const instanceMap: StringKeyMap = {}
-    for (const result of contractInstance) {
+    for (const result of contractInstances) {
         const { address, name, desc, chainId, createdAt } = result
         const entry = {
             address,

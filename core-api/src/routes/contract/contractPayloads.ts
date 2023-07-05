@@ -8,6 +8,10 @@ interface CreateContractGroupPayload {
     abi: Abi
 }
 
+interface GetContractGroupPayload {
+    group: string
+}
+
 export function parseCreateContractGroupPayload(
     data: StringKeyMap
 ): ValidatedPayload<CreateContractGroupPayload> {
@@ -48,6 +52,23 @@ export function parseCreateContractGroupPayload(
             nsp,
             name,
             abi: abi as Abi,
+        },
+    }
+}
+
+export function parseGetContractGroupPayload(
+    data: StringKeyMap
+): ValidatedPayload<GetContractGroupPayload> {
+    const group = data?.group
+
+    if (!group) {
+        return { isValid: false, error: '"group" required' }
+    }
+
+    return {
+        isValid: true,
+        payload: {
+            group,
         },
     }
 }
