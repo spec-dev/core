@@ -7,9 +7,9 @@ import { parseSearchLiveObjectPayload } from './liveObjectPayloads'
 /**
  * Get the current version of all live objects.
  */
-app.get(paths.LIVE_OBJECTS_SEARCH, async (req, res) => {
+app.post(paths.LIVE_OBJECTS_SEARCH, async (req, res) => {
     // Parse & validate payload.
-    const { payload, isValid, error } = parseSearchLiveObjectPayload(req.query)
+    const { payload, isValid, error } = parseSearchLiveObjectPayload(req.body)
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }

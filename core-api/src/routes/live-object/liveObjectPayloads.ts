@@ -2,16 +2,20 @@ import { supportedChainIds } from '../../../../shared/src'
 import config from '../../config'
 import { StringKeyMap, ValidatedPayload } from '../../types'
 
+export interface SearchLiveObjectPayloadFilters {
+    chainIds?: string[]
+}
+
 export interface SearchLiveObjectPayload {
     query: string
-    filters: object
+    filters: SearchLiveObjectPayloadFilters
     offset: number
     limit: number
 }
 
 export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPayload<SearchLiveObjectPayload> {
     const query = data?.query
-    const filters = JSON.parse(data?.filters) || {}
+    const filters = data?.filters || {}
     const offset = data?.offset || 0
 
     // Validate chain ids.
