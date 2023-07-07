@@ -63,7 +63,7 @@ export async function addContractInstancesToGroup(
     const fullNsp = [chainSpecificContractNsp, group].join('.')
 
     // Ensure this contract group already exists for at least one chain.
-    // If not, create it for this chain using the group abi of another chain. 
+    // If not, create it for this chain using the group abi of another chain.
     await upsertContractGroupForChainId(chainId, group, fullNsp)
 
     // Find other existing contract instances in this group,
@@ -321,13 +321,9 @@ export async function addContractInstancesToGroup(
     return { newEventSpecs, newCallSpecs }
 }
 
-async function upsertContractGroupForChainId(
-    chainId: string,
-    group: string,
-    fullNsp: string,
-) {
+async function upsertContractGroupForChainId(chainId: string, group: string, fullNsp: string) {
     // Get all existing chain-specific contract namespaces for this group.
-    const allContractNsps = Array.from(supportedChainIds).map(chainId => 
+    const allContractNsps = Array.from(supportedChainIds).map((chainId) =>
         [contractNamespaceForChainId(chainId), group].join('.')
     )
     const namespaces = await getNamespaces(allContractNsps)
@@ -344,7 +340,8 @@ async function upsertContractGroupForChainId(
     // Get chain id of adjacent group to use for ABI lookup.
     const otherChainContractNsp = otherChainNsp.name.split('.').slice(0, 2).join('.')
     const otherChainId = chainIdForContractNamespace[otherChainContractNsp]
-    if (!otherChainId) throw `Error finding chain id for contract namespace: ${otherChainContractNsp}`
+    if (!otherChainId)
+        throw `Error finding chain id for contract namespace: ${otherChainContractNsp}`
 
     // Get group ABI.
     const groupAbi = await getContractGroupAbi(group, otherChainId)
@@ -352,10 +349,5 @@ async function upsertContractGroupForChainId(
 
     // Create contract group for the new target chain id.
     const [nsp, name] = group.split('.')
-    await createContractGroup(
-        nsp,
-        name,
-        [chainId],
-        groupAbi,
-    )
+    await createContractGroup(nsp, name, [chainId], groupAbi)
 }

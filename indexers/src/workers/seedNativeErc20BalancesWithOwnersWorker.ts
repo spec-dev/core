@@ -100,26 +100,26 @@ class SeedNativeErc20BalancesWithOwnersWorker {
 
     async _upsertErc20Balances(erc20Balances: Erc20Balance[], attempt: number = 1) {
         if (!erc20Balances.length) return
-        // const [_, conflictCols] = fullErc20BalanceUpsertConfig()
-        // const conflictColStatement = conflictCols.map(ident).join(', ')
-        // erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
-        // try {
-        //     await SharedTables
-        //         .createQueryBuilder()
-        //         .insert()
-        //         .into(Erc20Balance)
-        //         .values(erc20Balances)
-        //         .onConflict(`(${conflictColStatement}) DO NOTHING`)
-        //         .execute()
-        // } catch (err) {
-        //     const message = err.message || err.toString() || ''
-        //     if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
-        //         await sleep(randomIntegerInRange(50, 500))
-        //         return await this._upsertErc20Balances(erc20Balances, attempt + 1)
-        //     } else {
-        //         throw err
-        //     }
-        // }
+        const [_, conflictCols] = fullErc20BalanceUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
+        try {
+            await SharedTables
+                .createQueryBuilder()
+                .insert()
+                .into(Erc20Balance)
+                .values(erc20Balances)
+                .onConflict(`(${conflictColStatement}) DO NOTHING`)
+                .execute()
+        } catch (err) {
+            const message = err.message || err.toString() || ''
+            if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
+                await sleep(randomIntegerInRange(50, 500))
+                return await this._upsertErc20Balances(erc20Balances, attempt + 1)
+            } else {
+                throw err
+            }
+        }
     }
 
     async _getTracesWithNativeValueForBlockRange(start: number, end: number): Promise<StringKeyMap[]> {
