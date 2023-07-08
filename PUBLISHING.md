@@ -8,9 +8,9 @@
 
 4. Register the live object table in the `op_tracking` table for each of the chains it uses.
 
-5. If not already done, create a new database user (in shared tables) with name "<namespace>" (<--name of the live object's namespace).
+5. If not already done, create a new database user (in shared tables) with a name equal to that live object's namespace.
 
-	- Grant this DB user full write permissions to all tables in the "<namespace>" schema
+	- Grant this DB user full write permissions to all tables in the schema with the same name 
 	- Grant this DB user read-only access to all tables in all other schemas
 	- Grant all other DB users read-only access to this schema
 
