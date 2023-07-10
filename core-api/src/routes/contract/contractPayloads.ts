@@ -1,5 +1,5 @@
 import { ValidatedPayload, StringKeyMap } from '../../types'
-import { supportedChainIds, Abi } from '../../../../shared'
+import { supportedChainIds, Abi, isValidContractGroup } from '../../../../shared'
 
 interface CreateContractGroupPayload {
     chainIds: string[]
@@ -63,6 +63,10 @@ export function parseGetContractGroupPayload(
 
     if (!group) {
         return { isValid: false, error: '"group" required' }
+    }
+
+    if (!isValidContractGroup(group)) {
+        return { isValid: false, error: 'Invalid "group" name' }
     }
 
     return {

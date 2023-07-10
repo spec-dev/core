@@ -74,7 +74,7 @@ export async function getContractInstancesInNamespace(
     }
 }
 
-export async function getContractInstancesInGroup(group: string): Promise<StringKeyMap> {
+export async function getContractInstancesInGroup(group: string): Promise<StringKeyMap | null> {
     const fullNamespaceNames: string[] = []
     for (const supportedChainId of supportedChainIds) {
         const nspForChainId = contractNamespaceForChainId(supportedChainId)

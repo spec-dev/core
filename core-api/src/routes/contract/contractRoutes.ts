@@ -47,11 +47,9 @@ app.get(paths.CONTRACT_GROUP, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    let instances: StringKeyMap = {}
-    try {
-        instances = await getContractInstancesInGroup(payload.group)
-    } catch (error) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })    
+    const instances = await getContractInstancesInGroup(payload.group)
+    if (!instances) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
     return res.status(codes.SUCCESS).json({ error: null, instances })
 })

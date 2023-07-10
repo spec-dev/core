@@ -24,6 +24,7 @@ export const errors = {
         'Namespace does not have a remote git repository assigned to it yet.',
     VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
     CONTRACT_INSTANCE_NOT_FOUND: 'Contract instance not found',
+    INTERNAL_ERROR: 'Internal server error',
 }
 
 export const codes = {
