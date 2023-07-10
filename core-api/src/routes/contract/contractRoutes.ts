@@ -1,8 +1,8 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseCreateContractGroupPayload } from './contractPayloads'
+import { parseCreateContractGroupPayload, parseGetContractGroupPayload } from './contractPayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
-import { getNamespace, NamespaceAccessTokenScope, createContractGroup } from '../../../../shared'
+import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup, StringKeyMap } from '../../../../shared'
 
 /**
  * Create a new, empty contract group.
@@ -22,7 +22,10 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
     }
 
     // Authorize request for given namespace using either user auth header or namespace auth header.
-    const allowedScopes = [NamespaceAccessTokenScope.RegisterContracts, NamespaceAccessTokenScope.Internal]
+    const allowedScopes = [
+        NamespaceAccessTokenScope.RegisterContracts,
+        NamespaceAccessTokenScope.Internal,
+    ]
     if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // Try to create the new group.
@@ -33,4 +36,20 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
     }
 
     return res.status(codes.SUCCESS).json({ error: null })
+})
+
+/**
+ * Get contract group where object is { [chainId]: ContractInstance[] }
+ */
+app.get(paths.CONTRACT_GROUP, async (req, res) => {
+    const { payload, isValid, error } = parseGetContractGroupPayload(req.query)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    const instances = await getContractInstancesInGroup(payload.group)
+    if (!instances) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+    return res.status(codes.SUCCESS).json({ error: null, instances })
 })

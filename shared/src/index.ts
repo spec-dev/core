@@ -221,6 +221,7 @@ export {
 export {
     createContractInstance,
     upsertContractInstancesWithTx,
+    getContractInstancesInNamespace,
     getContractInstancesInGroup,
 } from './lib/core/db/services/contractInstanceServices'
 export { createEvent, getEvent, upsertEventsWithTx } from './lib/core/db/services/eventServices'

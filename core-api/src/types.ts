@@ -1,6 +1,10 @@
 import { StringKeyMap } from '../../shared'
 export { StringKeyMap }
-export { StringMap, ContractRegistrationPayload, PublishLiveObjectVersionPayload } from '../../shared'
+export {
+    StringMap,
+    ContractRegistrationPayload,
+    PublishLiveObjectVersionPayload,
+} from '../../shared'
 
 export interface ValidatedPayload<T> {
     isValid: boolean
@@ -35,8 +39,8 @@ export interface GenerateTestInputsPayload {
     chainIds: string[]
     from: string | null
     fromBlock: number | null
-    to: string | null,
-    toBlock: number | null,
+    to: string | null
+    toBlock: number | null
     recent: boolean
     allTime: boolean
     streamId: string | null

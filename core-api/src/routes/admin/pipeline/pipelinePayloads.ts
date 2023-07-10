@@ -40,7 +40,7 @@ interface EnqueueBlockPayload {
 }
 
 export function parseToggleProcessJobsPayload(
-    data: StringKeyMap,
+    data: StringKeyMap
 ): ValidatedPayload<ToggleProcessJobsPayload> {
     const chainId = data?.chainId
     const key = data?.key
@@ -69,7 +69,7 @@ export function parseToggleProcessJobsPayload(
 }
 
 export function parseGetProcessJobsStatusPayload(
-    data: StringKeyMap,
+    data: StringKeyMap
 ): ValidatedPayload<GetProcessJobsStatusPayload> {
     const chainId = data?.chainId
     const key = data?.key
@@ -91,9 +91,7 @@ export function parseGetProcessJobsStatusPayload(
     }
 }
 
-export function parseChainIdPayload(
-    data: StringKeyMap,
-): ValidatedPayload<ChainIdPayload> {
+export function parseChainIdPayload(data: StringKeyMap): ValidatedPayload<ChainIdPayload> {
     const chainId = data?.chainId
 
     if (!supportedChainIds.has(chainId)) {
@@ -110,7 +108,7 @@ export function parseChainIdPayload(
 
 export function parseChainIdBlockNumberPayload(
     data: StringKeyMap,
-    requireBlockNumber: boolean = false,
+    requireBlockNumber: boolean = false
 ): ValidatedPayload<ChainIdBlockNumberPayload> {
     const chainId = data?.chainId
     let blockNumber = data?.blockNumber
@@ -123,21 +121,19 @@ export function parseChainIdBlockNumberPayload(
         blockNumber = parseInt(blockNumber)
         if (Number.isNaN(blockNumber)) {
             return { isValid: false, error: `Invalid "blockNumber": ${data?.blockNumber}` }
-        }    
+        }
     }
 
     return {
         isValid: true,
         payload: {
             chainId,
-            blockNumber
+            blockNumber,
         },
     }
 }
 
-export function parseLovIdPayload(
-    data: StringKeyMap,
-): ValidatedPayload<LovIdPayload> {
+export function parseLovIdPayload(data: StringKeyMap): ValidatedPayload<LovIdPayload> {
     const lovId = data?.lovId
 
     if (!lovId) {
@@ -153,7 +149,7 @@ export function parseLovIdPayload(
 }
 
 export function parseEnqueueBlockPayload(
-    data: StringKeyMap,
+    data: StringKeyMap
 ): ValidatedPayload<EnqueueBlockPayload> {
     const chainId = data?.chainId
     let blockNumber = data?.blockNumber
@@ -167,7 +163,7 @@ export function parseEnqueueBlockPayload(
     blockNumber = parseInt(blockNumber)
     if (Number.isNaN(blockNumber)) {
         return { isValid: false, error: `Invalid "blockNumber": ${data?.blockNumber}` }
-    }    
+    }
 
     return {
         isValid: true,

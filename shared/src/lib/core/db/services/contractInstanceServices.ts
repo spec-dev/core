@@ -2,7 +2,9 @@ import { ContractInstance } from '../entities/ContractInstance'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
+import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 import { StringKeyMap } from '../../../types'
+import { In } from 'typeorm'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
@@ -48,7 +50,9 @@ export async function upsertContractInstancesWithTx(
     ).generatedMaps
 }
 
-export async function getContractInstancesInGroup(nsp: string): Promise<ContractInstance[] | null> {
+export async function getContractInstancesInNamespace(
+    nsp: string
+): Promise<ContractInstance[] | null> {
     try {
         return await contractInstancesRepo().find({
             relations: {
@@ -68,4 +72,48 @@ export async function getContractInstancesInGroup(nsp: string): Promise<Contract
         logger.error(`Error finding ContractInstances in namespace ${nsp}: ${err}`)
         return null
     }
+}
+
+export async function getContractInstancesInGroup(group: string): Promise<StringKeyMap | null> {
+    const fullNamespaceNames: string[] = []
+    for (const supportedChainId of supportedChainIds) {
+        const nspForChainId = contractNamespaceForChainId(supportedChainId)
+        const fullPath = `${nspForChainId}.${group}`
+        fullNamespaceNames.push(toNamespaceSlug(fullPath))
+    }
+
+    let contractInstances: ContractInstance[] = []
+    try {
+        contractInstances = await contractInstancesRepo().find({
+            relations: {
+                contract: {
+                    namespace: true,
+                },
+            },
+            where: {
+                contract: {
+                    namespace: {
+                        slug: In(fullNamespaceNames),
+                    },
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error finding ContractInstances in group ${group}: ${err}`)
+        return null
+    }
+
+    const instanceMap: StringKeyMap = {}
+    for (const result of contractInstances) {
+        const { address, name, desc, chainId, createdAt } = result
+        const entry = {
+            address,
+            name,
+            desc,
+            chainId,
+            createdAt,
+        }
+        instanceMap[chainId] = instanceMap[chainId] ? instanceMap[chainId].concat([entry]) : [entry]
+    }
+    return instanceMap
 }

@@ -1,11 +1,15 @@
 import { ValidatedPayload, StringKeyMap } from '../../types'
-import { supportedChainIds, Abi } from '../../../../shared'
+import { supportedChainIds, Abi, isValidContractGroup } from '../../../../shared'
 
 interface CreateContractGroupPayload {
     chainIds: string[]
     nsp: string
     name: string
     abi: Abi
+}
+
+interface GetContractGroupPayload {
+    group: string
 }
 
 export function parseCreateContractGroupPayload(
@@ -23,7 +27,7 @@ export function parseCreateContractGroupPayload(
     const invalidChainIds = chainIds.filter((id) => !supportedChainIds.has(id))
     if (invalidChainIds.length) {
         return { isValid: false, error: `Invalid chain ids: ${invalidChainIds.join(', ')}` }
-    } 
+    }
 
     if (!nsp) {
         return { isValid: false, error: '"nsp" required' }
@@ -48,6 +52,27 @@ export function parseCreateContractGroupPayload(
             nsp,
             name,
             abi: abi as Abi,
+        },
+    }
+}
+
+export function parseGetContractGroupPayload(
+    data: StringKeyMap
+): ValidatedPayload<GetContractGroupPayload> {
+    const group = data?.group
+
+    if (!group) {
+        return { isValid: false, error: '"group" required' }
+    }
+
+    if (!isValidContractGroup(group)) {
+        return { isValid: false, error: 'Invalid "group" name' }
+    }
+
+    return {
+        isValid: true,
+        payload: {
+            group,
         },
     }
 }

@@ -15,7 +15,7 @@ import {
     upsertContractAndNamespace,
     upsertContractEvents,
     enqueueDelayedJob,
-    getContractInstancesInGroup,
+    getContractInstancesInNamespace,
     createContractRegistrationJob,
     AbiItem,
     getContractGroupAbi,
@@ -87,7 +87,7 @@ async function registerContractInstances(
     const fullNsp = [chainSpecificContractNsp, contractGroup].join('.')
 
     // Find other existing contract instances in this group (contract-specific namespace).
-    const existingContractInstances = await getContractInstancesInGroup(fullNsp)
+    const existingContractInstances = await getContractInstancesInNamespace(fullNsp)
     if (existingContractInstances === null) {
         await contractRegistrationJobFailed(uid, errors.GENERAL)
         return

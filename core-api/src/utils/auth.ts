@@ -1,5 +1,14 @@
 import { AGServerSocket } from 'socketcluster-server'
-import { logger, ClaimRole, CoreDB, Project, StringKeyMap, NamespaceUser, toNamespaceSlug, NamespaceUserRole } from '../../../shared'
+import {
+    logger,
+    ClaimRole,
+    CoreDB,
+    Project,
+    StringKeyMap,
+    NamespaceUser,
+    toNamespaceSlug,
+    NamespaceUserRole,
+} from '../../../shared'
 
 const projects = () => CoreDB.getRepository(Project)
 const namespaceUsers = () => CoreDB.getRepository(NamespaceUser)
@@ -25,9 +34,9 @@ export async function projectExistsWithAdminKey(adminKey: string): Promise<boole
 }
 
 export async function userHasNamespacePermissions(
-    userId: number, 
+    userId: number,
     nsp: string, // slug or name
-    requiredRole: NamespaceUserRole = NamespaceUserRole.Member,
+    requiredRole: NamespaceUserRole = NamespaceUserRole.Member
 ): Promise<StringKeyMap | null> {
     let namespaceUser = null
     try {

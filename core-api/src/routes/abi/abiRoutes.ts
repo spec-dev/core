@@ -7,7 +7,7 @@ import { getContractGroupAbi } from '../../../../shared'
 /**
  * Get the ABI for a contract group on a specific chain.
  */
- app.get(paths.ABI, async (req, res) => {
+app.get(paths.ABI, async (req, res) => {
     const user = await authorizeRequest(req, res)
     if (!user) return
 
@@ -18,9 +18,6 @@ import { getContractGroupAbi } from '../../../../shared'
     }
 
     const { chainId, group } = payload
-    const abi = await getContractGroupAbi(
-        group,
-        chainId
-    )
+    const abi = await getContractGroupAbi(group, chainId)
     return res.status(codes.SUCCESS).json({ abi })
 })

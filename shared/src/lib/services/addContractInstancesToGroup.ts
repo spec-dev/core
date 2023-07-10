@@ -10,7 +10,7 @@ import {
     toNamespaceSlug,
 } from '../utils/formatters'
 import {
-    getContractInstancesInGroup,
+    getContractInstancesInNamespace,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
 import { supportedChainIds, chainIdForContractNamespace } from '../utils/chainIds'
@@ -68,7 +68,7 @@ export async function addContractInstancesToGroup(
 
     // Find other existing contract instances in this group,
     // and make sure it already has at least one entry.
-    const existingContractInstances = await getContractInstancesInGroup(fullNsp)
+    const existingContractInstances = await getContractInstancesInNamespace(fullNsp)
     if (existingContractInstances === null) {
         throw `Failed finding existing contract instances in namespace: ${fullNsp}`
     }
