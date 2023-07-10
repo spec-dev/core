@@ -2,7 +2,7 @@ import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseCreateContractGroupPayload, parseGetContractGroupPayload } from './contractPayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
-import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup, StringKeyMap } from '../../../../shared'
+import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup } from '../../../../shared'
 
 /**
  * Create a new, empty contract group.
@@ -51,5 +51,6 @@ app.get(paths.CONTRACT_GROUP, async (req, res) => {
     if (!instances) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
+
     return res.status(codes.SUCCESS).json({ error: null, instances })
 })

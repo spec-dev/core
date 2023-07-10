@@ -28,7 +28,7 @@ export class Namespace {
     slug: string
 
     @Column({ nullable: true })
-    desc: string 
+    desc: string
 
     @Column({ name: 'short_desc', nullable: true })
     shortDesc: string
@@ -36,10 +36,10 @@ export class Namespace {
     @Column({ name: 'code_url', nullable: true })
     codeUrl: string
 
-    @Column({ name: 'website_url', nullable: true }) 
+    @Column({ name: 'website_url', nullable: true })
     websiteUrl: string
 
-    @Column({ name: 'twitter_url', nullable: true }) 
+    @Column({ name: 'twitter_url', nullable: true })
     twitterUrl: string
 
     @Column({ name: 'has_icon', nullable: true })
@@ -55,11 +55,11 @@ export class Namespace {
     })
     createdAt: Date
 
-    @Column({ 
+    @Column({
         type: 'timestamptz',
-        name: 'joined_at', 
-        nullable: true 
-    }) 
+        name: 'joined_at',
+        nullable: true,
+    })
     joinedAt: Date
 
     @OneToMany(() => NamespaceUser, (namespaceUser) => namespaceUser.namespace)
