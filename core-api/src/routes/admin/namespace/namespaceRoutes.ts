@@ -1,7 +1,7 @@
 import { app } from '../../express'
 import paths from '../../../utils/paths'
 import { authorizeAdminRequest, codes, errors } from '../../../utils/requests'
-import { setCachedFeaturedNamespaces } from '../../../../../shared/src/lib/core/redis'
+import { setCachedFeaturedNamespaces } from '../../../../../shared'
 import { parsePostFeaturedNamespacePayload } from './namespacePayloads'
 
 /**

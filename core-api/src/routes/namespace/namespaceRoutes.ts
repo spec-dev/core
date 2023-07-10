@@ -1,8 +1,7 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { codes } from '../../utils/requests'
-import { getCachedFeaturedNamespaces } from '../../../../shared/src/lib/core/redis'
-import { getNamespaces } from '../../../../shared/src/lib/core/db/services/namespaceServices'
+import { getCachedFeaturedNamespaces, getNamespaces } from '../../../../shared'
 
 /**
  * Get the current featured namespaces.

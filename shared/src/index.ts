@@ -212,6 +212,8 @@ export {
     setCachedInputGenForStreamId,
     getCachedInputGenForStreamId,
     deleteCachedInputGenForStreamId,
+    getCachedFeaturedNamespaces,
+    setCachedFeaturedNamespaces,
 } from './lib/core/redis'
 export {
     createContract,
