@@ -137,7 +137,7 @@ $ bin/init-shared-tables
 The Core database stores all users, namespaces, projects, Live Objects, events, contracts, and other ecosystem data.<br>
 [[RDS]](https://us-west-1.console.aws.amazon.com/rds/home?region=us-west-1#database:id=core;is-cluster=false)
 
-![](https://dbjzhg7yxqn0y.cloudfront.net/coredb.png)
+![](https://dbjzhg7yxqn0y.cloudfront.net/core-db-arch.png)
 
 * [`users`](/shared/src/lib/core/db/entities/User.ts) - A user on Spec.
 * [`sessions`](/shared/src/lib/core/db/entities/Session.ts) - An authed user session.
