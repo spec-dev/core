@@ -31,6 +31,7 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
 }
 
 export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
+    if (!names?.length) return []
     try {
         return await namespaces().find({
             where: { slug: In(names.map((n) => toNamespaceSlug(n))) },
