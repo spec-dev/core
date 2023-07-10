@@ -1,8 +1,8 @@
-import { app } from "../express"
-import paths from "../../utils/paths"
-import { codes } from "../../utils/requests"
-import { getCachedFeaturedNamespaces } from "../../../../shared/src/lib/core/redis"
-import { getNamespacesBySlug } from "../../../../shared/src/lib/core/db/services/namespaceServices"
+import { app } from '../express'
+import paths from '../../utils/paths'
+import { codes } from '../../utils/requests'
+import { getCachedFeaturedNamespaces } from '../../../../shared/src/lib/core/redis'
+import { getNamespaces } from '../../../../shared/src/lib/core/db/services/namespaceServices'
 
 /**
  * Get the current featured namespaces.
@@ -15,7 +15,7 @@ app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
     }
     
     // Find namespaces by slugs.
-    const featuredNamespaces = await getNamespacesBySlug(namespaceSlugs)
+    const featuredNamespaces = await getNamespaces(namespaceSlugs)
 
     if (!featuredNamespaces) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })

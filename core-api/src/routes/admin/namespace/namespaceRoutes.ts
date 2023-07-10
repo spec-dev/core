@@ -1,8 +1,8 @@
-import { app } from "../../express"
-import paths from "../../../utils/paths"
-import { authorizeAdminRequest, codes, errors } from "../../../utils/requests"
-import { setCachedFeaturedNamespaces } from "../../../../../shared/src/lib/core/redis"
-import { parsePostFeaturedNamespacePayload } from "./namespacePayloads"
+import { app } from '../../express'
+import paths from '../../../utils/paths'
+import { authorizeAdminRequest, codes, errors } from '../../../utils/requests'
+import { setCachedFeaturedNamespaces } from '../../../../../shared/src/lib/core/redis'
+import { parsePostFeaturedNamespacePayload } from './namespacePayloads'
 
 /**
  * Cache featured namespaces.
@@ -18,7 +18,7 @@ app.post(paths.CACHE_FEATURED_NAMESPACES, async (req, res) => {
     const { namespaceSlugs } = payload
 
     // Set cache.
-    if (!await setCachedFeaturedNamespaces(namespaceSlugs)) {
+    if (!(await setCachedFeaturedNamespaces(namespaceSlugs))) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
     }
 

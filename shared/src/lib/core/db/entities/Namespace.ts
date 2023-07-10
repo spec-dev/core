@@ -55,7 +55,11 @@ export class Namespace {
     })
     createdAt: Date
 
-    @Column({ name: 'joined_at', nullable: true }) 
+    @Column({ 
+        type: 'timestamptz',
+        name: 'joined_at', 
+        nullable: true 
+    }) 
     joinedAt: Date
 
     @OneToMany(() => NamespaceUser, (namespaceUser) => namespaceUser.namespace)

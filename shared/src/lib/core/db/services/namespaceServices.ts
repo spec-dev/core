@@ -31,21 +31,13 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
 }
 
 export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
+    if (!names?.length) return []
     try {
         return await namespaces().find({
             where: { slug: In(names.map((n) => toNamespaceSlug(n))) },
         })
     } catch (err) {
         logger.error(`Error getting Namespaces by names ${names.join(', ')}: ${err}`)
-        return null
-    }
-}
-
-export async function getNamespacesBySlug(slugs: string[]): Promise<Namespace[] | null> {
-    try {
-        return await namespaces().find({ where: { slug: In(slugs) } })
-    } catch (err) {
-        logger.error(`Error getting Namespaces by slugs ${slugs.join(', ')}: ${err}`)
         return null
     }
 }
