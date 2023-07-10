@@ -10,7 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 core_api_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="eth"
+env=$1
 
 # ======== SET KEY VARS ======== #
 
