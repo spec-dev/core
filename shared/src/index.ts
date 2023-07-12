@@ -233,6 +233,7 @@ export {
     upsertEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
+    getContractEventsForGroup,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,

@@ -76,3 +76,28 @@ export function parseGetContractGroupPayload(
         },
     }
 }
+
+export interface GetContractGroupEvents {
+    group: string
+}
+
+export function parseGetContractGroupEventsPayload(
+    data: StringKeyMap
+): ValidatedPayload<GetContractGroupEvents> {
+    const group = data?.group
+
+    if (!group) {
+        return { isValid: false, error: '"group" required' }
+    }
+
+    if (!isValidContractGroup(group)) {
+        return { isValid: false, error: 'Invalid "group" name' }
+    }
+
+    return {
+        isValid: true,
+        payload: {
+            group,
+        },
+    }
+}

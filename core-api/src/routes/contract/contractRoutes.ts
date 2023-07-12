@@ -1,8 +1,8 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseCreateContractGroupPayload, parseGetContractGroupPayload } from './contractPayloads'
+import { parseCreateContractGroupPayload, parseGetContractGroupPayload, parseGetContractGroupEventsPayload } from './contractPayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
-import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup } from '../../../../shared'
+import { getNamespace, NamespaceAccessTokenScope, createContractGroup, getContractInstancesInGroup, getContractEventsForGroup } from '../../../../shared'
 
 /**
  * Create a new, empty contract group.
@@ -53,4 +53,19 @@ app.get(paths.CONTRACT_GROUP, async (req, res) => {
     }
 
     return res.status(codes.SUCCESS).json({ error: null, instances })
+})
+
+/**
+ * Get all contract events for a given group.
+ */
+app.get(paths.CONTRACT_GROUP_EVENTS, async (req, res) => {
+    const { payload, isValid, error } = parseGetContractGroupEventsPayload(req.query)
+
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    const events = await getContractEventsForGroup(payload.group)
+    console.log('returned events:', events)
+    return res.status(codes.SUCCESS).json({ error: null, events: events || [] })
 })

@@ -2,9 +2,11 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
+import { In } from 'typeorm'
+import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 import { fromNamespacedVersion, toNamespacedVersion, unique } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
-import { isContractNamespace } from '../../../utils/chainIds'
+import { isContractNamespace, chainIdForContractNamespace } from '../../../utils/chainIds'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -156,4 +158,56 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
     }
 
     return { data: resolvedNamesMap }
+}
+
+export async function getContractEventsForGroup(group: string): Promise<StringKeyMap[] | null> {
+    const events = []
+
+    const fullNamespaceNames: string[] = []
+    for (const supportedChainId of supportedChainIds) {
+        const nspForChainId = contractNamespaceForChainId(supportedChainId)
+        const fullPath = `${nspForChainId}.${group}`
+        fullNamespaceNames.push(fullPath)
+    }
+
+    try {
+        const eventVersions = await eventVersionsRepo().find({
+            where: { nsp: In(fullNamespaceNames) },
+            order: {
+                name: 'ASC',
+            },
+            select: {
+                name: true,
+                version: true,
+                nsp: true,
+            },
+        })
+
+        const eventMap: StringKeyMap = {}
+        for (const { nsp, name, version } of eventVersions) {
+            const chainId = chainIdForContractNamespace(nsp)
+            eventMap[`${name} ${version}`] = eventMap[`${name} ${version}`]
+                ? eventMap[`${name} ${version}`].concat([chainId]).sort((a, b) => {
+                      return a - b
+                  })
+                : [chainId]
+        }
+
+        for (const key in eventMap) {
+            if (Object.prototype.hasOwnProperty.call(eventMap, key)) {
+                const chainIds = eventMap[key]
+                const [name, version] = key.split(' ')
+                events.push({
+                    name,
+                    version,
+                    chainIds,
+                })
+            }
+        }
+    } catch (err) {
+        logger.error(`Error getting contract events for group=${group}: ${err}`)
+        throw err
+    }
+
+    return events || null
 }
