@@ -12,7 +12,6 @@ import { paramsToTsvector } from '../utils/formatters'
 import { regExSplitOnUppercase } from '../utils/regEx'
 
 async function searchLiveObjects(query: string, filters: StringKeyMap, offset: number = 0, limit: number = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE): Promise<StringKeyMap> {
-    // TODO: Actually implement search functionality using the latest versions of each live object cached in redis.
     let results
     let [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter] = await paramsToTsvector(query, filters)
     

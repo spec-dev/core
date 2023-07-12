@@ -1,4 +1,10 @@
-import { User, deserializeToken, getSession, verifyJWT, getNamespaceAccessToken } from '../../../shared'
+import {
+    User,
+    deserializeToken,
+    getSession,
+    verifyJWT,
+    getNamespaceAccessToken,
+} from '../../../shared'
 import { userHasNamespacePermissions } from './auth'
 import config from '../config'
 
@@ -18,6 +24,7 @@ export const errors = {
         'Namespace does not have a remote git repository assigned to it yet.',
     VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
     CONTRACT_INSTANCE_NOT_FOUND: 'Contract instance not found',
+    INTERNAL_ERROR: 'Internal server error',
 }
 
 export const codes = {
@@ -29,13 +36,18 @@ export const codes = {
     INTERNAL_SERVER_ERROR: 500,
 }
 
-export async function authorizeRequestForNamespace(req, res, namespaceName: string, allowedScopes: string[]): Promise<boolean> {
+export async function authorizeRequestForNamespace(
+    req,
+    res,
+    namespaceName: string,
+    allowedScopes: string[]
+): Promise<boolean> {
     const headers = req.headers || {}
 
     // Get user auth header token.
     const userAuthHeader =
         headers[config.USER_AUTH_HEADER_NAME] || headers[config.USER_AUTH_HEADER_NAME.toLowerCase()]
-    
+
     // user auth token authorization
     if (userAuthHeader) {
         const user = await authorizeRequest(req, res)
@@ -50,15 +62,18 @@ export async function authorizeRequestForNamespace(req, res, namespaceName: stri
 
     // Get namespace auth header token.
     const namespaceAuthHeader =
-        headers[config.NAMESPACE_AUTH_HEADER_NAME] || headers[config.NAMESPACE_AUTH_HEADER_NAME.toLowerCase()]
+        headers[config.NAMESPACE_AUTH_HEADER_NAME] ||
+        headers[config.NAMESPACE_AUTH_HEADER_NAME.toLowerCase()]
 
     if (namespaceAuthHeader) {
-        const namespaceAccessToken = await getNamespaceAccessToken(namespaceAuthHeader, namespaceName)
-        const hasPerms = (
-            namespaceAccessToken && 
-            (new Date(namespaceAccessToken.expiresAt) > new Date()) &&
-            namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+        const namespaceAccessToken = await getNamespaceAccessToken(
+            namespaceAuthHeader,
+            namespaceName
         )
+        const hasPerms =
+            namespaceAccessToken &&
+            new Date(namespaceAccessToken.expiresAt) > new Date() &&
+            namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
         if (!hasPerms) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false

@@ -11,6 +11,7 @@ const prefix = {
     CALL_VERSION: '/call-version',
     PIPELINE: '/pipeline',
     CONTRACT: '/contract',
+    NAMESPACE: '/namespace',
 }
 
 const paths = {
@@ -45,10 +46,11 @@ const paths = {
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
     DECODE_CONTRACT_INTERACTIONS: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's' + '/decode',
     REGISTER_CONTRACT_INSTANCES: prefix.CONTRACT_INSTANCE + 's' + '/register',
+    CONTRACT_INSTANCES: prefix.CONTRACT_INSTANCE,
 
     // Contract paths.
     CONTRACT_GROUP: prefix.CONTRACT + '/group',
-    
+
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
 
@@ -65,6 +67,10 @@ const paths = {
     BLOCK_OPS_CEILING: prefix.ADMIN + prefix.PIPELINE + '/block-ops-ceiling',
     LOV_FAILURE: prefix.ADMIN + prefix.PIPELINE + '/lov-failure',
     ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
+
+    // Namespace paths.
+    FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
+    CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
 }
 
 export default paths

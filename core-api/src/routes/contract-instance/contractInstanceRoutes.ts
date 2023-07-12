@@ -22,7 +22,10 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
     }
 
     // Authorize request for given namespace using either user auth header or namespace auth header.
-    const allowedScopes = [NamespaceAccessTokenScope.RegisterContracts, NamespaceAccessTokenScope.Internal]
+    const allowedScopes = [
+        NamespaceAccessTokenScope.RegisterContracts,
+        NamespaceAccessTokenScope.Internal,
+    ]
     if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // Create a uid ahead of time that will be used as the uid for a new ContractRegistrationJob

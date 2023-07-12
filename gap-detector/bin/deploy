@@ -10,7 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 gap_detector_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env="eth"
+env=$1
 
 # ======== SET KEY VARS ======== #
 
@@ -61,10 +61,10 @@ $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
 # Head reporter queue keys
-$shared_bin_dir/assert_env "ETHEREUM_HEAD_REPORTER_QUEUE_KEY" "$ethereum_head_reporter_queue_key"
-$shared_bin_dir/assert_env "GOERLI_HEAD_REPORTER_QUEUE_KEY" "$goerli_head_reporter_queue_key"
-$shared_bin_dir/assert_env "POLYGON_HEAD_REPORTER_QUEUE_KEY" "$polygon_head_reporter_queue_key"
-$shared_bin_dir/assert_env "MUMBAI_HEAD_REPORTER_QUEUE_KEY" "$mumbai_head_reporter_queue_key"
+#$shared_bin_dir/assert_env "ETHEREUM_HEAD_REPORTER_QUEUE_KEY" "$ethereum_head_reporter_queue_key"
+#$shared_bin_dir/assert_env "GOERLI_HEAD_REPORTER_QUEUE_KEY" "$goerli_head_reporter_queue_key"
+#$shared_bin_dir/assert_env "POLYGON_HEAD_REPORTER_QUEUE_KEY" "$polygon_head_reporter_queue_key"
+#$shared_bin_dir/assert_env "MUMBAI_HEAD_REPORTER_QUEUE_KEY" "$mumbai_head_reporter_queue_key"
 
 # ======== GET LATEST IMAGE ======== #
 

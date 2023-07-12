@@ -26,6 +26,7 @@ redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
 const keys = {
     LATEST_TOKEN_PRICES: 'latest-token-prices',
     TEST_STREAM_INPUT_GEN: 'test-stream-input-gen',
+    FEATURED_NAMESPACES: 'featured-namespaces',
 }
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
@@ -137,6 +138,26 @@ export async function deleteCachedInputGenForStreamId(streamId: string): Promise
         return true
     } catch (err) {
         logger.error(`Error deleting cached input gen for streamId=${streamId}: ${err}`)
+        return false
+    }
+}
+
+export async function getCachedFeaturedNamespaces(): Promise<string[]> {
+    try {
+        const results = await redis?.get(keys.FEATURED_NAMESPACES)
+        return results ? JSON.parse(results) : []
+    } catch (err) {
+        logger.error(`Error getting featured namespaces from cache: ${err}`)
+        return null
+    }
+}
+
+export async function setCachedFeaturedNamespaces(namespaces: string[]): Promise<boolean> {
+    try {
+        await redis?.set(keys.FEATURED_NAMESPACES, JSON.stringify(namespaces))
+        return true
+    } catch (err) {
+        logger.error(`Error setting featured namespaces in redis: ${err}`)
         return false
     }
 }

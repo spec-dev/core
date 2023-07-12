@@ -1,6 +1,9 @@
 import { app } from '../../express'
 import paths from '../../../utils/paths'
-import { parseNewContractInstancesPayload, parseDecodeContractInteractionsPayload } from './contractInstancePayloads'
+import {
+    parseNewContractInstancesPayload,
+    parseDecodeContractInteractionsPayload,
+} from './contractInstancePayloads'
 import { codes, errors, authorizeAdminRequest } from '../../../utils/requests'
 import { enqueueDelayedJob, getNamespace } from '../../../../../shared'
 

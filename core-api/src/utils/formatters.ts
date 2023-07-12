@@ -1,6 +1,10 @@
 import { StringKeyMap } from "../types"
 
 export async function paramsToTsvector(query: string, filters: StringKeyMap) {
+    if (filters?.chainIds && !filters.chainIds.length) {
+        delete filters.chainIds
+    }
+
     // Check for null params.
     if (!query && !Object.keys(filters).length) {
         return [null, null, null]

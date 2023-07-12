@@ -1,28 +1,28 @@
 import { app } from '../../express'
 import paths from '../../../utils/paths'
 import { codes, errors, authorizeAdminRequest } from '../../../utils/requests'
-import { 
-    parseToggleProcessJobsPayload, 
-    parseGetProcessJobsStatusPayload, 
-    parseChainIdPayload, 
-    parseChainIdBlockNumberPayload, 
+import {
+    parseToggleProcessJobsPayload,
+    parseGetProcessJobsStatusPayload,
+    parseChainIdPayload,
+    parseChainIdBlockNumberPayload,
     parseLovIdPayload,
     parseEnqueueBlockPayload,
 } from './pipelinePayloads'
 import {
-    setProcessJobs, 
+    setProcessJobs,
     getProcessJobs,
-    getBlockEventsSeriesNumber, 
-    setBlockEventsSeriesNumber, 
-    getBlockOpsCeiling, 
-    freezeBlockOperationsAtOrAbove, 
-    getLovFailure, 
+    getBlockEventsSeriesNumber,
+    setBlockEventsSeriesNumber,
+    getBlockOpsCeiling,
+    freezeBlockOperationsAtOrAbove,
+    getLovFailure,
     removeLovFailure,
     enqueueBlock,
 } from '../../../../../shared'
 
 /**
- * Toggle one of the switches that controls whether 
+ * Toggle one of the switches that controls whether
  * a specific job in our data pipeline gets processed.
  */
 app.put(paths.TOGGLE_PROCESS_JOBS, async (req, res) => {
@@ -165,7 +165,7 @@ app.put(paths.BLOCK_OPS_CEILING, async (req, res) => {
 /**
  * Get the block timestamp associated with the latest failure of a live object version.
  */
- app.get(paths.LOV_FAILURE, async (req, res) => {
+app.get(paths.LOV_FAILURE, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
@@ -188,7 +188,7 @@ app.put(paths.BLOCK_OPS_CEILING, async (req, res) => {
 /**
  * Delete a live object version's latest failure.
  */
- app.delete(paths.LOV_FAILURE, async (req, res) => {
+app.delete(paths.LOV_FAILURE, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
