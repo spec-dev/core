@@ -66,6 +66,10 @@ app.get(paths.CONTRACT_GROUP_EVENTS, async (req, res) => {
     }
 
     const events = await getContractEventsForGroup(payload.group)
-    console.log('returned events:', events)
+
+    if (!events) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+
     return res.status(codes.SUCCESS).json({ error: null, events: events || [] })
 })

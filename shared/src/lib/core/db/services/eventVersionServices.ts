@@ -161,7 +161,7 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
 }
 
 export async function getContractEventsForGroup(group: string): Promise<StringKeyMap[] | null> {
-    const events = []
+    const events: StringKeyMap[] = []
 
     const fullNamespaceNames: string[] = []
     for (const supportedChainId of supportedChainIds) {
@@ -183,20 +183,26 @@ export async function getContractEventsForGroup(group: string): Promise<StringKe
             },
         })
 
-        const eventMap: StringKeyMap = {}
+        const eventsMap: StringKeyMap = {}
+        const splitValue = ' '
+
+        // gather all chainIds for each unique [name, version] pair
         for (const { nsp, name, version } of eventVersions) {
             const chainId = chainIdForContractNamespace(nsp)
-            eventMap[`${name} ${version}`] = eventMap[`${name} ${version}`]
-                ? eventMap[`${name} ${version}`].concat([chainId]).sort((a, b) => {
+            eventsMap[`${name}${splitValue}${version}`] = eventsMap[
+                `${name}${splitValue}${version}`
+            ]
+                ? eventsMap[`${name}${splitValue}${version}`].concat([chainId]).sort((a, b) => {
                       return a - b
                   })
                 : [chainId]
         }
 
-        for (const key in eventMap) {
-            if (Object.prototype.hasOwnProperty.call(eventMap, key)) {
-                const chainIds = eventMap[key]
-                const [name, version] = key.split(' ')
+        // convert unique [name, version] eventsMap to array of each unique event
+        for (const key in eventsMap) {
+            if (Object.prototype.hasOwnProperty.call(eventsMap, key)) {
+                const chainIds = eventsMap[key]
+                const [name, version] = key.split(splitValue)
                 events.push({
                     name,
                     version,
