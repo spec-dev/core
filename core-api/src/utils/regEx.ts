@@ -1,4 +1,4 @@
-export function regExSplitOnUppercase(column: string, isReplace: boolean) {
+export function regExSplitOnUppercase(column: string, isReplace: boolean): string {
     if (isReplace) {
         column = `REPLACE(${column}, '.', ' ')`
     }
