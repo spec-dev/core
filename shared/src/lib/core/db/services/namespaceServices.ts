@@ -57,14 +57,14 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
     try {
         const results =
             (await CoreDB.query(
-                `select distinct(json_object_keys(config -> 'chains')::text) as chain from live_object_versions where nsp = $1 or nsp ilike $2`,
+                `select distinct(json_object_keys(config -> 'chains')::text) as chain_id from live_object_versions where nsp = $1 or nsp ilike $2`,
                 [nsp, `%.contracts.${nsp}.%`]
             )) || []
 
         return results
-            .map((r) => parseInt(r.chain))
+            .map((r) => parseInt(r.chain_id))
             .sort((a, b) => a - b)
-            .map((id) => id.toString())
+            .map((chainId) => chainId.toString())
     } catch (err) {
         logger.error(`Error deriving chainIds for namespace ${nsp}: ${err}`)
         return []
