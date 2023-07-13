@@ -12,7 +12,7 @@ app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
     if (!namespaceSlugs) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
     }
-    
+
     // Find namespaces by slugs.
     const featuredNamespaces = await getNamespaces(namespaceSlugs)
 
