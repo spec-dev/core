@@ -189,6 +189,7 @@ export {
     createNamespace,
     getNamespace,
     getNamespaces,
+    getChainIdsForNamespace,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
 export {

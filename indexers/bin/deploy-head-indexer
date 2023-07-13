@@ -115,10 +115,6 @@ image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 image_version=$( $shared_bin_dir/latest_sha )
-
-# Eth/Goerli only rn
-# image_version="f8f45b1"
-
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
