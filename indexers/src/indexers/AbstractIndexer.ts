@@ -318,8 +318,6 @@ class AbstractIndexer {
         )
             .map((result) => (result.generatedMaps || []).filter(t => t && !!Object.keys(t).length))
             .flat() as Erc20Balance[]
-
-        this._info(`Got ${this.erc20Balances.length} ERC-20 balances`)
     }
     
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {
