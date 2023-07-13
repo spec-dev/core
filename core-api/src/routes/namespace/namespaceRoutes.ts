@@ -15,11 +15,9 @@ app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
 
     // Find namespaces by slugs.
     const featuredNamespaces = await getNamespaces(namespaceSlugs)
-
     if (!featuredNamespaces) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
     }
-    
     // Send response.
-    return res.status(codes.SUCCESS).json({ featuredNamespaces })
+    return res.status(codes.SUCCESS).json(featuredNamespaces.map(n => n.publicView()))
 })
