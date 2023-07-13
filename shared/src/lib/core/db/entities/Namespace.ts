@@ -7,6 +7,7 @@ import { LiveCallHandler } from './LiveCallHandler'
 import { NamespaceUser } from './NamespaceUser'
 import { Project } from './Project'
 import { StringKeyMap } from '../../../types'
+import { buildIconUrl } from '../../../utils/formatters'
 
 /**
  * A globally unique namespace for projects, contracts, events, live objects, etc.
@@ -86,6 +87,17 @@ export class Namespace {
     publicView(): StringKeyMap {
         return {
             name: this.name,
+            displayName: this.displayName,
+            slug: this.slug,
+            desc: this.desc,
+            shortDesc: this.shortDesc,
+            codeUrl: this.codeUrl,
+            websiteUrl: this.websiteUrl,
+            twitterUrl: this.twitterUrl,
+            verified: this.verified || false,
+            createdAt: this.createdAt.toISOString(),
+            joinedAt: this.joinedAt?.toISOString(),
+            icon: this.hasIcon ? buildIconUrl(this.name) : null,
         }
     }
 }

@@ -1,7 +1,7 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { codes } from '../../utils/requests'
-import { buildIconUrl, getCachedFeaturedNamespaces, getNamespaces } from '../../../../shared'
+import { getCachedFeaturedNamespaces, getNamespaces } from '../../../../shared'
 
 /**
  * Get the current featured namespaces.
@@ -13,19 +13,11 @@ app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
     }
 
-    // Format namespaces.
-    function formatNamespace(nsp) {
-        const icon = nsp.hasIcon ? buildIconUrl(nsp.name) : ''
-        return {...nsp, icon} 
-    }
-
     // Find namespaces by slugs.
-    const data = await getNamespaces(namespaceSlugs)
-    if (!data) {
+    const featuredNamespaces = await getNamespaces(namespaceSlugs)
+    if (!featuredNamespaces) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
     }
-    data.sort((a, b) => a.displayName.localeCompare(b.displayName))
-    
     // Send response.
-    return res.status(codes.SUCCESS).json(data.map(formatNamespace))
+    return res.status(codes.SUCCESS).json(featuredNamespaces.map(n => n.publicView()))
 })
