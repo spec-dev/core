@@ -43,7 +43,7 @@ export async function getNamespaces(names: string[]): Promise<Namespace[] | null
     }
 }
 
-export async function getChainIdsForNamespace(nsp: string): Promise<string[] | null> {
+export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
     const numComps = nsp.split('.').length
 
     // If given a contract namespace, just return the chain referenced by it.
@@ -68,7 +68,7 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[] | n
             .map((id) => id.toString())
     } catch (err) {
         logger.error(`Error deriving chainIds for namespace ${nsp}: ${err}`)
-        return null
+        return []
     }
 }
 
