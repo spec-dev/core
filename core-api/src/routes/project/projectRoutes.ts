@@ -46,7 +46,8 @@ app.get(paths.PROJECT_WITH_KEY, async (req, res) => {
     }
 
     // Return project member view (includes api key).
-    return res.status(codes.SUCCESS).json(project.memberView())
+    const data = await project.memberView()
+    return res.status(codes.SUCCESS).json(data)
 })
 
 /**
