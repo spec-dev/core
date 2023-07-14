@@ -189,6 +189,7 @@ export {
     createNamespace,
     getNamespace,
     getNamespaces,
+    getChainIdsForNamespace,
     upsertNamespaceWithTx,
 } from './lib/core/db/services/namespaceServices'
 export {
@@ -233,6 +234,7 @@ export {
     upsertEventVersionsWithTx,
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
+    getContractEventsForGroup,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,

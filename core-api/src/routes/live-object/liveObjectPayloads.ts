@@ -1,4 +1,4 @@
-import { supportedChainIds } from '../../../../shared/src'
+import { supportedChainIds } from '../../../../shared'
 import config from '../../config'
 import { StringKeyMap, ValidatedPayload } from '../../types'
 

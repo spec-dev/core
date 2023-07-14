@@ -297,21 +297,27 @@ class AbstractIndexer {
         const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp and "tokens"."erc20_balance"."balance" != excluded.balance`
         const blockTimestamp = this.pgBlockTimestamp
         erc20Balances = uniqueByKeys(erc20Balances, conflictCols.map(snakeToCamel)) as Erc20Balance[]
-        this.erc20Balances = ((
-            await tx
-                .createQueryBuilder()
-                .insert()
-                .into(Erc20Balance)
-                .values(erc20Balances.map((b) => ({ 
-                    ...b, 
-                    blockTimestamp: () => blockTimestamp,
-                })))
-                .onConflict(
-                    `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
-                )
-                .returning('*')
-                .execute()
-        ).generatedMaps || []).filter(t => t && !!Object.keys(t).length) as Erc20Balance[]
+        this.erc20Balances = (
+            await Promise.all(
+                toChunks(erc20Balances, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                    return tx
+                        .createQueryBuilder()
+                        .insert()
+                        .into(Erc20Balance)
+                        .values(chunk.map((b) => ({ 
+                            ...b, 
+                            blockTimestamp: () => blockTimestamp,
+                        })))
+                        .onConflict(
+                            `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                        )
+                        .returning('*')
+                        .execute()
+                })
+            )
+        )
+            .map((result) => (result.generatedMaps || []).filter(t => t && !!Object.keys(t).length))
+            .flat() as Erc20Balance[]
     }
     
     async _upsertNftCollections(nftCollections: NftCollection[], tx: any) {

@@ -80,13 +80,13 @@ export class Project {
     @OneToMany(() => Deployment, (deployment) => deployment.project)
     deployments: Deployment[]
 
-    memberView(): StringKeyMap {
+    async memberView(): Promise<StringKeyMap> {
         return {
             id: this.uid,
             name: this.name,
             slug: this.slug,
             apiKey: this.signedApiKey,
-            namespace: this.namespace?.publicView(),
+            namespace: await this.namespace?.publicView(),
             metadata: this.metadata || {},
         }
     }

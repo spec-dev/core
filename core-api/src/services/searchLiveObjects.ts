@@ -9,9 +9,9 @@ import {
 import path from 'path'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
+import { regExSplitOnUppercase } from '../utils/regEx'
 
 async function searchLiveObjects(query: string, filters: StringKeyMap, offset: number = 0, limit: number = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE): Promise<StringKeyMap> {
-    // TODO: Actually implement search functionality using the latest versions of each live object cached in redis.
     let results
     let [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter] = await paramsToTsvector(query, filters)
     
@@ -34,38 +34,29 @@ async function searchLiveObjects(query: string, filters: StringKeyMap, offset: n
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
-                namespace_created_at,
-                CASE WHEN $1::text IS NOT NULL THEN
-                    to_tsvector('english', coalesce(version_name, '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(live_object_name, '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
-                    to_tsvector('english', coalesce(REPLACE(live_object_display_name, '.', ' '), '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(live_object_desc, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
-                    to_tsvector('simple', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(namespace_name, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), ''))
-                END,
-                CASE WHEN $2::text IS NOT NULL THEN
-                    json_to_tsvector('english', version_config::json, '["all"]')
-                END
+                namespace_created_at
             FROM live_object_version_namespace_view
             WHERE
             CASE
                 WHEN $3::text IS NOT NULL THEN
                     to_tsvector('english', coalesce(version_name, '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(live_object_name, '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
+                    to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_name', false)}, '')) ||
                     to_tsvector('english', coalesce(REPLACE(live_object_display_name, '.', ' '), '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(live_object_desc, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
-                    to_tsvector('simple', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(namespace_name, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
+                    to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
+                    to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, '')) ||
                     json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
                 WHEN $1::text IS NOT NULL THEN 
                     to_tsvector('english', coalesce(version_name, '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(live_object_name, '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
+                    to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_name', false)}, '')) ||
                     to_tsvector('english', coalesce(REPLACE(live_object_display_name, '.', ' '), '')) ||
-                    to_tsvector('english', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(live_object_desc, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), '')) ||
-                    to_tsvector('simple', coalesce(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REPLACE(namespace_name, '.', ' '), '([0-9])([A-Z])', '\\1_\\2', 'g'), '([a-z])([A-Z])', '\\1_\\2', 'g'), '([A-Z])([A-Z][a-z])','\\1_\\2', 'g'), ''))
+                    to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
+                    to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, ''))
                     @@ to_tsquery($1::text)
                 WHEN $2::text IS NOT NULL THEN
                     json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($2::text)
                 ELSE TRUE
             END
+            AND namespace_name not ilike '%.test.%'
             ORDER BY version_created_at DESC OFFSET $4 LIMIT $5;`, [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter, offset, limit]
         )
     } catch (err) {
