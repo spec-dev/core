@@ -8,7 +8,7 @@ interface CreateContractGroupPayload {
     abi: Abi
 }
 
-interface GetContractGroupPayload {
+interface ContractGroupPayload {
     group: string
 }
 
@@ -56,34 +56,9 @@ export function parseCreateContractGroupPayload(
     }
 }
 
-export function parseGetContractGroupPayload(
+export function parseContractGroupPayload(
     data: StringKeyMap
-): ValidatedPayload<GetContractGroupPayload> {
-    const group = data?.group
-
-    if (!group) {
-        return { isValid: false, error: '"group" required' }
-    }
-
-    if (!isValidContractGroup(group)) {
-        return { isValid: false, error: 'Invalid "group" name' }
-    }
-
-    return {
-        isValid: true,
-        payload: {
-            group,
-        },
-    }
-}
-
-export interface GetContractGroupEvents {
-    group: string
-}
-
-export function parseGetContractGroupEventsPayload(
-    data: StringKeyMap
-): ValidatedPayload<GetContractGroupEvents> {
+): ValidatedPayload<ContractGroupPayload> {
     const group = data?.group
 
     if (!group) {
