@@ -8,7 +8,7 @@ interface CreateContractGroupPayload {
     abi: Abi
 }
 
-interface GetContractGroupPayload {
+interface ContractGroupPayload {
     group: string
 }
 
@@ -56,9 +56,9 @@ export function parseCreateContractGroupPayload(
     }
 }
 
-export function parseGetContractGroupPayload(
+export function parseContractGroupPayload(
     data: StringKeyMap
-): ValidatedPayload<GetContractGroupPayload> {
+): ValidatedPayload<ContractGroupPayload> {
     const group = data?.group
 
     if (!group) {

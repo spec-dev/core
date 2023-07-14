@@ -2,9 +2,15 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
+import { In } from 'typeorm'
+import {
+    supportedChainIds,
+    contractNamespaceForChainId,
+    isContractNamespace,
+    chainIdForContractNamespace,
+} from '../../../utils/chainIds'
 import { fromNamespacedVersion, toNamespacedVersion, unique } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
-import { isContractNamespace } from '../../../utils/chainIds'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -156,4 +162,54 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
     }
 
     return { data: resolvedNamesMap }
+}
+
+export async function getContractEventsForGroup(group: string): Promise<StringKeyMap[] | null> {
+    const events: StringKeyMap[] = []
+
+    const fullNamespaceNames: string[] = []
+    for (const supportedChainId of supportedChainIds) {
+        const nspForChainId = contractNamespaceForChainId(supportedChainId)
+        const fullPath = `${nspForChainId}.${group}`
+        fullNamespaceNames.push(fullPath)
+    }
+
+    try {
+        const eventVersions = await eventVersionsRepo().find({
+            where: { nsp: In(fullNamespaceNames) },
+            order: {
+                name: 'ASC',
+            },
+            select: {
+                name: true,
+                version: true,
+                nsp: true,
+            },
+        })
+
+        const eventsMap: StringKeyMap = {}
+        const splitValue = ' '
+
+        // gather all chainIds for each unique [name, version] pair
+        for (const { nsp, name, version } of eventVersions) {
+            const chainId = chainIdForContractNamespace(nsp)
+            const uniqueKey = `${name}${splitValue}${version}`
+            eventsMap[uniqueKey] = eventsMap[uniqueKey]
+                ? eventsMap[uniqueKey].concat([chainId]).sort((a, b) => {
+                      return a - b
+                  })
+                : [chainId]
+        }
+
+        // convert unique [name, version] eventsMap to array of each unique event
+        for (const [key, chainIds] of Object.entries(eventsMap)) {
+            const [name, version] = key.split(splitValue)
+            events.push({ name, version, chainIds })
+        }
+    } catch (err) {
+        logger.error(`Error getting contract events for group=${group}: ${err}`)
+        return null
+    }
+
+    return events
 }
