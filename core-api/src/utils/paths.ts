@@ -70,6 +70,7 @@ const paths = {
     ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
 
     // Namespace paths.
+    NAMESPACE: prefix.NAMESPACE,
     FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
     CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
 }

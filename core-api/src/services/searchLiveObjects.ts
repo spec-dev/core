@@ -11,7 +11,7 @@ import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
 import { regExSplitOnUppercase } from '../utils/regEx'
 
-async function searchLiveObjects(query: string, filters: StringKeyMap, offset: number = 0, limit: number = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE): Promise<StringKeyMap> {
+async function searchLiveObjects(uid: string, query: string, filters: StringKeyMap, offset: number = 0, limit: number = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE): Promise<StringKeyMap> {
     let results
     let [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter] = await paramsToTsvector(query, filters)
     
@@ -38,26 +38,27 @@ async function searchLiveObjects(query: string, filters: StringKeyMap, offset: n
             FROM live_object_version_namespace_view
             WHERE
             CASE
-                WHEN $3::text IS NOT NULL THEN
+                WHEN $1::text IS NOT NULL THEN
                     to_tsvector('english', coalesce(version_name, '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_name', false)}, '')) ||
                     to_tsvector('english', coalesce(REPLACE(live_object_display_name, '.', ' '), '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
                     to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, '')) ||
-                    json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
-                WHEN $1::text IS NOT NULL THEN 
+                    json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($1::text)
+                WHEN $2::text IS NOT NULL THEN 
                     to_tsvector('english', coalesce(version_name, '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_name', false)}, '')) ||
                     to_tsvector('english', coalesce(REPLACE(live_object_display_name, '.', ' '), '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
                     to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, ''))
-                    @@ to_tsquery($1::text)
-                WHEN $2::text IS NOT NULL THEN
-                    json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($2::text)
+                    @@ to_tsquery($2::text)
+                WHEN $3::text IS NOT NULL THEN
+                    json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
+                WHEN $4::text IS NOT NULL THEN live_object_uid = $4
                 ELSE TRUE
             END
             AND namespace_name not ilike '%.test.%'
-            ORDER BY version_created_at DESC OFFSET $4 LIMIT $5;`, [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter, offset, limit]
+            ORDER BY version_created_at DESC OFFSET $5 LIMIT $6;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, offset, limit]
         )
     } catch (err) {
         logger.error(`Error searching live objects: ${err}`)
@@ -112,6 +113,8 @@ function formatAsLatestLiveObject(result) {
             config: config,
             createdAt: result.versionCreatedAt.toISOString(),
         },
+        records: 1013861,
+        lastInteraction: 10,
     }
 }
 
