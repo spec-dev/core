@@ -14,7 +14,7 @@ import { regExSplitOnUppercase } from '../utils/regEx'
 async function searchLiveObjects(uid: string, query: string, filters: StringKeyMap, offset: number = 0, limit: number = config.LIVE_OBJECT_SEARCH_DEFAULT_BATCH_SIZE): Promise<StringKeyMap> {
     let results
     let [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter] = await paramsToTsvector(query, filters)
-    
+    console.log(filters.namespace)
     // Query database.
     try {
         results = await CoreDB.query(
@@ -57,8 +57,9 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 WHEN $4::text IS NOT NULL THEN live_object_uid = $4
                 ELSE TRUE
             END
+            AND ($5::text is null or version_nsp = $5)
             AND namespace_name not ilike '%.test.%'
-            ORDER BY version_created_at DESC OFFSET $5 LIMIT $6;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, offset, limit]
+            ORDER BY version_created_at DESC OFFSET $6 LIMIT $7;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, filters.namespace, offset, limit]
         )
     } catch (err) {
         logger.error(`Error searching live objects: ${err}`)

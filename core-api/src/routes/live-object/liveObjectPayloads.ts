@@ -4,6 +4,7 @@ import { StringKeyMap, ValidatedPayload } from '../../types'
 
 export interface SearchLiveObjectPayloadFilters {
     chainIds?: string[]
+    namespace?: string
 }
 
 export interface SearchLiveObjectPayload {
