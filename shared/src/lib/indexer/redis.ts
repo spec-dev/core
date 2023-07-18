@@ -127,16 +127,22 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
-export async function getLastEventId(eventName: string): Promise<string | null> {
+export async function getLastEvent(eventName: string): Promise<StringKeyMap | null> {
     try {
         const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]
         const eventData = lastEntry?.message?.event
         if (!eventData) return null
-        return JSON.parse(eventData)?.id || null
+        return JSON.parse(eventData)
     } catch (err) {
-        logger.error(`Error getting last event id for ${eventName}: ${err}.`)
+        logger.error(`Error getting last event for ${eventName}: ${err}.`)
         return null
     }
+}
+
+export async function getLastEventId(eventName: string): Promise<string | null> {
+    const eventData = await getLastEvent(eventName)
+    if (!eventData) return null
+    return eventData?.id || null
 }
 
 export async function getPublishedEventsAfterEventCursors(

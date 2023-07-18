@@ -9,8 +9,14 @@ import {
     isContractNamespace,
     chainIdForContractNamespace,
 } from '../../../utils/chainIds'
-import { fromNamespacedVersion, toNamespacedVersion, unique } from '../../../utils/formatters'
+import {
+    fromNamespacedVersion,
+    splitOnLastOccurance,
+    toNamespacedVersion,
+    unique,
+} from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
+import { getLastEvent } from '../../../indexer/redis'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -212,4 +218,67 @@ export async function getContractEventsForGroup(group: string): Promise<StringKe
     }
 
     return events
+}
+
+export async function resolveSampleContractEventVersion(
+    givenName: string
+): Promise<StringKeyMap | null> {
+    const fullNamespaceNames: string[] = []
+
+    const nspEvent = givenName.split('@')[0]
+    if (nspEvent.split('.').length === 3) {
+        for (const supportedChainId of supportedChainIds) {
+            const nspForChainId = contractNamespaceForChainId(supportedChainId)
+            const fullPath = `${nspForChainId}.${givenName}`
+            fullNamespaceNames.push(fullPath)
+        }
+    } else {
+        fullNamespaceNames.push(givenName)
+    }
+
+    const eventVersionNames = await resolveEventVersionNames(fullNamespaceNames)
+    if (
+        !eventVersionNames ||
+        !eventVersionNames?.data ||
+        Object.keys(eventVersionNames?.data).length === 0
+    )
+        return null
+
+    return await resolveSampleEventVersion(eventVersionNames.data[fullNamespaceNames[0]])
+}
+
+export async function resolveSampleEventVersion(givenName: string): Promise<StringKeyMap | null> {
+    const [nspEvent, version] = givenName.split('@')
+    const [nsp, name] = splitOnLastOccurance(nspEvent, '.')
+
+    try {
+        const eventVersion = await eventVersionsRepo().findOne({
+            where: {
+                nsp,
+                name,
+                version,
+            },
+        })
+
+        if (!eventVersion) return null
+
+        const eventName = toNamespacedVersion(
+            eventVersion.nsp,
+            eventVersion.name,
+            eventVersion.version
+        )
+
+        const lastEvent = await getLastEvent(eventName)
+        if (!lastEvent) return null
+
+        return {
+            id: eventVersion.eventId,
+            name: eventName,
+            origin: lastEvent.orgin,
+            data: lastEvent.data,
+        }
+    } catch (err) {
+        logger.error(`Error getting sample events for event=${givenName}: ${err}`)
+        return null
+    }
 }

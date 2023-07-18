@@ -146,6 +146,11 @@ export const fromNamespacedVersion = (
     return { nsp, name, version }
 }
 
+export const splitOnLastOccurance = (value: string, delimiter: string): string[] => {
+    const index = value.lastIndexOf(delimiter)
+    return index < 0 ? [value] : [value.slice(0, index), value.slice(index + 1)]
+}
+
 export const uniqueByKeys = (iterable: StringKeyMap[], keys: string[]): StringKeyMap[] => {
     const uniqueArr = []
     const keysSeen = new Set<string>()
