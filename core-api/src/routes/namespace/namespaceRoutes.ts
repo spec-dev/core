@@ -17,7 +17,7 @@ app.get(paths.NAMESPACE, async (req, res) => {
     // Find namespace by slug.
     const namespace = await getNamespace(slug)
     if (!namespace) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
+        return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
 
     const data = await namespace.publicView()

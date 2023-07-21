@@ -7,7 +7,7 @@ export interface GetNamespacePayload {
 export function parseGetNamespacePayload(data: StringKeyMap): ValidatedPayload<GetNamespacePayload> {
     const slug = data?.slug
 
-    if (!slug || !slug.length) {
+    if (!slug?.length) {
         return { isValid: false, error: '"slug" was missing or empty' }
     }
 
