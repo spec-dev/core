@@ -71,6 +71,7 @@ const paths = {
 
     // Namespace paths.
     NAMESPACE: prefix.NAMESPACE,
+    NAMESPACES: prefix.NAMESPACE + 's',
     FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
     CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
 }
