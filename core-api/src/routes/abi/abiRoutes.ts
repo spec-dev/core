@@ -8,9 +8,6 @@ import { getContractGroupAbi } from '../../../../shared'
  * Get the ABI for a contract group.
  */
 app.get(paths.ABI, async (req, res) => {
-    const user = await authorizeRequest(req, res)
-    if (!user) return
-
     // Parse & validate payload.
     const { payload, isValid, error } = parseGetAbiPayload(req.query)
     if (!isValid) {
