@@ -214,9 +214,7 @@ export async function getFunctionSignatures(
     }
 }
 
-export async function getContractGroupAbi(
-    contractGroup: string,
-): Promise<Abi | null> {
+export async function getContractGroupAbi(contractGroup: string): Promise<Abi | null> {
     try {
         const abiStr = (await redis?.hGet(abiRedisKeys.CONTRACT_GROUPS, contractGroup)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : []
@@ -227,7 +225,7 @@ export async function getContractGroupAbi(
 }
 
 export async function getContractGroupAbis(
-    contractGroups: string[],
+    contractGroups: string[]
 ): Promise<{ [key: string]: Abi } | null> {
     if (!contractGroups?.length) return {}
     try {
@@ -247,10 +245,7 @@ export async function getContractGroupAbis(
     }
 }
 
-export async function saveContractGroupAbi(
-    contractGroup: string,
-    groupAbi: Abi,
-) {
+export async function saveContractGroupAbi(contractGroup: string, groupAbi: Abi) {
     try {
         const map = {
             [contractGroup]: JSON.stringify(groupAbi),

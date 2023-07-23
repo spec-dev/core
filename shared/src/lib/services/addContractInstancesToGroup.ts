@@ -330,7 +330,7 @@ async function upsertContractGroupForChainId(chainId: string, group: string, ful
     if (!namespaces.length) throw `Contract group "${group}" doesn't exist on any chain.`
 
     // If the contract group already exists for this chain id, do nothing.
-    if (namespaces.find(n => n.slug === toNamespaceSlug(fullNsp))) return
+    if (namespaces.find((n) => n.slug === toNamespaceSlug(fullNsp))) return
 
     // Get group ABI.
     const groupAbi = await getContractGroupAbi(group)
