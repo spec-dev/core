@@ -18,6 +18,7 @@ const groups = [
 ]
 
 async function perform() {
+    await abiRedis.connect()
     for (const [group, chainId] of groups) {
         const abiStr = (await abiRedis?.hGet(`contract-groups-${chainId}`, group)) || null
         const abi = abiStr ? JSON.parse(abiStr) : []
