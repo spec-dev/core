@@ -3,7 +3,6 @@ import { Abi, AbiItem, AbiItemType } from '../abi/types'
 import { getNamespaces } from '../core/db/services/namespaceServices'
 import { contractNamespaceForChainId } from '../utils/chainIds'
 import { polishAbis } from '../utils/formatters'
-import { saveContractGroupAbi } from '../abi/redis'
 import { CoreDB } from '../core/db/dataSource'
 import { ContractEventSpec } from '../types'
 import {
@@ -55,10 +54,6 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
 
     // Upsert namespaces, contracts, events, and event versions.
     const eventSpecs = await saveDataModels(chainIds, fullNsps, name, eventAbiItems)
-
-    // Save group abi for each chain id.
-    await Promise.all(chainIds.map((chainId) => saveContractGroupAbi(group, polishedAbi, chainId)))
-
     if (!eventSpecs.length) {
         logger.warn(`[${group}] No contract events to create live objects for.`)
         return

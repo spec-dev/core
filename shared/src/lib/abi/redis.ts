@@ -22,7 +22,7 @@ export const abiRedisKeys = {
     POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
     MUMBAI_CONTRACTS: 'mumbai-contracts',
     MUMBAI_FUNCTION_SIGNATURES: 'mumbai-function-signatures',
-    CONTRACT_GROUPS_PREFIX: 'contract-groups',
+    CONTRACT_GROUPS: 'contract-groups',
 }
 
 const contractsKeyForChainId = (chainId: string): string | null => {
@@ -216,11 +216,9 @@ export async function getFunctionSignatures(
 
 export async function getContractGroupAbi(
     contractGroup: string,
-    chainId: string = chainIds.ETHEREUM
 ): Promise<Abi | null> {
-    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
     try {
-        const abiStr = (await redis?.hGet(key, contractGroup)) || null
+        const abiStr = (await redis?.hGet(abiRedisKeys.CONTRACT_GROUPS, contractGroup)) || null
         return abiStr ? (JSON.parse(abiStr) as Abi) : []
     } catch (err) {
         logger.error(`Error getting contract group ABI for ${contractGroup}: ${err}.`)
@@ -230,12 +228,10 @@ export async function getContractGroupAbi(
 
 export async function getContractGroupAbis(
     contractGroups: string[],
-    chainId: string = chainIds.ETHEREUM
 ): Promise<{ [key: string]: Abi } | null> {
     if (!contractGroups?.length) return {}
-    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
     try {
-        const results = (await redis?.hmGet(key, contractGroups)) || []
+        const results = (await redis?.hmGet(abiRedisKeys.CONTRACT_GROUPS, contractGroups)) || []
         const abis = {}
         for (let i = 0; i < contractGroups.length; i++) {
             const address = contractGroups[i]
@@ -254,14 +250,12 @@ export async function getContractGroupAbis(
 export async function saveContractGroupAbi(
     contractGroup: string,
     groupAbi: Abi,
-    chainId: string = chainIds.ETHEREUM
 ) {
-    const key = [abiRedisKeys.CONTRACT_GROUPS_PREFIX, chainId].join('-')
     try {
         const map = {
             [contractGroup]: JSON.stringify(groupAbi),
         }
-        await redis?.hSet(key, map)
+        await redis?.hSet(abiRedisKeys.CONTRACT_GROUPS, map)
     } catch (err) {
         logger.error(`Error saving contract group ABI for ${contractGroup}: ${err}.`)
         return false

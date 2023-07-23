@@ -226,6 +226,7 @@ class EthereumIndexer extends AbstractIndexer {
                 successfulTraces,
                 this.chainId,
             )
+        
         tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
 
         // Refresh any ERC-20 balances and NFT balances that could have changed.
@@ -425,7 +426,6 @@ class EthereumIndexer extends AbstractIndexer {
 
         const contractGroupAbis = await getContractGroupAbis(
             Array.from(uniqueContractGroups),
-            this.chainId,
         )
         const namespacedContractGroupAbis = {}
         for (const contractGroup in contractGroupAbis) {
