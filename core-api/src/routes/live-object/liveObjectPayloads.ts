@@ -4,9 +4,11 @@ import { StringKeyMap, ValidatedPayload } from '../../types'
 
 export interface SearchLiveObjectPayloadFilters {
     chainIds?: string[]
+    namespace?: string
 }
 
 export interface SearchLiveObjectPayload {
+    uid: string
     query: string
     filters: SearchLiveObjectPayloadFilters
     offset: number
@@ -14,6 +16,7 @@ export interface SearchLiveObjectPayload {
 }
 
 export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPayload<SearchLiveObjectPayload> {
+    const uid = data?.uid
     const query = data?.query
     const filters = data?.filters || {}
     const offset = data?.offset || 0
@@ -39,6 +42,6 @@ export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPaylo
 
     return {
         isValid: true,
-        payload: { query, filters, offset, limit },
+        payload: { uid, query, filters, offset, limit },
     }
 }
