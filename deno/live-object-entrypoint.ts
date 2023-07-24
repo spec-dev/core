@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.150.0/http/server.ts'
 import { Queue, StringKeyMap, BigInt } from 'https://esm.sh/@spec.dev/core@0.0.88'
 import jwt from 'https://esm.sh/jsonwebtoken@8.5.1'
 import LiveObject from './spec.ts'
-import inputsContractGroupAbis from './_abis.ts'
+import inputContractGroupAbis from './_abis.ts'
 
 const errors = {
     INVALID_PAYLOAD: 'Invalid payload',
@@ -107,7 +107,7 @@ serve(async (req: Request) => {
         const publishedEventQueue = new Queue()
         const contractRegistrationQueue = new Queue()
         const liveObject = new LiveObject(
-            inputsContractGroupAbis,
+            inputContractGroupAbis,
             publishedEventQueue,
             contractRegistrationQueue,
         )
