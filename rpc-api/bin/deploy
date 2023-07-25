@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# --- Create and deploy K8S rpc-api resources --- #
+
+set -e # exit if any child script exits with non-zero status
+
+# ======== PARSE ARGS ======== #
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+rpc_api_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+shared_bin_dir="$core_dir/bin"
+env=$1
+
+# ======== SET KEY VARS ======== #
+
+bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "RPC_API_BUGSNAG_API_KEY" )
+jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
+ethereum_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_RPC_POOL_ENDPOINTS" )
+goerli_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "GOERLI_RPC_POOL_ENDPOINTS" )
+polygon_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "MUMBAI_RPC_POOL_ENDPOINTS" )
+mumbai_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "POLYGON_RPC_POOL_ENDPOINTS" )
+
+# ======== VALIDATE REQUIRED VARS ======== #
+
+$shared_bin_dir/assert_env "JWT_SECRET" "$jwt_secret"
+$shared_bin_dir/assert_env "ETHEREUM_RPC_POOL_ENDPOINTS" "$ethereum_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "GOERLI_RPC_POOL_ENDPOINTS" "$goerli_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "MUMBAI_RPC_POOL_ENDPOINTS" "$polygon_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "POLYGON_RPC_POOL_ENDPOINTS" "$mumbai_rpc_pool_endpoints"
+
+# ======== GET LATEST IMAGE ======== #
+
+aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
+aws_region=$( $shared_bin_dir/env_reader "$env" "AWS_REGION" )
+image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
+image_name=$( $shared_bin_dir/env_reader "$env" "RPC_API_IMAGE_NAME" )
+image_repo="$image_org/$image_name"
+registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
+image_version=$( $shared_bin_dir/latest_sha )
+image="$registry_image:$image_version"
+
+# ======== CREATE & APPLY TEMPLATE ======== #
+
+template_path="$rpc_api_dir/rpc-api.yaml"
+
+# Create the config template.
+template=$( cat "$template_path" | \
+    sed "s|{{IMAGE}}|$image|g" | \
+    sed "s|{{JWT_SECRET}}|$jwt_secret|g" | \
+    sed "s|{{ETHEREUM_RPC_POOL_ENDPOINTS}}|$ethereum_rpc_pool_endpoints|g" | \
+    sed "s|{{GOERLI_RPC_POOL_ENDPOINTS}}|$goerli_rpc_pool_endpoints|g" | \
+    sed "s|{{MUMBAI_RPC_POOL_ENDPOINTS}}|$polygon_rpc_pool_endpoints|g" | \
+    sed "s|{{POLYGON_RPC_POOL_ENDPOINTS}}|$mumbai_rpc_pool_endpoints|g" | \
+    sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
+
+echo "Creating RPC API resources..."
+
+# Apply the template.
+echo "$template" | kubectl apply -f -
