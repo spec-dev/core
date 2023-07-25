@@ -5,11 +5,11 @@ export const metaProtocolIds = {
 export const supportedMetaProtocolIds = new Set(Object.values(metaProtocolIds))
 
 export const metaProtocols = {
-    IPFS: 'ipfs://'
+    IPFS: 'ipfs://',
 }
 
 export const metaProtocolForId = {
-    [metaProtocolIds.IPFS]: metaProtocols.IPFS
+    [metaProtocolIds.IPFS]: metaProtocols.IPFS,
 }
 
 export const parseMetaPointer = (val: string, protocolId?: string): string | null => {
