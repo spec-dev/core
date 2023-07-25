@@ -12,3 +12,5 @@ export const isValidContractGroup = (group: string): boolean => {
     const comps = (group || '').split('.').filter((v) => !!v)
     return comps.length === 2
 }
+
+export const isDict = (val: any): boolean => !!val && typeof val === 'object' && !Array.isArray(val)
