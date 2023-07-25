@@ -7,7 +7,7 @@ export async function paramsToTsvector(query: string, filters: StringKeyMap) {
 
     // Format params.
     const formatQuery = (query: string, isInclusive: boolean) => {
-        const splitQuery = query.split(' ')
+        const splitQuery = query.split(/\s+/)
         const partialMatchQuery = splitQuery.map((input) => `${input}:*`)
         return isInclusive ? partialMatchQuery.join(' | ') : partialMatchQuery.join(' & ')
     }
@@ -17,8 +17,9 @@ export async function paramsToTsvector(query: string, filters: StringKeyMap) {
     }
 
     const tsvectorQuery = query ? formatQuery(query, false) : null
-    const tsvectorChainFilter = filters.chainIds ? formatFilters(filters.chainIds, false) : null
-    const tsvectorQueryAndChainFilter = query && Object.keys(filters).length ? tsvectorQuery + ' & ' + tsvectorChainFilter : null
+    console.log(tsvectorQuery)
+    const tsvectorChainFilter = filters.chainIds?.length ? formatFilters(filters.chainIds, false) : null
+    const tsvectorQueryAndChainFilter = query && filters.chainIds?.length ? tsvectorQuery + ' & ' + tsvectorChainFilter : null
 
     return [tsvectorQuery, tsvectorChainFilter, tsvectorQueryAndChainFilter]
 }
