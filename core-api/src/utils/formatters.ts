@@ -17,7 +17,6 @@ export async function paramsToTsvector(query: string, filters: StringKeyMap) {
     }
 
     const tsvectorQuery = query ? formatQuery(query, false) : null
-    console.log(tsvectorQuery)
     const tsvectorChainFilter = filters.chainIds?.length ? formatFilters(filters.chainIds, false) : null
     const tsvectorQueryAndChainFilter = query && filters.chainIds?.length ? tsvectorQuery + ' & ' + tsvectorChainFilter : null
 
