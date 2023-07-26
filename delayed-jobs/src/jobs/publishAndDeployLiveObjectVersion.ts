@@ -26,7 +26,7 @@ import {
     supportedChainIds,
 } from '../../../shared'
 
-import { getCreateSQLForLiveObjectSharedTables } from '../services/getCreateSQLForLiveObjectSharedTables'
+import { getResolvedMigrationSpec } from '../services/getResolvedMigrationSpec'
 
 const DEFAULT_MAX_JOB_TIME = 60000
 
@@ -37,16 +37,21 @@ export async function publishAndDeployLiveObjectVersion(
     objectName: string,
     codeUrl: string,
 ) {
-    let tableName, nsp, pathToRepo
+    let tableName, nsp, pathToObject
 
     // clone LiveObject repo from github and parse manifest.json
     try {
-        pathToRepo = await cloneRepo(codeUrl, uuid4())
+        const pathToRepo = await cloneRepo(codeUrl, uuid4())
+        if (!pathToRepo) {
+            logger.error(`Error cloning repo ${codeUrl}`)
+            return
+        }
         const { namespace, name } = parseManifest(pathToRepo, objectName)
         nsp = namespace
+        pathToObject = path.join(pathToRepo, name)
         tableName = name.toLowerCase()
     } catch (error) {
-        logger.error(`Error cloning repo ${codeUrl}: ${error}`)
+        logger.error(`Error parsing manifest from repo ${codeUrl}: ${error}`)
         return
     }
 
@@ -54,7 +59,7 @@ export async function publishAndDeployLiveObjectVersion(
     // try {
     //     const tableDoesExist = await doesTableExist(nsp, tableName)
     //     if (tableDoesExist) {
-    //         logger.error(`Table ${nsp}.${tableName} already exists`)
+    //         logger.error(`Table ${nsp}.${tableName} already exists. Aborting`)
     //         return
     //     }        
     // } catch (error) {
@@ -63,7 +68,15 @@ export async function publishAndDeployLiveObjectVersion(
     // }
 
     // get sql for given table
-    await getCreateSQLForLiveObjectSharedTables(nsp, tableName, pathToRepo)
+    const { error, migrationSpec } = await getResolvedMigrationSpec(pathToObject)
+    if (error) {
+        logger.error(
+            `Failed to generate migrations for ${tableName}: ${error}`
+        )
+        return
+    }
+
+    console.log(error, JSON.stringify(migrationSpec, null, 2))
 
     // Enqueue next job in series.
     // await enqueueDelayedJob('decodeContractInteractions', {
