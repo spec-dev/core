@@ -25,6 +25,14 @@ spec:
           value: {{JWT_SECRET}}
         - name: PORT
           value: "80"
+        - name: ETHEREUM_RPC_POOL_ENDPOINTS
+          value: {{ETHEREUM_RPC_POOL_ENDPOINTS}}
+        - name: GOERLI_RPC_POOL_ENDPOINTS
+          value: {{GOERLI_RPC_POOL_ENDPOINTS}}
+        - name: MUMBAI_RPC_POOL_ENDPOINTS
+          value: {{MUMBAI_RPC_POOL_ENDPOINTS}}
+        - name: POLYGON_RPC_POOL_ENDPOINTS
+          value: {{POLYGON_RPC_POOL_ENDPOINTS}}
         - name: FLIP
           value: heads
         - name: FORCE_COLOR
