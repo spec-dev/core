@@ -13,7 +13,8 @@ import {
     getContractInstancesInNamespace,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
-import { supportedChainIds, chainIdForContractNamespace } from '../utils/chainIds'
+import { supportedChainIds } from '../utils/chainIds'
+import { isValidContractGroup } from '../utils/validators'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
 import { AbiItemType } from '../abi/types'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
@@ -53,7 +54,7 @@ export async function addContractInstancesToGroup(
     existingBlockEvents: StringKeyMap[] = [],
     existingBlockCalls: StringKeyMap[] = []
 ): Promise<StringKeyMap> {
-    if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
+    if (!isValidContractGroup(group)) throw `Invalid contract group: ${group}`
 
     // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
     const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
@@ -63,7 +64,6 @@ export async function addContractInstancesToGroup(
     const fullNsp = [chainSpecificContractNsp, group].join('.')
 
     // Ensure this contract group already exists for at least one chain.
-    // If not, create it for this chain using the group abi of another chain.
     await upsertContractGroupForChainId(chainId, group, fullNsp)
 
     // Find other existing contract instances in this group,
