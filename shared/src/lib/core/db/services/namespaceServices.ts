@@ -2,7 +2,7 @@ import { Namespace } from '../entities/Namespace'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
-import { In } from 'typeorm'
+import { In, Raw } from 'typeorm'
 import { chainIdForContractNamespace } from '../../../utils/chainIds'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
@@ -34,13 +34,12 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
 export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
     if (!names?.length) {
         try {
-            return await namespaces()
-                .createQueryBuilder('namespace')
-                .where('namespace.name NOT LIKE :contractName', { contractName: '%.%' })
-                .andWhere('namespace.name != :test', { test: 'test' })
-                .orderBy('namespace.verified', 'ASC')
-                .addOrderBy('namespace.createdAt', 'ASC')
-                .getMany()
+            return await namespaces().find({
+                where: {
+                    name: Raw((alias) => `${alias} NOT LIKE '%.%' AND ${alias} != 'test'`),
+                },
+                order: { verified: 'ASC', createdAt: 'DESC' },
+            })
         } catch (err) {
             logger.error(`Error getting namespaces: ${err}`)
             return null
