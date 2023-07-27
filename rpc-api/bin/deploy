@@ -30,8 +30,6 @@ $shared_bin_dir/assert_env "ETHEREUM_RPC_POOL_ENDPOINTS" "$ethereum_rpc_pool_end
 $shared_bin_dir/assert_env "GOERLI_RPC_POOL_ENDPOINTS" "$goerli_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "MUMBAI_RPC_POOL_ENDPOINTS" "$polygon_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "POLYGON_RPC_POOL_ENDPOINTS" "$mumbai_rpc_pool_endpoints"
-$shared_bin_dir/assert_env "PINATA_GATEWAY_ORIGIN" "$pinata_gateway_origin"
-$shared_bin_dir/assert_env "PINATA_GATEWAY_TOKEN" "$pinata_gateway_token"
 
 # ======== GET LATEST IMAGE ======== #
 
