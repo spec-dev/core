@@ -26,7 +26,9 @@ import {
     supportedChainIds,
 } from '../../../shared'
 
-import { getResolvedMigrationSpec } from '../services/getResolvedMigrationSpec'
+import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
+import { getTriggersMigration } from '../services/getTriggersMigration'
+import { getOpsMigration } from '../services/getOpsMigration'
 
 const DEFAULT_MAX_JOB_TIME = 60000
 
@@ -61,22 +63,43 @@ export async function publishAndDeployLiveObjectVersion(
     //     if (tableDoesExist) {
     //         logger.error(`Table ${nsp}.${tableName} already exists. Aborting`)
     //         return
-    //     }        
+    //     }
     // } catch (error) {
     //     logger.error(`Error checking if table exists (${nsp}.${tableName}): ${error}`)
     //     return
     // }
 
+    let migrationTxs = []
+    
     // get sql for given table
-    const { error, migrationSpec } = await getResolvedMigrationSpec(pathToObject)
-    if (error) {
+    const { error: resolveErrorMigrationError, tableMigration, liveObjectSpec } = await getTableMigrationAndLiveObjectSpec(pathToObject)
+    if (resolveErrorMigrationError) {
         logger.error(
-            `Failed to generate migrations for ${tableName}: ${error}`
+            `Failed to generate migrations for ${tableName}: ${resolveErrorMigrationError}`
         )
         return
     }
+    migrationTxs = migrationTxs.concat(tableMigration)
 
-    console.log(error, JSON.stringify(migrationSpec, null, 2))
+    const { error: triggersMigrationError, triggerMigrations } = await getTriggersMigration(nsp, tableName)
+    if (triggersMigrationError) {
+        logger.error(
+            `Failed to generate trigger migrations for schema: ${nsp}: ${triggersMigrationError}`
+        )
+        return
+    }
+    migrationTxs = migrationTxs.concat(triggerMigrations)
+
+    const { error: opsMigrationError, opsMigration } = await getOpsMigration(nsp, tableName)
+    if (opsMigrationError) {
+        logger.error(
+            `Failed to generate ops migrations for schema: ${nsp}: ${triggersMigrationError}`
+        )
+        return
+    }
+    migrationTxs = migrationTxs.concat(opsMigration)
+
+    console.log(JSON.stringify(migrationTxs, null, 2), liveObjectSpec)
 
     // Enqueue next job in series.
     // await enqueueDelayedJob('decodeContractInteractions', {
