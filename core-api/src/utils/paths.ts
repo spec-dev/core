@@ -50,6 +50,7 @@ const paths = {
 
     // Contract paths.
     CONTRACT_GROUP: prefix.CONTRACT + '/group',
+    CONTRACT_GROUPS: prefix.CONTRACT + '/group' + 's',
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
 
     // Contract Registration Job paths.

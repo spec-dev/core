@@ -220,6 +220,7 @@ export {
     createContract,
     upsertContracts,
     upsertContractWithTx,
+    getAllContractGroups,
 } from './lib/core/db/services/contractServices'
 export {
     createContractInstance,
