@@ -1,34 +1,41 @@
-import { StringKeyMap } from "../../../shared"
+import {
+    StringKeyMap,
+    SharedTables
+} from "../../../shared/dist/main"
+const sharedTablesManager = SharedTables.manager
 
 export async function getOpsMigration(
     schemaName: string,
-    tableName: string
+    tableName: string,
+    chains: string[]
 ): Promise<{ error: Error | null, opsMigration: StringKeyMap }> {
-    const opsMigration = [{
-        'sql': `create table if not exists ${schemaName}.${tableName}_ops(` +
-                    'id serial primary key' +
-                    'pk_names text not null,' +
-                    'pk_values text not null,' +
-                    '"before" json,' +
-                    '"after" json,' +
-                    'block_number bigint not null,' +
-                    'chain_id varchar not null,' +
-                    'ts timestamp with time zone not null default (now() at time zone \'utc\')' +
-                ')'
-        ,
-        'bindings': []
-    },
-    {
-        'sql': `create index idx_${schemaName}_${tableName}_ops_pk on ${schemaName}.${tableName}_ops(pk_values)`,
-        'bindings': []
-    },
-    {
-        'sql': `create index idx_${schemaName}_${tableName}_ops_where on ${schemaName}.${tableName}_ops(block_number, chain_id)`,
-        'bindings': []
-    },
-    {
-        'sql': `create index idx_${schemaName}_${tableName}_ops_order on ${schemaName}.${tableName}_ops(pk_values, block_number, ts)`,
-        'bindings': []
-    }]
+
+    const opsMigration = []
+
+    for (const chainId of chains) {
+        const isEnabledAbove = await getIsEnabledAbove(chainId)
+        opsMigration.push({
+            sql: `insert into op_tracking(table_path, chain_id, is_enabled_above) values($1, $2, $3)`,
+            bindings: [`${schemaName}.${tableName}`,  chainId, isEnabledAbove],
+        })
+    }
     return { error: null, opsMigration }
+}
+
+async function getIsEnabledAbove(chainId: string): Promise<boolean> {
+    const query = {
+        sql: `select is_enabled_above from op_tracking where chain_id = $1 limit 1`,
+        bindings: [chainId],
+    }
+
+    let rows = []
+    try {
+        rows = await sharedTablesManager.query(query.sql, query.bindings);
+        if (rows.length === 0) {
+            throw Error(`No op_tracking entry for chain_id: ${chainId}. If you are running localy, add some fake op_tracking entries to the db.`)
+        }
+        return rows[0].is_enabled_above
+    } catch (err) {
+        throw err
+    }
 }

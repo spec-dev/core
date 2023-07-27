@@ -3,22 +3,16 @@ import os from 'os'
 import fs from 'fs'
 import git from 'nodegit'
 import uuid4 from 'uuid4'
-
 import {
     StringKeyMap,
     logger,
-    CoreDB,
-    LiveObjectVersion,
     SharedTables
 } from '../../../shared'
-
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
 import { getTriggersMigration } from '../services/getTriggersMigration'
+import { getSchemaOpsMigration } from '../services/getSchemaOpsMigration'
 import { getOpsMigration } from '../services/getOpsMigration'
 
-const DEFAULT_MAX_JOB_TIME = 60000
-
-const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
 const sharedTablesManager = SharedTables.manager
 
 export async function publishAndDeployLiveObjectVersion(
@@ -43,17 +37,17 @@ export async function publishAndDeployLiveObjectVersion(
         return
     }
 
-    // // check if table exists
-    // try {
-    //     const tableDoesExist = await doesTableExist(nsp, tableName)
-    //     if (tableDoesExist) {
-    //         logger.error(`Table ${nsp}.${tableName} already exists. Aborting`)
-    //         return
-    //     }
-    // } catch (error) {
-    //     logger.error(`Error checking if table exists (${nsp}.${tableName}): ${error}`)
-    //     return
-    // }
+    // check if table exists
+    try {
+        const tableDoesExist = await doesTableExist(nsp, tableName)
+        if (tableDoesExist) {
+            logger.error(`Table ${nsp}.${tableName} already exists. Aborting`)
+            return
+        }
+    } catch (error) {
+        logger.error(`Error checking if table exists (${nsp}.${tableName}): ${error}`)
+        return
+    }
 
     let migrationTxs = []
     
@@ -76,16 +70,33 @@ export async function publishAndDeployLiveObjectVersion(
     }
     migrationTxs = migrationTxs.concat(triggerMigrations)
 
-    const { error: opsMigrationError, opsMigration } = await getOpsMigration(nsp, tableName)
+    const { error: opsSchemaMigrationError, schemaOpsMigration } = await getSchemaOpsMigration(nsp, tableName)
+    if (opsSchemaMigrationError) {
+        logger.error(
+            `Failed to generate schema ops migrations for schema: ${nsp}: ${triggersMigrationError}`
+        )
+        return
+    }
+    migrationTxs = migrationTxs.concat(schemaOpsMigration)
+    
+    const { error: opsMigrationError, opsMigration } = await getOpsMigration(nsp, tableName, liveObjectSpec.chains)
     if (opsMigrationError) {
         logger.error(
-            `Failed to generate ops migrations for schema: ${nsp}: ${triggersMigrationError}`
+            `Failed to generate ops migrations for table: ${nsp}.${tableName}: ${triggersMigrationError}`
         )
         return
     }
     migrationTxs = migrationTxs.concat(opsMigration)
 
-    console.log(JSON.stringify(migrationTxs, null, 2), liveObjectSpec)
+    try {
+        await SharedTables.manager.transaction(async (tx) => {
+            for (const { sql, bindings } of migrationTxs) {
+                await tx.query(sql, bindings)
+            }
+        })
+    } catch (error) {
+        throw error
+    }
 
     // Enqueue next job in series.
     // await enqueueDelayedJob('decodeContractInteractions', {
