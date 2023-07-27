@@ -6,7 +6,9 @@ import {
     resolveCallVersionNames,
     resolveEventVersionNames,
     supportedChainIds,
-    contractNamespaceForChainId
+    contractNamespaceForChainId,
+    namespaceForChainId,
+    chainIds
 } from '../../../shared/dist/main'
 
 interface MigrationSpec {
@@ -24,49 +26,53 @@ export async function getResolvedMigrationSpec(
     migrationSpec.liveObjectSpec.config.folder = path.parse(pathToObject).base
 
     // resolve input events with full version names
-    const { error: resolveEventError, inputEvents } = await resolveEventVersions(migrationSpec.liveObjectSpec.inputEvents)
+    const { error: resolveEventError, inputEvents } = await resolveVersions(migrationSpec.liveObjectSpec.inputEvents)
     if (resolveEventError) return { error: resolveEventError, migrationSpec: null }
     migrationSpec.liveObjectSpec.inputEvents = inputEvents
 
     // resolve input calls with full version names
-    const { error: resolveCallError, inputCalls } = await resolveCallVersions(migrationSpec.liveObjectSpec.inputCalls)
+    const { error: resolveCallError, inputCalls } = await resolveVersions(migrationSpec.liveObjectSpec.inputCalls)
     if (resolveCallError) return { error: resolveCallError, migrationSpec: null }
     migrationSpec.liveObjectSpec.inputCalls = inputCalls
 
     return { error: null, migrationSpec }
 }
 
-async function resolveEventVersions(inputEvents: string[]): Promise<StringKeyMap> {
-    const fullNamespaceNames = getFullNamespaceNamesForInputs(inputEvents)
-    const { data, error } = await resolveEventVersionNames(fullNamespaceNames)
-    return {
-        error,
-        inputEvents: data && Object.entries(data).map(([, value]) => value) as string[],
-    }
-}
+async function resolveVersions(givenInputNames: string[]): Promise<StringKeyMap> {
+    const CONTRACTS_EVENT_NSP = 'contracts'
+    
+    const chainNsps = Object.values(chainIds).map(id => namespaceForChainId[id])
 
-async function resolveCallVersions(inputCalls: string[]): Promise<StringKeyMap> {
-    const fullNamespaceNames = getFullNamespaceNamesForInputs(inputCalls)
-    const { data, error } = await resolveCallVersionNames(fullNamespaceNames)
+    // format given inputs into full namespaces
+    const inputNames = []
+    for (const givenName of givenInputNames) {
+        let fullName = givenName
 
-    return {
-        error,
-        inputCalls: data && Object.entries(data).map(([k, value]) => value) as string[]
-    }
-}
+        if (givenName.split('.').length === 3) {
+            fullName = `${CONTRACTS_EVENT_NSP}.${fullName}`
+        }
 
-function getFullNamespaceNamesForInputs(
-    inputs: string[]
-): string[] {
-    const fullNamespaceNames = []
-    for (const input of inputs) {
-        for (const supportedChainId of supportedChainIds) {
-            const nspForChainId = contractNamespaceForChainId(supportedChainId)
-            const fullPath = `${nspForChainId}.${input}`
-            fullNamespaceNames.push(fullPath)
+        if (fullName.startsWith(`${CONTRACTS_EVENT_NSP}.`)) {
+            for (const nsp of chainNsps) {
+                inputNames.push([nsp, fullName].join('.'))
+            }
+        } else {
+            inputNames.push(fullName)
         }
     }
-    return fullNamespaceNames
+    if (!inputNames.length) return { error: null, inputEvents: [] }
+
+    // resolve event versions for given inputs
+    const { data, error } = await resolveEventVersionNames(inputNames)
+    if (error) return { error, inputEvents: null }
+
+    // check if any ambigious event versions were returned
+    const resolvedInputNames = Object.values(data)
+    if (resolvedInputNames.findIndex((v: string) => v.includes('Ambigious')) > -1) {
+        return { error: new Error(`Ambigious event version found in: ${resolvedInputNames}`), inputEvents: null }
+    }
+
+    return { error: null, inputEvents: resolvedInputNames }
 }
 
 async function getRawMigrationSpecFromDeno(
@@ -78,7 +84,6 @@ async function getRawMigrationSpecFromDeno(
 
     // run deno file with args
     const cmdArgs = [
-        '--cached-only',
         '--allow-env',
         '--allow-read',
         '--allow-net',
@@ -98,11 +103,6 @@ async function getRawMigrationSpecFromDeno(
 async function runDenoFile(
     cmdArgs: string[],
 ): Promise<{ error: Error | null, stdout: StringKeyMap | null }> {
-    // do we need to check that deno is installed?
-
-    // do we need to do the caching logic here
-    // hasCachedDenoTestFile() || cacheDenoTestFile()
-
     try {
         // stdio: 'pipe' prevents error logs from being printed from the deno file. 
         const stdout = execSync(`deno run ${cmdArgs.join(' ')}`, { stdio: 'pipe' })
