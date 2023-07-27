@@ -496,9 +496,7 @@ export default function job(params: StringKeyMap) {
     const targetBatchSize = params.targetBatchSize || 100
     const shouldGenerateEvents = params.shouldGenerateEvents === true
     const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
-
-    // TODO: Whether to flip status of lov to indexing/live
-    const setLovToIndexingBefore = params.setLovToIndexingBefore !== false
+    const setLovToIndexingBefore = params.setLovToIndexingBefore === true
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
 
     return {
