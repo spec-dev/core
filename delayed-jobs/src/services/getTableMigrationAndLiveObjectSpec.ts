@@ -5,10 +5,7 @@ import {
     PublishLiveObjectVersionPayload,
     resolveCallVersionNames,
     resolveEventVersionNames,
-    supportedChainIds,
-    contractNamespaceForChainId,
-    namespaceForChainId,
-    chainIds
+    namespaceForChainId
 } from '../../../shared/dist/main'
 
 interface LiveObjectSpec extends PublishLiveObjectVersionPayload {

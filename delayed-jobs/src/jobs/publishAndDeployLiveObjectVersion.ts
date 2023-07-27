@@ -7,23 +7,9 @@ import uuid4 from 'uuid4'
 import {
     StringKeyMap,
     logger,
-    getLovInputGenerator,
-    updateLiveObjectVersionStatus,
-    LiveObjectVersionStatus,
-    newTablesJWT,
-    sleep,
-    enqueueDelayedJob,
-    DEFAULT_TARGET_BLOCK_BATCH_SIZE,
     CoreDB,
     LiveObjectVersion,
-    TokenTransfer,
-    In,
-    unique,
-    SharedTables,
-    getGeneratedEventsCursors,
-    addContractInstancesToGroup,
-    isValidAddress,
-    supportedChainIds,
+    SharedTables
 } from '../../../shared'
 
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
