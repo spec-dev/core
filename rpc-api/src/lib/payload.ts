@@ -1,5 +1,5 @@
 import { ValidatedPayload, StringKeyMap } from './types'
-import { AbiItem, AbiItemType, isValidAddress, supportedChainIds, supportedMetaProtocolIds, parseMetaPointer } from '../../../shared'
+import { AbiItem, AbiItemType, isValidAddress, supportedChainIds, supportedMetaProtocolIds, parseMetaPointer, metaProtocolIds } from '../../../shared'
 import { abiItemFromHumanReadableString } from '../utils/formatters'
 
 export interface CallPayload {
@@ -62,7 +62,7 @@ export function parseCallPayload(data: StringKeyMap): ValidatedPayload<CallPaylo
 }
 
 export function parseMetadataPayload(data: StringKeyMap): ValidatedPayload<MetadataPayload> {
-    const protocolId = data?.protocolId?.toString()
+    const protocolId = data?.protocolId?.toString() || metaProtocolIds.IPFS
     let pointer = data?.pointer
 
     if (!supportedMetaProtocolIds.has(protocolId)) {
