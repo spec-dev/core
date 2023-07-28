@@ -93,7 +93,7 @@ export async function getAllContractGroups(filters: StringKeyMap): Promise<Contr
             },
             where: {
                 namespace: {
-                    slug: ILike(filters.namespace ? `%${filters.namespace}%` : '%'),
+                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
                 },
             },
             order: { createdAt: 'DESC' },

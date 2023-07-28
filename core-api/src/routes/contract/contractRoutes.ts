@@ -83,17 +83,22 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
     const groups:StringKeyMap = {}
     const groupedContracts = []
 
-    contracts.map(contract => {
+    contracts.forEach(contract => {
         const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
         if (!groupName) return
 
         const chainId = chainIdForContractNamespace(contract.namespace.slug)
-        groups[groupName] = groups[groupName] || {}
-        groups[groupName].chainIds = [...groups[groupName].chainIds || [], chainId]
-        groups[groupName].contractCount = (groups[groupName].contractCount || 0) + contract.contractInstances.length
+        groups[groupName] = groups[groupName] || {chainIds: [], contractCount: 0}
+        groups[groupName].chainIds.push(chainId)
+        groups[groupName].contractCount += contract.contractInstances.length
     })
 
-    Object.entries(groups).map(([groupName, values]) => groupedContracts.push({ groupName, ...values }))
+    Object.entries(groups).forEach(([groupName, values]) => 
+        groupedContracts.push({ 
+            groupName, 
+            ...values 
+        })
+    )
     return res.status(codes.SUCCESS).json(groupedContracts)
 })
 
