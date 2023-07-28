@@ -35,7 +35,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_code_url, 
                 namespace_has_icon, 
                 namespace_created_at,
-                namespace_name LIKE '%.%' AS is_custom
+                namespace_name NOT LIKE '%.%' AS is_custom
             FROM live_object_version_namespace_view
             WHERE
             CASE
