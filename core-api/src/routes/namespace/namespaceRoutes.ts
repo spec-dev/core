@@ -25,6 +25,24 @@ app.get(paths.NAMESPACE, async (req, res) => {
 })
 
 /**
+ * Get namespaces.
+ */
+app.get(paths.NAMESPACES, async (req, res) => {
+    const namespaces = await getNamespaces([])
+    if (!namespaces) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ ok: false })
+    }
+
+    const featuredNamespaces = await getCachedFeaturedNamespaces()
+    namespaces.sort((a, b) => {
+        return featuredNamespaces?.includes(a.slug) ? -1 : featuredNamespaces?.includes(b.slug) ? 1 : 0
+    })
+
+    const data = await Promise.all(namespaces.map(n => n.publicView()))
+    return res.status(codes.SUCCESS).json(data)
+})
+
+/**
  * Get the current featured namespaces.
  */
 app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
