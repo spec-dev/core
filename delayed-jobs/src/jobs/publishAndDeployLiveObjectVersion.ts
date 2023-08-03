@@ -15,12 +15,25 @@ import { getOpsMigration } from '../services/getOpsMigration'
 
 const sharedTablesManager = SharedTables.manager
 
+function actualInfo(
+    objectName: string,
+    userNamespace: string
+) {
+    // {
+    //     namespace: '<namespace from manifest>',
+    //         name: '<name from manifest>',
+    //             folder: '<input from user>'
+    // }
+
+    // do you think we need the user to pass in the namespace as well ? `spec publish object <NameOfObject> --nsp <nsp>` ?
+    //     the code_url exists on the `namespaces` table.i see that the `namespace_users` table has a user_id on it
+}
+
 export async function publishAndDeployLiveObjectVersion(
     objectName: string,
     codeUrl: string,
 ) {
     let tableName, nsp, pathToObject
-
     // clone LiveObject repo from github and parse manifest.json
     try {
         const pathToRepo = await cloneRepo(codeUrl, uuid4())
@@ -108,6 +121,10 @@ export async function publishAndDeployLiveObjectVersion(
     //     jobRangeSize,
     //     registrationJobUid,
     // })
+}
+
+async function getCodeUrl() {
+
 }
 
 async function doesTableExist(schemaName: string, tableName: string): Promise<boolean> {
