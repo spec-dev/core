@@ -1,5 +1,35 @@
-import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
+import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload, GeneratePublishLiveObjectVersionPayload } from '../../types'
 import { supportedChainIds, toNumber, toDate } from '../../../../shared'
+
+// PUBLISH_LIVE_OBJECT_VERSION
+export function parsePublishLiveObjectVersionPayload(
+    data: StringKeyMap
+): ValidatedPayload<GeneratePublishLiveObjectVersionPayload> {
+    const nsp = data?.nsp
+    const name = data?.name
+    const folder = data?.folder
+
+    if (!nsp) {
+        return { isValid: false, error: 'No nsp given' }
+    }
+
+    if (!name) {
+        return { isValid: false, error: 'No name given' }
+    }
+
+    if (!folder) {
+        return { isValid: false, error: 'No folder given' }
+    }
+
+    return {
+        isValid: true,
+        payload: {
+            nsp,
+            name,
+            folder,
+        }
+    }
+}
 
 export function parseGenerateTestInputsPayload(
     data: StringKeyMap

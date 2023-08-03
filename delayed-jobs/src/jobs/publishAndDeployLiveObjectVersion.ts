@@ -6,34 +6,31 @@ import uuid4 from 'uuid4'
 import {
     StringKeyMap,
     logger,
-    SharedTables
+    SharedTables,
+    CoreDB,
+    Namespace
 } from '../../../shared'
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
 import { getTriggersMigration } from '../services/getTriggersMigration'
 import { getSchemaOpsMigration } from '../services/getSchemaOpsMigration'
 import { getOpsMigration } from '../services/getOpsMigration'
 
+const namespaceRepo = () => CoreDB.getRepository(Namespace)
 const sharedTablesManager = SharedTables.manager
 
-function actualInfo(
-    objectName: string,
-    userNamespace: string
-) {
-    // {
-    //     namespace: '<namespace from manifest>',
-    //         name: '<name from manifest>',
-    //             folder: '<input from user>'
-    // }
-
-    // do you think we need the user to pass in the namespace as well ? `spec publish object <NameOfObject> --nsp <nsp>` ?
-    //     the code_url exists on the `namespaces` table.i see that the `namespace_users` table has a user_id on it
-}
-
 export async function publishAndDeployLiveObjectVersion(
+    nsp: string,
     objectName: string,
-    codeUrl: string,
+    folder: string
 ) {
-    let tableName, nsp, pathToObject
+    // get codeUrl from namespace
+    const codeUrl = await getCodeUrl(nsp)
+    if (!codeUrl) {
+        logger.error(`Error retreiving code url from ${nsp}`)
+        return
+    }
+
+    let tableName, pathToObject
     // clone LiveObject repo from github and parse manifest.json
     try {
         const pathToRepo = await cloneRepo(codeUrl, uuid4())
@@ -41,8 +38,13 @@ export async function publishAndDeployLiveObjectVersion(
             logger.error(`Error cloning repo ${codeUrl}`)
             return
         }
-        const { namespace, name } = parseManifest(pathToRepo, objectName)
-        nsp = namespace
+        const { namespace, name } = parseManifest(pathToRepo, folder)
+        if (namespace !== nsp) {
+            throw Error(`Namespace mismatch between request (${nsp}) and code url manifest (${namespace})`)
+        }
+        if (objectName !== name) {
+            throw Error(`Object name mismatch between folder (${folder}) and object name (${objectName})`)
+        }
         pathToObject = path.join(pathToRepo, name)
         tableName = name.toLowerCase()
     } catch (error) {
@@ -123,8 +125,14 @@ export async function publishAndDeployLiveObjectVersion(
     // })
 }
 
-async function getCodeUrl() {
-
+async function getCodeUrl(nsp: string) {
+    let namespace
+    try {
+        namespace = await namespaceRepo().findOne({ where: { name: nsp } })    
+    } catch (error) {
+        return null
+    }
+    return namespace.codeUrl
 }
 
 async function doesTableExist(schemaName: string, tableName: string): Promise<boolean> {
@@ -173,13 +181,15 @@ function parseManifest(
 }
 
 export default function job(params: StringKeyMap) {
-    const objectName = 'something'
-    const codeUrl = 'something'
+    const nsp = params.nsp || ''
+    const name = params.name || ''
+    const folder = params.folder || ''
 
     return {
         perform: async () => publishAndDeployLiveObjectVersion(
-            objectName,
-            codeUrl,
+            nsp,
+            name,
+            folder
         )
     }
 }

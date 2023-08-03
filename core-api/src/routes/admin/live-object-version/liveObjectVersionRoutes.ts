@@ -16,7 +16,7 @@ import {
 /**
  * Publish a new live object version.
  */
-app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
+app.post(paths.ADMIN_PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
