@@ -88,8 +88,8 @@ export function decodeTransferEvent(
     
     let from, to, value
     try {
-        from = normalizeEthAddress(topicsWithData[1], true, true)
-        to = normalizeEthAddress(topicsWithData[2], true, true)
+        from = normalizeEthAddress(topicsWithData[1], false, true)
+        to = normalizeEthAddress(topicsWithData[2], false, true)
         value = hexToNumberString(topicsWithData[3])    
     } catch (err) {
         logger.error(`Error extracting ${TRANSFER_EVENT_NAME} event params: ${err}`)
@@ -117,9 +117,9 @@ export function decodeTransferSingleEvent(
     
     let operator, from, to, id, value 
     try {
-        operator = normalizeEthAddress(topicsWithData[1], true, true)
-        from = normalizeEthAddress(topicsWithData[2], true, true)
-        to = normalizeEthAddress(topicsWithData[3], true, true)
+        operator = normalizeEthAddress(topicsWithData[1], false, true)
+        from = normalizeEthAddress(topicsWithData[2], false, true)
+        to = normalizeEthAddress(topicsWithData[3], false, true)
         id = hexToNumberString(topicsWithData[4])
         value = hexToNumberString(topicsWithData[5])
     } catch (err) {
