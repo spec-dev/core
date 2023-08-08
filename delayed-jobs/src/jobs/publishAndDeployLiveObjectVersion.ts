@@ -104,9 +104,9 @@ export async function publishAndDeployLiveObjectVersion(
     )
     if (!wasPublished) return
 
+    // get live_object_versions entry
     const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
     const lovs = await getLiveObjectVersionsByNamespacedVersions([namespaceVersion])
-    // check
     const lov = lovs[0]
 
     console.log('lov', lov)
@@ -207,7 +207,7 @@ async function getMigrationTxs(
         }
     }
     migrationTxs = migrationTxs.concat(tableMigration)
-    
+
     // get schema and table names from table config
     const [schemaName, tableName] = liveObjectSpec.config.table.split('.')
 
