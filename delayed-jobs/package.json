@@ -10,7 +10,7 @@
         "clean": "rimraf dist",
         "format": "prettier --write \"{src,test}/**/*.ts\"",
         "build": "run-s clean format build:main",
-        "build:main": "tsc -p tsconfig.json",
+        "build:main": "tsc -p tsconfig.json && cp -R deno dist/",
         "typeorm": "typeorm-ts-node-esm"
     },
     "dependencies": {

@@ -101,7 +101,7 @@ async function getTableMigrationAndSpecFromDeno(
     pathToObject: string
 ): Promise<{ error: Error | null, tableMigration: StringKeyMap[], liveObjectSpec: LiveObjectSpec }> {
     // get path to local deno file and imports.json from target folder
-    const extractLiveObjectSpec = path.resolve(__dirname, '..', '..', 'deno', 'extractLiveObjectSpec.ts')
+    const extractLiveObjectSpec = path.resolve(__dirname, '../..', 'deno', 'extractLiveObjectSpec.ts')
     const importsPath = path.resolve(pathToObject, '..', 'imports.json')
 
     // run deno file with args

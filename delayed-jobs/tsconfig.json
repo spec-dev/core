@@ -1,6 +1,6 @@
 {
     "include": ["src"],
-    "exclude": ["node_modules/**/*.ts", "bin/*", "src/deno/*.ts"],
+    "exclude": ["node_modules/**/*.ts", "bin/*", "deno/*.ts"],
     "compilerOptions": {
         "declaration": true,
         "declarationMap": true,

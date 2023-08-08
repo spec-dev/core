@@ -9,7 +9,7 @@ export async function getUserPermissionsMigration(
     let userPermissionsMigration = []
 
     try {
-        if (await doesUserExist(schemaName)) return
+        if (await doesUserExist(schemaName)) return { error: null, userPermissionsMigration: [] }
     } catch (error) {
         return { error, userPermissionsMigration: null }
     }

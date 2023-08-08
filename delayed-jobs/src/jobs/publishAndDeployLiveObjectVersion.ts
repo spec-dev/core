@@ -54,7 +54,7 @@ export async function publishAndDeployLiveObjectVersion(
         logger.error(`Error retreiving code url from ${nsp}`)
         return
     }
-
+    
     // get manifest from namespace code_url
     const { error: cloneRepoError, manifest, objectFolderPath } = await cloneNamespaceRepo(namespace, objectName, folder)
     if (cloneRepoError) {
@@ -71,122 +71,134 @@ export async function publishAndDeployLiveObjectVersion(
 
     const [schemaName, tableName] = liveObjectSpec.config.table.split('.')
 
-    // check if schema table exists
-    try {
-        const tableDoesExist = await doesTableExist(schemaName, tableName)
-        if (tableDoesExist) {
-            logger.error(`Table ${schemaName}.${tableName} already exists. Aborting`)
-            return
-        }
-    } catch (error) {
-        logger.error(`Error checking if table exists (${schemaName}.${tableName}): ${error}`)
-        return
-    }
+    // // check if schema table exists
+    // try {
+    //     const tableDoesExist = await doesTableExist(schemaName, tableName)
+    //     if (tableDoesExist) {
+    //         logger.error(`Table ${schemaName}.${tableName} already exists. Aborting`)
+    //         return
+    //     }
+    // } catch (error) {
+    //     logger.error(`Error checking if table exists (${schemaName}.${tableName}): ${error}`)
+    //     return
+    // }
 
-    // run migrations
-    try {
-        await SharedTables.manager.transaction(async (tx) => {
-            for (const { sql, bindings } of migrationTxs) {
-                await tx.query(sql, bindings)
-            }
-        })
-    } catch (error) {
-        // throw error should be logger.error TODO::
-        throw error
-    }
+    // // run migrations
+    // try {
+    //     await SharedTables.manager.transaction(async (tx) => {
+    //         for (const { sql, bindings } of migrationTxs) {
+    //             await tx.query(sql, bindings)
+    //         }
+    //     })
+    // } catch (error) {
+    //     // throw error should be logger.error TODO::
+    //     throw error
+    // }
 
-    // insert all CoreDB values into all tables:
-    // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
-    const wasPublished = await publishLiveObjectVersion(
-        namespace,
-        null,
-        liveObjectSpec as PublishLiveObjectVersionPayload
-    )
-    if (!wasPublished) return
+    // // insert all CoreDB values into all tables:
+    // // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
+    // const wasPublished = await publishLiveObjectVersion(
+    //     namespace,
+    //     null,
+    //     liveObjectSpec as PublishLiveObjectVersionPayload
+    // )
+    // if (!wasPublished) return
 
+    
+    const namespaceVersion = 'allo.Account@0.0.1'
     // get live_object_versions entry
-    const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
+    // const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
     const lovs = await getLiveObjectVersionsByNamespacedVersions([namespaceVersion])
     const lov = lovs[0]
 
     console.log('lov', lov)
 
-    // // move extraxtLiveObjectSpec.ts into ../deno and update typescript config on build TODO::
+    /*
+    {
+  id: 378,
+  uid: '784a2d7a-2413-402d-9f96-4c2c0aa25b94',
+  nsp: 'allo',
+  name: 'Account',
+  version: '0.0.1',
+  url: null,
+  status: null,
+  properties: [
+    { name: 'address', type: 'Address', desc: '...' },
+    { name: 'blockHash', type: 'BlockHash', desc: '...' },
+    { name: 'blockNumber', type: 'BlockNumber', desc: '...' },
+    { name: 'blockTimestamp', type: 'Timestamp', desc: '...' },
+    { name: 'chainId', type: 'ChainId', desc: '...' }
+  ],
+  example: null,
+  config: {
+    primaryTimestampProperty: 'blockTimestamp',
+    uniqueBy: [ [Array] ],
+    table: 'allo.account',
+    chains: { '1': {}, '5': {} },
+    folder: 'Account'
+  },
+  createdAt: 2023-08-08T20:02:02.728Z,
+  liveObjectId: 378
+}
+    
+    */
 
-    // // copy deno server file to object folder
-    // try {
-    //     fs.copyFileSync('../deno/live-object-entrypoint.ts', `${objectFolderPath}/index.ts`)
-    // } catch (error) {
-    //     // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
-    //     throw error
-    // }
+    // copy deno server file to object folder
+    try {
+        fs.copyFileSync('./deno/live-object-entrypoint.ts', `${objectFolderPath}/index.ts`)
+    } catch (error) {
+        // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
+        throw error
+    }
 
-    // // deploy live object to deno server
-    // let denoUrl
-    // try {
-    //     // TODO:: use Bens old effort
-    //     // deno land
-    //     // project -> event-generators
-    //     // add DENO_LAND_API_KEY .env
-    //     // just make it a hello-world
-    //     const stdout = execSync(`deployctl deploy --import-map=${path.join(objectFolderPath, '..', 'imports.json')} --project=event-generators ${path.join(objectFolderPath, 'index.ts')}`)
-    //     denoUrl = stdout.toString() // use Bens old effort
-    //     // if (!stdout) throw 'No stdout returned from deployctl deploy'
-    //     // out = stdout.toString().trim()
-    //     // parseUrls
-    //     // parseDeployedFunctionUrlFromStdout(stdout.toString().trim())
-    // } catch (error) {
-    //     // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
-    //     throw error
-    // }
+    // deploy live object to deno server
+    let denoUrl
+    try {
+        // TODO:: use Bens old effort
+        // deno land
+        // project -> event-generators
+        // add DENO_LAND_API_KEY .env
+        // just make it a hello-world
+        const stdout = execSync(`deployctl deploy --import-map=${path.join(objectFolderPath, '..', 'imports.json')} --project=event-generators ${path.join(objectFolderPath, 'index.ts')}`)
+        if (!stdout) throw new Error('No stdout returned from deployctl deploy')
+        denoUrl = parseDeployedFunctionUrlFromStdout(stdout.toString().trim())
 
-    // // Update the live object version's url column with the url of the Deno function just created.
-    // let updateLiveObjectVersion = `lovRepo().update({ id: ${'lov.id'}, url: ${denoUrl} })`
+    } catch (error) {
+        // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
+        throw error
+    }
+    
+    // Update the live object version's url column with the url of the Deno function just created.
+    let updateLiveObjectVersion = `lovRepo().update({ id: ${'lov.id'}, url: ${denoUrl} })`
 
-    // // Click off indexing for live object versions
-    // const params = {
-    //     lovIds: [lov.id],
-    //     lovTables: '',
-    //     startTimestamp: '',
-    //     iteration: '',
-    //     maxIterations: '',
-    //     maxJobTime: '',
-    //     targetBatchSize: '',
-    //     shouldGenerateEvents: '',
-    //     updateOpTrackingFloor: '',
-    //     setLovToIndexingBefore: '',
-    //     setLovToLiveAfter: '',
-    // }
+    // Click off indexing for live object versions
+    const params = {
+        lovIds: [lov.id],
+        lovTables: [liveObjectSpec.config.table],
+        startTimestamp: '',
+        iteration: '',
+        maxIterations: '',
+        maxJobTime: '',
+        targetBatchSize: '',
+        shouldGenerateEvents: '',
+        updateOpTrackingFloor: '',
+        setLovToIndexingBefore: '',
+        setLovToLiveAfter: '',
+    }
 
-    // await doIndexLiveObjectVersions(params)
-    // // need to move over all prod data to local coreDB
+    await doIndexLiveObjectVersions(params)
+    // need to move over all prod data to local coreDB
 
-    // // Progress uid
+    // Progress uid
 
-    // // // Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
-    // // let updateIndexes = `liveObject.update({ indexibleValues: [...] })`
+    // // Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
+    // let updateIndexes = `liveObject.update({ indexibleValues: [...] })`
 }
 
 function parseDeployedFunctionUrlFromStdout(stdout: string): string | null {
     const foundUrls = parseUrls(stdout)
     if (!foundUrls?.length) return null
     return foundUrls.find(url => url.includes('deno')) || null
-}
-
-async function getLiveObjectVersion(liveObjectSpec: StringKeyMap): Promise<LiveObjectVersion | null> {
-    let lov
-    try {
-        lov = await lovsRepo().findOne({
-            where: {
-                nsp: liveObjectSpec.namespace,
-                name: liveObjectSpec.name,
-                version: liveObjectSpec.version,
-            }
-        })
-    } catch (err) {
-        return null
-    }
-    return lov
 }
 
 async function getMigrationTxs(
