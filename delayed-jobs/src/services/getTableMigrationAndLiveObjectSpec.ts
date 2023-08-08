@@ -117,18 +117,18 @@ async function getTableMigrationAndSpecFromDeno(
 
     // parse stdout
     if (error) return { error, tableMigration: null, liveObjectSpec: null }
-    const migrationSpec: MigrationSpec = JSON.parse(stdout.toString())
+    const migrationSpec: MigrationSpec = JSON.parse(stdout)
 
     return { error: null, tableMigration: migrationSpec.migrations, liveObjectSpec: migrationSpec.liveObjectSpec }
 }
 
 async function runDenoFile(
     cmdArgs: string[],
-): Promise<{ error: Error | null, stdout: StringKeyMap | null }> {
+): Promise<{ error: Error | null, stdout: string | null }> {
     try {
         // stdio: 'pipe' prevents error logs from being printed from the deno file. 
         const stdout = execSync(`deno run ${cmdArgs.join(' ')}`, { stdio: 'pipe' })
-        return { error: null, stdout }
+        return { error: null, stdout: stdout.toString() }
     } catch (error) {
         return { error, stdout: null }
     }

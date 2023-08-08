@@ -5,48 +5,49 @@ const sharedTablesManager = SharedTables.manager
 export async function getUserPermissionsMigration(
     schemaName: string
 ): Promise<{ error: Error | null, userPermissionsMigration: StringKeyMap }> {
+
     let userPermissionsMigration = []
 
     try {
-        if (!(await doesUserExist(schemaName))) {
-            userPermissionsMigration.push({
-                sql: `create user ${schemaName}`,
-                bindings: []
-            })
-        }
+        if (await doesUserExist(schemaName)) return
     } catch (error) {
         return { error, userPermissionsMigration: null }
     }
 
     userPermissionsMigration = userPermissionsMigration.concat([
-    {
-        sql: `grant usage on schema ${schemaName} to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `grant all privileges on all tables in schema ${schemaName} to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `grant all privileges on all sequences in schema ${schemaName} to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `grant all privileges on all functions in schema ${schemaName} to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `alter default privileges in schema ${schemaName} grant all on tables to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `alter default privileges in schema ${schemaName} grant all on sequences to ${schemaName}`,
-        bindings: []
-    },
-    {
-        sql: `alter default privileges in schema ${schemaName} grant all on functions to ${schemaName}`,
-        bindings: []
-    }])
+        {
+            sql: `create user ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `grant usage on schema ${schemaName} to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `grant all privileges on all tables in schema ${schemaName} to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `grant all privileges on all sequences in schema ${schemaName} to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `grant all privileges on all functions in schema ${schemaName} to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `alter default privileges in schema ${schemaName} grant all on tables to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `alter default privileges in schema ${schemaName} grant all on sequences to ${schemaName}`,
+            bindings: []
+        },
+        {
+            sql: `alter default privileges in schema ${schemaName} grant all on functions to ${schemaName}`,
+            bindings: []
+        }
+    ])
 
     return { error: null, userPermissionsMigration }
 }

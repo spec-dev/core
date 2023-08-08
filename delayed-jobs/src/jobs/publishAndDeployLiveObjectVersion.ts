@@ -9,7 +9,12 @@ import {
     SharedTables,
     getNamespace,
     publishLiveObjectVersion,
-    PublishLiveObjectVersionPayload
+    PublishLiveObjectVersionPayload,
+    CoreDB,
+    LiveObjectVersion,
+    toNamespacedVersion,
+    getLiveObjectVersionsByNamespacedVersions,
+    parseUrls
 } from '../../../shared'
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
 import { getTriggersMigration } from '../services/getTriggersMigration'
@@ -17,22 +22,38 @@ import { getSchemaOpsMigration } from '../services/getSchemaOpsMigration'
 import { getOpsMigration } from '../services/getOpsMigration'
 import { getUserPermissionsMigration } from '../services/getUserPermissionsMigration'
 import { indexLiveObjectVersions } from './indexLiveObjectVersions'
+import { execSync } from 'node:child_process'
 
+const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
 const sharedTablesManager = SharedTables.manager
 
 export async function publishAndDeployLiveObjectVersion(
     nsp: string,
     objectName: string,
-    folder: string
+    folder: string,
+    // uid?: string | null,
+    // version: string TODO:: from cli
 ) {
+    // TODO: create some db entry to keep track// Create new registration job to track progress.
+    // try {
+    //     uid = uid || uuid4()
+    //     await createContractRegistrationJob(
+    //          nsp: string,
+    //          objectName: string,
+    //           folder: string,
+    //     )
+    // } catch (err) {
+    //     logger.error(err)
+    //     return
+    // }
+
     // get namespace values from db
     const namespace = await getNamespace(nsp)
     if (!namespace || !namespace?.codeUrl) {
+        // await contractRegistrationJobFailed(uid, errors.GENERAL)
         logger.error(`Error retreiving code url from ${nsp}`)
         return
     }
-
-    console.log('namespace?.codeUrl', namespace?.codeUrl)
 
     // get manifest from namespace code_url
     const { error: cloneRepoError, manifest, objectFolderPath } = await cloneNamespaceRepo(namespace, objectName, folder)
@@ -40,25 +61,25 @@ export async function publishAndDeployLiveObjectVersion(
         logger.error(`Error getting manifest from repo: ${objectName} ${cloneRepoError}`)
         return
     }
-    // normalize schema table name
-    const schemaTableName = manifest.name.toLowerCase()
 
-    // check if schema table exists
-    try {
-        const tableDoesExist = await doesTableExist(nsp, schemaTableName)
-        if (tableDoesExist) {
-            logger.error(`Table ${nsp}.${schemaTableName} already exists. Aborting`)
-            return
-        }
-    } catch (error) {
-        logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
+    // init migration txs sequence
+    const { error: migrationError, migrationTxs, liveObjectSpec } = await getMigrationTxs(namespace.name, manifest.name, objectFolderPath)
+    if (migrationError) {
+        logger.error(`Error creating migrations: ${migrationError}`)
         return
     }
 
-    // init migration txs sequence
-    const { error: migrationError, migrationTxs, liveObjectSpec } = await getMigrationTxs(namespace.name, schemaTableName, objectFolderPath)
-    if (migrationError) {
-        logger.error(`Error creating migrations: ${migrationError}`)
+    const [schemaName, tableName] = liveObjectSpec.config.table.split('.')
+
+    // check if schema table exists
+    try {
+        const tableDoesExist = await doesTableExist(schemaName, tableName)
+        if (tableDoesExist) {
+            logger.error(`Table ${schemaName}.${tableName} already exists. Aborting`)
+            return
+        }
+    } catch (error) {
+        logger.error(`Error checking if table exists (${schemaName}.${tableName}): ${error}`)
         return
     }
 
@@ -70,10 +91,12 @@ export async function publishAndDeployLiveObjectVersion(
             }
         })
     } catch (error) {
+        // throw error should be logger.error TODO::
         throw error
     }
 
-    // publish live object version to CoreDB
+    // insert all CoreDB values into all tables:
+    // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
     const wasPublished = await publishLiveObjectVersion(
         namespace,
         null,
@@ -81,45 +104,94 @@ export async function publishAndDeployLiveObjectVersion(
     )
     if (!wasPublished) return
 
+    const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
+    const lovs = await getLiveObjectVersionsByNamespacedVersions([namespaceVersion])
+    // check
+    const lov = lovs[0]
 
-    // Replace @spec.dev/core with the full url import from esm.sh at the top of spec.ts
-    // !! *** might not need to do this b/c we can use --import-map during deploy step
-    let replaceCmd = `fs.replace("${objectFolderPath}/spec.ts", "@spec.dev/core", "https://esm.sh/@spec")`
+    console.log('lov', lov)
 
-    // Copy core/live-object-entrypoint.ts into the live object folder at index.ts
-    let cpyCmd = `fs.cp("./core/live-object-entrypoint.ts", "${objectFolderPath}/index.ts")`
+    // // move extraxtLiveObjectSpec.ts into ../deno and update typescript config on build TODO::
 
-    // Run deployctl deploy --project=event-generators index.ts
-    //   Looks like we can use deplyctl with the --import-map flag
-    //   --import-map=<FILE>   Use import map file // https://github.com/denoland/deployctl/blob/main/src/subcommands/deploy.ts
-    let denoUrl = 'execSync  deployctl deploy  --import-map=<FILE> --project=event-generators index.ts'
-    
-    // Update the live object version's url column with the url of the Deno function just created.
-    let updateLiveObjectVersion = `liveObjectVersion.update({ liveObjectId, ${denoUrl} })`
+    // // copy deno server file to object folder
+    // try {
+    //     fs.copyFileSync('../deno/live-object-entrypoint.ts', `${objectFolderPath}/index.ts`)
+    // } catch (error) {
+    //     // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
+    //     throw error
+    // }
 
-    // Hit /admin/live-object-version/index to kick off the indexLiveObjectVersion delayed job. This will index all data for the live object up til now.
-    const params = {
-        lovIds: '',
-        lovTables: '',
-        startTimestamp: '',
-        iteration: '',
-        maxIterations: '',
-        maxJobTime: '',
-        targetBatchSize: '',
-        shouldGenerateEvents: '',
-        updateOpTrackingFloor: '',
-        setLovToIndexingBefore: '',
-        setLovToLiveAfter: '',
+    // // deploy live object to deno server
+    // let denoUrl
+    // try {
+    //     // TODO:: use Bens old effort
+    //     // deno land
+    //     // project -> event-generators
+    //     // add DENO_LAND_API_KEY .env
+    //     // just make it a hello-world
+    //     const stdout = execSync(`deployctl deploy --import-map=${path.join(objectFolderPath, '..', 'imports.json')} --project=event-generators ${path.join(objectFolderPath, 'index.ts')}`)
+    //     denoUrl = stdout.toString() // use Bens old effort
+    //     // if (!stdout) throw 'No stdout returned from deployctl deploy'
+    //     // out = stdout.toString().trim()
+    //     // parseUrls
+    //     // parseDeployedFunctionUrlFromStdout(stdout.toString().trim())
+    // } catch (error) {
+    //     // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
+    //     throw error
+    // }
+
+    // // Update the live object version's url column with the url of the Deno function just created.
+    // let updateLiveObjectVersion = `lovRepo().update({ id: ${'lov.id'}, url: ${denoUrl} })`
+
+    // // Click off indexing for live object versions
+    // const params = {
+    //     lovIds: [lov.id],
+    //     lovTables: '',
+    //     startTimestamp: '',
+    //     iteration: '',
+    //     maxIterations: '',
+    //     maxJobTime: '',
+    //     targetBatchSize: '',
+    //     shouldGenerateEvents: '',
+    //     updateOpTrackingFloor: '',
+    //     setLovToIndexingBefore: '',
+    //     setLovToLiveAfter: '',
+    // }
+
+    // await doIndexLiveObjectVersions(params)
+    // // need to move over all prod data to local coreDB
+
+    // // Progress uid
+
+    // // // Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
+    // // let updateIndexes = `liveObject.update({ indexibleValues: [...] })`
+}
+
+function parseDeployedFunctionUrlFromStdout(stdout: string): string | null {
+    const foundUrls = parseUrls(stdout)
+    if (!foundUrls?.length) return null
+    return foundUrls.find(url => url.includes('deno')) || null
+}
+
+async function getLiveObjectVersion(liveObjectSpec: StringKeyMap): Promise<LiveObjectVersion | null> {
+    let lov
+    try {
+        lov = await lovsRepo().findOne({
+            where: {
+                nsp: liveObjectSpec.namespace,
+                name: liveObjectSpec.name,
+                version: liveObjectSpec.version,
+            }
+        })
+    } catch (err) {
+        return null
     }
-    await doIndexLiveObjectVersions(params)
-
-    // Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
-    let updateIndexes = `liveObject.update({ indexibleValues: [...] })`
+    return lov
 }
 
 async function getMigrationTxs(
     nsp: string,
-    schemaTableName: string,
+    objectName: string,
     objectFolderPath: string
 ): Promise<{ error: Error | null, migrationTxs: StringKeyMap[] | null, liveObjectSpec: StringKeyMap | null }> {
     // init migration txs sequence
@@ -129,15 +201,18 @@ async function getMigrationTxs(
     const { error: resolveErrorMigrationError, tableMigration, liveObjectSpec } = await getTableMigrationAndLiveObjectSpec(objectFolderPath)
     if (resolveErrorMigrationError) {
         return {
-            error: new Error(`Failed to generate migrations for ${schemaTableName}: ${resolveErrorMigrationError}`),
+            error: new Error(`Failed to generate migrations for ${objectName}: ${resolveErrorMigrationError}`),
             migrationTxs: null,
             liveObjectSpec: null
         }
     }
     migrationTxs = migrationTxs.concat(tableMigration)
+    
+    // get schema and table names from table config
+    const [schemaName, tableName] = liveObjectSpec.config.table.split('.')
 
     // create table triggers
-    const { error: triggersMigrationError, triggerMigrations } = await getTriggersMigration(nsp, schemaTableName)
+    const { error: triggersMigrationError, triggerMigrations } = await getTriggersMigration(schemaName, tableName)
     if (triggersMigrationError) {
         return {
             error: new Error(`Failed to generate trigger migrations for schema: ${nsp}: ${triggersMigrationError}`),
@@ -148,7 +223,7 @@ async function getMigrationTxs(
     migrationTxs = migrationTxs.concat(triggerMigrations)
 
     // create schema opts table
-    const { error: opsSchemaMigrationError, schemaOpsMigration } = await getSchemaOpsMigration(nsp, schemaTableName)
+    const { error: opsSchemaMigrationError, schemaOpsMigration } = await getSchemaOpsMigration(schemaName, tableName)
     if (opsSchemaMigrationError) {
         return {
             error: new Error(`Failed to generate schema ops migrations for schema: ${nsp}: ${triggersMigrationError}`),
@@ -159,10 +234,10 @@ async function getMigrationTxs(
     migrationTxs = migrationTxs.concat(schemaOpsMigration)
 
     // create op_tracking table
-    const { error: opsMigrationError, opsMigration } = await getOpsMigration(nsp, schemaTableName, liveObjectSpec.chains)
+    const { error: opsMigrationError, opsMigration } = await getOpsMigration(schemaName, tableName, liveObjectSpec.chains)
     if (opsMigrationError) {
         return {
-            error: new Error(`Failed to generate ops migrations for table: ${nsp}.${schemaTableName}: ${triggersMigrationError}`),
+            error: new Error(`Failed to generate ops migrations for table: ${schemaName}.${tableName}: ${triggersMigrationError}`),
             migrationTxs: null,
             liveObjectSpec: null
         }
@@ -170,10 +245,10 @@ async function getMigrationTxs(
     migrationTxs = migrationTxs.concat(opsMigration)
 
     // create schema user permissions
-    const { error: userMigrationError, userPermissionsMigration } = await getUserPermissionsMigration(nsp)
+    const { error: userMigrationError, userPermissionsMigration } = await getUserPermissionsMigration(schemaName)
     if (userMigrationError) {
         return {
-            error: new Error(`Failed to generate user permissions for ${nsp}: ${userMigrationError}`),
+            error: new Error(`Failed to generate user permissions for ${schemaName}: ${userMigrationError}`),
             migrationTxs: null,
             liveObjectSpec: null
         }

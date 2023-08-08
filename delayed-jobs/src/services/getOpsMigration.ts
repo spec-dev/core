@@ -1,7 +1,8 @@
 import {
     StringKeyMap,
-    SharedTables
-} from "../../../shared/dist/main"
+    SharedTables,
+    identPath
+} from "../../../shared"
 const sharedTablesManager = SharedTables.manager
 
 export async function getOpsMigration(
@@ -16,7 +17,7 @@ export async function getOpsMigration(
         const isEnabledAbove = await getIsEnabledAbove(chainId)
         opsMigration.push({
             sql: `insert into op_tracking(table_path, chain_id, is_enabled_above) values($1, $2, $3)`,
-            bindings: [`${schemaName}.${tableName}`,  chainId, isEnabledAbove],
+            bindings: [identPath(`${schemaName}.${tableName}`),  chainId, isEnabledAbove],
         })
     }
     return { error: null, opsMigration }
