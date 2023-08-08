@@ -13,6 +13,7 @@ import {
     CoreDB,
     LiveObjectVersion,
     toNamespacedVersion,
+    updateLiveObjectVersionUrl,
     getLiveObjectVersionsByNamespacedVersions,
     parseUrls
 } from '../../../shared'
@@ -24,7 +25,6 @@ import { getUserPermissionsMigration } from '../services/getUserPermissionsMigra
 import { indexLiveObjectVersions } from './indexLiveObjectVersions'
 import { execSync } from 'node:child_process'
 
-const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
 const sharedTablesManager = SharedTables.manager
 
 export async function publishAndDeployLiveObjectVersion(
@@ -71,77 +71,47 @@ export async function publishAndDeployLiveObjectVersion(
 
     const [schemaName, tableName] = liveObjectSpec.config.table.split('.')
 
-    // // check if schema table exists
-    // try {
-    //     const tableDoesExist = await doesTableExist(schemaName, tableName)
-    //     if (tableDoesExist) {
-    //         logger.error(`Table ${schemaName}.${tableName} already exists. Aborting`)
-    //         return
-    //     }
-    // } catch (error) {
-    //     logger.error(`Error checking if table exists (${schemaName}.${tableName}): ${error}`)
-    //     return
-    // }
+    // check if schema table exists
+    try {
+        const tableDoesExist = await doesTableExist(schemaName, tableName)
+        if (tableDoesExist) {
+            logger.error(`Table ${schemaName}.${tableName} already exists. Aborting`)
+            return
+        }
+    } catch (error) {
+        logger.error(`Error checking if table exists (${schemaName}.${tableName}): ${error}`)
+        return
+    }
 
-    // // run migrations
-    // try {
-    //     await SharedTables.manager.transaction(async (tx) => {
-    //         for (const { sql, bindings } of migrationTxs) {
-    //             await tx.query(sql, bindings)
-    //         }
-    //     })
-    // } catch (error) {
-    //     // throw error should be logger.error TODO::
-    //     throw error
-    // }
+    // run migrations
+    try {
+        await SharedTables.manager.transaction(async (tx) => {
+            for (const { sql, bindings } of migrationTxs) {
+                await tx.query(sql, bindings)
+            }
+        })
+    } catch (error) {
+        // throw error should be logger.error TODO::
+        throw error
+    }
 
-    // // insert all CoreDB values into all tables:
-    // // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
-    // const wasPublished = await publishLiveObjectVersion(
-    //     namespace,
-    //     null,
-    //     liveObjectSpec as PublishLiveObjectVersionPayload
-    // )
-    // if (!wasPublished) return
+    // insert all CoreDB values into all tables:
+    // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
+    const wasPublished = await publishLiveObjectVersion(
+        namespace,
+        null,
+        liveObjectSpec as PublishLiveObjectVersionPayload
+    )
+    if (!wasPublished) {
+        logger.error(`Failed to publish Live Object: ${liveObjectSpec.namespace} ${liveObjectSpec.name} ${liveObjectSpec.version}`)
+        return
+    }
 
-    
-    const namespaceVersion = 'allo.Account@0.0.1'
     // get live_object_versions entry
-    // const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
+    // const namespaceVersion = 'allo.Account@0.0.1'
+    const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
     const lovs = await getLiveObjectVersionsByNamespacedVersions([namespaceVersion])
     const lov = lovs[0]
-
-    console.log('lov', lov)
-
-    /*
-    {
-  id: 378,
-  uid: '784a2d7a-2413-402d-9f96-4c2c0aa25b94',
-  nsp: 'allo',
-  name: 'Account',
-  version: '0.0.1',
-  url: null,
-  status: null,
-  properties: [
-    { name: 'address', type: 'Address', desc: '...' },
-    { name: 'blockHash', type: 'BlockHash', desc: '...' },
-    { name: 'blockNumber', type: 'BlockNumber', desc: '...' },
-    { name: 'blockTimestamp', type: 'Timestamp', desc: '...' },
-    { name: 'chainId', type: 'ChainId', desc: '...' }
-  ],
-  example: null,
-  config: {
-    primaryTimestampProperty: 'blockTimestamp',
-    uniqueBy: [ [Array] ],
-    table: 'allo.account',
-    chains: { '1': {}, '5': {} },
-    folder: 'Account'
-  },
-  createdAt: 2023-08-08T20:02:02.728Z,
-  liveObjectId: 378
-}
-    
-    */
 
     // copy deno server file to object folder
     try {
@@ -167,32 +137,23 @@ export async function publishAndDeployLiveObjectVersion(
         // logger.error(`Error checking if table exists (${nsp}.${schemaTableName}): ${error}`)
         throw error
     }
-    
-    // Update the live object version's url column with the url of the Deno function just created.
-    let updateLiveObjectVersion = `lovRepo().update({ id: ${'lov.id'}, url: ${denoUrl} })`
 
-    // Click off indexing for live object versions
-    const params = {
-        lovIds: [lov.id],
-        lovTables: [liveObjectSpec.config.table],
-        startTimestamp: '',
-        iteration: '',
-        maxIterations: '',
-        maxJobTime: '',
-        targetBatchSize: '',
-        shouldGenerateEvents: '',
-        updateOpTrackingFloor: '',
-        setLovToIndexingBefore: '',
-        setLovToLiveAfter: '',
+    // Update the live object version's url column with the url of the Deno function just deployed.
+    const didUpdate = await updateLiveObjectVersionUrl(lov.id, denoUrl)
+    if (!didUpdate) {
+        logger.error(`Failed to update url ${denoUrl} on Live Object ${liveObjectSpec.namespace} ${liveObjectSpec.name} ${liveObjectSpec.version}`)
+        return
     }
 
+    // Kick off indexing for live object versions
+    const params = {
+        lovIds: [lov.id],
+        lovTables: [liveObjectSpec.config.table]
+    }
     await doIndexLiveObjectVersions(params)
-    // need to move over all prod data to local coreDB
-
     // Progress uid
 
-    // // Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
-    // let updateIndexes = `liveObject.update({ indexibleValues: [...] })`
+    // TODO: include user provided indexing params
 }
 
 function parseDeployedFunctionUrlFromStdout(stdout: string): string | null {
@@ -374,7 +335,6 @@ function parseManifest(
 }
 
 async function doIndexLiveObjectVersions(params: StringKeyMap) {
-    return
     const lovIds = params.lovIds || []
     const lovTables = params.lovTables || []
     const startTimestamp = params.startTimestamp

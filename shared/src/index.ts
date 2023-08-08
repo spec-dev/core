@@ -252,6 +252,7 @@ export {
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
+    updateLiveObjectVersionUrl,
     updateLiveObjectVersionConfig,
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
