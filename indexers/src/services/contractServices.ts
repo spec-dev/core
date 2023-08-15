@@ -463,13 +463,14 @@ export async function getLatestTokenBalances(
     let erc20BalanceValues = []
     try {
         for (const group of erc20BalanceGroups) {
-            erc20BalanceValues.push(...(await Promise.all(group.map(info => (
-                getERC20TokenBalance(
-                    info.tokenAddress, 
-                    info.ownerAddress,
-                    info.tokenDecimals,
-                )
-            )))))
+            erc20BalanceValues.push(...(await Promise.all(group.map(info => null))))
+            // erc20BalanceValues.push(...(await Promise.all(group.map(info => (
+            //     getERC20TokenBalance(
+            //         info.tokenAddress, 
+            //         info.ownerAddress,
+            //         info.tokenDecimals,
+            //     )
+            // )))))
         }    
     } catch (err) {
         logger.error(`Failed to fetch latest batch of ERC-20 balances: ${err}`)
@@ -480,7 +481,7 @@ export async function getLatestTokenBalances(
     for (let i = 0; i < erc20BalancesToRefetch.length; i++) {
         const tokenOwnerInfo = erc20BalancesToRefetch[i]
         const balance = erc20BalanceValues[i]
-        if (balance === null) continue
+        // if (balance === null) continue
         const {
             tokenAddress,
             tokenName,
