@@ -4,6 +4,7 @@ import { parseGenerateTestInputsPayload, parsePublishLiveObjectVersionPayload } 
 import { codes, errors, authorizeRequestWithProjectApiKey, authorizeRequestForNamespace, authorizeRequest } from '../../utils/requests'
 import { enqueueDelayedJob, getNamespace, NamespaceAccessTokenScope } from '../../../../shared'
 import generateInputRangeData from '../../services/generateInputRangeData'
+import uuid4 from 'uuid4'
 import { userHasNamespacePermissions } from '../../utils/auth'
 
 /**
@@ -48,8 +49,16 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     //     return 
     // }
 
+    // Create a uid ahead of time that will be used as the uid for a new ContractRegistrationJob
+    // that will get created inside of the registerContractInstances delayed job. We're creating
+    // this uid now so that we can return it to the caller and they can poll for the job status.
+    const uid = uuid4()
+
     // Kick off delayed job to something.
-    const scheduled = await enqueueDelayedJob('publishAndDeployLiveObjectVersion', payload)
+    const scheduled = await enqueueDelayedJob('publishAndDeployLiveObjectVersion', {
+        uid,
+        ...payload
+    })
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }

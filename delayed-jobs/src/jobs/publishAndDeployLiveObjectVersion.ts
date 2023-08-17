@@ -31,17 +31,20 @@ export async function publishAndDeployLiveObjectVersion(
     nsp: string,
     objectName: string,
     folder: string,
-    // uid?: string | null,
-    // version: string TODO:: from cli
+    version: string,
+    uid?: string | null,
 ) {
+
     // TODO: create some db entry to keep track// Create new registration job to track progress.
     // try {
     //     uid = uid || uuid4()
-    //     await createContractRegistrationJob(
-    //          nsp: string,
-    //          objectName: string,
-    //           folder: string,
-    //     )
+        // await createContractRegistrationJob(
+        //     nsp,
+        //     objectName,
+        //     folder,
+        //     version,
+        //     uid,
+        // )
     // } catch (err) {
     //     logger.error(err)
     //     return
@@ -151,7 +154,8 @@ export async function publishAndDeployLiveObjectVersion(
         lovTables: [liveObjectSpec.config.table]
     }
     await doIndexLiveObjectVersions(params)
-    // Progress uid
+
+    // Progress uid FINISHED
 
     // TODO: include user provided indexing params
 }
@@ -369,12 +373,16 @@ export default function job(params: StringKeyMap) {
     const nsp = params.nsp || ''
     const name = params.name || ''
     const folder = params.folder || ''
+    const version = params.version || ''
+    const uid = params.uid || ''
 
     return {
         perform: async () => publishAndDeployLiveObjectVersion(
             nsp,
             name,
-            folder
+            folder,
+            version,
+            uid,
         )
     }
 }

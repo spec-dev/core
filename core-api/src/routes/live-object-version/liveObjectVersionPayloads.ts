@@ -8,6 +8,7 @@ export function parsePublishLiveObjectVersionPayload(
     const nsp = data?.nsp
     const name = data?.name
     const folder = data?.folder
+    const version = data?.version
 
     if (!nsp) {
         return { isValid: false, error: 'No nsp given' }
@@ -21,12 +22,17 @@ export function parsePublishLiveObjectVersionPayload(
         return { isValid: false, error: 'No folder given' }
     }
 
+    if (!version) {
+        return { isValid: false, error: 'No version given' }
+    }
+
     return {
         isValid: true,
         payload: {
             nsp,
             name,
             folder,
+            version
         }
     }
 }

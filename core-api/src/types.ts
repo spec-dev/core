@@ -50,5 +50,6 @@ export interface GenerateTestInputsPayload {
 export interface GeneratePublishLiveObjectVersionPayload {
     nsp: string,
     name: string,
-    folder: string
+    folder: string,
+    version: string
 }

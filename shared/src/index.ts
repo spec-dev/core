@@ -273,6 +273,13 @@ export {
     updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
 } from './lib/core/db/services/contractRegistrationJobServices'
+export {
+    createPublishAndDeployLiveObjectVersionJobServices,
+    getPublishAndDeployLiveObjectVersionJob,
+    updatePublishAndDeployLiveObjectVersionJobStatus,
+    updatePublishAndDeployLiveObjectVersionJobCursors,
+    publishAndDeployLiveObjectVersionJobFailed,
+} from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {
