@@ -3,7 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { StringKeyMap } from '../../../types'
-import { ILike } from 'typeorm'
+import { ILike, MoreThanOrEqual } from 'typeorm'
 
 const contractsRepo = () => CoreDB.getRepository(Contract)
 
@@ -77,14 +77,19 @@ export async function upsertContractWithTx(
     )
 }
 
-export async function getAllContractGroups(filters: StringKeyMap): Promise<Contract[] | null> {
+export async function getAllContractGroups(
+    filters: StringKeyMap,
+    timeSynced: string = null
+): Promise<Contract[] | null> {
     try {
         return await contractsRepo().find({
             relations: { namespace: true, contractInstances: true },
             select: {
+                uid: true,
                 name: true,
                 createdAt: true,
                 namespace: {
+                    name: true,
                     slug: true,
                 },
                 contractInstances: {
@@ -95,11 +100,12 @@ export async function getAllContractGroups(filters: StringKeyMap): Promise<Contr
                 namespace: {
                     slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
                 },
+                updatedAt: MoreThanOrEqual(new Date(timeSynced)),
             },
             order: { createdAt: 'DESC' },
         })
     } catch (err) {
-        logger.error(`Error getting Contract Groups by namespace ${filters.namespace}: ${err}`)
+        logger.error(`Error getting Contract Groups: ${err}`)
         return null
     }
 }
