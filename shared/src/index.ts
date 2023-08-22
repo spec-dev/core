@@ -386,3 +386,4 @@ export {
 } from './lib/services/contractEventServices'
 export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'
 export { resolveMetadata } from './lib/services/resolveMetadata'
+export { contractGroupNameFromNamespace } from './lib/utils/extract'

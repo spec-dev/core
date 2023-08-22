@@ -5,6 +5,9 @@ import humps from 'humps'
 import Web3 from 'web3'
 import { ident } from 'pg-format'
 import { toDate } from './date'
+import path from 'path'
+import { isContractNamespace } from './chainIds'
+import logger from '../logger'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -619,5 +622,54 @@ export function formatTraceAsSpecCall(
         inputArgs,
         outputs,
         outputArgs,
+    }
+}
+
+export function formatAsLatestLiveObject(result) {
+    try {
+        // Format results.
+        const config = result.versionConfig
+        const isContractEvent = isContractNamespace(result.namespaceName)
+
+        let icon
+        if (result.liveObjectHasIcon) {
+            icon = buildIconUrl(result.liveObjectUid)
+        } else if (result.namespaceHasIcon) {
+            icon = buildIconUrl(result.namespaceName)
+        } else if (isContractEvent) {
+            icon = buildIconUrl(result.namespaceName.split('.')[2])
+        } else {
+            icon = '' // TODO: Need fallback
+        }
+
+        // TODO: Clean this up.
+        let codeUrl = null
+        if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
+            codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'master', config.folder, 'spec.ts')
+        }
+
+        return {
+            id: result.liveObjectUid,
+            name: result.liveObjectName,
+            displayName: result.liveObjectDisplayName,
+            desc: result.liveObjectDesc,
+            icon,
+            codeUrl,
+            isContractEvent,
+            latestVersion: {
+                nsp: result.versionNsp,
+                name: result.versionName,
+                version: result.versionVersion,
+                properties: result.versionProperties,
+                example: result.versionExample,
+                config: config,
+                createdAt: result.versionCreatedAt.toISOString(),
+                updatedAt: result.versionUpdatedAt.toISOString(),
+            },
+            records: 1013861,
+            lastInteraction: 10,
+        }
+    } catch (err) {
+        logger.error('format error', err)
     }
 }
