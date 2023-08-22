@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW live_object_version_namespace_view AS
+CREATE OR REPLACE VIEW searchable_live_object_view AS
 SELECT DISTINCT ON (lv.live_object_id)
     l.id AS live_object_id, 
     l.uid AS live_object_uid, 
@@ -18,6 +18,7 @@ SELECT DISTINCT ON (lv.live_object_id)
     lv.example AS version_example, 
     lv.config AS version_config, 
     lv.created_at AS version_created_at,
+    lv.updated_at AS version_updated_at,
     lv.live_object_id AS version_live_object_id,
     n.id AS namespace_id, 
     n.name AS namespace_name, 

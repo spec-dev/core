@@ -1,12 +1,10 @@
 import { StringKeyMap } from '../types'
 import {
-    buildIconUrl,
     CoreDB,
     logger,
-    isContractNamespace,
     camelizeKeys,
+    formatAsLatestLiveObject,
 } from '../../../shared'
-import path from 'path'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
 import { regExSplitOnUppercase } from '../utils/regEx'
@@ -31,12 +29,13 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 version_example,
                 version_config,
                 version_created_at,
+                version_updated_at,
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom
-            FROM live_object_version_namespace_view
+            FROM searchable_live_object_view
             WHERE
             CASE
                 WHEN $1::text IS NOT NULL THEN
@@ -76,50 +75,6 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
     // Return formatted results.
     return {
         data: results.map(formatAsLatestLiveObject),
-    }
-}
-
-function formatAsLatestLiveObject(result) {
-    // Format results.
-    const config = result.versionConfig
-    const isContractEvent = isContractNamespace(result.namespaceName)
-
-    let icon
-    if (result.liveObjectHasIcon) {
-        icon = buildIconUrl(result.liveObjectUid)
-    } else if (result.namespaceHasIcon) {
-        icon = buildIconUrl(result.namespaceName)
-    } else if (isContractEvent) {
-        icon = buildIconUrl(result.namespaceName.split('.')[2])
-    } else {
-        icon = '' // TODO: Need fallback
-    }
-
-    // TODO: Clean this up.
-    let codeUrl = null
-    if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
-        codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'master', config.folder, 'spec.ts')
-    }
-
-    return {
-        id: result.liveObjectUid,
-        name: result.liveObjectName,
-        displayName: result.liveObjectDisplayName,
-        desc: result.liveObjectDesc,
-        icon,
-        codeUrl,
-        isContractEvent,
-        latestVersion: {
-            nsp: result.versionNsp,
-            name: result.versionName,
-            version: result.versionVersion,
-            properties: result.versionProperties,
-            example: result.versionExample,
-            config: config,
-            createdAt: result.versionCreatedAt.toISOString(),
-        },
-        records: 1013861,
-        lastInteraction: 10,
     }
 }
 
