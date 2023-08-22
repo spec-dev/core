@@ -5,6 +5,7 @@ import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
+import { camelizeKeys } from 'humps'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -145,4 +146,42 @@ export async function updateLiveObjectVersionStatus(
         return false
     }
     return true
+}
+
+export async function getLiveObjectVersionsToSync(
+    timeSynced: string = null
+): Promise<LiveObjectVersion[]> {
+    let lovs
+    try {
+        lovs = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name, 
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_properties,
+                version_example,
+                version_config,
+                version_created_at,
+                version_updated_at,
+                namespace_name,
+                namespace_code_url, 
+                namespace_has_icon, 
+                namespace_created_at
+            FROM searchable_live_object_view
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz`,
+            [new Date(timeSynced)]
+        )
+        lovs = camelizeKeys(lovs)
+        return lovs
+    } catch (err) {
+        logger.error(
+            `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
+        )
+        return null
+    }
 }
