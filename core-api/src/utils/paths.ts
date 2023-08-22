@@ -57,6 +57,7 @@ const paths = {
 
     // Event Version paths.
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',
+    EVENT_VERSIONS: prefix.EVENT_VERSION + 's',
 
     // Call Version paths.
     RESOLVE_CALL_VERSIONS: prefix.CALL_VERSION + 's' + '/resolve',

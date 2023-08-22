@@ -4,6 +4,14 @@ export interface ResolveEventVersionsPayload {
     inputs: string[]
 }
 
+export interface EventVersionPayloadFilters {
+    namespace?: string
+}
+
+export interface EventVersionPayload {
+    filters: EventVersionPayloadFilters
+}
+
 export function parseResolveEventVersionsPayload(
     data: StringKeyMap
 ): ValidatedPayload<ResolveEventVersionsPayload> {
@@ -18,5 +26,16 @@ export function parseResolveEventVersionsPayload(
         payload: {
             inputs,
         },
+    }
+}
+
+export function parseEventVersionsPayload(
+    data: StringKeyMap
+): ValidatedPayload<EventVersionPayload> {
+    const filters = data?.filters || {}
+
+    return {
+        isValid: true,
+        payload: { filters, },
     }
 }

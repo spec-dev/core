@@ -2,7 +2,7 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { In } from 'typeorm'
+import { ILike, In, MoreThanOrEqual } from 'typeorm'
 import {
     supportedChainIds,
     contractNamespaceForChainId,
@@ -48,6 +48,35 @@ export async function getEventVersion(
         return await eventVersionsRepo().findOneBy({ nsp, name, version })
     } catch (err) {
         logger.error(`Error getting EventVersion ${nsp}.${name}@${version}: ${err}`)
+        return null
+    }
+}
+
+export async function getEventVersions(
+    filters: StringKeyMap,
+    timeSynced: string = null
+): Promise<EventVersion[] | null> {
+    try {
+        return await eventVersionsRepo().find({
+            relations: { event: { namespace: true } },
+            select: {
+                uid: true,
+                name: true,
+                version: true,
+                createdAt: true,
+            },
+            where: {
+                event: {
+                    namespace: {
+                        slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                    },
+                },
+                updatedAt: MoreThanOrEqual(new Date(timeSynced)),
+            },
+            order: { createdAt: 'DESC' },
+        })
+    } catch (err) {
+        logger.error(`Error getting EventVersions: ${err}`)
         return null
     }
 }
