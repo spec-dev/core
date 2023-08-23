@@ -7,7 +7,7 @@ import { dynamicImport } from './utils/imports'
 async function run() {
     await Promise.all([
         SharedTables.initialize(),
-        // coreRedis.connect(),
+        coreRedis.connect(),
         CoreDB.initialize(),
     ])
 
