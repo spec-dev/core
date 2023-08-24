@@ -10,7 +10,8 @@ import { StringKeyMap } from '../../../types'
 
 export enum PublishAndDeployLiveObjectVersionJobStatus {
     Created = 'created',
-    Decoding = 'decoding',
+    Migrating = 'migrating',
+    Publishing = 'publishing',
     Indexing = 'indexing',
     Complete = 'complete',
 }
@@ -42,8 +43,11 @@ export class PublishAndDeployLiveObjectVersionJob {
     @Column('varchar')
     status: PublishAndDeployLiveObjectVersionJobStatus
 
-    @Column('jsonb', { nullable: true, default: '{}' })
-    cursors: StringKeyMap
+    @CreateDateColumn({
+        type: 'timestamptz',
+        name: 'cursor',
+    })
+    cursor: Date
 
     @Column({ default: false })
     failed: boolean
@@ -73,7 +77,7 @@ export class PublishAndDeployLiveObjectVersionJob {
             name: this.name,
             version: this.version,
             status: this.status,
-            cursors: this.cursors,
+            cursor: this.cursor,
             failed: this.failed,
             error: this.error,
             createdAt: this.createdAt.toISOString(),

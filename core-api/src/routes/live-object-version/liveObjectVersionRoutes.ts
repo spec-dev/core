@@ -46,11 +46,11 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     //     }
     // } catch (error) {
     //     res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
-    //     return 
+    //     return
     // }
 
-    // Create a uid ahead of time that will be used as the uid for a new ContractRegistrationJob
-    // that will get created inside of the registerContractInstances delayed job. We're creating
+    // Create a uid ahead of time that will be used as the uid for a new PublishLiveObjectVersionJob
+    // that will get created inside of the publishAndDeployLiveObjectVersion delayed job. We're creating
     // this uid now so that we can return it to the caller and they can poll for the job status.
     const uid = uuid4()
 
@@ -62,5 +62,5 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }
-    return res.status(codes.SUCCESS).json({ ok: true })
+    return res.status(codes.SUCCESS).json({ uid })
 })

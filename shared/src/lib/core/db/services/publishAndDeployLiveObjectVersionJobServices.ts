@@ -6,7 +6,8 @@ import {
 } from '../entities/PublishAndDeployLiveObjectVersionJob'
 import uuid4 from 'uuid4'
 
-const publishAndDeployLiveObjectVersionJobRepo = () => CoreDB.getRepository(PublishAndDeployLiveObjectVersionJob)
+const publishAndDeployLiveObjectVersionJobRepo = () =>
+    CoreDB.getRepository(PublishAndDeployLiveObjectVersionJob)
 
 export async function createPublishAndDeployLiveObjectVersionJobServices(
     nsp: string,
@@ -22,7 +23,7 @@ export async function createPublishAndDeployLiveObjectVersionJobServices(
     publishAndDeployLiveObjectVersionJob.folder = folder
     publishAndDeployLiveObjectVersionJob.version = version
     publishAndDeployLiveObjectVersionJob.status = PublishAndDeployLiveObjectVersionJobStatus.Created
-    publishAndDeployLiveObjectVersionJob.cursors = {}
+    publishAndDeployLiveObjectVersionJob.cursor = new Date()
 
     try {
         await publishAndDeployLiveObjectVersionJobRepo().save(publishAndDeployLiveObjectVersionJob)
@@ -63,26 +64,18 @@ export async function updatePublishAndDeployLiveObjectVersionJobStatus(
     return true
 }
 
-export async function updatePublishAndDeployLiveObjectVersionJobCursors(
+export async function updatePublishAndDeployLiveObjectVersionJobCursor(
     uid: string,
-    addresses: string[],
-    progress: number
+    cursor: Date
 ): Promise<boolean> {
     try {
-        const updates = {}
-        for (const address of addresses) {
-            updates[address] = progress
-        }
         await CoreDB.query(
-            `update publish_and_deploy_live_object_version_jobs set cursors = cursors || '${JSON.stringify(
-                updates
-            )}' where uid = $1`,
+            `update publish_and_deploy_live_object_version_jobs set cursors = '${cursor}' where uid = $1`,
             [uid]
         )
     } catch (err) {
         logger.error(
-            `Error setting cursors to ${progress} in PublishAndDeployLiveObjectVersionJob(uid=${uid}) 
-            for addresses ${addresses.join(', ')}: ${err}`
+            `Error setting cursors to ${cursor} in PublishAndDeployLiveObjectVersionJob(uid=${uid}): ${err}`
         )
         return false
     }
@@ -97,6 +90,8 @@ export async function publishAndDeployLiveObjectVersionJobFailed(uid: string, er
             .where({ uid })
             .execute()
     } catch (err) {
-        logger.error(`Error setting PublishAndDeployLiveObjectVersionJob(uid=${uid}) to failed: ${err}`)
+        logger.error(
+            `Error setting PublishAndDeployLiveObjectVersionJob(uid=${uid}) to failed: ${err}`
+        )
     }
 }

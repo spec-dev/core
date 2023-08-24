@@ -17,6 +17,9 @@ import {
     addContractInstancesToGroup,
     isValidAddress,
     supportedChainIds,
+    updatePublishAndDeployLiveObjectVersionJobStatus,
+    PublishAndDeployLiveObjectVersionJobStatus,
+    updatePublishAndDeployLiveObjectVersionJobCursor
 } from '../../../shared'
 import config from '../config'
 import { Pool } from 'pg'
@@ -38,6 +41,7 @@ export async function indexLiveObjectVersions(
     updateOpTrackingFloor: boolean,
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
+    publishJobTableUid?: string,
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
     
@@ -143,6 +147,15 @@ export async function indexLiveObjectVersions(
 
             contractRegistrationSequenceCount = 0
             cursor = results.nextStartDate
+
+            // if job is called by publishAndDeployLiveObjectVersionJob, update it's cursor
+            if (publishJobTableUid && cursor) {
+                await updatePublishAndDeployLiveObjectVersionJobCursor(
+                    publishJobTableUid,
+                    cursor
+                )
+            }
+
             if (!cursor || timer === null) break
         }
         generateFrom = null
@@ -155,6 +168,18 @@ export async function indexLiveObjectVersions(
 
     // All done -> set to "live".
     if (!cursor) {
+        // if job is called by publishAndDeployLiveObjectVersionJob, update it's statis to complete
+        if (publishJobTableUid) {
+            await updatePublishAndDeployLiveObjectVersionJobStatus(
+                publishJobTableUid,
+                PublishAndDeployLiveObjectVersionJobStatus.Complete
+            )
+            await updatePublishAndDeployLiveObjectVersionJobCursor(
+                publishJobTableUid,
+                (new Date())
+            )
+        }
+
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         return
@@ -501,6 +526,9 @@ export default function job(params: StringKeyMap) {
     const setLovToIndexingBefore = params.setLovToIndexingBefore !== false
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
 
+    // Used by the publishAndDeployLiveObjectVersionJob
+    const publishJobTableUid = params.publishJobTableUid
+
     return {
         perform: async () => indexLiveObjectVersions(
             lovIds,
@@ -514,6 +542,7 @@ export default function job(params: StringKeyMap) {
             updateOpTrackingFloor,
             setLovToIndexingBefore,
             setLovToLiveAfter,
+            publishJobTableUid
         )
     }
 }

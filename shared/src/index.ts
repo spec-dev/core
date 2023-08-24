@@ -184,6 +184,10 @@ export {
     ContractRegistrationJob,
     ContractRegistrationJobStatus,
 } from './lib/core/db/entities/ContractRegistrationJob'
+export {
+    PublishAndDeployLiveObjectVersionJob,
+    PublishAndDeployLiveObjectVersionJobStatus,
+} from './lib/core/db/entities/PublishAndDeployLiveObjectVersionJob'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -277,7 +281,7 @@ export {
     createPublishAndDeployLiveObjectVersionJobServices,
     getPublishAndDeployLiveObjectVersionJob,
     updatePublishAndDeployLiveObjectVersionJobStatus,
-    updatePublishAndDeployLiveObjectVersionJobCursors,
+    updatePublishAndDeployLiveObjectVersionJobCursor,
     publishAndDeployLiveObjectVersionJobFailed,
 } from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
