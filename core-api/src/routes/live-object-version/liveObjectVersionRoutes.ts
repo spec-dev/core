@@ -38,16 +38,16 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    // try {
-    //     const { canAccess } = await userHasNamespacePermissions(user.id, payload.nsp)
-    //     if (!canAccess) {
-    //         res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
-    //         return false
-    //     }
-    // } catch (error) {
-    //     res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
-    //     return
-    // }
+    try {
+        const { canAccess } = await userHasNamespacePermissions(user.id, payload.nsp)
+        if (!canAccess) {
+            res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
+            return false
+        }
+    } catch (error) {
+        res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
+        return
+    }
 
     // Create a uid ahead of time that will be used as the uid for a new PublishLiveObjectVersionJob
     // that will get created inside of the publishAndDeployLiveObjectVersion delayed job. We're creating
