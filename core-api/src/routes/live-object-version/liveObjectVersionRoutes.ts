@@ -29,7 +29,6 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
 })
 
 app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
-    // if (!(await authorizeRequestWithProjectApiKey(req, res))) return // should i be using the api key insteadd of session token?
     const user = await authorizeRequest(req, res)
     if (!user) return
 

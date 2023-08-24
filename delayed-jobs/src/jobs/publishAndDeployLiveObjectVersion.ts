@@ -172,9 +172,6 @@ export async function publishAndDeployLiveObjectVersion(
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds: [lov.id],
         lovTables: [liveObjectSpec.config.table],
-        startTimestamp: null,
-        maxIterations: null,
-        targetBatchSize: null,
         publishJobTableUid: uid,
     })
 }
