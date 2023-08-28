@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: tables-api-primary
   labels:
     app: tables-api-primary
 spec:
   replicas: 4
+  serviceName: tables-api-primary
   selector:
     matchLabels:
       component: tables-api-primary
@@ -73,13 +74,14 @@ spec:
           timeoutSeconds: 20
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: tables-api-reader
   labels:
     app: tables-api-reader
 spec:
   replicas: 6
+  serviceName: tables-api-reader
   selector:
     matchLabels:
       component: tables-api-reader

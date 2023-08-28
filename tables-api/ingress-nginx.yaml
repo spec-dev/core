@@ -398,7 +398,7 @@ spec:
   type: ClusterIP
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
     app.kubernetes.io/component: controller
@@ -409,6 +409,7 @@ metadata:
   name: tables-api-nginx-controller
   namespace: tables-api-nginx
 spec:
+  serviceName: tables-api-nginx-controller
   minReadySeconds: 0
   revisionHistoryLimit: 10
   selector:
