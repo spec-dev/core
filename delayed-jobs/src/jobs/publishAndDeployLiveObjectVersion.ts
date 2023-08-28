@@ -15,8 +15,6 @@ import {
     publishAndDeployLiveObjectVersionJobFailed,
     PublishAndDeployLiveObjectVersionJobStatus,
     enqueueDelayedJob,
-    CoreDB,
-    LiveObjectVersion,
     toNamespacedVersion,
     updateLiveObjectVersionUrl,
     getLiveObjectVersionsByNamespacedVersions,
@@ -27,7 +25,6 @@ import { getTriggersMigration } from '../services/getTriggersMigration'
 import { getSchemaOpsMigration } from '../services/getSchemaOpsMigration'
 import { getOpsMigration } from '../services/getOpsMigration'
 import { getUserPermissionsMigration } from '../services/getUserPermissionsMigration'
-import { indexLiveObjectVersions } from './indexLiveObjectVersions'
 import { execSync } from 'node:child_process'
 
 const sharedTablesManager = SharedTables.manager
@@ -72,7 +69,7 @@ export async function publishAndDeployLiveObjectVersion(
         logger.error(`Error retreiving code url from ${nsp}`)
         return
     }
-    
+
     // get manifest from namespace code_url
     const { error: cloneRepoError, manifest, objectFolderPath } = await cloneNamespaceRepo(namespace, objectName, folder)
     if (cloneRepoError) {

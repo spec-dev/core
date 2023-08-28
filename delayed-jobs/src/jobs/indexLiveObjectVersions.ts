@@ -19,7 +19,8 @@ import {
     supportedChainIds,
     updatePublishAndDeployLiveObjectVersionJobStatus,
     PublishAndDeployLiveObjectVersionJobStatus,
-    updatePublishAndDeployLiveObjectVersionJobCursor
+    updatePublishAndDeployLiveObjectVersionJobCursor,
+    publishAndDeployLiveObjectVersionJobFailed
 } from '../../../shared'
 import config from '../config'
 import { Pool } from 'pg'
@@ -163,6 +164,10 @@ export async function indexLiveObjectVersions(
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
+
+        if (publishJobTableUid) {
+            await publishAndDeployLiveObjectVersionJobFailed(publishJobTableUid, err)
+        }
         return
     }
 
@@ -206,6 +211,7 @@ export async function indexLiveObjectVersions(
         updateOpTrackingFloor,
         setLovToIndexingBefore,
         setLovToLiveAfter,
+        publishJobTableUid
     })
 }
 
