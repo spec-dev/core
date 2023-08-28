@@ -13,7 +13,8 @@ import {
     getContractInstancesInNamespace,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
-import { supportedChainIds, chainIdForContractNamespace } from '../utils/chainIds'
+import { supportedChainIds } from '../utils/chainIds'
+import { isValidContractGroup } from '../utils/validators'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
 import { AbiItemType } from '../abi/types'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
@@ -53,7 +54,7 @@ export async function addContractInstancesToGroup(
     existingBlockEvents: StringKeyMap[] = [],
     existingBlockCalls: StringKeyMap[] = []
 ): Promise<StringKeyMap> {
-    if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
+    if (!isValidContractGroup(group)) throw `Invalid contract group: ${group}`
 
     // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
     const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
@@ -63,7 +64,6 @@ export async function addContractInstancesToGroup(
     const fullNsp = [chainSpecificContractNsp, group].join('.')
 
     // Ensure this contract group already exists for at least one chain.
-    // If not, create it for this chain using the group abi of another chain.
     await upsertContractGroupForChainId(chainId, group, fullNsp)
 
     // Find other existing contract instances in this group,
@@ -92,7 +92,7 @@ export async function addContractInstancesToGroup(
     // Get abis for the new individual addresses as well as the group's abi.
     const [existingNewAddressAbisMap, groupAbi] = await Promise.all([
         getAbis(newAddresses, chainId),
-        getContractGroupAbi(group, chainId),
+        getContractGroupAbi(group),
     ])
     if (!groupAbi?.length) throw 'Contract group has no ABI'
 
@@ -327,25 +327,14 @@ async function upsertContractGroupForChainId(chainId: string, group: string, ful
         [contractNamespaceForChainId(chainId), group].join('.')
     )
     const namespaces = await getNamespaces(allContractNsps)
+    if (!namespaces.length) throw `Contract group "${group}" doesn't exist on any chain.`
 
     // If the contract group already exists for this chain id, do nothing.
-    // Otherwise, use an adjacent chain id's namespace for this group to find the group's ABI.
-    let otherChainNsp
-    for (const namespace of namespaces) {
-        if (namespace.slug === toNamespaceSlug(fullNsp)) return
-        otherChainNsp = namespace
-    }
-    if (!otherChainNsp) throw `Contract group "${group}" isn't registered for any chain.`
-
-    // Get chain id of adjacent group to use for ABI lookup.
-    const otherChainContractNsp = otherChainNsp.name.split('.').slice(0, 2).join('.')
-    const otherChainId = chainIdForContractNamespace[otherChainContractNsp]
-    if (!otherChainId)
-        throw `Error finding chain id for contract namespace: ${otherChainContractNsp}`
+    if (namespaces.find((n) => n.slug === toNamespaceSlug(fullNsp))) return
 
     // Get group ABI.
-    const groupAbi = await getContractGroupAbi(group, otherChainId)
-    if (groupAbi === null) throw `Error finding group ABI for "${group}" for chain ${otherChainId}`
+    const groupAbi = await getContractGroupAbi(group)
+    if (groupAbi === null) throw `Error finding group ABI for "${group}".`
 
     // Create contract group for the new target chain id.
     const [nsp, name] = group.split('.')

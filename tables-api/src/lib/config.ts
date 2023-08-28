@@ -12,7 +12,6 @@ const tablesApiConfig: StringKeyMap = {
     SHARED_TABLES_READER_USERNAME: ev('SHARED_TABLES_READER_USERNAME', 'bear'),
     SHARED_TABLES_READER_PASSWORD: ev('SHARED_TABLES_READER_PASSWORD'),
     IS_READ_ONLY: [true, 'true'].includes(ev('IS_READ_ONLY')),
-    V0_PAYLOAD_WHITELIST: (ev('V0_PAYLOAD_WHITELIST') || '').split(',').map(v => v.trim()),
 }
 
 export default tablesApiConfig

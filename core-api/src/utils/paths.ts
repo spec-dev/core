@@ -52,6 +52,7 @@ const paths = {
 
     // Contract paths.
     CONTRACT_GROUP: prefix.CONTRACT + '/group',
+    CONTRACT_GROUPS: prefix.CONTRACT + '/group' + 's',
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
 
     // Contract Registration Job paths.
@@ -75,6 +76,8 @@ const paths = {
     ENQUEUE_BLOCK: prefix.ADMIN + prefix.PIPELINE + '/enqueue-block',
 
     // Namespace paths.
+    NAMESPACE: prefix.NAMESPACE,
+    NAMESPACES: prefix.NAMESPACE + 's',
     FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
     CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
 }

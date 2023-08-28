@@ -5,6 +5,7 @@ import { StringKeyMap } from './types'
 import { Pool } from 'pg'
 import { QueryPayload } from '@spec.dev/qb'
 import QueryStream from 'pg-query-stream'
+import { ident } from 'pg-format'
 
 const poolConfig = {
     host: config.SHARED_TABLES_DB_HOST,
@@ -90,7 +91,7 @@ export async function performQuery(
     try {
         await conn.query('BEGIN')
         logger.info('Setting role', role)
-        await conn.query(`SET LOCAL ROLE ${role}`)
+        await conn.query(`SET LOCAL ROLE ${ident(role)}`)
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
         await conn.query('COMMIT')
@@ -131,7 +132,7 @@ export async function performTx(
     try {
         await conn.query('BEGIN')
         logger.info('Setting role', role)
-        await conn.query(`SET LOCAL ROLE ${role}`)
+        await conn.query(`SET LOCAL ROLE ${ident(role)}`)
         results = await Promise.all(queries.map(({ sql, bindings }) => {
             logger.info(sql, bindings)
             return conn.query(sql, bindings)

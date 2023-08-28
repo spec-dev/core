@@ -2,6 +2,8 @@ import { Contract } from '../entities/Contract'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
+import { StringKeyMap } from '../../../types'
+import { ILike } from 'typeorm'
 
 const contractsRepo = () => CoreDB.getRepository(Contract)
 
@@ -73,4 +75,31 @@ export async function upsertContractWithTx(
                 .execute()
         ).generatedMaps[0] || null
     )
+}
+
+export async function getAllContractGroups(filters: StringKeyMap): Promise<Contract[] | null> {
+    try {
+        return await contractsRepo().find({
+            relations: { namespace: true, contractInstances: true },
+            select: {
+                name: true,
+                createdAt: true,
+                namespace: {
+                    slug: true,
+                },
+                contractInstances: {
+                    chainId: true,
+                },
+            },
+            where: {
+                namespace: {
+                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                },
+            },
+            order: { createdAt: 'DESC' },
+        })
+    } catch (err) {
+        logger.error(`Error getting Contract Groups by namespace ${filters.namespace}: ${err}`)
+        return null
+    }
 }

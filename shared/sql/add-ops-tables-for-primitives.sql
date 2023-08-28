@@ -6,7 +6,7 @@ create table tokens.erc20_tokens_ops (
     "before" json,
     "after" json,
     block_number bigint not null,
-    chain_id text not null,
+    chain_id varchar not null,
     ts timestamp with time zone not null default(now() at time zone 'utc')
 );
 create index idx_tokens_erc20_tokens_ops_pk on tokens.erc20_tokens_ops(pk_values);
@@ -21,7 +21,7 @@ create table tokens.erc20_balance_ops (
     "before" json,
     "after" json,
     block_number bigint not null,
-    chain_id text not null,
+    chain_id varchar not null,
     ts timestamp with time zone not null default(now() at time zone 'utc')
 );
 create index idx_tokens_erc20_balance_ops_pk on tokens.erc20_balance_ops(pk_values);
@@ -36,7 +36,7 @@ create table tokens.nft_collections_ops (
     "before" json,
     "after" json,
     block_number bigint not null,
-    chain_id text not null,
+    chain_id varchar not null,
     ts timestamp with time zone not null default(now() at time zone 'utc')
 );
 create index idx_tokens_nft_collections_ops_pk on tokens.nft_collections_ops(pk_values);
@@ -51,7 +51,7 @@ create table tokens.nft_balance_ops (
     "before" json,
     "after" json,
     block_number bigint not null,
-    chain_id text not null,
+    chain_id varchar not null,
     ts timestamp with time zone not null default(now() at time zone 'utc')
 );
 create index idx_tokens_nft_balance_ops_pk on tokens.nft_balance_ops(pk_values);

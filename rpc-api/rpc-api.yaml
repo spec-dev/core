@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rpc-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: rpc-api
+  template:
+    metadata:
+      labels:
+        component: rpc-api
+    spec:
+      containers:
+      - name: rpc-api
+        image: {{IMAGE}}
+        ports:
+        - name: rpc-api
+          containerPort: 80
+        env:
+        - name: ENV
+          value: prod
+        - name: JWT_SECRET
+          value: {{JWT_SECRET}}
+        - name: PORT
+          value: "80"
+        - name: ETHEREUM_RPC_POOL_ENDPOINTS
+          value: {{ETHEREUM_RPC_POOL_ENDPOINTS}}
+        - name: GOERLI_RPC_POOL_ENDPOINTS
+          value: {{GOERLI_RPC_POOL_ENDPOINTS}}
+        - name: MUMBAI_RPC_POOL_ENDPOINTS
+          value: {{MUMBAI_RPC_POOL_ENDPOINTS}}
+        - name: POLYGON_RPC_POOL_ENDPOINTS
+          value: {{POLYGON_RPC_POOL_ENDPOINTS}}
+        - name: PINATA_GATEWAY_ORIGIN
+          value: {{PINATA_GATEWAY_ORIGIN}}
+        - name: PINATA_GATEWAY_TOKEN
+          value: {{PINATA_GATEWAY_TOKEN}}
+        - name: FLIP
+          value: heads
+        - name: FORCE_COLOR
+          value: "1" 
+        - name: BUGSNAG_API_KEY
+          value: {{BUGSNAG_API_KEY}}
+        readinessProbe:
+          httpGet:
+            path: /health-check
+            port: rpc-api
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health-check
+            port: rpc-api
+          initialDelaySeconds: 15
+          timeoutSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rpc-api
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    component: rpc-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rpc-api
+  annotations:
+    kubernetes.io/ingress.class: "rpc-api-nginx"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: rpc-api
+            port:
+              number: 80
