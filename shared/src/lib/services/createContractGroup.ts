@@ -12,11 +12,18 @@ import {
     publishContractEventLiveObject,
 } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
+import { saveContractGroupAbi } from '../abi/redis'
 
 /**
  * Create a new, empty contract group for a set of chain ids.
  */
-export async function createContractGroup(nsp: string, name: string, chainIds: string[], abi: Abi) {
+export async function createContractGroup(
+    nsp: string,
+    name: string,
+    chainIds: string[],
+    abi: Abi,
+    saveGroupAbi: boolean = true
+) {
     const group = [nsp, name].join('.')
     if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
 
@@ -38,11 +45,14 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
     if (namespaces === null) throw `Internal error`
     if (namespaces.length) throw `Contract group already exists`
 
-    // Polish group abi.
+    // Polish ABI and save it for the group.
     const fakeAddress = '0x'
     const [polishedAbisMap, _] = polishAbis({ [fakeAddress]: abi })
     const polishedAbi = polishedAbisMap[fakeAddress] || []
     if (!polishedAbi.length) throw 'Invalid ABI'
+    if (saveGroupAbi && !(await saveContractGroupAbi(group, polishedAbi))) {
+        throw 'Failed to save ABI'
+    }
 
     // Get all ABI event items with fully-named params.
     const eventAbiItems = polishedAbi.filter(

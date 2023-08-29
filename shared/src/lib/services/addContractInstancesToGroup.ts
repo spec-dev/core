@@ -338,5 +338,5 @@ async function upsertContractGroupForChainId(chainId: string, group: string, ful
 
     // Create contract group for the new target chain id.
     const [nsp, name] = group.split('.')
-    await createContractGroup(nsp, name, [chainId], groupAbi)
+    await createContractGroup(nsp, name, [chainId], groupAbi, false)
 }
