@@ -218,7 +218,7 @@ class EthereumIndexer extends AbstractIndexer {
             erc20TotalSupplyUpdates,
             referencedErc20TokensMap,
         ] = config.IS_RANGE_MODE
-            ? [[], []] 
+            ? [[], [], {}] 
             : await initTokenTransfers(
                 erc20Tokens,
                 nftCollections,
