@@ -28,6 +28,7 @@ import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
 import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
+import LRU from 'lru-cache'
 
 class EvmReporter {
 
@@ -56,6 +57,10 @@ class EvmReporter {
     ignoreOnceDueToReorg: Set<number> = new Set()
 
     isFailing: boolean = false
+
+    mostRecentBlockHashes: LRU<string, string> = new LRU({
+        max: config.MAX_REORG_SIZE,
+    })
 
     constructor(chainId: string) {
         this.chainId = chainId
@@ -96,7 +101,10 @@ class EvmReporter {
 
     _onNewBlockHeader(data: BlockHeader) {
         if (this.isFailing) return
+
         const blockNumber = Number(data.number)
+        this.mostRecentBlockHashes[blockNumber.toString()] = data.hash
+
         console.log('')
         logger.info(chalk.gray(`Got ${blockNumber}`))
 
@@ -434,6 +442,9 @@ class EvmReporter {
     }
 
     async _getBlockHashForNumber(blockNumber: number): Promise<string> {
+        const cachedBlockHash = this.mostRecentBlockHashes.get(blockNumber.toString())
+        if (cachedBlockHash) return cachedBlockHash
+
         let externalBlock = null
         let numAttempts = 0
         try {
