@@ -4,17 +4,17 @@ import {
     logger,
     NewReportedHead,
     StringKeyMap,
-    PolygonBlock,
-    PolygonLog,
-    PolygonTransaction,
-    fullPolygonBlockUpsertConfig,
-    fullPolygonLogUpsertConfig,
-    fullPolygonTransactionUpsertConfig,
+    EthBlock,
+    EthLog,
+    EthTransaction,
+    fullBlockUpsertConfig,
+    fullLogUpsertConfig,
+    fullTransactionUpsertConfig,
     SharedTables,
     uniqueByKeys,
     formatAbiValueWithType,
-    PolygonTrace,
-    PolygonContract,
+    EthTrace,
+    EthContract,
     toChunks,
     fullTraceUpsertConfig,
     fullContractUpsertConfig,
@@ -25,12 +25,15 @@ import {
     Erc20Token,
     NftCollection,
     ContractInstance,
+    fullErc20BalanceUpsertConfig,
+    Erc20Balance,
+    TokenTransfer,
+    fullTokenTransferUpsertConfig,
 } from '../../../shared'
 import { exit } from 'process'
+import { ident } from 'pg-format'
 
-const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
-
-class PolygonSpecificNumbersWorker {
+class EthereumSpecificNumbersWorker {
     
     numbers: number[]
 
@@ -48,8 +51,6 @@ class PolygonSpecificNumbersWorker {
 
     saveBatchIndex: number = 0
 
-    smartWalletInitializerAddresses: string[] = []
-
     constructor(numbers: number[], groupSize?: number, saveBatchMultiple?: number) {
         this.numbers = numbers
         this.groupSize = groupSize || 1
@@ -58,8 +59,6 @@ class PolygonSpecificNumbersWorker {
     }
 
     async run() {
-        this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
-
         const groups = toChunks(this.numbers, this.groupSize)
         for (const group of groups) {
             await this._indexBlockGroup(group)
@@ -133,7 +132,9 @@ class PolygonSpecificNumbersWorker {
         let traces = []
         let contracts = []
         let erc20Tokens = [] 
+        let erc20Balances = [] 
         let nftCollections = []
+        let tokenTransfers = []
 
         for (const result of results) {
             if (!result) continue
@@ -166,6 +167,12 @@ class PolygonSpecificNumbersWorker {
                     lastUpdated: () => result.pgBlockTimestamp,
                 }))
             )
+            erc20Balances.push(
+                ...result.erc20Balances.map((e) => ({
+                    ...e,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
             nftCollections.push(
                 ...result.nftCollections.map((n) => ({
                     ...n,
@@ -173,16 +180,22 @@ class PolygonSpecificNumbersWorker {
                     lastUpdated: () => result.pgBlockTimestamp,
                 }))
             )
+            tokenTransfers.push(
+                ...result.tokenTransfers.map((e) => ({
+                    ...e,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
         }
         
         if (!this.upsertConstraints.block && blocks.length) {
-            this.upsertConstraints.block = fullPolygonBlockUpsertConfig(blocks[0])
+            this.upsertConstraints.block = fullBlockUpsertConfig(blocks[0])
         }
         if (!this.upsertConstraints.transaction && transactions.length) {
-            this.upsertConstraints.transaction = fullPolygonTransactionUpsertConfig(transactions[0])
+            this.upsertConstraints.transaction = fullTransactionUpsertConfig(transactions[0])
         }
         if (!this.upsertConstraints.log && logs.length) {
-            this.upsertConstraints.log = fullPolygonLogUpsertConfig(logs[0])
+            this.upsertConstraints.log = fullLogUpsertConfig(logs[0])
         }
         if (!this.upsertConstraints.trace && traces.length) {
             this.upsertConstraints.trace = fullTraceUpsertConfig(traces[0])
@@ -193,8 +206,14 @@ class PolygonSpecificNumbersWorker {
         if (!this.upsertConstraints.erc20Token && erc20Tokens.length) {
             this.upsertConstraints.erc20Token = fullErc20TokenUpsertConfig()
         }
+        if (!this.upsertConstraints.erc20Balance && erc20Balances.length) {
+            this.upsertConstraints.erc20Balance = fullErc20BalanceUpsertConfig()
+        }
         if (!this.upsertConstraints.nftCollection && nftCollections.length) {
             this.upsertConstraints.nftCollection = fullNftCollectionUpsertConfig()
+        }
+        if (!this.upsertConstraints.tokenTransfer && tokenTransfers.length) {
+            this.upsertConstraints.tokenTransfer = fullTokenTransferUpsertConfig()
         }
 
         blocks = this.upsertConstraints.block
@@ -219,9 +238,17 @@ class PolygonSpecificNumbersWorker {
             ? uniqueByKeys(erc20Tokens, this.upsertConstraints.erc20Token[1].map(snakeToCamel))
             : erc20Tokens
 
+        erc20Balances = this.upsertConstraints.erc20Balance
+            ? uniqueByKeys(erc20Balances, this.upsertConstraints.erc20Balance[1].map(snakeToCamel))
+            : erc20Balances
+
         nftCollections = this.upsertConstraints.nftCollection
             ? uniqueByKeys(nftCollections, this.upsertConstraints.nftCollection[1].map(snakeToCamel))
             : nftCollections
+
+        tokenTransfers = this.upsertConstraints.tokenTransfer
+            ? uniqueByKeys(tokenTransfers, this.upsertConstraints.tokenTransfer[1].map(snakeToCamel))
+            : tokenTransfers
 
         await Promise.all([
             this._upsertBlocks(blocks),
@@ -230,43 +257,10 @@ class PolygonSpecificNumbersWorker {
             this._upsertTraces(traces),
             this._upsertContracts(contracts),
             this._upsertErc20Tokens(erc20Tokens),
+            this._upsertErc20Balances(erc20Balances),
             this._upsertNftCollections(nftCollections),
+            this._upsertTokenTransfers(tokenTransfers),
         ])
-
-        const ivySmartWallets = logs.length ? this._getIvySmartWallets(logs) : []
-        ivySmartWallets.length && await this._upsertIvySmartWallets(ivySmartWallets)
-    }
-
-    _getIvySmartWallets(logs: StringKeyMap[]): StringKeyMap[] {
-        logs = logs.sort((a, b) => 
-            (Number(b.blockNumber) - Number(a.blockNumber)) || 
-            (b.transactionIndex - a.transactionIndex) || 
-            (b.logIndex - a.logIndex)
-        )
-        const smartWallets = []
-        for (const log of logs) {
-            if (this.smartWalletInitializerAddresses.includes(log.address) && log.eventName === 'WalletCreated') {
-                const eventArgs = log.eventArgs || []
-                if (!eventArgs.length) continue
-                const data = this._logEventArgsAsMap(eventArgs)
-                const contractAddress = data.smartWallet
-                const ownerAddress = data.owner
-                if (!contractAddress || !ownerAddress) continue           
-                
-                smartWallets.push({
-                    contractAddress,
-                    ownerAddress,
-                    transactionHash: log.transactionHash,
-                    blockNumber: Number(log.blockNumber),
-                    blockHash: log.blockHash,
-                    blockTimestamp: log.blockTimestamp.toISOString(),
-                    chainId: config.CHAIN_ID,
-                })
-            }
-        }
-        if (!smartWallets.length) return []
-
-        return uniqueByKeys(smartWallets, ['chainId', 'contractAddress'])
     }
 
     _logEventArgsAsMap(eventArgs: StringKeyMap[]): StringKeyMap {
@@ -285,7 +279,7 @@ class PolygonSpecificNumbersWorker {
         await SharedTables
             .createQueryBuilder()
             .insert()
-            .into(PolygonBlock)
+            .into(EthBlock)
             .values(blocks)
             .orUpdate(updateBlockCols, conflictBlockCols)
             .execute()
@@ -299,7 +293,7 @@ class PolygonSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(PolygonTransaction)
+                    .into(EthTransaction)
                     .values(chunk)
                     .orUpdate(updateTransactionCols, conflictTransactionCols)
                     .execute()
@@ -316,7 +310,7 @@ class PolygonSpecificNumbersWorker {
                     return SharedTables
                         .createQueryBuilder()
                         .insert()
-                        .into(PolygonLog)
+                        .into(EthLog)
                         .values(chunk)
                         .orUpdate(updateLogCols, conflictLogCols)
                         .returning('*')
@@ -335,7 +329,7 @@ class PolygonSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(PolygonTrace)
+                    .into(EthTrace)
                     .values(chunk)
                     .orUpdate(updateTraceCols, conflictTraceCols)
                     .execute()
@@ -352,34 +346,12 @@ class PolygonSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(PolygonContract)
+                    .into(EthContract)
                     .values(chunk)
                     .orUpdate(updateContractCols, conflictContractCols)
                     .execute()
             })
         )
-    }
-
-    async _upsertIvySmartWallets(smartWallets: StringKeyMap[]) {
-        for (const smartWallet of smartWallets) {
-            try {
-                await SharedTables.query(`INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
-                    [
-                        smartWallet.contractAddress,
-                        smartWallet.ownerAddress,
-                        smartWallet.transactionHash,
-                        smartWallet.blockNumber,
-                        smartWallet.blockHash,
-                        smartWallet.blockTimestamp,
-                        smartWallet.chainId,
-                    ]
-                )
-            } catch (err) {
-                logger.error('Failed to insert smart wallet', err)
-                return
-            }
-            logger.info('\nADDED SMART WALLET!\n', smartWallet)
-        }
     }
 
     async _upsertErc20Tokens(erc20Tokens: StringKeyMap[]) {
@@ -393,6 +365,28 @@ class PolygonSpecificNumbersWorker {
                     .into(Erc20Token)
                     .values(chunk)
                     .orIgnore()
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertErc20Balances(erc20Balances: StringKeyMap[]) {
+        if (!erc20Balances.length) return
+        logger.info(`Saving ${erc20Balances.length} erc20_balances...`)
+        const [updateContractCols, conflictContractCols] = this.upsertConstraints.erc20Balance
+        const conflictColStatement = conflictContractCols.map(ident).join(', ')
+        const updateColsStatement = updateContractCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"tokens"."erc20_balance"."block_timestamp" < excluded.block_timestamp and "tokens"."erc20_balance"."balance" != excluded.balance`
+        await Promise.all(
+            toChunks(erc20Balances, this.chunkSize).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(Erc20Balance)
+                    .values(chunk)
+                    .onConflict(
+                        `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                    )
                     .execute()
             })
         )
@@ -414,24 +408,25 @@ class PolygonSpecificNumbersWorker {
         )
     }
 
-    async _getIvySmartWalletInitializerAddresses(): Promise<string[]> {
-        try {
-            return ((await contractInstancesRepo().find({
-                select: { address: true },
-                where: {
-                    name: 'SmartWalletInitializer',
-                    chainId: config.CHAIN_ID,
-                }
-            })) || []).map(ci => ci.address)
-        } catch (err) {
-            logger.error(`Error getting smart wallet initializer contract addresses: ${err}`)
-            return []
-        }
+    async _upsertTokenTransfers(tokenTransfers: StringKeyMap[]) {
+        if (!tokenTransfers.length) return
+        const [updateCols, conflictCols] = this.upsertConstraints.tokenTransfer
+        await Promise.all(
+            toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
+                return SharedTables
+                    .createQueryBuilder()
+                    .insert()
+                    .into(TokenTransfer)
+                    .values(chunk)
+                    .orUpdate(updateCols, conflictCols)
+                    .execute()
+            })
+        )
     }
 }
 
-export function getPolygonSpecificNumbersWorker(): PolygonSpecificNumbersWorker {
-    return new PolygonSpecificNumbersWorker(
+export function getEthereumSpecificNumbersWorker(): EthereumSpecificNumbersWorker {
+    return new EthereumSpecificNumbersWorker(
         config.SPECIFIC_INDEX_NUMBERS,
         config.RANGE_GROUP_SIZE,
         config.SAVE_BATCH_MULTIPLE

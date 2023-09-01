@@ -263,8 +263,10 @@ class EthereumIndexer extends AbstractIndexer {
                 traces,
                 contracts,
                 erc20Tokens,
+                erc20Balances,
                 nftCollections,
                 tokenTransfers,
+                erc20TotalSupplyUpdates,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }

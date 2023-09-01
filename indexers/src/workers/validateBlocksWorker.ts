@@ -42,6 +42,7 @@ class ValidateBlocksWorker {
     }
  
     async run() {
+
         while (this.cursor <= this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
@@ -56,7 +57,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length) {
-            await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
         }
 
         logger.info('DONE')
@@ -80,7 +81,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length >= 1000) {
-            await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
     }
@@ -94,9 +95,9 @@ class ValidateBlocksWorker {
     }
 
     async _getActualBlockHashes(hashes: number[]): Promise<string[]> {
-        const numberChunks = toChunks(hashes, 40)
+        const chunks = toChunks(hashes, 40)
         const rangeHashes = []
-        for (const chunk of numberChunks) {
+        for (const chunk of chunks) {
             await sleep(120)
             rangeHashes.push(...(await Promise.all(chunk.map(n => this._hashForNumber(n)))))
         }
