@@ -6,8 +6,6 @@ import {
     sleep,
     uncleBlocks,
     range,
-    StringKeyMap,
-    toChunks,
     avgBlockTimesForChainId,
     freezeBlockOperationsAtOrAbove,
     IndexedBlock,
@@ -59,7 +57,7 @@ class EvmReporter {
     isFailing: boolean = false
 
     mostRecentBlockHashes: LRU<string, string> = new LRU({
-        max: config.MAX_REORG_SIZE,
+        max: config.MAX_REORG_SIZE * 5,
     })
 
     constructor(chainId: string) {
@@ -321,16 +319,15 @@ class EvmReporter {
         }
         logger.info(chalk.green(`Rollback to ${fromNumber} complete.`))
 
-        // Refetch hashes for block numbers.
-        const currentHashes = await this._getBlockHashesForNumbers(uncleRange, {})
-
         // Find the indexed blocks whose hashes are different from "current".
         const indexedBlocksToUncle = []
         for (const number of uncleRange) {
             const indexedBlocksWithNumber = mappedBlocksNotUncledYet[number.toString()]
             if (!indexedBlocksWithNumber?.length) continue
 
-            const currentHash = currentHashes[number.toString()]
+            const currentHash = this.mostRecentBlockHashes.get(number.toString())
+            if (!currentHash) continue
+
             for (const indexedBlock of indexedBlocksWithNumber) {
                 if (indexedBlock.hash !== currentHash) {
                     indexedBlocksToUncle.push(indexedBlock)
@@ -367,9 +364,11 @@ class EvmReporter {
         await sleep(3000)
 
         const blockSpecs = []
-        for (const number in currentHashes) {
-            const hash = currentHashes[number]
-            blockSpecs.push({ hash, number: Number(number) })
+        for (const number of uncleRange) {
+            blockSpecs.push({ 
+                hash: this.mostRecentBlockHashes.get(number.toString()) || null, 
+                number: Number(number),
+            })
         }
         
         await this._handleNewBlocks(
@@ -411,75 +410,6 @@ class EvmReporter {
             await sleep(delayInBetween)
             await this._handleNewBlocks(blockSpecs, i + 1, replace, delayInBetween)
         }
-    }
-
-    async _getBlockHashesForNumbers(numbers: number[], numberToHash: any = {}) {
-        logger.info(`Getting latest block hashes for numbers ${numbers[0]} -> ${numbers[numbers.length - 1]}`)
-        const chunks = toChunks(numbers, 10)
-        const hashes = []
-        for (const chunk of chunks) {
-            const chunkHashes = await Promise.all(chunk.map(num => this._getBlockHashForNumber(num)))
-            hashes.push(...chunkHashes)
-        }
-        const refetchNumbers = []
-        for (let i = 0; i < numbers.length; i++) {
-            const number = numbers[i]
-            const hash = hashes[i]
-            if (hash) {
-                numberToHash[number.toString()] = hash
-            } else {
-                refetchNumbers.push(number)
-            }
-        }
-        if (refetchNumbers.length) {
-            logger.warn(
-                `Hashes missing for numbers ${refetchNumbers.join(', ')}. Waiting and retrying...`
-            )
-            await sleep(3000)
-            return this._getBlockHashesForNumbers(refetchNumbers, numberToHash)
-        }
-        return numberToHash
-    }
-
-    async _getBlockHashForNumber(blockNumber: number): Promise<string> {
-        const cachedBlockHash = this.mostRecentBlockHashes.get(blockNumber.toString())
-        if (cachedBlockHash) return cachedBlockHash
-
-        let externalBlock = null
-        let numAttempts = 0
-        try {
-            while (externalBlock === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                externalBlock = await this._fetchBlock(blockNumber)
-                if (externalBlock === null) {
-                    await sleep(
-                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
-                    )
-                }
-                numAttempts += 1
-            }
-        } catch (err) {
-            logger.error(`Error fetching block ${blockNumber}: ${err}`)
-            return null
-        }
-        if (externalBlock === null) {
-            logger.error(`Out of attempts - No block found for ${blockNumber}...`)
-            return null
-        }
-        return externalBlock.hash
-    }
-
-    async _fetchBlock(blockNumber: number): Promise<StringKeyMap | null> {
-        let error, block
-        try {
-            block = await this.web3.eth.getBlock(blockNumber, false)
-        } catch (err) {
-            error = err
-        }
-        if (error) {
-            logger.error(`Error fetching block ${blockNumber}: ${error}. Will retry.`)
-            return null
-        }
-        return block
     }
 
     async _getHighestIndexedBlock(): Promise<IndexedBlock | null> {
