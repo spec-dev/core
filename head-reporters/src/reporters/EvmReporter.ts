@@ -96,7 +96,6 @@ class EvmReporter {
 
     _onNewBlockHeader(data: BlockHeader) {
         if (this.isFailing) return
-
         const blockNumber = Number(data.number)
         console.log('')
         logger.info(chalk.gray(`Got ${blockNumber}`))
