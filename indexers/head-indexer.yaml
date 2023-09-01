@@ -94,3 +94,5 @@ spec:
           value: "1"         
         - name: INDEX_PERFORM_MAX_DURATION
           value: "{{INDEX_PERFORM_MAX_DURATION}}"
+        - name: RPC_FUNCTION_BATCH_SIZE
+          value: "50"
