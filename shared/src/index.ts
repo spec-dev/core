@@ -59,6 +59,7 @@ export {
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
     getLastEventId,
+    getLastEvent,
     getPublishedEventsAfterEventCursors,
     getPolygonContracts,
     savePolygonContracts,
@@ -237,6 +238,7 @@ export {
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
     getContractEventsForGroup,
+    resolveEventVersionCursors,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
