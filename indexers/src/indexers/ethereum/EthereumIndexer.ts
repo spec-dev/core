@@ -1,5 +1,4 @@
 import AbstractIndexer from '../AbstractIndexer'
-import { createAlchemyWeb3, AlchemyWeb3 } from '@alch/alchemy-web3'
 import resolveBlock from './services/resolveBlock'
 import getBlockReceipts from './services/getBlockReceipts'
 import resolveBlockTraces from './services/resolveBlockTraces'
@@ -67,11 +66,9 @@ import {
 } from '../../services/extractTransfersFromLogs'
 import initTokenTransfers from '../../services/initTokenTransfers'
 
-const web3js = new Web3()
-
 class EthereumIndexer extends AbstractIndexer {
     
-    web3: AlchemyWeb3
+    web3: Web3
 
     block: EthBlock = null
 
@@ -87,9 +84,9 @@ class EthereumIndexer extends AbstractIndexer {
 
     successfulLogs: EthLog[] = []
 
-    constructor(head: NewReportedHead, web3?: AlchemyWeb3) {
+    constructor(head: NewReportedHead, web3?: Web3) {
         super(head)
-        this.web3 = web3 || createAlchemyWeb3(config.ALCHEMY_REST_URL)
+        this.web3 = web3 || new Web3(config.RPC_REST_URL)
     }
 
     async perform(): Promise<StringKeyMap | void> {
@@ -99,16 +96,12 @@ class EthereumIndexer extends AbstractIndexer {
             return
         }
 
-        // Get blocks (+transactions), receipts (+logs), and traces.
-        const blockPromise = this._getBlockWithTransactions()
-        const receiptsPromise = this._getBlockReceiptsWithLogs()
-        const tracesPromise = this._getTraces()
-
-        // Wait for block and receipt promises to resolve (we need them for transactions and logs, respectively).
-        let [blockResult, receipts] = await Promise.all([blockPromise, receiptsPromise])
-        const [externalBlock, block] = blockResult
+        const [externalBlock, block] = await this._getBlockWithTransactions()
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
+
+        const tracesPromise = this._getTraces()
+        let receipts = await this._getBlockReceiptsWithLogs()
 
         // Quick re-org check.
         if (!(await this._shouldContinue())) {
@@ -592,7 +585,7 @@ class EthereumIndexer extends AbstractIndexer {
         let functionArgs
         try {
             const inputsWithNames = ensureNamesExistOnAbiInputs(inputs)
-            const values = web3js.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
+            const values = this.web3.eth.abi.decodeParameters(inputsWithNames, `0x${inputData}`)
             functionArgs = groupAbiInputsWithValues(inputsWithNames, values)
         } catch (err) {
             if (err.reason?.includes('out-of-bounds') && 
@@ -664,7 +657,7 @@ class EthereumIndexer extends AbstractIndexer {
         log.topic2 && topics.push(log.topic2)
         log.topic3 && topics.push(log.topic3)
 
-        const decodedArgs = web3js.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
+        const decodedArgs = this.web3.eth.abi.decodeLog(abiItem.inputs as any, log.data, topics)
         const numArgs = parseInt(decodedArgs.__length__)
 
         const argValues = []
@@ -735,6 +728,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalEthBlock, EthBlock]> {
         return resolveBlock(
             this.web3,
+            this.givenBlockHash,
             this.blockNumber,
             this.chainId
         )
@@ -743,7 +737,7 @@ class EthereumIndexer extends AbstractIndexer {
     async _getBlockReceiptsWithLogs(): Promise<ExternalEthReceipt[]> {
         return getBlockReceipts(
             this.web3,
-            { blockNumber: this.hexBlockNumber },
+            { blockHash: this.blockHash },
             this.blockNumber,
             this.chainId
         )

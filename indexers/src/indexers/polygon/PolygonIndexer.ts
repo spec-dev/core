@@ -86,7 +86,6 @@ class PolygonIndexer extends AbstractIndexer {
 
     async perform(): Promise<StringKeyMap | void> {
         super.perform()
-
         if (await this._alreadyIndexedBlock()) {
             this._warn('Current block was already indexed. Stopping.')
             return
@@ -902,6 +901,7 @@ class PolygonIndexer extends AbstractIndexer {
     async _getBlockWithTransactions(): Promise<[ExternalPolygonBlock, PolygonBlock]> {
         return resolveBlock(
             this.web3,
+            this.givenBlockHash,
             this.blockNumber,
             this.chainId,
         )

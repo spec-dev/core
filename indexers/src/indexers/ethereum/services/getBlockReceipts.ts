@@ -1,5 +1,4 @@
 import {
-    AlchemyWeb3,
     TransactionReceipt,
     TransactionReceiptsParams,
     TransactionReceiptsResponse,
@@ -9,8 +8,7 @@ import { logger, sleep } from '../../../../../shared'
 import config from '../../../config'
 
 async function getBlockReceipts(
-    web3: AlchemyWeb3,
-    params: TransactionReceiptsParams,
+    blockHash: string,
     blockNumber: number,
     chainId: string
 ): Promise<ExternalEthReceipt[]> {
@@ -18,7 +16,7 @@ async function getBlockReceipts(
     let numAttempts = 0
     try {
         while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-            receipts = await fetchReceipts(web3, params, blockNumber, chainId)
+            receipts = await fetchReceipts(web3, blockHash, chainId)
             if (receipts === null) {
                 await sleep(
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
@@ -41,9 +39,7 @@ async function getBlockReceipts(
 }
 
 async function fetchReceipts(
-    web3: AlchemyWeb3,
-    params: TransactionReceiptsParams,
-    blockNumber: number,
+    blockHash: string,
     chainId: string,
 ): Promise<TransactionReceipt[] | null> {
     let resp: TransactionReceiptsResponse

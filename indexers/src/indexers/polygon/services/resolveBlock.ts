@@ -6,14 +6,17 @@ import Web3 from 'web3'
 
 export async function resolveBlock(
     web3: Web3,
+    blockHash: string,
     blockNumber: number,
     chainId: string,
 ): Promise<[ExternalPolygonBlock, PolygonBlock]> {
+    const blockId = blockHash || blockNumber
+
     let externalBlock = null
     let numAttempts = 0
     try {
         while (externalBlock === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-            externalBlock = await fetchBlock(web3, blockNumber)
+            externalBlock = await fetchBlock(web3, blockId)
             if (externalBlock === null) {
                 await sleep(
                     (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
@@ -22,11 +25,11 @@ export async function resolveBlock(
             numAttempts += 1
         }
     } catch (err) {
-        throw `Error fetching block ${blockNumber}: ${err}`
+        throw `Error fetching block ${blockId}: ${err}`
     }
 
     if (externalBlock === null) {
-        throw `Out of attempts - No block found for ${blockNumber}...`
+        throw `Out of attempts - No block found for ${blockId}...`
     }
 
     config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] Got block with txs.`)
@@ -36,13 +39,13 @@ export async function resolveBlock(
 
 export async function fetchBlock(
     web3: Web3,
-    blockNumber: number,
+    blockId: number | string,
 ): Promise<ExternalPolygonBlock | null> {
     let externalBlock: ExternalPolygonBlock
     let error
     try {
         externalBlock = (await web3.eth.getBlock(
-            blockNumber,
+            blockId,
             true
         )) as unknown as ExternalPolygonBlock
     } catch (err) {
@@ -50,7 +53,7 @@ export async function fetchBlock(
     }
     if (error) {
         config.IS_RANGE_MODE ||
-            logger.error(`Error fetching block ${blockNumber}: ${error}. Will retry.`)
+            logger.error(`Error fetching block ${blockId}: ${error}. Will retry.`)
         return null
     }
 

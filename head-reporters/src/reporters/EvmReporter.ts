@@ -88,6 +88,7 @@ class EvmReporter {
         }
 
         logger.info(`Listening for new heads on chain ${this.chainId}...`)
+        
         this.web3.eth.subscribe('newBlockHeaders', (error, data) => {
             if (error) {
                 logger.error('RPC subscription error', error)

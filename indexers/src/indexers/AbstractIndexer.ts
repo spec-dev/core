@@ -39,6 +39,7 @@ import { ident } from 'pg-format'
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 class AbstractIndexer {
+    
     head: NewReportedHead
 
     timedOut: boolean = false
@@ -73,8 +74,12 @@ class AbstractIndexer {
         return numberToHex(this.blockNumber)
     }
 
+    get givenBlockHash(): string | null {
+        return this.head.blockHash
+    }
+
     get blockHash(): string | null {
-        return this.resolvedBlockHash || this.head.blockHash
+        return this.resolvedBlockHash || this.givenBlockHash
     }
 
     get logPrefix(): string {
@@ -106,11 +111,13 @@ class AbstractIndexer {
         console.log('')
         config.IS_RANGE_MODE ||
             logger.info(
-                `${this.logPrefix} Indexing block ${this.blockNumber}...`
+                `${this.logPrefix} Indexing block ${this.blockNumber} (${this.givenBlockHash?.slice(0, 10) || null})...`
             )
 
         if (this.head.replace) {
-            this._info(chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.blockHash.slice(0, 10)})...`))
+            this._info(
+                chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash.slice(0, 10)})...`)
+            )
         }
     }
 
