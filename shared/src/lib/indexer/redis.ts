@@ -140,9 +140,7 @@ export async function getLastEvent(eventName: string): Promise<StringKeyMap | nu
 }
 
 export async function getLastEventId(eventName: string): Promise<string | null> {
-    const eventData = await getLastEvent(eventName)
-    if (!eventData) return null
-    return eventData?.id || null
+    return (await getLastEvent(eventName))?.id || null
 }
 
 export async function getPublishedEventsAfterEventCursors(

@@ -238,8 +238,7 @@ export {
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
     getContractEventsForGroup,
-    resolveSampleEventVersion,
-    resolveSampleContractEventVersion,
+    resolveEventVersionCursors,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
