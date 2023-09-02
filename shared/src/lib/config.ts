@@ -96,6 +96,13 @@ const config: StringKeyMap = {
 
     // JWTs
     JWT_SECRET: ev('JWT_SECRET'),
+
+    // Pinata Cloud config.
+    PINATA_GATEWAY_ORIGIN: ev('PINATA_GATEWAY_ORIGIN'),
+    PINATA_GATEWAY_TOKEN: ev('PINATA_GATEWAY_TOKEN'),
+
+    // Metadata config.
+    METADATA_RESOLUTION_TIMEOUT: Number(ev('METADATA_RESOLUTION_TIMEOUT', 5000)),
 }
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`

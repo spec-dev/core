@@ -403,7 +403,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
-        const contractGroupAbi = await getContractGroupAbi(contractGroup, contractInstance.chainId)
+        const contractGroupAbi = await getContractGroupAbi(contractGroup)
         if (!contractGroupAbi) continue
 
         const isUsedByEvent = eventNspSet.has(nsp)
@@ -628,7 +628,7 @@ export async function getLovInputGeneratorQueries(
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
-        const contractGroupAbi = await getContractGroupAbi(contractGroup, contractInstance.chainId)
+        const contractGroupAbi = await getContractGroupAbi(contractGroup)
         if (!contractGroupAbi) continue
 
         const ciKey = [contractInstance.chainId, contractInstance.address, 'event'].join(':')
@@ -693,7 +693,7 @@ export async function getLovInputGeneratorQueries(
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
-        const contractGroupAbi = await getContractGroupAbi(contractGroup, chainId)
+        const contractGroupAbi = await getContractGroupAbi(contractGroup)
         if (!contractGroupAbi) continue
 
         chainInputs[chainId] = chainInputs[chainId] || {}

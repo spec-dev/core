@@ -21,3 +21,4 @@ export function couldBeEventName(value: string): boolean {
     const nameSectionComps = nameSection.split('.').filter((v) => !!v)
     return nameSectionComps.length >= 2
 }
+export const isDict = (val: any): boolean => !!val && typeof val === 'object' && !Array.isArray(val)

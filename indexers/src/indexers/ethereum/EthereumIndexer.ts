@@ -218,7 +218,7 @@ class EthereumIndexer extends AbstractIndexer {
             erc20TotalSupplyUpdates,
             referencedErc20TokensMap,
         ] = config.IS_RANGE_MODE
-            ? [[], []] 
+            ? [[], [], {}] 
             : await initTokenTransfers(
                 erc20Tokens,
                 nftCollections,
@@ -226,6 +226,7 @@ class EthereumIndexer extends AbstractIndexer {
                 successfulTraces,
                 this.chainId,
             )
+        
         tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
 
         // Refresh any ERC-20 balances and NFT balances that could have changed.
@@ -262,8 +263,10 @@ class EthereumIndexer extends AbstractIndexer {
                 traces,
                 contracts,
                 erc20Tokens,
+                erc20Balances,
                 nftCollections,
                 tokenTransfers,
+                erc20TotalSupplyUpdates,
                 pgBlockTimestamp: this.pgBlockTimestamp,
             }
         }
@@ -425,7 +428,6 @@ class EthereumIndexer extends AbstractIndexer {
 
         const contractGroupAbis = await getContractGroupAbis(
             Array.from(uniqueContractGroups),
-            this.chainId,
         )
         const namespacedContractGroupAbis = {}
         for (const contractGroup in contractGroupAbis) {

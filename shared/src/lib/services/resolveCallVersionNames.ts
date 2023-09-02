@@ -7,7 +7,7 @@ import { unique, fromNamespacedVersion, toNamespacedVersion } from '../utils/for
 export async function resolveCallVersionNames(inputs: string[]): Promise<StringKeyMap> {
     const uniqueInputs = unique(inputs).filter((v) => !!v)
     const fakeVersion = 'fake'
-    const uniqueChainContractGroupsSet = new Set<string>()
+    const uniqueContractGroupsSet = new Set<string>()
     const inputComps = []
 
     for (const input of uniqueInputs) {
@@ -27,39 +27,22 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
             version: version === fakeVersion ? '' : version,
         })
 
-        uniqueChainContractGroupsSet.add([chainId, contractGroup].join(':'))
+        uniqueContractGroupsSet.add(contractGroup)
     }
+    if (!uniqueContractGroupsSet.size) return { data: {} }
 
-    const uniqueChainContractGroups = Array.from(uniqueChainContractGroupsSet).map((v) => {
-        const [chainId, contractGroup] = v.split(':')
-        return { chainId, contractGroup }
-    })
-    if (!uniqueChainContractGroups.length) return { data: {} }
-
-    const contractGroupAbis = await Promise.all(
-        uniqueChainContractGroups.map(({ chainId, contractGroup }) =>
-            getContractGroupAbi(contractGroup, chainId)
-        )
-    )
-
-    const abisForNsp = {}
-    for (let i = 0; i < uniqueChainContractGroups.length; i++) {
-        const { chainId, contractGroup } = uniqueChainContractGroups[i]
-
-        const contractGroupAbi = contractGroupAbis[i]
-        if (!contractGroupAbi || !contractGroupAbi?.length) continue
-
-        const contractNamespace = contractNamespaceForChainId(chainId)
-        if (!contractNamespace) continue
-
-        const nsp = [contractNamespace, contractGroup].join('.')
-        abisForNsp[nsp] = abisForNsp[nsp] || contractGroupAbi
+    const uniqueContractGroups = Array.from(uniqueContractGroupsSet)
+    const contractGroupAbis = await Promise.all(uniqueContractGroups.map(getContractGroupAbi))
+    const groupAbis = {}
+    for (let i = 0; i < uniqueContractGroups.length; i++) {
+        groupAbis[uniqueContractGroups[i]] = contractGroupAbis[i]
     }
 
     const resolvedNamesMap = {}
     for (const { nsp, name, version } of inputComps) {
         const functionPath = [nsp, name].join('.')
-        const contractGroupAbi = abisForNsp[nsp]
+        const contractGroup = nsp.split('.').slice(2).join('.')
+        const contractGroupAbi = groupAbis[contractGroup]
         if (!contractGroupAbi) continue
 
         const existingVersions = unique(

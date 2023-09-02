@@ -107,7 +107,7 @@ app.post(paths.QUERY, async (req, res) => {
     }
 
     // Parse sql and bindings from payload.
-    const [query, isValid] = getQueryPayload(req.body, claims || {})
+    const [query, isValid] = getQueryPayload(req.body)
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
@@ -141,7 +141,7 @@ app.post(paths.TRANSACTION, async (req, res) => {
     }
 
     // Get list of queries to run inside a transaction.
-    const [queries, isValid] = getTxPayload(req.body, claims || {})
+    const [queries, isValid] = getTxPayload(req.body)
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, queries)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
@@ -175,7 +175,7 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     }
 
     // Parse sql and bindings from payload.
-    const [query, isValid] = getQueryPayload(req.body, claims)
+    const [query, isValid] = getQueryPayload(req.body)
     if (!isValid) {
         logger.error(errors.INVALID_PAYLOAD, query)
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })

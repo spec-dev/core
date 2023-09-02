@@ -151,6 +151,7 @@ export {
     primitivesForChainId,
     chainIdForContractNamespace,
 } from './lib/utils/chainIds'
+export * from './lib/utils/metadata'
 import config from './lib/config'
 export { config }
 import logger from './lib/logger'
@@ -221,6 +222,7 @@ export {
     createContract,
     upsertContracts,
     upsertContractWithTx,
+    getAllContractGroups,
 } from './lib/core/db/services/contractServices'
 export {
     createContractInstance,
@@ -387,3 +389,4 @@ export {
     publishContractEventLiveObject,
 } from './lib/services/contractEventServices'
 export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'
+export { resolveMetadata } from './lib/services/resolveMetadata'

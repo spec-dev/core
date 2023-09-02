@@ -12,6 +12,14 @@ interface ContractGroupPayload {
     group: string
 }
 
+export interface ContractGroupsPayloadFilters {
+    namespace?: string
+}
+
+interface ContractGroupsPayload {
+    filters: ContractGroupsPayloadFilters
+}
+
 export function parseCreateContractGroupPayload(
     data: StringKeyMap
 ): ValidatedPayload<CreateContractGroupPayload> {
@@ -74,5 +82,14 @@ export function parseContractGroupPayload(
         payload: {
             group,
         },
+    }
+}
+
+export function parseContractGroupsPayload(data: StringKeyMap): ValidatedPayload<ContractGroupsPayload> {
+    const filters = data?.filters || {}
+    
+    return {
+        isValid: true,
+        payload: { filters, },
     }
 }

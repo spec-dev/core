@@ -100,6 +100,8 @@ export class Namespace {
             joinedAt: this.joinedAt?.toISOString(),
             icon: this.hasIcon ? buildIconUrl(this.name) : null,
             chainIds: await getChainIdsForNamespace(this.name),
+            records: 1013861,
+            lastInteraction: 10,
         }
     }
 }

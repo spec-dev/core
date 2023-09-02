@@ -4,6 +4,7 @@ import { getHeadWorker } from './headWorker'
 import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
 import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
+import { getEthereumSpecificNumbersWorker } from './ethereumSpecificBlocksIndexer'
 import { getPullBlocksWorker } from './pullBlocksWorker'
 import { getPullTransactionsWorker } from './pullTransactionsWorker'
 import { getPullLogsWorker } from './pullLogsWorker'
@@ -123,6 +124,8 @@ export async function getWorker(): Promise<IndexerWorker> {
 
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
-            return getEthRangeWorker()
+            return config.SPECIFIC_INDEX_NUMBERS.length
+                ? getEthereumSpecificNumbersWorker()
+                : getEthRangeWorker()
     }
 }

@@ -19,7 +19,6 @@ stream_batch_size=$( $shared_bin_dir/env_reader "$env" "TABLES_API_STREAM_BATCH_
 cert_arm=$( $shared_bin_dir/env_reader "$env" "ACM_WILDCARD_CERT_ARM" )
 bugsnag_api_key=$( $shared_bin_dir/env_reader "$env" "TABLES_API_BUGSNAG_API_KEY" )
 jwt_secret=$( $shared_bin_dir/env_reader "$env" "JWT_SECRET" )
-v0_payload_whitelist=$( $shared_bin_dir/env_reader "$env" "V0_PAYLOAD_WHITELIST" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -66,8 +65,7 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "TABLES_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="765cba8"
+image_version=$( $shared_bin_dir/latest_sha )
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -92,7 +90,6 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_READER_PASSWORD}}|$shared_tables_reader_password|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
-    sed "s|{{V0_PAYLOAD_WHITELIST}}|$v0_payload_whitelist|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating Tables API resources..."

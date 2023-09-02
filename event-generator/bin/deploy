@@ -42,7 +42,7 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DEFAULT_ROLE" )
-shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
+shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOST" )
 
 # Indexer DB
 indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
@@ -80,7 +80,7 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 $shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_role"
-$shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 
 # Indexer DB
 $shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
@@ -102,8 +102,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_GENERATOR_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="14f54a7"
-
+# image_version="14f54a7"
+image_version="3fe7d5e"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

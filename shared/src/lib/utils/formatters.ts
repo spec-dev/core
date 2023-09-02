@@ -310,7 +310,9 @@ export const groupAbiInputsWithValues = (inputs: StringKeyMap[], values: any): S
                 })
             return newInput
         } else {
-            return input
+            let newInput = { ...input }
+            newInput.value = formatAbiValueWithType(values[i], newInput.type)
+            return newInput
         }
     })
 }

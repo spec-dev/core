@@ -3,7 +3,6 @@ import { Abi, AbiItem, AbiItemType } from '../abi/types'
 import { getNamespaces } from '../core/db/services/namespaceServices'
 import { contractNamespaceForChainId } from '../utils/chainIds'
 import { polishAbis } from '../utils/formatters'
-import { saveContractGroupAbi } from '../abi/redis'
 import { CoreDB } from '../core/db/dataSource'
 import { ContractEventSpec } from '../types'
 import {
@@ -13,11 +12,18 @@ import {
     publishContractEventLiveObject,
 } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
+import { saveContractGroupAbi } from '../abi/redis'
 
 /**
  * Create a new, empty contract group for a set of chain ids.
  */
-export async function createContractGroup(nsp: string, name: string, chainIds: string[], abi: Abi) {
+export async function createContractGroup(
+    nsp: string,
+    name: string,
+    chainIds: string[],
+    abi: Abi,
+    saveGroupAbi: boolean = true
+) {
     const group = [nsp, name].join('.')
     if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
 
@@ -39,11 +45,14 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
     if (namespaces === null) throw `Internal error`
     if (namespaces.length) throw `Contract group already exists`
 
-    // Polish group abi.
+    // Polish ABI and save it for the group.
     const fakeAddress = '0x'
     const [polishedAbisMap, _] = polishAbis({ [fakeAddress]: abi })
     const polishedAbi = polishedAbisMap[fakeAddress] || []
     if (!polishedAbi.length) throw 'Invalid ABI'
+    if (saveGroupAbi && !(await saveContractGroupAbi(group, polishedAbi))) {
+        throw 'Failed to save ABI'
+    }
 
     // Get all ABI event items with fully-named params.
     const eventAbiItems = polishedAbi.filter(
@@ -55,10 +64,6 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
 
     // Upsert namespaces, contracts, events, and event versions.
     const eventSpecs = await saveDataModels(chainIds, fullNsps, name, eventAbiItems)
-
-    // Save group abi for each chain id.
-    await Promise.all(chainIds.map((chainId) => saveContractGroupAbi(group, polishedAbi, chainId)))
-
     if (!eventSpecs.length) {
         logger.warn(`[${group}] No contract events to create live objects for.`)
         return

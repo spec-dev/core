@@ -26,7 +26,6 @@ import {
     polishAbis,
     publishContractEventLiveObject,
     ContractEventSpec,
-    supportedChainIds,
 } from '../../../shared'
 import uuid4 from 'uuid4'
 
@@ -164,7 +163,7 @@ async function resolveAbis(
     const addresses = instances.map(i => i.address)
     let [crossGroupAbisMap, existingGroupAbi] = await Promise.all([
         getAbis(addresses, chainId),
-        getContractGroupAbi(contractGroup, chainId)
+        getContractGroupAbi(contractGroup)
     ])
     if (crossGroupAbisMap === null || existingGroupAbi === null) {
         return { error: errors.ABI_RESOLUTION_FAILED }
@@ -180,18 +179,9 @@ async function resolveAbis(
             abisMap[address] = givenAbi
         })
     }
-    // If no ABI is given and no group ABI exists yet,
-    // see if one exists for this group on another chain id.
+    // Error out if no ABI is given and no group ABI exists yet.
     else if (!existingGroupAbi.length) {
-        const otherChainIds = Array.from(supportedChainIds).filter(id => id !== chainId)
-        for (const otherChainId of otherChainIds) {
-            existingGroupAbi = await getContractGroupAbi(contractGroup, otherChainId)
-            if (existingGroupAbi?.length) break
-        }
-        if (!existingGroupAbi?.length) return { error: errors.NO_GROUP_ABI }
-        addresses.forEach(address => {
-            abisMap[address] = existingGroupAbi
-        })
+        return { error: errors.NO_GROUP_ABI }
     }
     // Assign current group abi to given addresses.
     else {
@@ -248,7 +238,7 @@ async function resolveAbis(
     // Save ABIs for the individual addresses (cross group) as well as the new group ABI.
     await Promise.all([
         saveAbisMap(newCrossGroupAbisMap, chainId),
-        saveContractGroupAbi(contractGroup, newGroupAbi, chainId)
+        saveContractGroupAbi(contractGroup, newGroupAbi)
     ])
 
     return { groupAbi: newGroupAbi }

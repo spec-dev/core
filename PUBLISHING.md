@@ -2,7 +2,7 @@
 
 1. Create the live object table in Postgres (Ex: `station.membership`).
 
-2. Create the ops table for the live object (Ex. `station.membership_ops`). See `shared/sql/add-ops-tables-for-primitives.ql` for examples.
+2. Create the ops table for the live object (Ex. `station.membership_ops`). See `shared/sql/add-ops-tables-for-primitives.sql` for examples.
 
 3. Add `INSERT` and `UPDATE` ops triggers to the live object table (see `shared/sql/ops-trigger.sql`).
 
