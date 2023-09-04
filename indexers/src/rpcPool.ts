@@ -88,7 +88,7 @@ class RpcPool {
                 auto: true,
                 delay: 1000,
                 maxAttempts: 100,
-                onTimeout: false,
+                onTimeout: true,
             },
         }))
     }

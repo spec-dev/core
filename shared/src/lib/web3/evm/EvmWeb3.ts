@@ -1,0 +1,530 @@
+import Web3 from 'web3'
+import logger from '../../logger'
+import config from '../../config'
+import { StringKeyMap } from '../../types'
+import { sleep } from '../../utils/time'
+import { numberToHex } from '../../utils/formatters'
+import { EvmBlock } from '../../shared-tables/db/entities/EvmBlock'
+import { EvmTransaction } from '../../shared-tables/db/entities/EvmTransaction'
+import { EvmLog } from '../../shared-tables/db/entities/EvmLog'
+import { EvmTrace } from '../../shared-tables/db/entities/EvmTrace'
+import { isNumber } from '../../utils/validators'
+import { 
+    EvmWeb3Options,
+    ExternalEvmBlock, 
+    ExternalEvmReceipt, 
+    ExternalEvmLog, 
+    ExternalEvmParityTrace, 
+    ExternalEvmDebugTrace,
+} from './types'
+import { 
+    externalToInternalBlock,
+    externalToInternalLog,
+    externalToInternalParityTraces,
+    externalToInternalDebugTraces,
+} from './transforms'
+import chainIds from '../../utils/chainIds'
+
+class EvmWeb3 {
+
+    url: string
+
+    web3: Web3
+
+    canGetBlockReceipts: boolean
+
+    canGetParityTraces: boolean
+
+    isRangeMode: boolean
+
+    ignoreLogsOnErrorCodes: number[] = [-32600, -32000]
+
+    get isWebsockets(): boolean {
+        return this.url.startsWith('ws://') || this.url.startsWith('wss://')
+    }
+
+    constructor(url: string, options?: EvmWeb3Options) {
+        options = options || {}
+        this.url = url
+        this.web3 = this.isWebsockets ? this._newWebsocketConnection() : this._newHttpConnection()
+        this.canGetBlockReceipts = options.canGetBlockReceipts || false
+        this.canGetParityTraces = options.canGetParityTraces || false
+        this.isRangeMode = options.isRangeMode || false
+    }
+
+    // == Block & Transactions ==============
+
+    async getBlock(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+        withTxs: boolean = true
+    ): Promise<{
+        block: EvmBlock,
+        transactions: EvmTransaction[],
+        unixTimestamp: number,
+    }> {
+        if (!blockHash && !isNumber(blockNumber)) {
+            throw `[${chainId}] Block hash or number required`
+        }
+
+        const blockId = blockHash || blockNumber
+        let externalBlock = null
+        let numAttempts = 0
+        try {
+            while (externalBlock === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                externalBlock = await this._getBlock(blockId, chainId, withTxs)
+                if (externalBlock === null) {
+                    await sleep(
+                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                    )
+                }
+                numAttempts += 1
+            }
+        } catch (err) {
+            throw `[${chainId}] Error fetching block ${blockId}: ${err}`
+        }
+    
+        if (externalBlock === null) {
+            throw `[${chainId}] Out of attempts - No block found for ${blockId}.`
+        }
+    
+        this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got block with txs.`)
+        
+        return externalToInternalBlock(externalBlock)  
+    }
+
+    async _getBlock(
+        blockNumberOrHash: number | string,
+        chainId?: string,
+        withTxs: boolean = true,
+    ): Promise<ExternalEvmBlock | null> {
+        let externalBlock: ExternalEvmBlock
+        let error
+        try {
+            externalBlock = (await this.web3.eth.getBlock(
+                blockNumberOrHash,
+                // @ts-ignore
+                withTxs,
+            )) as unknown as ExternalEvmBlock
+        } catch (err) {
+            error = err
+        }
+        if (error) {
+            this.isRangeMode || logger.error(
+                `[${chainId}]] Error fetching block ${blockNumberOrHash}: ${error}. Retrying...`
+            )
+            return null
+        }
+    
+        return externalBlock
+    }
+
+    // == Receipts ================
+
+    async getBlockReceipts(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+    ): Promise<ExternalEvmReceipt[]> {
+        if (!this.canGetBlockReceipts) {
+            throw `[${chainId}] Getting block receipts is unsupported for this provider`
+        }
+        if (this.isWebsockets) {
+            throw `[${chainId}] Can only resolve block receipts over HTTP at the moment`
+        }
+        if (!blockHash && !isNumber(blockNumber)) {
+            throw `[${chainId}] Block hash or number required`
+        }
+
+        let receipts = null
+        let numAttempts = 0
+        try {
+            while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                receipts = await this._getBlockReceipts(blockHash, blockNumber, chainId)
+                if (receipts === null) {
+                    await sleep(
+                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                    )
+                }
+                numAttempts += 1
+            }
+        } catch (err) {
+            throw `[${chainId}] Error fetching receipts for block ${blockNumber || blockHash}: ${err}`
+        }
+
+        if (receipts === null) {
+            throw `[${chainId}] Out of attempts - No receipts found for ${blockNumber || blockHash}.`
+        } else if (!receipts.length) {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No receipts this block.`)
+        } else {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got receipts with logs.`)
+        }
+    
+        return receipts    
+    }
+
+    async _getBlockReceipts(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+    ): Promise<ExternalEvmReceipt[] | null> {
+        const isAlchemy = this.url.includes('alchemy')
+
+        let method, params
+        if (isAlchemy) {
+            method = 'alchemy_getTransactionReceipts'
+            params = blockHash ? [{ blockHash }] : [{ blockNumber: numberToHex(blockNumber) }]
+        } else {
+            method = 'eth_getBlockReceipts'
+            params = [numberToHex(blockNumber)]
+        }
+    
+        let resp, error
+        try {
+            resp = await fetch(this.url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    method,
+                    params,
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+        } catch (err) {
+            error = err
+        }
+    
+        if (error) {
+            logger.error(`[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${error}. Will retry.`)
+            return null
+        }
+    
+        let data: StringKeyMap = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}:${blockNumber || blockHash}] Error parsing json response while fetching receipts: ${err}`
+                )
+            data = {}
+        }
+    
+        if (data?.error) {
+            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
+                `[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${data.error?.code} - ${data.error?.message}. Will retry.`
+            )
+            return null
+        }
+        if (!data?.result) return null
+    
+        return isAlchemy ? data.result.receipts : data.result                
+    }
+
+    // == Logs ====================
+
+    async getLogs(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+    ): Promise<EvmLog[]> {
+        if (!blockHash && !isNumber(blockNumber)) {
+            throw `[${chainId}] Block hash or number required`
+        }
+        if (this.isWebsockets) {
+            throw `[${chainId}] Can only resolve logs over HTTP at the moment`
+        }
+
+        let logs = null
+        let numAttempts = 0
+        try {
+            while (logs === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                logs = await this._getLogs(blockHash, blockNumber, chainId)
+                if (logs === null) {
+                    await sleep(
+                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                    )
+                }
+                numAttempts += 1
+            }
+        } catch (err) {
+            throw `[${chainId}] Error fetching logs for block ${blockNumber || blockHash}: ${err}`
+        }
+        
+        if (logs === null) {
+            throw `[${chainId}] Out of attempts - No logs found for ${blockNumber || blockHash}.`
+        } else if (!logs.length) {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No logs this block.`)
+        } else {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got logs.`)
+        }
+    
+        return logs.map(externalToInternalLog)
+    }
+
+    async _getLogs(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+    ): Promise<ExternalEvmLog[] | null> {
+        let params
+        if (blockHash) {
+            params = [{ blockHash }]
+        } else {
+            const hexBlockNumber = numberToHex(blockNumber)
+            params = [{ fromBlock: hexBlockNumber, toBlock: hexBlockNumber }]
+        }
+    
+        let resp, error
+        try {
+            resp = await fetch(this.url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    method: 'eth_getLogs',
+                    params,
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+        } catch (err) {
+            error = err
+        }
+    
+        if (error) {
+            logger.error(`[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${error}. Will retry.`)
+            return null
+        }
+    
+        let data: StringKeyMap = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}:${blockNumber || blockHash}] Error parsing json response while fetching logs: ${err}`
+                )
+            data = {}
+        }
+    
+        if (data?.error) {
+            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
+                `[${chainId}:${blockNumber || blockHash}] Error fetching logs: ${data.error?.code} - ${data.error?.message}. Will retry.`
+            )
+            return null
+        }
+        if (!data?.result) return null
+
+        return data.result                
+    }
+
+    // == Traces ===================
+
+    async getTraces(
+        blockHash?: string,
+        blockNumber?: number,
+        chainId?: string,
+    ): Promise<EvmTrace[]> {
+        if (!blockHash && !isNumber(blockNumber)) {
+            throw `[${chainId}] Block hash or number required`
+        }
+        if (this.canGetParityTraces && !isNumber(blockNumber)) {
+            throw `[${chainId}] Block number required to fetch parity traces`
+        }
+        if (!this.canGetParityTraces && !(blockHash && isNumber(blockNumber))) {
+            throw `[${chainId}] Both block hash and number required when fetching debug traces`
+        }
+        if (this.isWebsockets) {
+            throw `[${chainId}] Can only resolve traces over HTTP at the moment`
+        }
+
+        let externalTraces = null
+        let numAttempts = 0
+    
+        try {
+            while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
+                externalTraces = this.canGetParityTraces
+                    ? await this._getParityTraces(blockNumber, chainId)
+                    : await this._getDebugTraces(blockHash, blockNumber, chainId)
+                if (externalTraces === null) {
+                    await sleep(
+                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                    )
+                }
+                numAttempts += 1
+            }
+        } catch (err) {
+            throw `[${chainId}] Error fetching traces for block ${blockNumber || blockHash}: ${err}`
+        }
+    
+        if (externalTraces === null) {
+            throw `[${chainId}] Out of attempts - No traces found for block ${blockNumber || blockHash}...`
+        } else if (externalTraces.length === 0) {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No traces this block.`)
+        } else {
+            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got traces.`)
+        }
+    
+        return this.canGetParityTraces
+            ? externalToInternalParityTraces(externalTraces)
+            : externalToInternalDebugTraces(externalTraces, blockNumber, blockHash)  
+    }
+
+    async _getParityTraces(
+        blockNumber: number,
+        chainId?: string,
+    ): Promise<ExternalEvmParityTrace[] | null> {
+        let resp, error
+        try {
+            resp = await fetch(this.url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    method: 'trace_block',
+                    params: [numberToHex(blockNumber)],
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+        } catch (err) {
+            error = err
+        }
+
+        if (error) {
+            logger.error(`[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`)
+            return null
+        }
+
+        let data: StringKeyMap = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error parsing json response while fetching traces: ${err}`
+                )
+            data = {}
+        }
+    
+        if (data?.error) {
+            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
+                `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
+            )
+            return null
+        }
+        if (!data?.result) return null
+
+        return data.result
+    }
+
+    async _getDebugTraces(
+        blockHash: string,
+        blockNumber: number,
+        chainId?: string,
+    ): Promise<ExternalEvmDebugTrace[] | null> {
+        let resp, error
+        try {
+            resp = await fetch(this.url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    method: 'debug_traceBlockByHash',
+                    params: [blockHash, { tracer: 'callTracer' }],
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+        } catch (err) {
+            error = err
+        }
+
+        if (error) {
+            logger.error(`[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`)
+            return null
+        }
+
+        let data: StringKeyMap = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error parsing json response while fetching traces: ${err}`
+                )
+            data = {}
+        }
+    
+        if (data?.error) {
+            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
+                `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
+            )
+            return null
+        }
+        if (!data?.result) return null
+
+        return data.result
+    }
+
+    // == Subscriptions ===================
+    // ...
+
+    _newHttpConnection(): Web3 {
+        return new Web3(this.url)
+    }
+
+    _newWebsocketConnection(): Web3 {
+        return new Web3(new Web3.providers.WebsocketProvider(this.url, {
+            clientConfig: {
+                keepalive: true,
+                keepaliveInterval: 60000,
+            },
+            reconnect: {
+                auto: true,
+                delay: 300,
+                maxAttempts: 100,
+                onTimeout: true,
+            },
+        }))
+    }
+}
+
+export function newEthereumWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: true,
+        canGetParityTraces: true,
+        isRangeMode,
+    })
+}
+
+export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: true,
+        canGetParityTraces: false,
+        isRangeMode,
+    })
+}
+
+export function newEvmWeb3ForChainId(
+    chainId: string,
+    url: string,
+    isRangeMode?: boolean
+): EvmWeb3 {
+    switch (chainId) {
+        // ETHEREUM
+        case chainIds.ETHEREUM:
+        case chainIds.GOERLI:
+            return newEthereumWeb3(url, isRangeMode)
+
+        // POLYGON
+        case chainIds.POLYGON:
+        case chainIds.MUMBAI:
+            return newPolygonWeb3(url, isRangeMode)
+
+        default:
+            throw `Invalid chain id: ${chainId}`
+    }
+}
+
+export default EvmWeb3

@@ -7,6 +7,14 @@ export {
     updateReorg,
     failPotentialReorg,
 } from './lib/indexer/db/services/reorgServices'
+export { EvmBlock, fullEvmBlockUpsertConfig } from './lib/shared-tables/db/entities/EvmBlock'
+export {
+    EvmTransaction,
+    EvmTransactionStatus,
+    fullEvmTransactionUpsertConfig,
+} from './lib/shared-tables/db/entities/EvmTransaction'
+export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
+export { EvmTrace, fullEvmTraceUpsertConfig } from './lib/shared-tables/db/entities/EvmTrace'
 export { EthBlock, fullBlockUpsertConfig } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,
@@ -51,6 +59,9 @@ export {
 } from './lib/shared-tables/db/entities/NftTransfer'
 export { NftBalance, fullNftBalanceUpsertConfig } from './lib/shared-tables/db/entities/NftBalance'
 export { SharedTables } from './lib/shared-tables/db/dataSource'
+import EvmWeb3, { newEvmWeb3ForChainId } from './lib/web3/evm/EvmWeb3'
+export { EvmWeb3, newEvmWeb3ForChainId }
+export { externalToInternalLog } from './lib/web3/evm/transforms'
 export {
     redis as indexerRedis,
     keys as indexerRedisKeys,
@@ -149,6 +160,7 @@ export {
     avgBlockTimesForChainId,
     primitivesForChainId,
     chainIdForContractNamespace,
+    currentChainSchema,
 } from './lib/utils/chainIds'
 export * from './lib/utils/metadata'
 import config from './lib/config'

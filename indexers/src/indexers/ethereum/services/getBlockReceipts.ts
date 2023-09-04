@@ -29,6 +29,7 @@ async function getBlockReceipts(
     }
     receipts = receipts || []
 
+    
     if (!receipts.length) {
         config.IS_RANGE_MODE || logger.info(`[${chainId}:${blockNumber}] No receipts this block.`)
     } else {

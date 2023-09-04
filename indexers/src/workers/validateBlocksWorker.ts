@@ -2,16 +2,8 @@ import config from '../config'
 import {
     logger,
     SharedTables,
-    StringKeyMap,
-    uniqueByKeys,
-    fullErc20TokenUpsertConfig,
-    fullNftCollectionUpsertConfig,
-    NftCollection,
-    Erc20Token,
-    camelizeKeys,
     schemaForChainId,
     toChunks,
-    snakeToCamel,
     range,
     indexerRedis,
     sleep,
@@ -19,7 +11,7 @@ import {
 import { ident } from 'pg-format'
 import chalk from 'chalk'
 import { exit } from 'process'
-import { getRpcPool } from '../rpcPool'
+import { createWsProviderPool, getWsProviderPool } from '../wsProviderPool'
 
 class ValidateBlocksWorker {
 
@@ -39,6 +31,7 @@ class ValidateBlocksWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.mismatches = []
+        createWsProviderPool()
     }
  
     async run() {
@@ -105,7 +98,7 @@ class ValidateBlocksWorker {
     }
 
     async _hashForNumber(number: number) {
-        const block = await getRpcPool().getBlock(number, false)
+        const { block } = await getWsProviderPool().getBlock(null, number, false)
         return block.hash
     }
 }

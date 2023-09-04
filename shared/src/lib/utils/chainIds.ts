@@ -1,5 +1,6 @@
 import { Erc20Token } from '../shared-tables/db/entities/Erc20Token'
 import { invert, NULL_ADDRESS } from './formatters'
+import config from '../config'
 
 const chainIds: { [key: string]: string } = {
     ETHEREUM: '1',
@@ -157,6 +158,11 @@ export const getNativeTokenForChain = (chainId: string): Erc20Token | null => {
     nativeToken.address = NULL_ADDRESS
     nativeToken.decimals = 18
     return nativeToken
+}
+
+export const currentChainSchema = (): string => {
+    const chainId = config.CHAIN_ID
+    return schemaForChainId[chainId] || chainSpecificSchemas.ETHEREUM
 }
 
 export default chainIds

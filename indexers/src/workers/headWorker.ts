@@ -12,7 +12,17 @@ import {
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
-import { teardownRpcPool, createRpcPool, hasHitMaxCalls } from '../rpcPool'
+import { 
+    createWsProviderPool, 
+    rotateWsProviderGroups,
+    teardownWsProviderPool,
+    hasHitMaxCalls,
+} from '../wsProviderPool'
+import { 
+    createWeb3Provider, 
+    rotateWeb3Provider,
+    teardownWeb3Provider,
+} from '../httpProviderPool'
 
 let queue: Queue
 export async function reenqueueJob(head: NewReportedHead) {   
@@ -36,10 +46,10 @@ export async function reenqueueJob(head: NewReportedHead) {
     })
 }
 
-let numIterations = 0
+let numIterationsWithCurrentProvider = 0
 let worker: Worker
 async function runJob(job: Job) {
-    numIterations++
+    numIterationsWithCurrentProvider++
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(
         head.id,
@@ -48,10 +58,11 @@ async function runJob(job: Job) {
 
     let reIndex = false
     let attempt = 1
+    let providerAtt
     let indexer = null
     let timer = null
     let timeout = null
-    let triedToRebuildRpcPoolAsFix = false
+
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
         indexer = getIndexer(head)
@@ -104,12 +115,21 @@ async function runJob(job: Job) {
 
             logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
 
-            if (attempt > 2 && !triedToRebuildRpcPoolAsFix) {
-                triedToRebuildRpcPoolAsFix = true
-                numIterations = 0
-                teardownRpcPool()
+            // Rotate websocket providers anytime there are 2 failures in a row.
+            if ((attempt > 2) && ((attempt - 1) % 2 === 0)) {
+                numIterationsWithCurrentProvider = 0
+                teardownWsProviderPool()
                 await sleep(50)
-                createRpcPool()
+                rotateWsProviderGroups()
+                createWsProviderPool()
+            }
+
+            // Rotate HTTP providers any time there's a failure after 2 attempts.
+            if (attempt > 2) {
+                teardownWeb3Provider()
+                await sleep(50)
+                rotateWeb3Provider()
+                createWeb3Provider()
             }
 
             await sleep(randomIntegerInRange(
@@ -137,16 +157,19 @@ async function runJob(job: Job) {
         await reenqueueJob(head)
     }
     
-    if (numIterations >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
-        numIterations = 0
-        teardownRpcPool()
+    if (numIterationsWithCurrentProvider >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
+        numIterationsWithCurrentProvider = 0
+        teardownWsProviderPool()
         await sleep(50)
-        createRpcPool()
+        createWsProviderPool()
         await sleep(50)
     }
 }
 
 export function getHeadWorker(): Worker {
+    createWeb3Provider()
+    createWsProviderPool()
+
     worker = new Worker(
         config.HEAD_REPORTER_QUEUE_KEY,
         runJob,
