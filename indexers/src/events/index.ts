@@ -1,12 +1,14 @@
 import { Queue } from 'bullmq'
 import config from '../config'
 import eth from './eth'
+import chain from './chain'
 import ivy from './ivy'
 import tokens from './tokens'
 import { logger } from '../../../shared'
 
 export const originEvents = {
     eth,
+    chain,
     ivy,
     tokens,
 }

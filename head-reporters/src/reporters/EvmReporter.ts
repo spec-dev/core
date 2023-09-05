@@ -89,13 +89,15 @@ class EvmReporter {
 
         logger.info(`Listening for new heads on chain ${this.chainId}...`)
         
+
+        // TODO: Add something here that also uses a new type of Ws Pool that only connects to one at a time
         this.web3.eth.subscribe('newBlockHeaders', (error, data) => {
             if (error) {
                 logger.error('RPC subscription error', error)
                 return
             }
             this._onNewBlockHeader(data)
-        })
+        },)
     }
 
     _onNewBlockHeader(data: BlockHeader) {

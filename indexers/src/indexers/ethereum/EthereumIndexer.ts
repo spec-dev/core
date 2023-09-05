@@ -70,7 +70,7 @@ class EthereumIndexer extends AbstractIndexer {
     
     web3: Web3
 
-    block: EthBlock = null
+    block: EthBlock
 
     transactions: EthTransaction[] = []
 
@@ -95,7 +95,7 @@ class EthereumIndexer extends AbstractIndexer {
             this._warn('Current block was already indexed. Stopping.')
             return
         }
-
+        
         const [externalBlock, block] = await this._getBlockWithTransactions()
         this.resolvedBlockHash = block.hash
         this.blockUnixTimestamp = externalBlock.timestamp
@@ -194,7 +194,7 @@ class EthereumIndexer extends AbstractIndexer {
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
-        // Filter logs and traces to only those that succeeded.
+        // Establish lists of only the logs and traces that succeeded.
         const txSuccess = {}
         for (const tx of transactions) {
             txSuccess[tx.hash] = tx.status != EthTransactionStatus.Failure

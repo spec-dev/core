@@ -47,6 +47,7 @@ export interface ExternalEvmLog {
     blockHash: string
     transactionHash: string
     transactionIndex: string
+    removed?: boolean
 }
 
 export interface ExternalEvmReceipt {

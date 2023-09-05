@@ -68,11 +68,15 @@ export class EvmLog {
     // Timestamp of when this log's block was collated.
     @Column('timestamptz', { name: 'block_timestamp' })
     blockTimestamp: Date
+
+    removed: boolean
 }
 
 export const fullEvmLogUpsertConfig = (log: EvmLog): string[][] => {
     const conflictCols = ['log_index', 'transaction_hash']
+    const nonColKeys = ['removed']
     const updateCols = Object.keys(log)
+        .filter((key) => !nonColKeys.includes(key))
         .map(decamelize)
         .filter((col) => !conflictCols.includes(col))
     return [updateCols, conflictCols]

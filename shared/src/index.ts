@@ -14,7 +14,15 @@ export {
     fullEvmTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTransaction'
 export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
-export { EvmTrace, fullEvmTraceUpsertConfig } from './lib/shared-tables/db/entities/EvmTrace'
+export { 
+    EvmTrace, 
+    EvmCallType,
+    EvmRewardType,
+    EvmTraceStatus,
+    EvmTraceType,
+    fullEvmTraceUpsertConfig,
+} from './lib/shared-tables/db/entities/EvmTrace'
+export { EvmContract, fullEvmContractUpsertConfig } from './lib/shared-tables/db/entities/EvmContract'
 export { EthBlock, fullBlockUpsertConfig } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,
@@ -62,6 +70,7 @@ export { SharedTables } from './lib/shared-tables/db/dataSource'
 import EvmWeb3, { newEvmWeb3ForChainId } from './lib/web3/evm/EvmWeb3'
 export { EvmWeb3, newEvmWeb3ForChainId }
 export { externalToInternalLog } from './lib/web3/evm/transforms'
+export { ExternalEvmReceipt } from './lib/web3/evm/types'
 export {
     redis as indexerRedis,
     keys as indexerRedisKeys,

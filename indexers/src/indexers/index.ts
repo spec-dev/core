@@ -1,6 +1,6 @@
 import { chainIds, NewReportedHead } from '../../../shared'
-import EthereumIndexer from './ethereum/EthereumIndexer'
-import PolygonIndexer from './polygon/PolygonIndexer'
+import EvmIndexer from './EvmIndexer'
+import PolygonIndexer from './PolygonIndexer'
 import { Indexer } from '../types'
 
 export const getIndexer = (head: NewReportedHead): Indexer | null => {
@@ -8,7 +8,10 @@ export const getIndexer = (head: NewReportedHead): Indexer | null => {
         // Ethereum
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
-            return new EthereumIndexer(head)
+            return new EvmIndexer(head, {
+                indexTokenTransfers: true,
+                indexTokenBalances: true,
+            })
 
         // Polygon
         case chainIds.POLYGON:

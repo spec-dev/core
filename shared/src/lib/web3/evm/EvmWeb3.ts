@@ -326,6 +326,7 @@ class EvmWeb3 {
         blockHash?: string,
         blockNumber?: number,
         chainId?: string,
+        forceDebug?: boolean,
     ): Promise<EvmTrace[]> {
         if (!blockHash && !isNumber(blockNumber)) {
             throw `[${chainId}] Block hash or number required`
@@ -345,7 +346,7 @@ class EvmWeb3 {
     
         try {
             while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                externalTraces = this.canGetParityTraces
+                externalTraces = this.canGetParityTraces && !forceDebug
                     ? await this._getParityTraces(blockNumber, chainId)
                     : await this._getDebugTraces(blockHash, blockNumber, chainId)
                 if (externalTraces === null) {
@@ -367,7 +368,7 @@ class EvmWeb3 {
             this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got traces.`)
         }
     
-        return this.canGetParityTraces
+        return this.canGetParityTraces && !forceDebug
             ? externalToInternalParityTraces(externalTraces)
             : externalToInternalDebugTraces(externalTraces, blockNumber, blockHash)  
     }

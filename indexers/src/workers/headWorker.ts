@@ -58,7 +58,6 @@ async function runJob(job: Job) {
 
     let reIndex = false
     let attempt = 1
-    let providerAtt
     let indexer = null
     let timer = null
     let timeout = null
@@ -92,12 +91,21 @@ async function runJob(job: Job) {
             indexer.timedOut = true
             break
         } catch (err) {
+            const didFetchPrimitives = indexer.didFetchPrimitives
+            const reorgDetectedViaLogs = indexer.reorgDetectedViaLogs
             indexer.timedOut = true
             indexer = null
             attempt++
             timer && clearTimeout(timer)
             timer = null
             timeout = null
+
+            // Force a refetch by number for the next iteration if the logs 
+            // indicated a reorg, since we 100% fetch logs by block hash.
+            if (reorgDetectedViaLogs) {
+                head.blockHash = null
+            }
+            
             // When all attempts are exhausted, flip the master switch for index jobs 
             // to false, telling all other (potential) parallel index workers to pause.
             if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
@@ -124,8 +132,9 @@ async function runJob(job: Job) {
                 createWsProviderPool()
             }
 
-            // Rotate HTTP providers any time there's a failure after 2 attempts.
-            if (attempt > 2) {
+            // Rotate HTTP providers any time there's a failure after 2 attempts
+            // and the primitives weren't able to be fetched.
+            if (attempt > 2 && !didFetchPrimitives) {
                 teardownWeb3Provider()
                 await sleep(50)
                 rotateWeb3Provider()

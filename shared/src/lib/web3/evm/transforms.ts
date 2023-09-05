@@ -116,6 +116,7 @@ export function externalToInternalLog(
     log.blockHash = block?.hash
     log.blockNumber = block?.number
     log.blockTimestamp = block?.timestamp
+    log.removed = externalLog.removed
     return log
 }
 
@@ -278,6 +279,7 @@ function setParityTraceIds(traces: EvmTrace[]) {
     let trace
     for (let i = 0; i < traces.length; i++) {
         trace = traces[i]
+        traces[i].traceIndex = i
 
         // Tx-scoped trace id:
         // --> {trace_type}_{transaction_hash}_{trace_address}

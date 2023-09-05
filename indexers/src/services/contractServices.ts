@@ -26,6 +26,11 @@ import {
     ERC721_TOTAL_SUPPLY_ITEM,
     erc20RequiredFunctionItems,
     erc1155RequiredFunctionItems,
+    EvmContract,
+    EvmTrace,
+    EvmTraceType,
+    EvmTraceStatus,
+    normalizeEthAddress,
 } from '../../../shared'
 import { selectorsFromBytecode } from '@shazow/whatsabi'
 import { BigNumber, utils } from 'ethers'
@@ -35,6 +40,32 @@ import { getRpcPool } from '../rpcPool'
 const errors = {
     EXECUTION_REVERTED: 'execution reverted',
     NUMERIC_FAULT: 'NUMERIC_FAULT',
+}
+
+export function extractNewContractDeploymentsFromTraces(traces: EvmTrace[]): EvmContract[] {
+    const contracts = []
+    for (const trace of traces) {
+        const address = normalizeEthAddress(trace.to)
+
+        // Find all the successful contract creation traces.
+        if (
+            trace.traceType === EvmTraceType.Create &&
+            trace.status == EvmTraceStatus.Success &&
+            !!address
+        ) {
+            const contract = new EvmContract()
+            contract.address = address
+            contract.bytecode = trace.output
+            contract.isERC20 = trace.output ? isContractERC20(trace.output) : false
+            contract.isERC721 = trace.output ? isContractERC721(trace.output) : false
+            contract.isERC1155 = trace.output ? isContractERC1155(trace.output) : false
+            contract.blockHash = trace.blockHash
+            contract.blockNumber = trace.blockNumber
+            contract.blockTimestamp = trace.blockTimestamp
+            contracts.push(contract)
+        }
+    }
+    return contracts
 }
 
 export async function resolveNewTokenContracts(
