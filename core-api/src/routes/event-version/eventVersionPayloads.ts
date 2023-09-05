@@ -13,6 +13,10 @@ export interface GetEventVersionDataAfterPayload {
     cursors: StringKeyMap
 }
 
+export interface SearchEventVersionPayload {
+    name: string
+}
+
 export function parseResolveEventVersionsPayload(
     data: StringKeyMap
 ): ValidatedPayload<ResolveEventVersionsPayload> {
@@ -77,5 +81,14 @@ export function parseGetEventVersionDataAfterPayload(
         payload: {
             cursors,
         },
+    }
+}
+
+export function parseSearchEventVersionPayload(data: StringKeyMap): ValidatedPayload<SearchEventVersionPayload> {
+    const name = data?.name || null
+
+    return {
+        isValid: true,
+        payload: { name, },
     }
 }
