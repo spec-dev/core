@@ -18,9 +18,10 @@ import {
     createReorg, 
     updateReorg,
     ReorgStatus,
+    newEvmWeb3ForChainId, 
+    EvmWeb3
 } from '../../../shared'
 import config from '../config'
-import Web3 from 'web3'
 import { BlockHeader } from 'web3-eth'
 import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
@@ -28,11 +29,19 @@ import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
 import LRU from 'lru-cache'
 
+const endpoints = config.WS_PROVIDER_POOL
+    .replace(/\|/g, ',') // flatten groups
+    .split(',')
+    .map(url => url.trim())
+    .filter(url => !!url)
+
 class EvmReporter {
 
     chainId: string
 
-    web3: Web3
+    web3: EvmWeb3
+
+    connectionIndex: number = 0
 
     buffer: { [key: string]: BlockHeader } = {}
 
@@ -62,19 +71,6 @@ class EvmReporter {
 
     constructor(chainId: string) {
         this.chainId = chainId
-        this.web3 = new Web3(new Web3.providers.WebsocketProvider(config.RPC_SUBSCRIPTION_URL, {
-            clientConfig: {
-                keepalive: true,
-                keepaliveInterval: 60000,
-            },
-            reconnect: {
-                auto: true,
-                delay: 100,
-                maxAttempts: 100,
-                onTimeout: true,
-            },
-        }))
-
         this.unclePauseTime = Math.min(
             avgBlockTimesForChainId[this.chainId] * 1000 * config.UNCLE_PAUSE_TIME_IN_BLOCKS,
             config.UNCLE_PAUSE_TIME,
@@ -85,19 +81,22 @@ class EvmReporter {
         if (!(await shouldProcessNewHeads(this.chainId))) {
             logger.notify(chalk.yellow(`Won't process new heads -- master switch is off.`))
             return
-        }
+        }        
+        this._createWeb3Provider()
+        this._subscribeToNewHeads()
+    }
 
-        logger.info(`Listening for new heads on chain ${this.chainId}...`)
-        
-
-        // TODO: Add something here that also uses a new type of Ws Pool that only connects to one at a time
-        this.web3.eth.subscribe('newBlockHeaders', (error, data) => {
+    _subscribeToNewHeads() {
+        this.web3.subscribeToNewHeads((error, data) => {
             if (error) {
-                logger.error('RPC subscription error', error)
+                console.log(error)
+                logger.error(chalk.red(`RPC subscription error: ${error}`))
+                this._rotateWeb3Providers()
                 return
             }
-            this._onNewBlockHeader(data)
-        },)
+            this._onNewBlockHeader(data as BlockHeader)
+        })
+        logger.info(chalk.cyanBright(`Listening for new heads on chain ${this.chainId}...`))
     }
 
     _onNewBlockHeader(data: BlockHeader) {
@@ -450,6 +449,35 @@ class EvmReporter {
         logger.error(chalk.redBright(`Stopping head reporter at ${blockNumber}.`))
         this.isFailing = true
         await setProcessNewHeads(this.chainId, false)
+    }
+
+    _createWeb3Provider() {
+        this.web3 = newEvmWeb3ForChainId(
+            this.chainId, 
+            endpoints[this.connectionIndex] || endpoints[0],
+        )
+    }
+
+    async _rotateWeb3Providers() {
+        await sleep(10)
+        const provider = this.web3?.web3?.currentProvider as any
+        provider?.removeAllListeners && provider.removeAllListeners()
+        provider?.disconnect && provider.disconnect()
+        this.web3 = null
+        await sleep(10)
+
+        if (this.connectionIndex >= endpoints.length) {
+            this.connectionIndex = 0
+        } else {
+            this.connectionIndex++
+        }
+
+        logger.notify(
+            `[${config.CHAIN_ID}] Rotating HR Providers — New Index: ${this.connectionIndex}/${endpoints.length}`
+        )
+        
+        this._createWeb3Provider()
+        this._subscribeToNewHeads()
     }
 }
 

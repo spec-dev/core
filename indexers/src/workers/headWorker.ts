@@ -124,7 +124,10 @@ async function runJob(job: Job) {
             logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
 
             // Rotate websocket providers anytime there are 2 failures in a row.
-            if ((attempt > 2) && ((attempt - 1) % 2 === 0)) {
+            if (
+                (attempt > config.MAX_ATTEMPTS_BEFORE_ROTATION) && 
+                ((attempt - 1) % config.MAX_ATTEMPTS_BEFORE_ROTATION === 0)
+            ) {
                 numIterationsWithCurrentProvider = 0
                 teardownWsProviderPool()
                 await sleep(50)
@@ -132,9 +135,9 @@ async function runJob(job: Job) {
                 createWsProviderPool()
             }
 
-            // Rotate HTTP providers any time there's a failure after 2 attempts
+            // Rotate HTTP providers any time there's a failure after N attempts
             // and the primitives weren't able to be fetched.
-            if (attempt > 2 && !didFetchPrimitives) {
+            if (attempt > config.MAX_ATTEMPTS_BEFORE_ROTATION && !didFetchPrimitives) {
                 teardownWeb3Provider()
                 await sleep(50)
                 rotateWeb3Provider()

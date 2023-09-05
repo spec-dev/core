@@ -9,15 +9,15 @@ import { EvmTransaction } from '../../shared-tables/db/entities/EvmTransaction'
 import { EvmLog } from '../../shared-tables/db/entities/EvmLog'
 import { EvmTrace } from '../../shared-tables/db/entities/EvmTrace'
 import { isNumber } from '../../utils/validators'
-import { 
+import {
     EvmWeb3Options,
-    ExternalEvmBlock, 
-    ExternalEvmReceipt, 
-    ExternalEvmLog, 
-    ExternalEvmParityTrace, 
+    ExternalEvmBlock,
+    ExternalEvmReceipt,
+    ExternalEvmLog,
+    ExternalEvmParityTrace,
     ExternalEvmDebugTrace,
 } from './types'
-import { 
+import {
     externalToInternalBlock,
     externalToInternalLog,
     externalToInternalParityTraces,
@@ -26,7 +26,6 @@ import {
 import chainIds from '../../utils/chainIds'
 
 class EvmWeb3 {
-
     url: string
 
     web3: Web3
@@ -60,9 +59,9 @@ class EvmWeb3 {
         chainId?: string,
         withTxs: boolean = true
     ): Promise<{
-        block: EvmBlock,
-        transactions: EvmTransaction[],
-        unixTimestamp: number,
+        block: EvmBlock
+        transactions: EvmTransaction[]
+        unixTimestamp: number
     }> {
         if (!blockHash && !isNumber(blockNumber)) {
             throw `[${chainId}] Block hash or number required`
@@ -76,7 +75,7 @@ class EvmWeb3 {
                 externalBlock = await this._getBlock(blockId, chainId, withTxs)
                 if (externalBlock === null) {
                     await sleep(
-                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                        config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
                     )
                 }
                 numAttempts += 1
@@ -84,20 +83,21 @@ class EvmWeb3 {
         } catch (err) {
             throw `[${chainId}] Error fetching block ${blockId}: ${err}`
         }
-    
+
         if (externalBlock === null) {
             throw `[${chainId}] Out of attempts - No block found for ${blockId}.`
         }
-    
-        this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got block with txs.`)
-        
-        return externalToInternalBlock(externalBlock)  
+
+        this.isRangeMode ||
+            logger.info(`[${chainId}:${blockNumber || blockHash}] Got block with txs.`)
+
+        return externalToInternalBlock(externalBlock)
     }
 
     async _getBlock(
         blockNumberOrHash: number | string,
         chainId?: string,
-        withTxs: boolean = true,
+        withTxs: boolean = true
     ): Promise<ExternalEvmBlock | null> {
         let externalBlock: ExternalEvmBlock
         let error
@@ -105,18 +105,19 @@ class EvmWeb3 {
             externalBlock = (await this.web3.eth.getBlock(
                 blockNumberOrHash,
                 // @ts-ignore
-                withTxs,
+                withTxs
             )) as unknown as ExternalEvmBlock
         } catch (err) {
             error = err
         }
         if (error) {
-            this.isRangeMode || logger.error(
-                `[${chainId}]] Error fetching block ${blockNumberOrHash}: ${error}. Retrying...`
-            )
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}]] Error fetching block ${blockNumberOrHash}: ${error}. Retrying...`
+                )
             return null
         }
-    
+
         return externalBlock
     }
 
@@ -125,7 +126,7 @@ class EvmWeb3 {
     async getBlockReceipts(
         blockHash?: string,
         blockNumber?: number,
-        chainId?: string,
+        chainId?: string
     ): Promise<ExternalEvmReceipt[]> {
         if (!this.canGetBlockReceipts) {
             throw `[${chainId}] Getting block receipts is unsupported for this provider`
@@ -144,30 +145,36 @@ class EvmWeb3 {
                 receipts = await this._getBlockReceipts(blockHash, blockNumber, chainId)
                 if (receipts === null) {
                     await sleep(
-                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                        config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
                     )
                 }
                 numAttempts += 1
             }
         } catch (err) {
-            throw `[${chainId}] Error fetching receipts for block ${blockNumber || blockHash}: ${err}`
+            throw `[${chainId}] Error fetching receipts for block ${
+                blockNumber || blockHash
+            }: ${err}`
         }
 
         if (receipts === null) {
-            throw `[${chainId}] Out of attempts - No receipts found for ${blockNumber || blockHash}.`
+            throw `[${chainId}] Out of attempts - No receipts found for ${
+                blockNumber || blockHash
+            }.`
         } else if (!receipts.length) {
-            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No receipts this block.`)
+            this.isRangeMode ||
+                logger.info(`[${chainId}:${blockNumber || blockHash}] No receipts this block.`)
         } else {
-            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got receipts with logs.`)
+            this.isRangeMode ||
+                logger.info(`[${chainId}:${blockNumber || blockHash}] Got receipts with logs.`)
         }
-    
-        return receipts    
+
+        return receipts
     }
 
     async _getBlockReceipts(
         blockHash?: string,
         blockNumber?: number,
-        chainId?: string,
+        chainId?: string
     ): Promise<ExternalEvmReceipt[] | null> {
         const isAlchemy = this.url.includes('alchemy')
 
@@ -179,7 +186,7 @@ class EvmWeb3 {
             method = 'eth_getBlockReceipts'
             params = [numberToHex(blockNumber)]
         }
-    
+
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -195,41 +202,47 @@ class EvmWeb3 {
         } catch (err) {
             error = err
         }
-    
+
         if (error) {
-            logger.error(`[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${error}. Will retry.`)
+            logger.error(
+                `[${chainId}:${
+                    blockNumber || blockHash
+                }] Error fetching reciepts: ${error}. Will retry.`
+            )
             return null
         }
-    
+
         let data: StringKeyMap = {}
         try {
             data = await resp.json()
         } catch (err) {
             this.isRangeMode ||
                 logger.error(
-                    `[${chainId}:${blockNumber || blockHash}] Error parsing json response while fetching receipts: ${err}`
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error parsing json response while fetching receipts: ${err}`
                 )
             data = {}
         }
-    
+
         if (data?.error) {
-            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
-                `[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${data.error?.code} - ${data.error?.message}. Will retry.`
-            )
+            this.isRangeMode ||
+                this.ignoreLogsOnErrorCodes.includes(data.error?.code) ||
+                logger.error(
+                    `[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${
+                        data.error?.code
+                    } - ${data.error?.message}. Will retry.`
+                )
             return null
         }
         if (!data?.result) return null
-    
-        return isAlchemy ? data.result.receipts : data.result                
+
+        return isAlchemy ? data.result.receipts : data.result
     }
 
     // == Logs ====================
 
-    async getLogs(
-        blockHash?: string,
-        blockNumber?: number,
-        chainId?: string,
-    ): Promise<EvmLog[]> {
+    async getLogs(blockHash?: string, blockNumber?: number, chainId?: string): Promise<EvmLog[]> {
         if (!blockHash && !isNumber(blockNumber)) {
             throw `[${chainId}] Block hash or number required`
         }
@@ -244,7 +257,7 @@ class EvmWeb3 {
                 logs = await this._getLogs(blockHash, blockNumber, chainId)
                 if (logs === null) {
                     await sleep(
-                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                        config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
                     )
                 }
                 numAttempts += 1
@@ -252,22 +265,23 @@ class EvmWeb3 {
         } catch (err) {
             throw `[${chainId}] Error fetching logs for block ${blockNumber || blockHash}: ${err}`
         }
-        
+
         if (logs === null) {
             throw `[${chainId}] Out of attempts - No logs found for ${blockNumber || blockHash}.`
         } else if (!logs.length) {
-            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No logs this block.`)
+            this.isRangeMode ||
+                logger.info(`[${chainId}:${blockNumber || blockHash}] No logs this block.`)
         } else {
             this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got logs.`)
         }
-    
+
         return logs.map(externalToInternalLog)
     }
 
     async _getLogs(
         blockHash?: string,
         blockNumber?: number,
-        chainId?: string,
+        chainId?: string
     ): Promise<ExternalEvmLog[] | null> {
         let params
         if (blockHash) {
@@ -276,7 +290,7 @@ class EvmWeb3 {
             const hexBlockNumber = numberToHex(blockNumber)
             params = [{ fromBlock: hexBlockNumber, toBlock: hexBlockNumber }]
         }
-    
+
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -292,32 +306,42 @@ class EvmWeb3 {
         } catch (err) {
             error = err
         }
-    
+
         if (error) {
-            logger.error(`[${chainId}:${blockNumber || blockHash}] Error fetching reciepts: ${error}. Will retry.`)
+            logger.error(
+                `[${chainId}:${
+                    blockNumber || blockHash
+                }] Error fetching reciepts: ${error}. Will retry.`
+            )
             return null
         }
-    
+
         let data: StringKeyMap = {}
         try {
             data = await resp.json()
         } catch (err) {
             this.isRangeMode ||
                 logger.error(
-                    `[${chainId}:${blockNumber || blockHash}] Error parsing json response while fetching logs: ${err}`
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error parsing json response while fetching logs: ${err}`
                 )
             data = {}
         }
-    
+
         if (data?.error) {
-            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
-                `[${chainId}:${blockNumber || blockHash}] Error fetching logs: ${data.error?.code} - ${data.error?.message}. Will retry.`
-            )
+            this.isRangeMode ||
+                this.ignoreLogsOnErrorCodes.includes(data.error?.code) ||
+                logger.error(
+                    `[${chainId}:${blockNumber || blockHash}] Error fetching logs: ${
+                        data.error?.code
+                    } - ${data.error?.message}. Will retry.`
+                )
             return null
         }
         if (!data?.result) return null
 
-        return data.result                
+        return data.result
     }
 
     // == Traces ===================
@@ -326,7 +350,7 @@ class EvmWeb3 {
         blockHash?: string,
         blockNumber?: number,
         chainId?: string,
-        forceDebug?: boolean,
+        forceDebug?: boolean
     ): Promise<EvmTrace[]> {
         if (!blockHash && !isNumber(blockNumber)) {
             throw `[${chainId}] Block hash or number required`
@@ -343,15 +367,16 @@ class EvmWeb3 {
 
         let externalTraces = null
         let numAttempts = 0
-    
+
         try {
             while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                externalTraces = this.canGetParityTraces && !forceDebug
-                    ? await this._getParityTraces(blockNumber, chainId)
-                    : await this._getDebugTraces(blockHash, blockNumber, chainId)
+                externalTraces =
+                    this.canGetParityTraces && !forceDebug
+                        ? await this._getParityTraces(blockNumber, chainId)
+                        : await this._getDebugTraces(blockHash, blockNumber, chainId)
                 if (externalTraces === null) {
                     await sleep(
-                        (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
+                        config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
                     )
                 }
                 numAttempts += 1
@@ -359,23 +384,26 @@ class EvmWeb3 {
         } catch (err) {
             throw `[${chainId}] Error fetching traces for block ${blockNumber || blockHash}: ${err}`
         }
-    
+
         if (externalTraces === null) {
-            throw `[${chainId}] Out of attempts - No traces found for block ${blockNumber || blockHash}...`
+            throw `[${chainId}] Out of attempts - No traces found for block ${
+                blockNumber || blockHash
+            }...`
         } else if (externalTraces.length === 0) {
-            this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] No traces this block.`)
+            this.isRangeMode ||
+                logger.info(`[${chainId}:${blockNumber || blockHash}] No traces this block.`)
         } else {
             this.isRangeMode || logger.info(`[${chainId}:${blockNumber || blockHash}] Got traces.`)
         }
-    
+
         return this.canGetParityTraces && !forceDebug
             ? externalToInternalParityTraces(externalTraces)
-            : externalToInternalDebugTraces(externalTraces, blockNumber, blockHash)  
+            : externalToInternalDebugTraces(externalTraces, blockNumber, blockHash)
     }
 
     async _getParityTraces(
         blockNumber: number,
-        chainId?: string,
+        chainId?: string
     ): Promise<ExternalEvmParityTrace[] | null> {
         let resp, error
         try {
@@ -408,11 +436,13 @@ class EvmWeb3 {
                 )
             data = {}
         }
-    
+
         if (data?.error) {
-            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
-                `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
-            )
+            this.isRangeMode ||
+                this.ignoreLogsOnErrorCodes.includes(data.error?.code) ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
+                )
             return null
         }
         if (!data?.result) return null
@@ -423,7 +453,7 @@ class EvmWeb3 {
     async _getDebugTraces(
         blockHash: string,
         blockNumber: number,
-        chainId?: string,
+        chainId?: string
     ): Promise<ExternalEvmDebugTrace[] | null> {
         let resp, error
         try {
@@ -456,11 +486,13 @@ class EvmWeb3 {
                 )
             data = {}
         }
-    
+
         if (data?.error) {
-            this.isRangeMode || this.ignoreLogsOnErrorCodes.includes(data.error?.code) || logger.error(
-                `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
-            )
+            this.isRangeMode ||
+                this.ignoreLogsOnErrorCodes.includes(data.error?.code) ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
+                )
             return null
         }
         if (!data?.result) return null
@@ -469,25 +501,35 @@ class EvmWeb3 {
     }
 
     // == Subscriptions ===================
-    // ...
+
+    subscribeToNewHeads(callback: (error: Error, blockHeader: any) => void) {
+        if (!this.isWebsockets) {
+            throw 'Websockets required to subscribe to new heads'
+        }
+        this.web3.eth.subscribe('newBlockHeaders', callback)
+    }
+
+    // == Connections ===================
 
     _newHttpConnection(): Web3 {
         return new Web3(this.url)
     }
 
     _newWebsocketConnection(): Web3 {
-        return new Web3(new Web3.providers.WebsocketProvider(this.url, {
-            clientConfig: {
-                keepalive: true,
-                keepaliveInterval: 60000,
-            },
-            reconnect: {
-                auto: true,
-                delay: 300,
-                maxAttempts: 100,
-                onTimeout: true,
-            },
-        }))
+        return new Web3(
+            new Web3.providers.WebsocketProvider(this.url, {
+                clientConfig: {
+                    keepalive: true,
+                    keepaliveInterval: 60000,
+                },
+                reconnect: {
+                    auto: true,
+                    delay: 300,
+                    maxAttempts: 100,
+                    onTimeout: true,
+                },
+            })
+        )
     }
 }
 
@@ -507,11 +549,7 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
     })
 }
 
-export function newEvmWeb3ForChainId(
-    chainId: string,
-    url: string,
-    isRangeMode?: boolean
-): EvmWeb3 {
+export function newEvmWeb3ForChainId(chainId: string, url: string, isRangeMode?: boolean): EvmWeb3 {
     switch (chainId) {
         // ETHEREUM
         case chainIds.ETHEREUM:

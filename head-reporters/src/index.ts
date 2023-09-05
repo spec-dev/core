@@ -3,7 +3,6 @@ import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
-import uuid4 from 'uuid4'
 
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]

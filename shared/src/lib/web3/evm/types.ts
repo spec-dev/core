@@ -95,7 +95,7 @@ export interface ExternalEvmDebugTrace {
 }
 
 export interface EvmWeb3Options {
-    canGetBlockReceipts?: boolean,
-    canGetParityTraces?: boolean,
+    canGetBlockReceipts?: boolean
+    canGetParityTraces?: boolean
     isRangeMode?: boolean
 }

@@ -14,15 +14,18 @@ export {
     fullEvmTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTransaction'
 export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
-export { 
-    EvmTrace, 
+export {
+    EvmTrace,
     EvmCallType,
     EvmRewardType,
     EvmTraceStatus,
     EvmTraceType,
     fullEvmTraceUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTrace'
-export { EvmContract, fullEvmContractUpsertConfig } from './lib/shared-tables/db/entities/EvmContract'
+export {
+    EvmContract,
+    fullEvmContractUpsertConfig,
+} from './lib/shared-tables/db/entities/EvmContract'
 export { EthBlock, fullBlockUpsertConfig } from './lib/shared-tables/db/entities/EthBlock'
 export {
     EthTransaction,

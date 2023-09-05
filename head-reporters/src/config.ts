@@ -11,6 +11,7 @@ const hrConfig: StringKeyMap = {
     ...config,
     ALCHEMY_SUBSCRIPTION_URL: ev('ALCHEMY_SUBSCRIPTION_URL'),
     RPC_SUBSCRIPTION_URL: ev('RPC_SUBSCRIPTION_URL'),
+    WS_PROVIDER_POOL: ev('WS_PROVIDER_POOL', ''),
     FORCE_REINDEX: [true, 'true'].includes(ev('FORCE_REINDEX', '').toLowerCase()),
     FORCE_UNCLE_RANGE: forceUncleRange,
     MAX_ATTEMPTS: 100,

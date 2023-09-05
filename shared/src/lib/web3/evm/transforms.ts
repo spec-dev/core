@@ -1,11 +1,11 @@
-import { 
-    ExternalEvmBlock, 
-    ExternalEvmTransaction, 
-    ExternalEvmLog, 
+import {
+    ExternalEvmBlock,
+    ExternalEvmTransaction,
+    ExternalEvmLog,
     ExternalEvmParityTrace,
     ExternalEvmDebugTrace,
 } from './types'
-import { 
+import {
     normalizeEthAddress,
     normalize32ByteHash,
     hexToNumber,
@@ -17,19 +17,23 @@ import { unixTimestampToDate } from '../../utils/date'
 import { EvmBlock } from '../../shared-tables/db/entities/EvmBlock'
 import { EvmTransaction } from '../../shared-tables/db/entities/EvmTransaction'
 import { EvmLog } from '../../shared-tables/db/entities/EvmLog'
-import { EvmTrace, EvmTraceType, EvmCallType, EvmRewardType, EvmTraceStatus } from '../../shared-tables/db/entities/EvmTrace'
+import {
+    EvmTrace,
+    EvmTraceType,
+    EvmCallType,
+    EvmRewardType,
+    EvmTraceStatus,
+} from '../../shared-tables/db/entities/EvmTrace'
 import { StringKeyMap } from '../../types'
 import logger from '../../logger'
 
 /**
  * Blocks
  */
-export function externalToInternalBlock(
-    externalBlock: ExternalEvmBlock,
-): {
-    block: EvmBlock,
-    transactions: EvmTransaction[],
-    unixTimestamp: number,
+export function externalToInternalBlock(externalBlock: ExternalEvmBlock): {
+    block: EvmBlock
+    transactions: EvmTransaction[]
+    unixTimestamp: number
 } {
     const block = new EvmBlock()
     block.number = externalBlock.number
@@ -54,7 +58,9 @@ export function externalToInternalBlock(
     block.timestamp = unixTimestampToDate(externalBlock.timestamp)
     return {
         block,
-        transactions: externalBlock.transactions.map(tx => externalToInternalTransaction(tx, block)),
+        transactions: externalBlock.transactions.map((tx) =>
+            externalToInternalTransaction(tx, block)
+        ),
         unixTimestamp: externalBlock.timestamp,
     }
 }
@@ -96,10 +102,7 @@ export function externalToInternalTransaction(
 /**
  * Logs
  */
-export function externalToInternalLog(
-    externalLog: ExternalEvmLog, 
-    block?: EvmBlock
-): EvmLog {
+export function externalToInternalLog(externalLog: ExternalEvmLog, block?: EvmBlock): EvmLog {
     const topics = externalLog.topics || []
     const log = new EvmLog()
     log.logIndex = hexToNumber(externalLog.logIndex)
@@ -127,7 +130,7 @@ const GENESIS_BLOCK_NUMBER = 0
 const DAOFORK_BLOCK_NUMBER = 1920000
 
 export function externalToInternalParityTraces(
-    externalTraces: ExternalEvmParityTrace[],
+    externalTraces: ExternalEvmParityTrace[]
 ): EvmTrace[] {
     if (!externalTraces.length) return []
     let specialTraces = []
@@ -141,7 +144,7 @@ export function externalToInternalParityTraces(
     }
 
     const traces = [
-        ...specialTraces, 
+        ...specialTraces,
         ...externalTraces.map((t) => externalToInternalParityTrace(t)),
     ]
 
@@ -335,10 +338,10 @@ function setParityTraceIdsForSingleType(traces: EvmTrace[]) {
 /**
  * Debug Traces
  */
- export function externalToInternalDebugTraces(
+export function externalToInternalDebugTraces(
     externalTraceData: StringKeyMap[],
     blockNumber: number,
-    blockHash: string,
+    blockHash: string
 ): EvmTrace[] {
     if (!externalTraceData.length) return []
     const traces = buildDebugTracesFromCallStructure(externalTraceData)
@@ -350,16 +353,28 @@ export function buildDebugTracesFromCallStructure(
     callData: StringKeyMap[],
     traces: EvmTrace[] = [],
     parentTraceAddressList: number[] = [],
-    parentTraceStatus?: EvmTraceStatus,
+    parentTraceStatus?: EvmTraceStatus
 ) {
     for (let i = 0; i < callData.length; i++) {
-        const externalTrace = (callData[i].result ? callData[i].result : callData[i]) as ExternalEvmDebugTrace
-        const trace = externalToInternalDebugTrace(externalTrace, parentTraceAddressList, i, parentTraceStatus)
+        const externalTrace = (
+            callData[i].result ? callData[i].result : callData[i]
+        ) as ExternalEvmDebugTrace
+        const trace = externalToInternalDebugTrace(
+            externalTrace,
+            parentTraceAddressList,
+            i,
+            parentTraceStatus
+        )
         if (!trace) continue
         traces.push(trace)
 
         if (externalTrace.calls?.length) {
-            buildDebugTracesFromCallStructure(externalTrace.calls, traces, trace.traceAddressList, trace.status)
+            buildDebugTracesFromCallStructure(
+                externalTrace.calls,
+                traces,
+                trace.traceAddressList,
+                trace.status
+            )
         }
     }
     return traces
@@ -369,7 +384,7 @@ export function externalToInternalDebugTrace(
     externalTrace: ExternalEvmDebugTrace,
     parentTraceAddressList: number[],
     callIndex: number,
-    parentTraceStatus?: EvmTraceStatus,
+    parentTraceStatus?: EvmTraceStatus
 ): EvmTrace | null {
     const trace = new EvmTrace()
     trace.to = normalizeEthAddress(externalTrace.to)
