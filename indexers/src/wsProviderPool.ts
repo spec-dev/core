@@ -3,7 +3,7 @@ import { logger, WebsocketProviderPool } from '../../shared'
 
 let wsProviderPool: WebsocketProviderPool
 
-let wsProviderGroupIndex = 0
+let wsProviderGroupIndex = 1
 
 const wsProviderGroupEndpoints = config.WS_PROVIDER_POOL.split('|')
     .map(group => group.split(',').map(url => url.trim()).filter(url => !!url))
