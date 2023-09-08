@@ -34,6 +34,10 @@ spec:
           value: {{RPC_SUBSCRIPTION_URL}}
         - name: RPC_POOL_ENDPOINTS
           value: {{RPC_POOL_ENDPOINTS}}
+        - name: HTTP_PROVIDER_POOL
+          value: {{HTTP_PROVIDER_POOL}}
+        - name: WS_PROVIDER_POOL
+          value: {{WS_PROVIDER_POOL}}
         - name: PUBLISHER_ROLE_KEY
           value: {{PUBLISHER_ROLE_KEY}}
         - name: EVENT_RELAY_HOSTNAME

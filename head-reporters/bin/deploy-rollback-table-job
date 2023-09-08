@@ -23,6 +23,7 @@ $shared_bin_dir/validate_arg "target" "$target"
 # ======== SET KEY VARS ======== #
 
 chain_id=$( $shared_bin_dir/env_reader "$env" "CHAIN_ID" )
+ws_provider_pool=$( $shared_bin_dir/env_reader "$env" "WS_PROVIDER_POOL" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -52,6 +53,7 @@ shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CHAIN_ID" "$chain_id"
+$shared_bin_dir/assert_env "WS_PROVIDER_POOL" "$ws_provider_pool"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -101,6 +103,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ROLLBACK_TABLE}}|$table|g" | \
     sed "s|{{ROLLBACK_TARGET}}|$target|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
+    sed "s|{{WS_PROVIDER_POOL}}|$ws_provider_pool|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
