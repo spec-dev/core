@@ -8,6 +8,7 @@ export interface NewReportedHead {
     blockHash: string | null
     replace: boolean
     force: boolean
+    fillingGap?: boolean
 }
 
 export interface SortedBlockEventsOptions {

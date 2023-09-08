@@ -74,8 +74,11 @@ import EvmWeb3, { newEvmWeb3ForChainId } from './lib/web3/evm/EvmWeb3'
 export { EvmWeb3, newEvmWeb3ForChainId }
 export { externalToInternalLog } from './lib/web3/evm/transforms'
 export { ExternalEvmReceipt } from './lib/web3/evm/types'
+import WebsocketProviderPool from './lib/web3/evm/providerPools'
+export { WebsocketProviderPool }
 export {
     redis as indexerRedis,
+    newRedisClient as newIndexerRedisClient,
     keys as indexerRedisKeys,
     quickUncleCheck,
     registerBlockLogsAsIndexed,
@@ -140,6 +143,7 @@ export {
     getGeneratedEventsCursors,
     saveAdditionalContractsToGenerateInputsFor,
     getAdditionalContractsToGenerateInputsFor,
+    publishForcedRollback,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'

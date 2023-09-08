@@ -70,7 +70,7 @@ export async function reportBlock(block: IndexedBlock, replace: boolean) {
 
         const logColor = replace ? 'green' : 'cyanBright'
         logger.info(chalk[logColor](
-            `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash?.slice(0, 10)})`
+            `Enqueueing block ${head.blockNumber} for indexing (${head.blockHash})`
         ))
         
         await sleep(10)

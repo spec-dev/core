@@ -19,7 +19,13 @@ import {
     updateReorg,
     ReorgStatus,
     newEvmWeb3ForChainId, 
-    EvmWeb3
+    EvmWeb3,
+    newIndexerRedisClient,
+    indexerRedisKeys,
+    schemaForChainId,
+    SharedTables,
+    identPath,
+    StringKeyMap,
 } from '../../../shared'
 import config from '../config'
 import { BlockHeader } from 'web3-eth'
@@ -29,12 +35,6 @@ import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
 import LRU from 'lru-cache'
 
-const endpoints = config.WS_PROVIDER_POOL
-    .replace(/\|/g, ',') // flatten groups
-    .split(',')
-    .map(url => url.trim())
-    .filter(url => !!url)
-
 class EvmReporter {
 
     chainId: string
@@ -42,6 +42,8 @@ class EvmReporter {
     web3: EvmWeb3
 
     connectionIndex: number = 0
+
+    endpoints: string[]
 
     buffer: { [key: string]: BlockHeader } = {}
 
@@ -65,16 +67,23 @@ class EvmReporter {
 
     isFailing: boolean = false
 
+    subRedis: any
+
     mostRecentBlockHashes: LRU<string, string> = new LRU({
         max: config.MAX_REORG_SIZE * 5,
     })
 
-    constructor(chainId: string) {
-        this.chainId = chainId
+    startedDeepReorgDetection: boolean = false
+
+    constructor() {
+        this.chainId = config.CHAIN_ID
+        this.subRedis = newIndexerRedisClient(config.INDEXER_REDIS_URL)
         this.unclePauseTime = Math.min(
             avgBlockTimesForChainId[this.chainId] * 1000 * config.UNCLE_PAUSE_TIME_IN_BLOCKS,
             config.UNCLE_PAUSE_TIME,
         )
+        this.endpoints = config.WS_PROVIDER_POOL
+            .replace(/\|/g, ',').split(',').map(url => url.trim()).filter(url => !!url)
     }
 
     async listen() {
@@ -82,8 +91,10 @@ class EvmReporter {
             logger.notify(chalk.yellow(`Won't process new heads -- master switch is off.`))
             return
         }        
+
         this._createWeb3Provider()
         this._subscribeToNewHeads()
+        this._subscribeToForcedRollbacks()
     }
 
     _subscribeToNewHeads() {
@@ -96,14 +107,14 @@ class EvmReporter {
             }
             this._onNewBlockHeader(data as BlockHeader)
         })
-        logger.info(chalk.cyanBright(`Listening for new heads on chain ${this.chainId}...`))
+        logger.info(chalk.greenBright(`Listening for new heads on chain ${this.chainId}...`))
     }
 
     _onNewBlockHeader(data: BlockHeader) {
         if (this.isFailing) return
 
         const blockNumber = Number(data.number)
-        this.mostRecentBlockHashes[blockNumber.toString()] = data.hash
+        this.mostRecentBlockHashes.set(blockNumber.toString(), data.hash)
 
         console.log('')
         logger.info(chalk.gray(`Got ${blockNumber}`))
@@ -121,6 +132,14 @@ class EvmReporter {
 
         const isReplayOfBlock = blockNumber === this.highestSeen
         this.highestSeen = Math.max(this.highestSeen, blockNumber)
+        
+        if (!this.startedDeepReorgDetection) {
+            this.startedDeepReorgDetection = true
+            setInterval(
+                () => this._detectDeepReorgs(), 
+                this.web3.finalityScanInterval || config.FINALITY_SCAN_INTERVAL,
+            )
+        }
 
         // If another reorg occurs within the buffer while still working
         // on an active uncle, add extra wait time when the active uncle completes.
@@ -247,8 +266,8 @@ class EvmReporter {
         const currentBlockCeiling = await getBlockOpsCeiling(this.chainId)
         if (currentBlockCeiling && currentBlockCeiling < fromNumber) {
             const error = (
-                `Uncle on range ${fromNumber} -> ${to} stopped. Chain ${this.chainId} currently 
-                has a ceiling of ${currentBlockCeiling}, which is less than the uncle floor`
+                `Uncle on range ${fromNumber} -> ${to} stopped. Chain ${this.chainId} currently` + 
+                `has a ceiling of ${currentBlockCeiling}, which is less than the uncle floor.`
             )
             logger.error(error)
             updateReorg(reorg.id, { failed: true, error })
@@ -451,10 +470,220 @@ class EvmReporter {
         await setProcessNewHeads(this.chainId, false)
     }
 
+    _subscribeToForcedRollbacks() {
+        const key = [indexerRedisKeys.FORCED_ROLLBACK, this.chainId].join('-')
+        this.subRedis.subscribe(key, async message => {
+            let payload
+            try {
+                payload = JSON.parse(message)
+            } catch (err) {
+                logger.error(
+                    `Error parsing pubsub message from ${key} — ${message}: ${err}`
+                )
+                return
+            }
+
+            let { blockNumber, blockHash, unixTimestamp } = payload
+            blockHash = this.mostRecentBlockHashes.get(blockNumber.toString()) || blockHash || null
+            if (!blockHash) {
+                try {
+                    const { block, unixTimestamp: fetchedTs } = await this.web3.getBlock(
+                        null, 
+                        blockNumber, 
+                        this.chainId, 
+                        false,
+                    )
+                    blockHash = block.hash
+                    unixTimestamp = fetchedTs
+                } catch (err) {
+                    logger.error(`Forced rollback error — couldn't fetch block by number ${blockNumber}: ${err}`)
+                    return
+                }
+            }
+
+            logger.info(chalk.magenta(`Received forced rollback request — ${blockNumber} (${blockHash})`))
+
+            const mockHeader = {
+                number: blockNumber,
+                hash: blockHash,
+                timestamp: unixTimestamp,
+            }
+            this._onNewBlockHeader(mockHeader as BlockHeader)
+        })
+    }
+
+    async _detectDeepReorgs() {
+        // Get the block range to scan (leading up to the head).
+        let fromBlockNumber = await this._getLatestFinalizedBlockNumber()
+        if (fromBlockNumber === null) return
+        fromBlockNumber -= config.FINALITY_SCAN_OFFSET_LEFT
+        const offsetRight = this.web3.finalityScanOffsetRight || config.FINALITY_SCAN_OFFSET_RIGHT
+        const toBlockNumber = Math.max(this.highestSeen - offsetRight, 0)
+        
+        // Get the currently saved blocks >= the floor number.
+        const savedBlocks = await this._getSavedBlocksInRange(fromBlockNumber, toBlockNumber)
+        if (!Object.keys(savedBlocks).length) {
+            logger.notify(`[${this.chainId}] No blocks between ${fromBlockNumber} -> ${toBlockNumber}`)
+            return
+        }
+
+        // Sort the block numbers least-to-greatest.
+        const blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
+        const largestNumber = blockNumbers[blockNumbers.length - 1]
+
+        logger.info(chalk.magenta(
+            `Checking for deep reorgs across ${blockNumbers.length} blocks:` + 
+            ` ${blockNumbers[0]} -> ${largestNumber} (head=${this.highestSeen}, offset=${this.highestSeen - largestNumber})`
+        ))
+
+        // Iterate over the block range, finding the smallest block number with a hash mismatch.
+        const t0 = performance.now()
+        for (const blockNumber of blockNumbers) {
+            const { hash: currentHash, timestamp } = savedBlocks[blockNumber.toString()]
+            let actualHash
+            try {
+                actualHash = await this.web3.blockHashForNumber(blockNumber)
+            } catch (err) {
+                logger.error(`Finality scan error: ${err}`)
+                return
+            }
+            if (currentHash !== actualHash) {
+                await this._handleDeepHashMismatch(
+                    blockNumber, 
+                    largestNumber, 
+                    currentHash, 
+                    actualHash,
+                    timestamp,
+                )
+                return
+            }
+        }
+
+        const tf = performance.now()
+        const elapsed = Number(((tf - t0) / 1000).toFixed(2))
+        logger.info(chalk.magenta(`No deep reorgs found (${elapsed}s)`)) 
+    }
+
+    async _getLatestFinalizedBlockNumber() {
+        // If the finalized tag isn't supported by this chain, 
+        // use the latest block number saved minus the number 
+        // of blocks it takes for finality confirmation.
+        if (!this.web3.supportsFinalizedTag) {
+            const confirmationDepth = this.web3.confirmationsUntilFinalized
+            if (!confirmationDepth) {
+                logger.error(
+                    `[${this.chainId}] Can't scan for finality — "confirmationsUntilFinalized" not set.`
+                )
+                return null
+            }
+
+            const latestBlockNumber = await this._getLatestBlockNumberIndexed()
+            if (latestBlockNumber === null) {
+                logger.error(
+                    ` ${this.chainId} Can't scan for finality — no blocks found in shared tables.`
+                )
+                return null
+            }
+
+            return Math.max(latestBlockNumber - confirmationDepth, 0)
+        }
+
+        // Get latest block number tagged as finalized.
+        try {
+            return await this.web3.latestFinalizedBlockNumber()
+        } catch (err) {
+            logger.error(`[${this.chainId}] Error getting latest finalized block: ${err}`)
+            return null
+        }
+    }
+
+    async _getSavedBlocksInRange(fromNumber: number, toNumber: number): Promise<StringKeyMap> {
+        const schema = schemaForChainId[this.chainId]
+        const tablePath = [schema, 'blocks'].join('.')
+
+        let rows = []
+        try {
+            rows = await SharedTables.query(
+                `select number, hash, timestamp from ${identPath(tablePath)} where number >= $1 and number <= $2 order by number asc`,
+                [fromNumber, toNumber]
+            )    
+        } catch (err) {
+            logger.error(err)
+            return {}
+        }
+
+        const data = {}
+        for (const { number, hash, timestamp } of rows) {
+            data[number.toString()] = { hash, timestamp }
+        }
+        return data
+    }
+
+    async _getLatestBlockNumberIndexed(): Promise<number | null> {
+        const schema = schemaForChainId[this.chainId]
+        const tablePath = [schema, 'blocks'].join('.')
+        try {
+            const result = (await SharedTables.query(
+                `select number from ${identPath(tablePath)} order by number desc limit 1`
+            ))[0] || {}
+            return result.number ? Number(result.number) : null
+        } catch (err) {
+            logger.error(`Error finding largest block number in SharedTables for ${tablePath}: ${err}`)
+            return null
+        }
+    }
+
+    async _handleDeepHashMismatch(
+        blockNumber: number, 
+        largestNumber: number, 
+        currentHash: string, 
+        actualHash: string,
+        timestamp: string,
+    ) {
+        // Don't do anything if there's a smaller number in the buffer.
+        const smallestInBuffer = Object.keys(this.buffer).map(n => Number(n)).sort((a, b) => a - b)[0]
+        if (smallestInBuffer <= blockNumber) {
+            logger.notify(
+                `[${this.chainId}] Deep Reorg Detection — Got mismatch for ${blockNumber} but ${smallestInBuffer} is still in buffer...`,
+                blockNumber,
+                currentHash,
+                actualHash,
+            )
+            return
+        }
+
+        // Ensure we're only ever going further back.
+        if (this.currentReorgFloor && blockNumber >= this.currentReorgFloor) return
+        try {
+            const currentBlockCeiling = await getBlockOpsCeiling(this.chainId)
+            if (currentBlockCeiling && currentBlockCeiling < blockNumber) return    
+        } catch (err) {
+            logger.error(err)
+            return
+        }
+
+        // Kick off re-org.
+        const msg = (
+            `[${this.chainId}] DEEP REORG DETECTED — at block ${blockNumber}` + 
+            `(latest=${largestNumber}, depth=${largestNumber-blockNumber}, current=${currentHash},` + 
+            `actual=${actualHash}, provider=${this.web3.url})`
+        )
+        logger.warn(chalk.redBright(msg))
+        logger.notify(msg)
+
+        const mockHeader = {
+            number: blockNumber,
+            hash: actualHash,
+            timestamp: Math.floor(new Date(timestamp).valueOf() / 1000)
+        }
+        this._onNewBlockHeader(mockHeader as BlockHeader)
+    }
+
     _createWeb3Provider() {
         this.web3 = newEvmWeb3ForChainId(
             this.chainId, 
-            endpoints[this.connectionIndex] || endpoints[0],
+            this.endpoints[this.connectionIndex] || this.endpoints[0],
+            true,
         )
     }
 
@@ -466,14 +695,14 @@ class EvmReporter {
         this.web3 = null
         await sleep(10)
 
-        if (this.connectionIndex >= endpoints.length) {
+        if (this.connectionIndex >= this.endpoints.length) {
             this.connectionIndex = 0
         } else {
             this.connectionIndex++
         }
 
         logger.notify(
-            `[${config.CHAIN_ID}] Rotating HR Providers — New Index: ${this.connectionIndex}/${endpoints.length}`
+            `[${this.chainId}] Rotating HR Providers — New Index: ${this.connectionIndex}/${this.endpoints.length}`
         )
         
         this._createWeb3Provider()

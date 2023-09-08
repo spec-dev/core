@@ -9,6 +9,7 @@ import {
     shouldProcessIndexJobs,
     setProcessIndexJobs,
     randomIntegerInRange,
+    canBlockBeOperatedOn,
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
@@ -22,10 +23,12 @@ import {
     createWeb3Provider, 
     rotateWeb3Provider,
     teardownWeb3Provider,
+    resetNumInternalGroupRotations,
 } from '../httpProviderPool'
 
 let queue: Queue
-export async function reenqueueJob(head: NewReportedHead) {   
+
+function initQueue() {
     queue = queue || new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
         connection: {
             host: config.INDEXER_REDIS_HOST,
@@ -41,15 +44,32 @@ export async function reenqueueJob(head: NewReportedHead) {
             },
         },
     })
+}
+
+async function reenqueueJob(head: NewReportedHead) {   
+    initQueue()
     await queue.add(config.INDEX_BLOCK_JOB_NAME, head, {
         priority: head.blockNumber,
     })
 }
 
-let numIterationsWithCurrentProvider = 0
+async function isJobWaitingWithBlockNumber(blockNumber: number): Promise<boolean> {
+    try {
+        initQueue()
+        const jobAlreadyWaiting = !!(await queue.getWaiting()).find(job => (
+            job?.data?.blockNumber === blockNumber
+        ))
+        return jobAlreadyWaiting
+    } catch (err) {
+        logger.error(`Error checking queue for head with block number ${blockNumber}`, err)
+        return false
+    }
+}
+
+let numIterationsWithCurrentWsProvider = 0
 let worker: Worker
 async function runJob(job: Job) {
-    numIterationsWithCurrentProvider++
+    numIterationsWithCurrentWsProvider++
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(
         head.id,
@@ -58,9 +78,12 @@ async function runJob(job: Job) {
 
     let reIndex = false
     let attempt = 1
+    let numFailuresWithCurrentHttpProvider = 0
+    let numFailuresWithCurrentWsProvider = 0
     let indexer = null
     let timer = null
     let timeout = null
+    let removedHash = false
 
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
@@ -100,9 +123,22 @@ async function runJob(job: Job) {
             timer = null
             timeout = null
 
-            // Force a refetch by number for the next iteration if the logs 
-            // indicated a reorg, since we 100% fetch logs by block hash.
-            if (reorgDetectedViaLogs) {
+            if (!(await canBlockBeOperatedOn(head.chainId, head.blockNumber))) {
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Job stopped mid-indexing.`))
+                break
+            }
+
+            if ((await isJobWaitingWithBlockNumber(head.blockNumber))) {
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Stopping retries to replace job.`))
+                break
+            }
+
+            // Use block number instead of block hash for indexing if either...
+            // a) the logs indicated a reorg, since we 100% fetch logs by block hash
+            // b) N failures have occurred
+            if (!removedHash && (reorgDetectedViaLogs || attempt > config.MAX_ATTEMPTS_BEFORE_HASH_REMOVAL)) {
+                removedHash = true
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Fetching by number next time...`))
                 head.blockHash = null
             }
             
@@ -123,25 +159,27 @@ async function runJob(job: Job) {
 
             logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
 
-            // Rotate websocket providers anytime there are 2 failures in a row.
-            if (
-                (attempt > config.MAX_ATTEMPTS_BEFORE_ROTATION) && 
-                ((attempt - 1) % config.MAX_ATTEMPTS_BEFORE_ROTATION === 0)
-            ) {
-                numIterationsWithCurrentProvider = 0
-                teardownWsProviderPool()
-                await sleep(50)
-                rotateWsProviderGroups()
-                createWsProviderPool()
-            }
-
-            // Rotate HTTP providers any time there's a failure after N attempts
-            // and the primitives weren't able to be fetched.
-            if (attempt > config.MAX_ATTEMPTS_BEFORE_ROTATION && !didFetchPrimitives) {
-                teardownWeb3Provider()
-                await sleep(50)
-                rotateWeb3Provider()
-                createWeb3Provider()
+            if (didFetchPrimitives) {
+                // Websocket provider rotation.
+                numFailuresWithCurrentWsProvider++
+                if (numFailuresWithCurrentWsProvider > config.MAX_ATTEMPTS_BEFORE_ROTATION) {
+                    numFailuresWithCurrentWsProvider = 0
+                    numIterationsWithCurrentWsProvider = 0
+                    teardownWsProviderPool()
+                    await sleep(50)
+                    rotateWsProviderGroups()
+                    createWsProviderPool()
+                }
+            } else {
+                // HTTP provider rotation.
+                numFailuresWithCurrentHttpProvider++
+                if (numFailuresWithCurrentHttpProvider > config.MAX_ATTEMPTS_BEFORE_ROTATION) {
+                    numFailuresWithCurrentHttpProvider = 0
+                    teardownWeb3Provider()
+                    await sleep(50)
+                    rotateWeb3Provider()
+                    createWeb3Provider()
+                }
             }
 
             await sleep(randomIntegerInRange(
@@ -155,6 +193,7 @@ async function runJob(job: Job) {
     timer = null
     indexer = null
     timeout = null
+    resetNumInternalGroupRotations()
 
     await jobStatusUpdatePromise
 
@@ -169,8 +208,8 @@ async function runJob(job: Job) {
         await reenqueueJob(head)
     }
     
-    if (numIterationsWithCurrentProvider >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
-        numIterationsWithCurrentProvider = 0
+    if (numIterationsWithCurrentWsProvider >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
+        numIterationsWithCurrentWsProvider = 0
         teardownWsProviderPool()
         await sleep(50)
         createWsProviderPool()

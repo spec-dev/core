@@ -44,5 +44,3 @@ spec:
           value: "1" 
         - name: JOB_INTERVAL
           value: "600000"
-        - name: CLEANUP_OPS_OLDER_THAN
-          value: "1"

@@ -25,6 +25,14 @@ import {
 } from './transforms'
 import chainIds from '../../utils/chainIds'
 
+export const blockTags = {
+    LATEST: 'latest',
+    EARLIEST: 'earliest',
+    PENDING: 'pending',
+    SAFE: 'safe',
+    FINALIZED: 'finalized',
+}
+
 class EvmWeb3 {
     url: string
 
@@ -34,9 +42,19 @@ class EvmWeb3 {
 
     canGetParityTraces: boolean
 
+    supportsFinalizedTag: boolean
+
+    confirmationsUntilFinalized: number | null
+
+    finalityScanInterval: number | null
+
+    finalityScanOffsetRight: number | null
+
     isRangeMode: boolean
 
     ignoreLogsOnErrorCodes: number[] = [-32600, -32000]
+
+    httpRequestTimeout: number = 10000
 
     get isWebsockets(): boolean {
         return this.url.startsWith('ws://') || this.url.startsWith('wss://')
@@ -48,6 +66,10 @@ class EvmWeb3 {
         this.web3 = this.isWebsockets ? this._newWebsocketConnection() : this._newHttpConnection()
         this.canGetBlockReceipts = options.canGetBlockReceipts || false
         this.canGetParityTraces = options.canGetParityTraces || false
+        this.supportsFinalizedTag = options.supportsFinalizedTag !== false
+        this.confirmationsUntilFinalized = options.confirmationsUntilFinalized || null
+        this.finalityScanInterval = options.finalityScanInterval || null
+        this.finalityScanOffsetRight = options.finalityScanOffsetRight || null
         this.isRangeMode = options.isRangeMode || false
     }
 
@@ -92,6 +114,19 @@ class EvmWeb3 {
             logger.info(`[${chainId}:${blockNumber || blockHash}] Got block with txs.`)
 
         return externalToInternalBlock(externalBlock)
+    }
+
+    async blockHashForNumber(blockNumber: number): Promise<string> {
+        const { block } = await this.getBlock(null, blockNumber, null, false)
+        return block.hash
+    }
+
+    async latestFinalizedBlockNumber(): Promise<number> {
+        if (!this.supportsFinalizedTag) {
+            throw 'This chain does not support the "finalized" block tag'
+        }
+        const { block } = await this.getBlock(blockTags.FINALIZED, null, null, false)
+        return block.number
     }
 
     async _getBlock(
@@ -187,6 +222,8 @@ class EvmWeb3 {
             params = [numberToHex(blockNumber)]
         }
 
+        const abortController = new AbortController()
+        const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -198,17 +235,22 @@ class EvmWeb3 {
                     jsonrpc: '2.0',
                 }),
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortController.signal,
             })
         } catch (err) {
             error = err
         }
+        clearTimeout(timer)
 
         if (error) {
-            logger.error(
-                `[${chainId}:${
-                    blockNumber || blockHash
-                }] Error fetching reciepts: ${error}. Will retry.`
-            )
+            const message = error.message || error.toString() || ''
+            const wasAborted = message.toLowerCase().includes('aborted')
+            wasAborted ||
+                logger.error(
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error fetching reciepts: ${error}. Will retry.`
+                )
             return null
         }
 
@@ -291,6 +333,8 @@ class EvmWeb3 {
             params = [{ fromBlock: hexBlockNumber, toBlock: hexBlockNumber }]
         }
 
+        const abortController = new AbortController()
+        const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -302,17 +346,22 @@ class EvmWeb3 {
                     jsonrpc: '2.0',
                 }),
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortController.signal,
             })
         } catch (err) {
             error = err
         }
+        clearTimeout(timer)
 
         if (error) {
-            logger.error(
-                `[${chainId}:${
-                    blockNumber || blockHash
-                }] Error fetching reciepts: ${error}. Will retry.`
-            )
+            const message = error.message || error.toString() || ''
+            const wasAborted = message.toLowerCase().includes('aborted')
+            wasAborted ||
+                logger.error(
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error fetching reciepts: ${error}. Will retry.`
+                )
             return null
         }
 
@@ -375,9 +424,7 @@ class EvmWeb3 {
                         ? await this._getParityTraces(blockNumber, chainId)
                         : await this._getDebugTraces(blockHash, blockNumber, chainId)
                 if (externalTraces === null) {
-                    await sleep(
-                        config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
-                    )
+                    await sleep(config.EXPO_BACKOFF_FACTOR ** numAttempts * 50)
                 }
                 numAttempts += 1
             }
@@ -405,6 +452,8 @@ class EvmWeb3 {
         blockNumber: number,
         chainId?: string
     ): Promise<ExternalEvmParityTrace[] | null> {
+        const abortController = new AbortController()
+        const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -416,13 +465,20 @@ class EvmWeb3 {
                     jsonrpc: '2.0',
                 }),
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortController.signal,
             })
         } catch (err) {
             error = err
         }
+        clearTimeout(timer)
 
         if (error) {
-            logger.error(`[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`)
+            const message = error.message || error.toString() || ''
+            const wasAborted = message.toLowerCase().includes('aborted')
+            wasAborted ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`
+                )
             return null
         }
 
@@ -455,6 +511,8 @@ class EvmWeb3 {
         blockNumber: number,
         chainId?: string
     ): Promise<ExternalEvmDebugTrace[] | null> {
+        const abortController = new AbortController()
+        const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
         try {
             resp = await fetch(this.url, {
@@ -466,13 +524,20 @@ class EvmWeb3 {
                     jsonrpc: '2.0',
                 }),
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortController.signal,
             })
         } catch (err) {
             error = err
         }
+        clearTimeout(timer)
 
         if (error) {
-            logger.error(`[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`)
+            const message = error.message || error.toString() || ''
+            const wasAborted = message.toLowerCase().includes('aborted')
+            wasAborted ||
+                logger.error(
+                    `[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`
+                )
             return null
         }
 
@@ -537,6 +602,8 @@ export function newEthereumWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: true,
+        finalityScanOffsetRight: 5,
+        finalityScanInterval: 60000,
         isRangeMode,
     })
 }
@@ -545,6 +612,10 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: false,
+        supportsFinalizedTag: false,
+        confirmationsUntilFinalized: 128,
+        finalityScanOffsetRight: 16,
+        finalityScanInterval: 30000,
         isRangeMode,
     })
 }

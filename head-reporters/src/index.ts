@@ -39,7 +39,7 @@ async function listen() {
         return
     }
 
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
 
     // Force-run an uncle that failed after patch fix.
     if (config.FORCE_UNCLE_RANGE.length === 2) {

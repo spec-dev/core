@@ -64,6 +64,7 @@ import {
     TRANSFER_BATCH_EVENT_NAME,
     specialErc20BalanceAffectingAbis,
     getContractGroupAbis,
+    publishForcedRollback,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -138,6 +139,12 @@ class EvmIndexer {
 
     reorgDetectedViaLogs: boolean = false
 
+    existingBlockTimestamp: string | null
+
+    t0: number
+
+    tf: number
+
     get chainId(): string {
         return this.head.chainId
     }
@@ -166,6 +173,11 @@ class EvmIndexer {
         return getWeb3().canGetBlockReceipts
     }
 
+    get elapsedTime(): number {
+        if (!this.t0 || !this.tf) return 0
+        return Number(((this.tf - this.t0) / 1000).toFixed(2))
+    }
+
     constructor(head: NewReportedHead, options?: {
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
@@ -189,17 +201,20 @@ class EvmIndexer {
     }
 
     async perform(): Promise<StringKeyMap | void> {
+        this.t0 = performance.now()
         this._logNewHead()
 
         if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping.')
+            await this._forceRollback()
             return
         }
         
         // Fetch chain primitives.
         let { block, transactions } = await this._getBlockWithTransactions()
-        const tracesPromise = this._getTraces()
-        let { logs, receipts } = await this._getLogsOrBlockReceipts(!!transactions.length)
+        let [{ logs, receipts }, traces] = await Promise.all([
+            this._getLogsOrBlockReceipts(!!transactions.length),
+            this._getTraces(),
+        ])
 
         // Quick re-org check #1.
         if (!(await this._shouldContinue())) {
@@ -221,8 +236,7 @@ class EvmIndexer {
             throw `[${this.chainId}] Removed logs included in block ${this.resolvedBlockHash}`
         }
 
-        // Resolve traces and ensure no hash mismatches exist.
-        let traces = await tracesPromise
+        // Ensure no hash mismatches exist among the traces.
         if (traces.length && !!traces.find(t => t.blockHash !== this.resolvedBlockHash)) {
             traces = await getWeb3().getTraces(
                 this.resolvedBlockHash,
@@ -286,7 +300,7 @@ class EvmIndexer {
 
         // One last check before saving primitives / publishing events.
         if (await this._alreadyIndexedBlock()) {
-            this._warn('Current block was already indexed. Stopping pre-save.')
+            await this._forceRollback()
             return
         }
 
@@ -323,7 +337,10 @@ class EvmIndexer {
             this._error('Failed to send inputs downstream:', err)
         }
 
-        this._info(chalk.cyanBright(`Successfully indexed block ${this.blockNumber}.`))
+        this.tf = performance.now()
+        this._info(chalk.cyanBright(
+            `Successfully indexed block ${this.blockNumber} ${chalk.dim(`(${this.elapsedTime}s)`)}`
+        ))
     }
 
     async _savePrimitives(data: {
@@ -922,36 +939,12 @@ class EvmIndexer {
         )
     }
 
-    async _waitAndRefetchTraces(): Promise<EvmTrace[] | null> {
-        const getTraces = async () => {
-            const traces = await this._getTraces()
-            if (traces.length && traces[0].blockHash !== this.resolvedBlockHash) {
-                return null
-            } else {
-                return traces
-            }
-        }
-
-        let traces = null
-        let numAttempts = 0
-        while (traces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-            traces = await getTraces()
-            if (traces === null) {
-                await sleep(
-                    (config.EXPO_BACKOFF_FACTOR ** numAttempts) * config.EXPO_BACKOFF_DELAY
-                )
-            }
-            numAttempts += 1
-        }
-        return traces
-    }
-
     async _getTraces(): Promise<EvmTrace[]> {
         return getWeb3().getTraces(
             this.resolvedBlockHash,
             this.blockNumber,
             this.chainId
-        )
+        )    
     }
 
     _initLogsWithReceipts(receipts: ExternalEvmReceipt[], block: EvmBlock): EvmLog[] {
@@ -1022,7 +1015,7 @@ class EvmIndexer {
 
         if (this.head.replace) {
             this._info(
-                chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash.slice(0, 10)})...`)
+                chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash?.slice(0, 10)})...`)
             )
         }
     }
@@ -1039,27 +1032,6 @@ class EvmIndexer {
         ])
 
         await reportBlockEvents(this.blockNumber)
-    }
-
-    async _alreadyIndexedBlock(): Promise<boolean> {
-        return !config.IS_RANGE_MODE 
-            && !this.head.force 
-            && !this.head.replace 
-            && (await this._blockAlreadyExists(currentChainSchema()))
-    }
-
-    async _blockAlreadyExists(schema: string): Promise<boolean> {
-        try {
-            return (
-                await SharedTables.query(
-                    `SELECT EXISTS (SELECT 1 FROM ${schema}.blocks where number = $1)`,
-                    [this.blockNumber]
-                )
-            )[0]?.exists
-        } catch (err) {
-            this._error(err)
-            return false
-        }
     }
 
     async _getContractInstancesForAddresses(addresses: string[]): Promise<ContractInstance[]> {
@@ -1432,13 +1404,59 @@ class EvmIndexer {
         throw error
     }
 
+    async _alreadyIndexedBlock(): Promise<boolean> {
+        if (config.IS_RANGE_MODE || this.head.force) return false
+        return this._blockAlreadyExists(currentChainSchema())
+    }
+
+    async _blockAlreadyExists(schema: string): Promise<boolean> {
+        try {
+            const rows = await SharedTables.query(
+                `select timestamp from ${schema}.blocks where number = $1`,
+                [this.blockNumber]
+            )
+            if (rows.length) {
+                this.existingBlockTimestamp = rows[0].timestamp
+                return true    
+            }
+        } catch (err) {
+            this._error(err)
+        }
+        return false
+    }
+
+    async _forceRollback() {
+        if (this.head.fillingGap) {
+            this._warn('Block already indexed. Stopping.')
+            return
+        }
+
+        this._notify('Current block was already indexed. Forcing rollback.')
+
+        let unixTimestamp
+        if (this.blockUnixTimestamp) {
+            unixTimestamp = this.blockUnixTimestamp
+        } else if (this.existingBlockTimestamp) {
+            unixTimestamp = Math.floor(new Date(this.existingBlockTimestamp).valueOf() / 1000)
+        } else {
+            unixTimestamp = Math.floor(Date.now() / 1000)
+        }
+        
+        await publishForcedRollback(
+            this.chainId, 
+            this.blockNumber, 
+            this.blockHash,
+            unixTimestamp
+        )
+    }
+
     /**
      * Checks to see if this service should continue or if there was a re-org 
      * back to a previous block number -- in which case everything should stop.
      */
     async _shouldContinue(): Promise<boolean> {
         if (this.timedOut) {
-            this._notify(chalk.yellow(`Job timed out.`))
+            this._warn(`Job timed out.`)
             return false
         }
         if (config.IS_RANGE_MODE || this.head.force) return true

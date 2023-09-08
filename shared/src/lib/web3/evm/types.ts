@@ -97,5 +97,9 @@ export interface ExternalEvmDebugTrace {
 export interface EvmWeb3Options {
     canGetBlockReceipts?: boolean
     canGetParityTraces?: boolean
+    supportsFinalizedTag?: boolean
+    confirmationsUntilFinalized?: number
+    finalityScanInterval?: number
+    finalityScanOffsetRight?: number
     isRangeMode?: boolean
 }

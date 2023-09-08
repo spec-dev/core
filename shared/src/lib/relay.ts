@@ -121,11 +121,6 @@ export async function publishEvents(
         }
     }
 
-    if (!generated && finalEvents.length) {
-        const { chainId, blockNumber } = finalEvents[0].origin
-        logger.info(`[${chainId}:${blockNumber}] Publishing ${finalEvents.length} origin events...`)
-    }
-
     for (const event of finalEvents) {
         await emit(event, generated)
     }
@@ -151,12 +146,11 @@ export async function publishReorg(id: string, chainId: string, blockNumber: num
 }
 
 export async function emit(event: StringKeyMap, generated?: boolean) {
-    generated &&
-        logger.info(
-            chalk.cyanBright(
-                `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
-            )
+    logger.info(
+        chalk.cyanBright(
+            `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
         )
+    )
     try {
         await eventClient?.socket.transmitPublish(event.name, event)
     } catch (err) {

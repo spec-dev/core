@@ -195,6 +195,7 @@ class GapDetector {
             blockHash: hash,
             replace: false,
             force: false,
+            fillingGap: true,
         }
 
         logger.info(`[${chainId}:${new Date().toISOString()}] Enqueueing missing block ${number}...`)
