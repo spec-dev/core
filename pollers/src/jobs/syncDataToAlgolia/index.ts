@@ -28,7 +28,7 @@ async function syncDataToAlgolia() {
             data.forEach(entry => index.saveObject({...entry, objectID: entry[id]}))
             timeSynced = new Date().toISOString()
         } catch (err) {
-            logger.error(`Error syncing ${resource.resourceName} data to aloglia: ${err}`)
+            logger.error(`Error syncing ${resource.resourceName} data to Aloglia: ${err}`)
         }
     })
 }
