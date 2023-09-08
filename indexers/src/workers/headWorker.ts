@@ -153,11 +153,12 @@ async function runJob(job: Job) {
 
             if (!(await shouldProcessIndexJobs(head.chainId))) {
                 reIndex = true
-                logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
+                logger.notify(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
                 break
             }
 
-            logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
+            const msg = `${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`
+            attempt > config.MAX_ATTEMPTS_BEFORE_NOTIFICATION ? logger.error(msg) : logger.warn(msg)
 
             if (didFetchPrimitives) {
                 // Websocket provider rotation.

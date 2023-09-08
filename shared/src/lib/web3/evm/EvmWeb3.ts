@@ -277,7 +277,7 @@ class EvmWeb3 {
                 )
             return null
         }
-        if (!data?.result) return null
+        if (!data?.result || data.result.error) return null
 
         return isAlchemy ? data.result.receipts : data.result
     }
@@ -388,7 +388,7 @@ class EvmWeb3 {
                 )
             return null
         }
-        if (!data?.result) return null
+        if (!data?.result || data.result.error) return null
 
         return data.result
     }
@@ -501,7 +501,7 @@ class EvmWeb3 {
                 )
             return null
         }
-        if (!data?.result) return null
+        if (!data?.result || data.result.error) return null
 
         return data.result
     }
@@ -560,7 +560,7 @@ class EvmWeb3 {
                 )
             return null
         }
-        if (!data?.result) return null
+        if (!data?.result || data.result.error) return null
 
         return data.result
     }
@@ -611,7 +611,7 @@ export function newEthereumWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
 export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
-        canGetParityTraces: false,
+        canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
         confirmationsUntilFinalized: 128,
         finalityScanOffsetRight: 16,
