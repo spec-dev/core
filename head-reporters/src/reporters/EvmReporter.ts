@@ -90,7 +90,9 @@ class EvmReporter {
         if (!(await shouldProcessNewHeads(this.chainId))) {
             logger.notify(chalk.yellow(`Won't process new heads -- master switch is off.`))
             return
-        }        
+        }
+
+        await this.subRedis.connect()
 
         this._createWeb3Provider()
         this._subscribeToNewHeads()
@@ -538,6 +540,7 @@ class EvmReporter {
 
         // Iterate over the block range, finding the smallest block number with a hash mismatch.
         const t0 = performance.now()
+        const mismatches: StringKeyMap = []
         for (const blockNumber of blockNumbers) {
             const { hash: currentHash, timestamp } = savedBlocks[blockNumber.toString()]
             let actualHash
@@ -548,15 +551,15 @@ class EvmReporter {
                 return
             }
             if (currentHash !== actualHash) {
-                await this._handleDeepHashMismatch(
-                    blockNumber, 
-                    largestNumber, 
-                    currentHash, 
-                    actualHash,
-                    timestamp,
-                )
-                return
+                mismatches.push({ blockNumber, largestNumber, currentHash, actualHash,timestamp })
             }
+        }
+        
+        if (mismatches.length) {
+            const earliestMismatch = mismatches[0]
+            const otherMismatches = mismatches.slice(1)
+            await this._handleDeepHashMismatch(earliestMismatch, otherMismatches)
+            return
         }
 
         const tf = performance.now()
@@ -633,13 +636,9 @@ class EvmReporter {
         }
     }
 
-    async _handleDeepHashMismatch(
-        blockNumber: number, 
-        largestNumber: number, 
-        currentHash: string, 
-        actualHash: string,
-        timestamp: string,
-    ) {
+    async _handleDeepHashMismatch(earliestMismatch: StringKeyMap, otherMismatches: StringKeyMap[]) {
+        const { blockNumber, largestNumber, currentHash, actualHash, timestamp } = earliestMismatch
+
         // Don't do anything if there's a smaller number in the buffer.
         const smallestInBuffer = Object.keys(this.buffer).map(n => Number(n)).sort((a, b) => a - b)[0]
         if (smallestInBuffer <= blockNumber) {
@@ -670,6 +669,11 @@ class EvmReporter {
         )
         logger.warn(chalk.redBright(msg))
         logger.notify(msg)
+
+        // Update the other hashes that were found to be different in our cache.
+        otherMismatches.forEach(mismatch => {
+            this.mostRecentBlockHashes.set(mismatch.blockNumber.toString(), mismatch.actualHash)
+        })
 
         const mockHeader = {
             number: blockNumber,
