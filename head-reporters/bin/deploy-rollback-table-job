@@ -103,7 +103,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ROLLBACK_TABLE}}|$table|g" | \
     sed "s|{{ROLLBACK_TARGET}}|$target|g" | \
     sed "s|{{CHAIN_ID}}|$chain_id|g" | \
-    sed "s|{{WS_PROVIDER_POOL}}|$ws_provider_pool|g" | \
+    sed "s^{{WS_PROVIDER_POOL}}^$ws_provider_pool^g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \

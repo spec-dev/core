@@ -146,11 +146,12 @@ export async function publishReorg(id: string, chainId: string, blockNumber: num
 }
 
 export async function emit(event: StringKeyMap, generated?: boolean) {
-    logger.info(
-        chalk.cyanBright(
-            `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
+    event.origin &&
+        logger.info(
+            chalk.cyanBright(
+                `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
+            )
         )
-    )
     try {
         await eventClient?.socket.transmitPublish(event.name, event)
     } catch (err) {
