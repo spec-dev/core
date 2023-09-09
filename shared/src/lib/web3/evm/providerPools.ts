@@ -21,11 +21,11 @@ class WebsocketProviderPool {
     }
 
     index(): number {
-        if (this.connectionIndex >= this.endpoints.length) {
+        if (this.connectionIndex < this.endpoints.length - 1) {
+            this.connectionIndex++
+        } else {
             this.connectionIndex = 0
-            return this.connectionIndex
         }
-        this.connectionIndex++
         return this.connectionIndex
     }
 
