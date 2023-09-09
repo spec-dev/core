@@ -661,14 +661,19 @@ class EvmReporter {
             return
         }
 
+        const savedDepth = largestNumber - blockNumber
+        const actualDepth = this.highestSeen - blockNumber
+
         // Kick off re-org.
         const msg = (
-            `[${this.chainId}] DEEP REORG DETECTED at block ${blockNumber} ` + 
-            `(savedHead=${largestNumber}, seenHead=${this.highestSeen}, depths=${largestNumber - blockNumber}:${this.highestSeen - blockNumber}, ` + 
+            `[${this.chainId}] DEEP REORG DETECTED at ${blockNumber} ` + 
+            `(savedHead=${largestNumber}, seenHead=${this.highestSeen}, depths=${savedDepth}:${actualDepth}, ` + 
             `current=${currentHash}, actual=${actualHash}, provider=${this.web3.url})`
         )
         logger.warn(chalk.redBright(msg))
-        logger.notify(msg)
+        if (actualDepth > config.MAX_DEPTH_BEFORE_REORG_NOTIFICATION) {
+            logger.notify(msg)
+        }
 
         // Update the other hashes that were found to be different in our cache.
         otherMismatches.forEach(mismatch => {
