@@ -5,7 +5,6 @@ import { Indexer } from '../types'
 
 export const getIndexer = (head: NewReportedHead): Indexer | null => {
     switch (head.chainId) {
-        // Ethereum
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
             return new EvmIndexer(head, {
@@ -13,10 +12,11 @@ export const getIndexer = (head: NewReportedHead): Indexer | null => {
                 indexTokenBalances: true,
             })
 
-        // Polygon
         case chainIds.POLYGON:
-        case chainIds.MUMBAI:
             return new PolygonIndexer(head)
+
+        case chainIds.MUMBAI:
+            return new PolygonIndexer(head, { indexTraces: false })
 
         default:
             return null

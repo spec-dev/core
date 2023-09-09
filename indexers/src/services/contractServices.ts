@@ -485,16 +485,17 @@ export async function getLatestTokenBalances(
     if (!erc20BalancesToRefetch.length && !nftBalancesToRefetch.length) {
         return [[], []]
     }
+
+    const isQN = getWsProviderPool().endpoints[0].includes('quiknode')
     
     const erc20BalanceGroups = toChunks(
         erc20BalancesToRefetch, 
-        config.RPC_FUNCTION_BATCH_SIZE,
+        isQN ? 20 : config.RPC_FUNCTION_BATCH_SIZE,
     )
     
     let erc20BalanceValues = []
     try {
         for (const group of erc20BalanceGroups) {
-            // erc20BalanceValues.push(...(await Promise.all(group.map(info => null))))
             erc20BalanceValues.push(...(await Promise.all(group.map(info => (
                 getERC20TokenBalance(
                     info.tokenAddress, 
@@ -502,6 +503,9 @@ export async function getLatestTokenBalances(
                     info.tokenDecimals,
                 )
             )))))
+            if (isQN) {
+                await sleep(50)
+            }
         }    
     } catch (err) {
         logger.error(`Failed to fetch latest batch of ERC-20 balances: ${err}`)

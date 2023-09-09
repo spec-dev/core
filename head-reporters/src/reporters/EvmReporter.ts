@@ -663,9 +663,9 @@ class EvmReporter {
 
         // Kick off re-org.
         const msg = (
-            `[${this.chainId}] DEEP REORG DETECTED — at block ${blockNumber}` + 
-            `(latest=${largestNumber}, depth=${largestNumber-blockNumber}, current=${currentHash},` + 
-            `actual=${actualHash}, provider=${this.web3.url})`
+            `[${this.chainId}] DEEP REORG DETECTED at block ${blockNumber} ` + 
+            `(savedHead=${largestNumber}, seenHead=${this.highestSeen}, depth=${this.highestSeen - blockNumber}, ` + 
+            `current=${currentHash}, actual=${actualHash}, provider=${this.web3.url})`
         )
         logger.warn(chalk.redBright(msg))
         logger.notify(msg)

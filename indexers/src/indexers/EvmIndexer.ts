@@ -93,6 +93,8 @@ class EvmIndexer {
     
     head: NewReportedHead
 
+    indexTraces: boolean
+
     indexTokenTransfers: boolean
     
     indexTokenBalances: boolean 
@@ -179,10 +181,12 @@ class EvmIndexer {
     }
 
     constructor(head: NewReportedHead, options?: {
+        indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
     }) {
         this.head = head
+        this.indexTraces = options?.indexTraces !== false
         this.indexTokenTransfers = options?.indexTokenTransfers || false
         this.indexTokenBalances = options?.indexTokenBalances || false
         this.resolvedBlockHash = null
@@ -940,6 +944,7 @@ class EvmIndexer {
     }
 
     async _getTraces(): Promise<EvmTrace[]> {
+        if (!this.indexTraces) return []
         return getWeb3().getTraces(
             this.resolvedBlockHash,
             this.blockNumber,

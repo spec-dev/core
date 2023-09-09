@@ -25,6 +25,7 @@ class PolygonIndexer extends EvmIndexer {
     ivySmartWalletInitializerWalletCreated: string
 
     constructor(head: NewReportedHead, options?: {
+        indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
     }) {
