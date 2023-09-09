@@ -7,17 +7,17 @@ import {
     EvmBlock,
     EvmLog,
     EvmTransaction,
-    fullBlockUpsertConfig,
-    fullLogUpsertConfig,
-    fullTransactionUpsertConfig,
+    fullEvmBlockUpsertConfig,
+    fullEvmLogUpsertConfig,
+    fullEvmTransactionUpsertConfig,
     SharedTables,
     uniqueByKeys,
     formatAbiValueWithType,
     EvmTrace,
     EvmContract,
     toChunks,
-    fullTraceUpsertConfig,
-    fullContractUpsertConfig,
+    fullEvmTraceUpsertConfig,
+    fullEvmContractUpsertConfig,
     fullErc20TokenUpsertConfig,
     fullNftCollectionUpsertConfig,
     snakeToCamel,
@@ -192,19 +192,19 @@ class SpecificBlocksIndexer {
         }
         
         if (!this.upsertConstraints.block && blocks.length) {
-            this.upsertConstraints.block = fullBlockUpsertConfig(blocks[0])
+            this.upsertConstraints.block = fullEvmBlockUpsertConfig(blocks[0])
         }
         if (!this.upsertConstraints.transaction && transactions.length) {
-            this.upsertConstraints.transaction = fullTransactionUpsertConfig(transactions[0])
+            this.upsertConstraints.transaction = fullEvmTransactionUpsertConfig(transactions[0])
         }
         if (!this.upsertConstraints.log && logs.length) {
-            this.upsertConstraints.log = fullLogUpsertConfig(logs[0])
+            this.upsertConstraints.log = fullEvmLogUpsertConfig(logs[0])
         }
         if (!this.upsertConstraints.trace && traces.length) {
-            this.upsertConstraints.trace = fullTraceUpsertConfig(traces[0])
+            this.upsertConstraints.trace = fullEvmTraceUpsertConfig(traces[0])
         }
         if (!this.upsertConstraints.contract && contracts.length) {
-            this.upsertConstraints.contract = fullContractUpsertConfig(contracts[0])
+            this.upsertConstraints.contract = fullEvmContractUpsertConfig(contracts[0])
         }
         if (!this.upsertConstraints.erc20Token && erc20Tokens.length) {
             this.upsertConstraints.erc20Token = fullErc20TokenUpsertConfig()

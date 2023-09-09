@@ -32,7 +32,7 @@ export function rotateWeb3Provider() {
         } else {
             connectionIndex = 0
         }
-        logger.notify(chalk.yellow(
+        logger.warn(chalk.yellow(
             `[${config.CHAIN_ID}] Provider Rotation (HTTP) — New Index: ${connectionIndex}/${currentGroupEndpoints.length - 1}`
         ))
 
