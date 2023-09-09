@@ -24,6 +24,7 @@ import {
     rotateWeb3Provider,
     teardownWeb3Provider,
     resetNumInternalGroupRotations,
+    getWeb3,
 } from '../httpProviderPool'
 
 let queue: Queue
@@ -176,9 +177,10 @@ async function runJob(job: Job) {
                 numFailuresWithCurrentHttpProvider++
                 if (numFailuresWithCurrentHttpProvider > config.MAX_ATTEMPTS_BEFORE_ROTATION) {
                     numFailuresWithCurrentHttpProvider = 0
+                    const hittingGatewayErrors = getWeb3().hittingGatewayErrors
                     teardownWeb3Provider()
                     await sleep(50)
-                    rotateWeb3Provider()
+                    rotateWeb3Provider(hittingGatewayErrors)
                     createWeb3Provider()
                 }
             }

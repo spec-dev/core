@@ -56,6 +56,8 @@ class EvmWeb3 {
 
     httpRequestTimeout: number = 10000
 
+    hittingGatewayErrors: boolean = false
+
     get isWebsockets(): boolean {
         return this.url.startsWith('ws://') || this.url.startsWith('wss://')
     }
@@ -174,10 +176,15 @@ class EvmWeb3 {
         }
 
         let receipts = null
+        let hittingGatewayErrors = false
         let numAttempts = 0
         try {
             while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                receipts = await this._getBlockReceipts(blockHash, blockNumber, chainId)
+                [receipts, hittingGatewayErrors] = await this._getBlockReceipts(
+                    blockHash,
+                    blockNumber,
+                    chainId
+                )
                 if (receipts === null) {
                     await sleep(
                         config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
@@ -192,6 +199,9 @@ class EvmWeb3 {
         }
 
         if (receipts === null) {
+            if (hittingGatewayErrors) {
+                this.hittingGatewayErrors = true
+            }
             throw `[${chainId}] Out of attempts - No receipts found for ${
                 blockNumber || blockHash
             }.`
@@ -210,7 +220,7 @@ class EvmWeb3 {
         blockHash?: string,
         blockNumber?: number,
         chainId?: string
-    ): Promise<ExternalEvmReceipt[] | null> {
+    ): Promise<[ExternalEvmReceipt[] | null, boolean]> {
         const isAlchemy = this.url.includes('alchemy')
 
         let method, params
@@ -251,7 +261,16 @@ class EvmWeb3 {
                         blockNumber || blockHash
                     }] Error fetching reciepts: ${error}. Will retry.`
                 )
-            return null
+            return [null, false]
+        }
+
+        if (resp.status === 503) {
+            logger.error(
+                `[${chainId}:${
+                    blockNumber || blockHash
+                }] 503 Gateway Error — while fetching block receipts`
+            )
+            return [null, true]
         }
 
         let data: StringKeyMap = {}
@@ -264,7 +283,7 @@ class EvmWeb3 {
                         blockNumber || blockHash
                     }] Error parsing json response while fetching receipts: ${err}`
                 )
-            data = {}
+            return [null, false]
         }
 
         if (data?.error) {
@@ -275,11 +294,11 @@ class EvmWeb3 {
                         data.error?.code
                     } - ${data.error?.message}. Will retry.`
                 )
-            return null
+            return [null, false]
         }
-        if (!data?.result || data.result.error) return null
+        if (!data?.result || data.result.error) return [null, false]
 
-        return isAlchemy ? data.result.receipts : data.result
+        return [isAlchemy ? data.result.receipts : data.result, false]
     }
 
     // == Logs ====================
@@ -293,10 +312,11 @@ class EvmWeb3 {
         }
 
         let logs = null
+        let hittingGatewayErrors = false
         let numAttempts = 0
         try {
             while (logs === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                logs = await this._getLogs(blockHash, blockNumber, chainId)
+                [logs, hittingGatewayErrors] = await this._getLogs(blockHash, blockNumber, chainId)
                 if (logs === null) {
                     await sleep(
                         config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
@@ -309,6 +329,9 @@ class EvmWeb3 {
         }
 
         if (logs === null) {
+            if (hittingGatewayErrors) {
+                this.hittingGatewayErrors = true
+            }
             throw `[${chainId}] Out of attempts - No logs found for ${blockNumber || blockHash}.`
         } else if (!logs.length) {
             this.isRangeMode ||
@@ -324,7 +347,7 @@ class EvmWeb3 {
         blockHash?: string,
         blockNumber?: number,
         chainId?: string
-    ): Promise<ExternalEvmLog[] | null> {
+    ): Promise<[ExternalEvmLog[] | null, boolean]> {
         let params
         if (blockHash) {
             params = [{ blockHash }]
@@ -362,7 +385,14 @@ class EvmWeb3 {
                         blockNumber || blockHash
                     }] Error fetching reciepts: ${error}. Will retry.`
                 )
-            return null
+            return [null, false]
+        }
+
+        if (resp.status === 503) {
+            logger.error(
+                `[${chainId}:${blockNumber || blockHash}] 503 Gateway Error — while fetching logs`
+            )
+            return [null, true]
         }
 
         let data: StringKeyMap = {}
@@ -375,7 +405,7 @@ class EvmWeb3 {
                         blockNumber || blockHash
                     }] Error parsing json response while fetching logs: ${err}`
                 )
-            data = {}
+            return [null, false]
         }
 
         if (data?.error) {
@@ -386,11 +416,11 @@ class EvmWeb3 {
                         data.error?.code
                     } - ${data.error?.message}. Will retry.`
                 )
-            return null
+            return [null, false]
         }
-        if (!data?.result || data.result.error) return null
+        if (!data?.result || data.result.error) return [null, false]
 
-        return data.result
+        return [data.result, false]
     }
 
     // == Traces ===================
@@ -415,11 +445,11 @@ class EvmWeb3 {
         }
 
         let externalTraces = null
+        let hittingGatewayErrors = false
         let numAttempts = 0
-
         try {
             while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                externalTraces =
+                [externalTraces, hittingGatewayErrors] =
                     this.canGetParityTraces && !forceDebug
                         ? await this._getParityTraces(blockNumber, chainId)
                         : await this._getDebugTraces(blockHash, blockNumber, chainId)
@@ -433,6 +463,9 @@ class EvmWeb3 {
         }
 
         if (externalTraces === null) {
+            if (hittingGatewayErrors) {
+                this.hittingGatewayErrors = true
+            }
             throw `[${chainId}] Out of attempts - No traces found for block ${
                 blockNumber || blockHash
             }...`
@@ -451,7 +484,7 @@ class EvmWeb3 {
     async _getParityTraces(
         blockNumber: number,
         chainId?: string
-    ): Promise<ExternalEvmParityTrace[] | null> {
+    ): Promise<[ExternalEvmParityTrace[] | null, boolean]> {
         const abortController = new AbortController()
         const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
@@ -479,7 +512,12 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`
                 )
-            return null
+            return [null, false]
+        }
+
+        if (resp.status === 503) {
+            logger.error(`[${chainId}:${blockNumber}] 503 Gateway Error — while fetching traces`)
+            return [null, true]
         }
 
         let data: StringKeyMap = {}
@@ -490,7 +528,7 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error parsing json response while fetching traces: ${err}`
                 )
-            data = {}
+            return [null, false]
         }
 
         if (data?.error) {
@@ -499,18 +537,18 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
                 )
-            return null
+            return [null, false]
         }
-        if (!data?.result || data.result.error) return null
+        if (!data?.result || data.result.error) return [null, false]
 
-        return data.result
+        return [data.result, false]
     }
 
     async _getDebugTraces(
         blockHash: string,
         blockNumber: number,
         chainId?: string
-    ): Promise<ExternalEvmDebugTrace[] | null> {
+    ): Promise<[ExternalEvmDebugTrace[] | null, boolean]> {
         const abortController = new AbortController()
         const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
         let resp, error
@@ -538,7 +576,12 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error fetching traces: ${error}. Will retry.`
                 )
-            return null
+            return [null, false]
+        }
+
+        if (resp.status === 503) {
+            logger.error(`[${chainId}:${blockNumber}] 503 Gateway Error — while fetching traces`)
+            return [null, true]
         }
 
         let data: StringKeyMap = {}
@@ -549,7 +592,7 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error parsing json response while fetching traces: ${err}`
                 )
-            data = {}
+            return [null, false]
         }
 
         if (data?.error) {
@@ -558,11 +601,11 @@ class EvmWeb3 {
                 logger.error(
                     `[${chainId}:${blockNumber}] Error fetching traces: ${data.error?.code} - ${data.error?.message}. Will retry.`
                 )
-            return null
+            return [null, false]
         }
-        if (!data?.result || data.result.error) return null
+        if (!data?.result || data.result.error) return [null, false]
 
-        return data.result
+        return [data.result, false]
     }
 
     // == Subscriptions ===================
@@ -602,7 +645,7 @@ export function newEthereumWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: true,
-        finalityScanOffsetRight: 5,
+        finalityScanOffsetRight: 8,
         finalityScanInterval: 60000,
         isRangeMode,
     })
@@ -613,8 +656,8 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
         canGetBlockReceipts: true,
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
-        confirmationsUntilFinalized: 128,
-        finalityScanOffsetRight: 16,
+        confirmationsUntilFinalized: 200,
+        finalityScanOffsetRight: 20,
         finalityScanInterval: 30000,
         isRangeMode,
     })

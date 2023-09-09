@@ -21,12 +21,12 @@ export function resetNumInternalGroupRotations() {
     numInternalGroupRotations = 0
 }
 
-export function rotateWeb3Provider() {
+export function rotateWeb3Provider(forceGroupRotation?: boolean) {
     const currentGroupEndpoints = groupEndpoints[groupIndex] || groupEndpoints[0] || []
     numInternalGroupRotations++
 
     // Rotate *internally* within the current group if all endpoints haven't been exhausted.
-    if (numInternalGroupRotations < currentGroupEndpoints.length) {
+    if (!forceGroupRotation && numInternalGroupRotations < currentGroupEndpoints.length) {
         if (connectionIndex < currentGroupEndpoints.length - 1) {
             connectionIndex++
         } else {
