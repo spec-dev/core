@@ -13,17 +13,20 @@ export function getWsProviderPool(): WebsocketProviderPool {
 }
 
 export function rotateWsProviderGroups() {
-    if (wsProviderGroupIndex >= wsProviderGroupEndpoints.length) {
-        wsProviderGroupIndex = 0
-    } else {
+    if (wsProviderGroupIndex < wsProviderGroupEndpoints.length - 1) {
         wsProviderGroupIndex++
+    } else {
+        wsProviderGroupIndex = 0
     }
     logger.notify(
         `[${config.CHAIN_ID}] Rotating Websocket Groups — New Index: ${wsProviderGroupIndex}/${wsProviderGroupEndpoints.length}`
     )
 }
 
-export function createWsProviderPool(isRangeMode?: boolean) {
+export function createWsProviderPool(isRangeMode?: boolean, initialGroupIndex: number | null = null) {
+    if (initialGroupIndex !== null) {
+        wsProviderGroupIndex = initialGroupIndex
+    }
     const endpoints = wsProviderGroupEndpoints[wsProviderGroupIndex] || wsProviderGroupEndpoints[0] || []
     wsProviderPool = new WebsocketProviderPool(endpoints, isRangeMode)
 }

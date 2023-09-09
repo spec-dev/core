@@ -146,8 +146,8 @@ template=$( cat "$template_path" | \
     sed "s|{{RPC_REST_URL}}|$rpc_rest_url|g" | \
     sed "s|{{RPC_SUBSCRIPTION_URL}}|$rpc_sub_url|g" | \
     sed "s|{{RPC_POOL_ENDPOINTS}}|$rpc_pool_endpoints|g" | \
-    sed "s|{{HTTP_PROVIDER_POOL}}|$http_provider_pool|g" | \
-    sed "s|{{WS_PROVIDER_POOL}}|$ws_provider_pool|g" | \
+    sed "s^{{HTTP_PROVIDER_POOL}}^$http_provider_pool^g" | \
+    sed "s^{{WS_PROVIDER_POOL}}^$ws_provider_pool^g" | \
     sed "s|{{PUBLISHER_ROLE_KEY}}|$publisher_role_key|g" | \
     sed "s|{{EVENT_RELAY_HOSTNAME}}|$event_relay_hostname|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \

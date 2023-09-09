@@ -27,7 +27,7 @@ export function rotateWeb3Provider() {
 
     // Rotate *internally* within the current group if all endpoints haven't been exhausted.
     if (numInternalGroupRotations < currentGroupEndpoints.length) {
-        if (connectionIndex < currentGroupEndpoints.length) {
+        if (connectionIndex < currentGroupEndpoints.length - 1) {
             connectionIndex++
         } else {
             connectionIndex = 0
@@ -43,7 +43,7 @@ export function rotateWeb3Provider() {
 
     // Rotate to first connection in next group.
     connectionIndex = 0
-    if (groupIndex < groupEndpoints.length) {
+    if (groupIndex < groupEndpoints.length - 1) {
         groupIndex++
     } else {
         groupIndex = 0

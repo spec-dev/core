@@ -31,11 +31,10 @@ class ValidateBlocksWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.mismatches = []
-        createWsProviderPool()
+        createWsProviderPool(true, 0)
     }
  
     async run() {
-
         while (this.cursor <= this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
@@ -50,7 +49,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length) {
-            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
         }
 
         logger.info('DONE')
@@ -74,7 +73,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length >= 1000) {
-            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
     }
