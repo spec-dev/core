@@ -4,36 +4,36 @@ import {
     logger,
     NewReportedHead,
     StringKeyMap,
-    EthBlock,
-    EthLog,
-    EthTransaction,
+    EvmBlock,
+    EvmLog,
+    EvmTransaction,
     fullBlockUpsertConfig,
     fullLogUpsertConfig,
     fullTransactionUpsertConfig,
     SharedTables,
     uniqueByKeys,
     formatAbiValueWithType,
-    EthTrace,
-    EthContract,
+    EvmTrace,
+    EvmContract,
     toChunks,
     fullTraceUpsertConfig,
     fullContractUpsertConfig,
     fullErc20TokenUpsertConfig,
     fullNftCollectionUpsertConfig,
     snakeToCamel,
-    CoreDB,
     Erc20Token,
     NftCollection,
-    ContractInstance,
     fullErc20BalanceUpsertConfig,
     Erc20Balance,
     TokenTransfer,
     fullTokenTransferUpsertConfig,
 } from '../../../shared'
+import { createWeb3Provider } from '../httpProviderPool'
+import { createWsProviderPool } from '../wsProviderPool'
 import { exit } from 'process'
 import { ident } from 'pg-format'
 
-class EthereumSpecificNumbersWorker {
+class SpecificBlocksIndexer {
     
     numbers: number[]
 
@@ -59,6 +59,9 @@ class EthereumSpecificNumbersWorker {
     }
 
     async run() {
+        createWeb3Provider()
+        createWsProviderPool()
+        
         const groups = toChunks(this.numbers, this.groupSize)
         for (const group of groups) {
             await this._indexBlockGroup(group)
@@ -279,7 +282,7 @@ class EthereumSpecificNumbersWorker {
         await SharedTables
             .createQueryBuilder()
             .insert()
-            .into(EthBlock)
+            .into(EvmBlock)
             .values(blocks)
             .orUpdate(updateBlockCols, conflictBlockCols)
             .execute()
@@ -293,7 +296,7 @@ class EthereumSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(EthTransaction)
+                    .into(EvmTransaction)
                     .values(chunk)
                     .orUpdate(updateTransactionCols, conflictTransactionCols)
                     .execute()
@@ -310,7 +313,7 @@ class EthereumSpecificNumbersWorker {
                     return SharedTables
                         .createQueryBuilder()
                         .insert()
-                        .into(EthLog)
+                        .into(EvmLog)
                         .values(chunk)
                         .orUpdate(updateLogCols, conflictLogCols)
                         .returning('*')
@@ -329,7 +332,7 @@ class EthereumSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(EthTrace)
+                    .into(EvmTrace)
                     .values(chunk)
                     .orUpdate(updateTraceCols, conflictTraceCols)
                     .execute()
@@ -346,7 +349,7 @@ class EthereumSpecificNumbersWorker {
                 return SharedTables
                     .createQueryBuilder()
                     .insert()
-                    .into(EthContract)
+                    .into(EvmContract)
                     .values(chunk)
                     .orUpdate(updateContractCols, conflictContractCols)
                     .execute()
@@ -425,8 +428,8 @@ class EthereumSpecificNumbersWorker {
     }
 }
 
-export function getEthereumSpecificNumbersWorker(): EthereumSpecificNumbersWorker {
-    return new EthereumSpecificNumbersWorker(
+export function getSpecificBlocksIndexer(): SpecificBlocksIndexer {
+    return new SpecificBlocksIndexer(
         config.SPECIFIC_INDEX_NUMBERS,
         config.RANGE_GROUP_SIZE,
         config.SAVE_BATCH_MULTIPLE
