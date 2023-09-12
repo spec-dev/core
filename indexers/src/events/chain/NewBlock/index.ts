@@ -5,6 +5,7 @@ function NewBlock(block: EthBlock, eventOrigin: StringKeyMap): StringKeyMap {
         ...block,
         number: Number(block.number),
         timestamp: block.timestamp.toISOString(),
+        chainId: eventOrigin.chainId,
     }
 
     return {

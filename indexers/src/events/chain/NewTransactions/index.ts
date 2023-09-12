@@ -5,6 +5,7 @@ function NewTransactions(txs: EthTransaction[], eventOrigin: StringKeyMap): Stri
         ...tx,
         blockNumber: Number(tx.blockNumber),
         blockTimestamp: tx.blockTimestamp.toISOString(),
+        chainId: eventOrigin.chainId,
     }))
 
     return {

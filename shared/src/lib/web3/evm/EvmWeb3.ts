@@ -180,7 +180,7 @@ class EvmWeb3 {
         let numAttempts = 0
         try {
             while (receipts === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                [receipts, hittingGatewayErrors] = await this._getBlockReceipts(
+                ;[receipts, hittingGatewayErrors] = await this._getBlockReceipts(
                     blockHash,
                     blockNumber,
                     chainId
@@ -316,7 +316,7 @@ class EvmWeb3 {
         let numAttempts = 0
         try {
             while (logs === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                [logs, hittingGatewayErrors] = await this._getLogs(blockHash, blockNumber, chainId)
+                ;[logs, hittingGatewayErrors] = await this._getLogs(blockHash, blockNumber, chainId)
                 if (logs === null) {
                     await sleep(
                         config.EXPO_BACKOFF_FACTOR ** numAttempts * config.EXPO_BACKOFF_DELAY
@@ -449,7 +449,7 @@ class EvmWeb3 {
         let numAttempts = 0
         try {
             while (externalTraces === null && numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
-                [externalTraces, hittingGatewayErrors] =
+                ;[externalTraces, hittingGatewayErrors] =
                     this.canGetParityTraces && !forceDebug
                         ? await this._getParityTraces(blockNumber, chainId)
                         : await this._getDebugTraces(blockHash, blockNumber, chainId)
