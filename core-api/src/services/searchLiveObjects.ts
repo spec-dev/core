@@ -35,7 +35,8 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_code_url, 
                 namespace_has_icon, 
                 namespace_created_at,
-                namespace_name NOT LIKE '%.%' AS is_custom
+                namespace_name NOT LIKE '%.%' AS is_custom,
+                group_name
             FROM live_object_version_namespace_view
             WHERE
             CASE
@@ -45,6 +46,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_display_name', false)}, '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
                     to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, '')) ||
+                    to_tsvector('simple', coalesce(group_name, '')) ||
                     json_to_tsvector('english', version_config::json, '["all"]') 
                     @@ to_tsquery('english', $1::text)
                 WHEN $2::text IS NOT NULL THEN 
@@ -52,7 +54,8 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_name', false)}, '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_display_name', false)}, '')) ||
                     to_tsvector('english', coalesce(${regExSplitOnUppercase('live_object_desc', true)}, '')) ||
-                    to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, ''))
+                    to_tsvector('simple', coalesce(${regExSplitOnUppercase('namespace_name', true)}, '')) ||
+                    to_tsvector('simple', coalesce(group_name, ''))
                     @@ to_tsquery('english', $2::text)
                 WHEN $3::text IS NOT NULL THEN
                     json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
