@@ -218,20 +218,20 @@ async function saveDataModels(
                 tx
             )
 
-            // Only create the <Name>Upserted event for non-contract event live objects.
+            // Only create the <Name>Changed event for non-contract event live objects.
             if (!representsContractEvent) {
-                // LiveObjectUpserted event.
+                // LiveObjectChanged event.
                 const event = ((await upsertEventsWithTx(
                     [
                         {
                             namespaceId: namespace.id,
-                            name: `${payload.name}Upserted`,
+                            name: `${payload.name}Changed`,
                         },
                     ],
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted event version
+                // LiveObjectChanged event version
                 const eventVersion = ((await upsertEventVersionsWithTx(
                     [
                         {
@@ -244,7 +244,7 @@ async function saveDataModels(
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted live event version.
+                // LiveObjectChanged live event version.
                 if (eventVersion) {
                     await createLiveEventVersionsWithTx(
                         [
