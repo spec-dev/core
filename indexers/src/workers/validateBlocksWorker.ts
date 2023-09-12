@@ -2,16 +2,8 @@ import config from '../config'
 import {
     logger,
     SharedTables,
-    StringKeyMap,
-    uniqueByKeys,
-    fullErc20TokenUpsertConfig,
-    fullNftCollectionUpsertConfig,
-    NftCollection,
-    Erc20Token,
-    camelizeKeys,
     schemaForChainId,
     toChunks,
-    snakeToCamel,
     range,
     indexerRedis,
     sleep,
@@ -19,7 +11,7 @@ import {
 import { ident } from 'pg-format'
 import chalk from 'chalk'
 import { exit } from 'process'
-import { getRpcPool } from '../rpcPool'
+import { createWsProviderPool, getWsProviderPool } from '../wsProviderPool'
 
 class ValidateBlocksWorker {
 
@@ -39,10 +31,10 @@ class ValidateBlocksWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.mismatches = []
+        createWsProviderPool(true, 0)
     }
  
     async run() {
-
         while (this.cursor <= this.to) {
             const start = this.cursor
             const end = Math.min(this.cursor + this.groupSize - 1, this.to)
@@ -57,7 +49,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length) {
-            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`new-wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
         }
 
         logger.info('DONE')
@@ -81,7 +73,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length >= 1000) {
-            await indexerRedis.sAdd(`wrong-blocks-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`new-wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
     }
@@ -105,7 +97,7 @@ class ValidateBlocksWorker {
     }
 
     async _hashForNumber(number: number) {
-        const block = await getRpcPool().getBlock(number, false)
+        const { block } = await getWsProviderPool().getBlock(null, number, false)
         return block.hash
     }
 }

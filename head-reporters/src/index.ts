@@ -3,7 +3,6 @@ import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
-import uuid4 from 'uuid4'
 
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
@@ -40,7 +39,7 @@ async function listen() {
         return
     }
 
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
 
     // Force-run an uncle that failed after patch fix.
     if (config.FORCE_UNCLE_RANGE.length === 2) {

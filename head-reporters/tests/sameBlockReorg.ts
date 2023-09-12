@@ -42,7 +42,7 @@ async function listen() {
         IndexerDB.initialize(),
         indexerRedis.connect(),
     ])
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
     await fakeNewHeads(reporter)
 }
 

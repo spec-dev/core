@@ -3,8 +3,7 @@ import config from '../config'
 import { getHeadWorker } from './headWorker'
 import { getEthRangeWorker } from './ethRangeWorker'
 import { getPolygonRangeWorker } from './polygonRangeWorker'
-import { getPolygonSpecificNumbersWorker } from './polygonSpecificBlocksIndexer'
-import { getEthereumSpecificNumbersWorker } from './ethereumSpecificBlocksIndexer'
+import { getSpecificBlocksIndexer } from './specificBlocksIndexer'
 import { getPullBlocksWorker } from './pullBlocksWorker'
 import { getPullTransactionsWorker } from './pullTransactionsWorker'
 import { getPullLogsWorker } from './pullLogsWorker'
@@ -113,19 +112,19 @@ export async function getWorker(): Promise<IndexerWorker> {
     } 
     if (config.RANGE_WORKER_TYPE === 'trim-abis') {
         return getTrimAbisWorker()
-    } 
+    }
 
     switch (config.CHAIN_ID) {
         case chainIds.POLYGON:
         case chainIds.MUMBAI:
             return config.SPECIFIC_INDEX_NUMBERS.length
-                ? getPolygonSpecificNumbersWorker() 
+                ? getSpecificBlocksIndexer() 
                 : getPolygonRangeWorker()
 
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
             return config.SPECIFIC_INDEX_NUMBERS.length
-                ? getEthereumSpecificNumbersWorker()
+                ? getSpecificBlocksIndexer()
                 : getEthRangeWorker()
     }
 }

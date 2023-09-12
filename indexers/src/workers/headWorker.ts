@@ -9,13 +9,27 @@ import {
     shouldProcessIndexJobs,
     setProcessIndexJobs,
     randomIntegerInRange,
+    canBlockBeOperatedOn,
 } from '../../../shared'
 import chalk from 'chalk'
 import { getIndexer } from '../indexers'
-import { teardownRpcPool, createRpcPool, hasHitMaxCalls } from '../rpcPool'
+import { 
+    createWsProviderPool, 
+    rotateWsProviderGroups,
+    teardownWsProviderPool,
+    hasHitMaxCalls,
+} from '../wsProviderPool'
+import { 
+    createWeb3Provider, 
+    rotateWeb3Provider,
+    teardownWeb3Provider,
+    resetNumInternalGroupRotations,
+    getWeb3,
+} from '../httpProviderPool'
 
 let queue: Queue
-export async function reenqueueJob(head: NewReportedHead) {   
+
+function initQueue() {
     queue = queue || new Queue(config.HEAD_REPORTER_QUEUE_KEY, {
         connection: {
             host: config.INDEXER_REDIS_HOST,
@@ -31,15 +45,32 @@ export async function reenqueueJob(head: NewReportedHead) {
             },
         },
     })
+}
+
+async function reenqueueJob(head: NewReportedHead) {   
+    initQueue()
     await queue.add(config.INDEX_BLOCK_JOB_NAME, head, {
         priority: head.blockNumber,
     })
 }
 
-let numIterations = 0
+async function isJobWaitingWithBlockNumber(blockNumber: number): Promise<boolean> {
+    try {
+        initQueue()
+        const jobAlreadyWaiting = !!(await queue.getWaiting()).find(job => (
+            job?.data?.blockNumber === blockNumber
+        ))
+        return jobAlreadyWaiting
+    } catch (err) {
+        logger.error(`Error checking queue for head with block number ${blockNumber}`, err)
+        return false
+    }
+}
+
+let numIterationsWithCurrentWsProvider = 0
 let worker: Worker
 async function runJob(job: Job) {
-    numIterations++
+    numIterationsWithCurrentWsProvider++
     const head = job.data as NewReportedHead
     const jobStatusUpdatePromise = setIndexedBlockStatus(
         head.id,
@@ -48,10 +79,13 @@ async function runJob(job: Job) {
 
     let reIndex = false
     let attempt = 1
+    let numFailuresWithCurrentHttpProvider = 0
+    let numFailuresWithCurrentWsProvider = 0
     let indexer = null
     let timer = null
     let timeout = null
-    let triedToRebuildRpcPoolAsFix = false
+    let removedHash = false
+
     while (attempt < config.INDEX_PERFORM_MAX_ATTEMPTS) {
         // Get proper indexer based on head's chain id.
         indexer = getIndexer(head)
@@ -81,12 +115,34 @@ async function runJob(job: Job) {
             indexer.timedOut = true
             break
         } catch (err) {
+            const didFetchPrimitives = indexer.didFetchPrimitives
+            const reorgDetectedViaLogs = indexer.reorgDetectedViaLogs
             indexer.timedOut = true
             indexer = null
             attempt++
             timer && clearTimeout(timer)
             timer = null
             timeout = null
+
+            if (!(await canBlockBeOperatedOn(head.chainId, head.blockNumber))) {
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Job stopped mid-indexing.`))
+                break
+            }
+
+            if ((await isJobWaitingWithBlockNumber(head.blockNumber))) {
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Stopping retries to replace job.`))
+                break
+            }
+
+            // Use block number instead of block hash for indexing if either...
+            // a) the logs indicated a reorg, since we 100% fetch logs by block hash
+            // b) N failures have occurred
+            if (!removedHash && (reorgDetectedViaLogs || attempt > config.MAX_ATTEMPTS_BEFORE_HASH_REMOVAL)) {
+                removedHash = true
+                logger.warn(chalk.yellow(`[${head.chainId}:${head.blockNumber}] Fetching by number next time...`))
+                head.blockHash = null
+            }
+            
             // When all attempts are exhausted, flip the master switch for index jobs 
             // to false, telling all other (potential) parallel index workers to pause.
             if (attempt >= config.INDEX_PERFORM_MAX_ATTEMPTS) {
@@ -98,18 +154,35 @@ async function runJob(job: Job) {
 
             if (!(await shouldProcessIndexJobs(head.chainId))) {
                 reIndex = true
-                logger.error(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
+                logger.notify(`[${head.chainId}:${head.blockNumber}] ${chalk.magenta('Gracefully shutting down. Stopping retries.')}`)
                 break
             }
 
-            logger.error(`${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`)
+            const msg = `${chalk.redBright(err)} - Retrying with attempt ${attempt}/${config.INDEX_PERFORM_MAX_ATTEMPTS}`
+            attempt > config.MAX_ATTEMPTS_BEFORE_NOTIFICATION ? logger.error(msg) : logger.warn(msg)
 
-            if (attempt > 2 && !triedToRebuildRpcPoolAsFix) {
-                triedToRebuildRpcPoolAsFix = true
-                numIterations = 0
-                teardownRpcPool()
-                await sleep(50)
-                createRpcPool()
+            if (didFetchPrimitives) {
+                // Websocket provider rotation.
+                numFailuresWithCurrentWsProvider++
+                if (numFailuresWithCurrentWsProvider > config.MAX_ATTEMPTS_BEFORE_ROTATION) {
+                    numFailuresWithCurrentWsProvider = 0
+                    numIterationsWithCurrentWsProvider = 0
+                    teardownWsProviderPool()
+                    await sleep(50)
+                    rotateWsProviderGroups()
+                    createWsProviderPool()
+                }
+            } else {
+                // HTTP provider rotation.
+                numFailuresWithCurrentHttpProvider++
+                if (numFailuresWithCurrentHttpProvider > config.MAX_ATTEMPTS_BEFORE_ROTATION) {
+                    numFailuresWithCurrentHttpProvider = 0
+                    const hittingGatewayErrors = getWeb3().hittingGatewayErrors
+                    teardownWeb3Provider()
+                    await sleep(50)
+                    rotateWeb3Provider(hittingGatewayErrors)
+                    createWeb3Provider()
+                }
             }
 
             await sleep(randomIntegerInRange(
@@ -123,6 +196,7 @@ async function runJob(job: Job) {
     timer = null
     indexer = null
     timeout = null
+    resetNumInternalGroupRotations()
 
     await jobStatusUpdatePromise
 
@@ -137,16 +211,19 @@ async function runJob(job: Job) {
         await reenqueueJob(head)
     }
     
-    if (numIterations >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
-        numIterations = 0
-        teardownRpcPool()
+    if (numIterationsWithCurrentWsProvider >= config.MAX_RPC_POOL_BLOCK_ITERATIONS || hasHitMaxCalls()) {
+        numIterationsWithCurrentWsProvider = 0
+        teardownWsProviderPool()
         await sleep(50)
-        createRpcPool()
+        createWsProviderPool()
         await sleep(50)
     }
 }
 
 export function getHeadWorker(): Worker {
+    createWeb3Provider()
+    createWsProviderPool()
+
     worker = new Worker(
         config.HEAD_REPORTER_QUEUE_KEY,
         runJob,

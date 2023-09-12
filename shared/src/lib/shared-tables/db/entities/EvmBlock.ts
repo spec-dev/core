@@ -1,12 +1,12 @@
 import { Entity, PrimaryColumn, Column, Index } from 'typeorm'
-import schemas from '../../schemas'
 import { decamelize } from 'humps'
+import { currentChainSchema } from '../../../utils/chainIds'
 
 /**
- * An Ethereum Block
+ * An EVM Block.
  */
-@Entity('blocks', { schema: schemas.ethereum() })
-export class EthBlock {
+@Entity('blocks', { schema: currentChainSchema() })
+export class EvmBlock {
     // Block hash.
     @PrimaryColumn('varchar', { length: 70 })
     hash: string
@@ -90,7 +90,7 @@ export class EthBlock {
     timestamp: Date
 }
 
-export const fullBlockUpsertConfig = (block: EthBlock): string[][] => {
+export const fullEvmBlockUpsertConfig = (block: EvmBlock): string[][] => {
     const conflictCols = ['number']
     const updateCols = Object.keys(block)
         .map(decamelize)
