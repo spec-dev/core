@@ -60,12 +60,6 @@ $shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
 $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
-# Head reporter queue keys
-#$shared_bin_dir/assert_env "ETHEREUM_HEAD_REPORTER_QUEUE_KEY" "$ethereum_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "GOERLI_HEAD_REPORTER_QUEUE_KEY" "$goerli_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "POLYGON_HEAD_REPORTER_QUEUE_KEY" "$polygon_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "MUMBAI_HEAD_REPORTER_QUEUE_KEY" "$mumbai_head_reporter_queue_key"
-
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
