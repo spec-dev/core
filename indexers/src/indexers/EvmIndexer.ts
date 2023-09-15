@@ -471,16 +471,20 @@ class EvmIndexer {
             namespacedContractGroupAbis[key] = abi
         }
 
+        const txMap = mapByKey(this.transactions || [], 'hash')
+
         const [eventInputs, callInputs] = await Promise.all([
             this._curateContractEventInputs(
                 decodedLogs,
                 eventContractInstances,
                 namespacedContractGroupAbis,
+                txMap
             ),
             this._curateContractCallInputs(
                 decodedTraceCalls,
                 callContractInstances,
                 namespacedContractGroupAbis,
+                txMap,
             ),
         ])
 
@@ -1060,6 +1064,7 @@ class EvmIndexer {
         decodedLogs: StringKeyMap[], 
         contractInstances: ContractInstance[],
         namespacedContractGroupAbis: { [key: string]: Abi },
+        txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
@@ -1085,10 +1090,11 @@ class EvmIndexer {
 
             for (const { nsp, contractGroupAbi, contractInstanceName } of contractGroups) {
                 const formattedEventData = formatLogAsSpecEvent(
-                    decodedLog, 
+                    decodedLog,
                     contractGroupAbi,
                     contractInstanceName,
                     this.chainId,
+                    txMap[decodedLog.transactionHash],
                 )
                 if (!formattedEventData) continue
                 const { eventOrigin, data } = formattedEventData
@@ -1106,6 +1112,7 @@ class EvmIndexer {
         decodedTraceCalls: StringKeyMap[], 
         contractInstances: ContractInstance[],
         namespacedContractGroupAbis: { [key: string]: Abi },
+        txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
@@ -1137,6 +1144,7 @@ class EvmIndexer {
                     contractGroupAbi,
                     contractInstanceName,
                     this.chainId,
+                    txMap[decodedTrace.transactionHash],
                 )
                 if (!formattedCallData) continue
                 const { 
