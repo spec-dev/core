@@ -7,6 +7,8 @@ import {
     getLastEventId,
     hash,
     getEventIdDirectlyBeforeId,
+    fromNamespacedVersion,
+    toNamespacedVersion,
 } from '..'
 import { createEventClient } from '@spec.dev/event-client'
 import config from './config'
@@ -122,12 +124,18 @@ export async function publishReorg(id: string, chainId: string, blockNumber: num
 }
 
 export async function emit(event: StringKeyMap, generated?: boolean) {
-    event.origin &&
+    if (event.origin) {
+        let displayName = event.name
+        if (event.name.includes('@')) {
+            const { nsp, name, version } = fromNamespacedVersion(event.name)
+            displayName = toNamespacedVersion(nsp, name, version?.slice(0, 10))
+        }
         logger.info(
             chalk.cyanBright(
-                `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${event.name}...`
+                `[${event.origin.chainId}:${event.origin.blockNumber}] Publishing ${displayName}...`
             )
         )
+    }
     try {
         await eventClient?.socket.transmitPublish(event.name, event)
     } catch (err) {
