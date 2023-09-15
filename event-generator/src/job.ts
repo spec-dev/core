@@ -171,12 +171,11 @@ async function perform(data: StringKeyMap) {
         for (const lovNsp in eventGroups) {
             const eventEntries = eventGroups[lovNsp] || []
             const callEntries = callGroups[lovNsp] || []
-
-            // TODO: Merge these back into the correct tx-based order 
             inputGroups[lovNsp] = [...callEntries, ...eventEntries]
-
             seenLovNsps.add(lovNsp)
         }
+        // Only do the below if the above loop didn't run for the particular namespace.
+        // That's what seenLovNsps is tracking.
         for (const lovNsp in callGroups) {
             if (seenLovNsps.has(lovNsp)) continue
             inputGroups[lovNsp] = callGroups[lovNsp] || []
@@ -383,9 +382,9 @@ async function generateLiveObjectEventsForNamespace(
         return
     }
 
-    // Publish generated events on-the-fly as they come back.
+    // Publish all live object events for the namespace.
     try {
-        eventsToPublish.length && await publishEvents(eventsToPublish, true)
+        eventsToPublish.length && await publishEvents(sortLiveObjectOutputEvents(eventsToPublish), true)
     } catch (err) {
         throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
     }
@@ -437,6 +436,7 @@ export async function generateLiveObjectEventsWithProtection(
             `[${blockNumber}]: Generating events failed (lovId=${lovId}) 
             for inputs: ${JSON.stringify(inputs, null, 4)}`, err,
         )
+        logger.error(`[${blockNumber}]: LIVE OBJECT FAILED (lovId=${lovId})`)
         await updateLiveObjectVersionStatus(lovId, LiveObjectVersionStatus.Failing)
         const blockTimestamp = await getBlockTimestamp(blockNumber)
         blockTimestamp && await markLovFailure(lovId, blockTimestamp)
@@ -572,7 +572,7 @@ async function generateLiveObjectEvents(
         
         for (const event of generatedEvents) {
             const { nsp: eventNsp } = fromNamespacedVersion(event.name)
-            if (!acceptedOutputEvents.has(event.name) && eventNsp !== lovNsp) {
+            if (!acceptedOutputEvents.has(event.name) && eventNsp !== lovNsp) { // allow * within the same namespace
                 logger.error(`[${blockNumber}] Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
                 continue
             }
@@ -584,8 +584,9 @@ async function generateLiveObjectEvents(
 
             const liveObjectEvent = {
                 ...event,
-                origin: input.origin,
+                origin: { ...input.origin }
             }
+            delete liveObjectEvent.origin.transaction
 
             liveObjectEvents.push(liveObjectEvent)
         }
@@ -1027,15 +1028,23 @@ async function getLargestBlockNumberFromIndexerDB(): Promise<number | null> {
 
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {
     return (contractEvents || []).sort((a, b) => (
-        (a.transactionIndex - b.transactionIndex) || 
-        (Number(a.logIndex) - Number(b.logIndex))
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.logIndex) - Number(b.origin.logIndex))
     ))
 }
 
 function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
     return (contractCalls || []).sort((a, b) => (
-        (a.transactionIndex - b.transactionIndex) || 
-        (Number(a.traceIndex) - Number(b.traceIndex))
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0))
+    ))
+}
+
+function sortLiveObjectOutputEvents(outputEvents: StringKeyMap[]): StringKeyMap[] {
+    return (outputEvents || []).sort((a, b) => (
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.logIndex || 0) - Number(b.origin.logIndex || 0)) || 
+        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0))
     ))
 }
 
