@@ -148,6 +148,21 @@ export async function getLastEventId(eventName: string): Promise<string | null> 
     return (await getLastEvent(eventName))?.id || null
 }
 
+// In this function, the "ids" are our "nonces".
+export async function getEventIdDirectlyBeforeId(
+    eventName: string,
+    targetId: string
+): Promise<string | null> {
+    try {
+        const prevEntry = ((await redis?.xRevRange(eventName, targetId, '-', { COUNT: 2 })) ||
+            [])[1]
+        return prevEntry?.id || null
+    } catch (err) {
+        logger.error(`Error getting event id directly before ${targetId} for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
 export async function getPublishedEventsAfterEventCursors(
     cursors: StringKeyMap[]
 ): Promise<{ [key: string]: StringKeyMap[] }> {

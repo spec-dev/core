@@ -6,6 +6,7 @@ import {
     nowAsUTCDateString,
     getLastEventId,
     hash,
+    getEventIdDirectlyBeforeId,
 } from '..'
 import { createEventClient } from '@spec.dev/event-client'
 import config from './config'
@@ -84,48 +85,23 @@ export async function publishEvents(
 ) {
     if (!eventSpecs?.length) return
 
-    // Format event specs as spec events.
     eventTimestamp = eventTimestamp || (await getDBTimestamp())
     const events = eventSpecs.map((es) => formatSpecEvent(es, eventTimestamp))
 
-    // Group events by name.
-    const eventsByName = {}
     for (const event of events) {
-        eventsByName[event.name] = eventsByName[event.name] || []
-        eventsByName[event.name].push(event)
-    }
-
-    // Get the last id for each event.
-    const sortedEventNames = Object.keys(eventsByName).sort()
-    const lastIds = await Promise.all(sortedEventNames.map(getLastEventId))
-    const eventIds = {}
-    for (let i = 0; i < sortedEventNames.length; i++) {
-        eventIds[sortedEventNames[i]] = lastIds[i]
-    }
-
-    // Save each event to its redis stream, adding its nonce into its payload once saved.
-    // The id of each event should be the hash of the previous one.
-    const finalEvents = []
-    for (const eventName in eventsByName) {
-        const eventGroup = eventsByName[eventName]
-        let eventId = eventIds[eventName] || 'origin'
-        for (const event of eventGroup) {
-            eventId = hash(eventId)
-            const eventWithId = {
-                id: eventId,
-                ...event,
-            }
-            const nonce = await storePublishedEvent(eventWithId)
-            if (!nonce) continue
-            finalEvents.push({ ...eventWithId, nonce })
-        }
-    }
-
-    for (const event of finalEvents) {
-        await emit(event, generated)
+        // For backwards compatibility for now --------
+        const lastEventId = (await getLastEventId(event.name)) || 'origin'
+        const newEventId = hash(lastEventId)
+        const eventWithId = { id: newEventId, ...event }
+        // --------------------------------------------
+        const nonce = await storePublishedEvent(eventWithId)
+        const prevNonce = await getEventIdDirectlyBeforeId(event.name, nonce)
+        const eventToEmit = { ...eventWithId, nonce, prevNonce }        
+        await emit(eventToEmit, generated)
     }
 }
 
+// NOTE: Not actively doing this anymore.
 export async function publishCalls(callSpecs: StringKeyMap[], eventTimestamp?: string) {
     if (!callSpecs?.length) return
 
