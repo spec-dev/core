@@ -382,8 +382,16 @@ async function upsertRecordsToPreviousStates(
         const sortedRecordKeys = Object.keys(opRecord.before).sort()
         for (const colName of sortedRecordKeys) {
             if (conflictColNamesSet.has(colName)) continue
+
             updateColNames.push(colName)
-            updateColValues.push(opRecord.before[colName])
+
+            // Re-stringify JSON column types.
+            let colValue = opRecord.before[colName]
+            if (colValue && typeof colValue === 'object') {
+                colValue = stringifyObjectTypeColValue(tablePath, colName, colValue)
+            }
+            
+            updateColValues.push(colValue)
         }
 
         const uniqueKey = ['c', ...conflictColNames, 'u', ...updateColNames].join(':')
@@ -556,4 +564,14 @@ async function setLiveObjectVersionsThatRelyOnTableToFailing(
         updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing),
         ...lovIds.map(lovId => markLovFailure(lovId, blockTimestamp)),
     ])
+}
+
+function stringifyObjectTypeColValue(tablePath: string, colName: string, value: any): any {
+    const originalValue = value
+    try {
+        return JSON.stringify(value)
+    } catch (err) {
+        logger.error(`Error stringifying ${tablePath}.${colName} during rollback: ${value} - ${err}`)
+        return originalValue
+    }
 }
