@@ -29,30 +29,30 @@ const agServer = socketClusterServer.attach(httpServer, agOptions)
 // Secure actions.
 agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async stream => {
     for await (let action of stream) {
-        // // Auth new connections, subscriptions, and RPC calls.
-        // if (action.type === action.AUTHENTICATE || 
-        //     action.type === action.SUBSCRIBE ||
-        //     action.type === action.INVOKE
-        // ) {
-        //     const authToken = action.socket.authToken
-        //     if (!authToken || !(await authConnection(authToken, action.type === action.AUTHENTICATE))) {
-        //         const authError = new Error('Unauthorized')
-        //         authError.name = 'AuthError'
-        //         action.block(authError)
-        //         continue
-        //     }
-        // }
+        // Auth new connections, subscriptions, and RPC calls.
+        if (action.type === action.AUTHENTICATE || 
+            action.type === action.SUBSCRIBE ||
+            action.type === action.INVOKE
+        ) {
+            const authToken = action.socket.authToken
+            if (!authToken || !(await authConnection(authToken, action.type === action.AUTHENTICATE))) {
+                const authError = new Error('Unauthorized')
+                authError.name = 'AuthError'
+                action.block(authError)
+                continue
+            }
+        }
 
-        // // Secure who can publish - Currently only the event-generator microservice.
-        // if (action.type === action.PUBLISH_IN) {
-        //     const authToken = action.socket.authToken
-        //     if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
-        //         const publishError = new Error('You are not authorized to publish events.')
-        //         publishError.name = 'PublishError'
-        //         action.block(publishError)
-        //         continue
-        //     }
-        // }
+        // Secure who can publish - Currently only the event-generator microservice.
+        if (action.type === action.PUBLISH_IN) {
+            const authToken = action.socket.authToken
+            if (!authToken || authToken.role !== ClaimRole.EventPublisher) {
+                const publishError = new Error('You are not authorized to publish events.')
+                publishError.name = 'PublishError'
+                action.block(publishError)
+                continue
+            }
+        }
         
         action.allow()
     }
