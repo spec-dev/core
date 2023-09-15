@@ -34,6 +34,7 @@ import {
 import { SharedTables } from '../shared-tables/db/dataSource'
 import { getNamespaces } from '../core/db/services/namespaceServices'
 import { createContractGroup } from './createContractGroup'
+import { camelizeKeys } from 'humps'
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -244,12 +245,13 @@ export async function addContractInstancesToGroup(
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
+    inputTxs = camelizeKeys(inputTxs) as any[]
 
-    const txSuccess = {}
     const txMap = {}
+    const txSuccess = {}
     for (const tx of inputTxs) {
         txMap[tx.hash] = tx
-        txMap[tx.hash] = tx.status != 0
+        txSuccess[tx.hash] = tx.status != 0
     }
 
     // Successful & decoded logs/traces associated with the new addresses.

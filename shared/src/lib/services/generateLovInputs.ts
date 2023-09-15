@@ -197,7 +197,7 @@ function buildGenerator(
                     i++
                 }
                 const txResults = await SharedTables.query(
-                    `select hash, status from ${ident(schema)}.${ident(
+                    `select * from ${ident(schema)}.${ident(
                         'transactions'
                     )} where hash in (${placeholders.join(', ')})`,
                     txHashes
@@ -207,7 +207,7 @@ function buildGenerator(
                 )
                 const txsByHash = {}
                 for (const tx of txResults) {
-                    txsByHash[tx.hash] = tx
+                    txsByHash[tx.hash] = camelizeKeys(tx)
                 }
                 chainTxsByHash[chainId] = txsByHash
             }
