@@ -5,6 +5,7 @@ import humps from 'humps'
 import Web3 from 'web3'
 import { ident } from 'pg-format'
 import { toDate } from './date'
+import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -500,10 +501,12 @@ export function formatLogAsSpecEvent(
     log: StringKeyMap,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction,
 ): StringKeyMap | null {
     const eventOrigin = {
         contractAddress: log.address,
+        transaction,
         transactionHash: log.transactionHash,
         transactionIndex: log.transactionIndex,
         logIndex: log.logIndex,
@@ -567,12 +570,14 @@ export function formatTraceAsSpecCall(
     signature: string,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction,
 ): StringKeyMap {
     const callOrigin = {
         _id: trace.id,
         contractAddress: trace.to,
         contractName: contractInstanceName,
+        transaction,
         transactionHash: trace.transactionHash,
         transactionIndex: trace.transactionIndex,
         traceIndex: trace.traceIndex,
