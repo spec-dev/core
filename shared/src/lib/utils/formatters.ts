@@ -502,7 +502,7 @@ export function formatLogAsSpecEvent(
     contractGroupAbi: Abi,
     contractInstanceName: string,
     chainId: string,
-    transaction: EvmTransaction,
+    transaction: EvmTransaction
 ): StringKeyMap | null {
     const eventOrigin = {
         contractAddress: log.address,
@@ -571,7 +571,7 @@ export function formatTraceAsSpecCall(
     contractGroupAbi: Abi,
     contractInstanceName: string,
     chainId: string,
-    transaction: EvmTransaction,
+    transaction: EvmTransaction
 ): StringKeyMap {
     const callOrigin = {
         _id: trace.id,

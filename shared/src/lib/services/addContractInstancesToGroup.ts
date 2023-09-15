@@ -226,24 +226,30 @@ export async function addContractInstancesToGroup(
         ),
     ])
 
-    // Get all transactions for the logs in this block so we can quickly
-    // check whether a log succeeded or not (by tx hash).
-    const logTxHashes = unique(logs.map((log) => log.transactionHash))
-    const phs = logTxHashes.map((_, i) => `$${i + 1}`).join(', ')
-    let logTxs = []
+    // Get all transactions for the logs & traces in this block so we can quickly
+    // check whether a log succeeded or not (by tx hash) and attach the full tx.
+    const uniqueTxHashes = unique([
+        ...logs.map((log) => log.transactionHash),
+        ...traces.map((trace) => trace.transactionHash),
+    ])
+    const phs = uniqueTxHashes.map((_, i) => `$${i + 1}`).join(', ')
+    let inputTxs = []
     try {
-        logTxs = logTxHashes.length
+        inputTxs = uniqueTxHashes.length
             ? await SharedTables.query(
                   `select * from ${tables.transactions} where "hash" in (${phs})`,
-                  logTxHashes
+                  uniqueTxHashes
               )
             : []
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
+
     const txSuccess = {}
-    for (const tx of logTxs) {
-        txSuccess[tx.hash] = tx.status != 0
+    const txMap = {}
+    for (const tx of inputTxs) {
+        txMap[tx.hash] = tx
+        txMap[tx.hash] = tx.status != 0
     }
 
     // Successful & decoded logs/traces associated with the new addresses.
@@ -278,7 +284,8 @@ export async function addContractInstancesToGroup(
             decodedLog,
             groupAbi,
             contract.name,
-            chainId
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedEventData) continue
 
@@ -293,7 +300,7 @@ export async function addContractInstancesToGroup(
     // New block calls generated *for this contract group* due to one of the new addresses.
     const newCallSpecs = []
     for (const decodedTrace of decodedSuccessfulTraceCalls) {
-        const { functionName, input, id } = decodedTrace
+        const { functionName, input, id, transactionHash } = decodedTrace
         const signature = input?.slice(0, 10)
         const name = toNamespacedVersion(fullNsp, functionName, signature)
         const uniqueCallKey = [id, name].join(':')
@@ -304,9 +311,11 @@ export async function addContractInstancesToGroup(
             signature,
             groupAbi,
             contract.name,
-            chainId
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedCallData) continue
+
         const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
         newCallSpecs.push({
             origin: callOrigin,

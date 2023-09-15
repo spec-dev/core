@@ -96,7 +96,7 @@ export async function publishEvents(
         // --------------------------------------------
         const nonce = await storePublishedEvent(eventWithId)
         const prevNonce = await getEventIdDirectlyBeforeId(event.name, nonce)
-        const eventToEmit = { ...eventWithId, nonce, prevNonce }        
+        const eventToEmit = { ...eventWithId, nonce, prevNonce }
         await emit(eventToEmit, generated)
     }
 }
