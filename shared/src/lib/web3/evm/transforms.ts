@@ -356,9 +356,12 @@ export function buildDebugTracesFromCallStructure(
     parentTraceStatus?: EvmTraceStatus
 ) {
     for (let i = 0; i < callData.length; i++) {
-        const externalTrace = (
-            callData[i].result ? callData[i].result : callData[i]
-        ) as ExternalEvmDebugTrace
+        const data = callData[i].result ? callData[i].result : callData[i]
+        if (data?.error || (data?.result === null && Object.keys(data || {}).length === 1)) {
+            continue
+        }
+        const externalTrace = data as ExternalEvmDebugTrace
+
         const trace = externalToInternalDebugTrace(
             externalTrace,
             parentTraceAddressList,
