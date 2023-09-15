@@ -204,7 +204,7 @@ class EvmIndexer {
         this.pool.on('error', err => logger.error('PG client error', err))
     }
 
-    async perform(): Promise<StringKeyMap | void> {
+    async perform(isJobWaitingWithBlockNumber?: Function): Promise<StringKeyMap | void> {
         this.t0 = performance.now()
         this._logNewHead()
 
@@ -221,7 +221,7 @@ class EvmIndexer {
         ])
 
         // Quick re-org check #1.
-        if (!(await this._shouldContinue())) {
+        if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
             this._warn('Job stopped mid-indexing.')
             return
         }
@@ -252,7 +252,7 @@ class EvmIndexer {
         this._enrichTracesWithBlock(traces, block)
 
         // Quick re-org check #2.
-        if (!(await this._shouldContinue())) {
+        if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
             this._warn('Job stopped mid-indexing.')
             return
         }
@@ -287,6 +287,12 @@ class EvmIndexer {
         erc20Tokens.length && this._info(`${erc20Tokens.length} new ERC-20 tokens.`)
         nftCollections.length && this._info(`${nftCollections.length} new NFT collections.`)
 
+        // Quick re-org check #3.
+        if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
+            this._warn('Job stopped mid-indexing.')
+            return
+        }
+        
         // Index token data, including transfers and balances.
         const {
             tokenTransfers,
@@ -296,8 +302,8 @@ class EvmIndexer {
         tokenTransfers.length && this._info(`${tokenTransfers.length} token transfers.`)
         erc20Balances.length && this._info(`${erc20Balances.length} new ERC-20 balances.`)
 
-        // Quick re-org check #3.
-        if (!(await this._shouldContinue())) {
+        // Quick re-org check #4.
+        if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
             this._warn('Job stopped mid-indexing.')
             return
         }
@@ -1467,12 +1473,18 @@ class EvmIndexer {
      * Checks to see if this service should continue or if there was a re-org 
      * back to a previous block number -- in which case everything should stop.
      */
-    async _shouldContinue(): Promise<boolean> {
+    async _shouldContinue(isJobWaitingWithBlockNumber?: Function): Promise<boolean> {
         if (this.timedOut) {
             this._warn(`Job timed out.`)
             return false
         }
         if (config.IS_RANGE_MODE || this.head.force) return true
+
+        if (isJobWaitingWithBlockNumber && (await isJobWaitingWithBlockNumber(this.blockNumber))) {
+            this._warn(`Replacement job already waiting. Stopping this one.`)
+            return false
+        }
+
         return await canBlockBeOperatedOn(this.chainId, this.blockNumber)
     }
 

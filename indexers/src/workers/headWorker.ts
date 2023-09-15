@@ -111,7 +111,7 @@ async function runJob(job: Job) {
         // BullMQ for whatever fucking reason doesn't have a 
         // "max job timeout" so we have to hack this manually.
         try {
-            await Promise.race([indexer.perform(), timeout()])
+            await Promise.race([indexer.perform(isJobWaitingWithBlockNumber), timeout()])
             indexer.timedOut = true
             break
         } catch (err) {
