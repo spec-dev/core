@@ -222,7 +222,7 @@ class EvmIndexer {
 
         // Quick re-org check #1.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
-            this._warn('Job stopped mid-indexing.')
+            this._warn('Job stopped mid-indexing (#1)')
             return
         }
 
@@ -253,7 +253,7 @@ class EvmIndexer {
 
         // Quick re-org check #2.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
-            this._warn('Job stopped mid-indexing.')
+            this._warn('Job stopped mid-indexing (#2)')
             return
         }
         
@@ -289,7 +289,7 @@ class EvmIndexer {
 
         // Quick re-org check #3.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
-            this._warn('Job stopped mid-indexing.')
+            this._warn('Job stopped mid-indexing (#3).')
             return
         }
         
@@ -304,7 +304,7 @@ class EvmIndexer {
 
         // Quick re-org check #4.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
-            this._warn('Job stopped mid-indexing.')
+            this._warn('Job stopped mid-indexing (#4)')
             return
         }
 
