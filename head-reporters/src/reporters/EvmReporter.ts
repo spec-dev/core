@@ -26,6 +26,7 @@ import {
     SharedTables,
     identPath,
     StringKeyMap,
+    numSecondsBetween,
 } from '../../../shared'
 import config from '../config'
 import { BlockHeader } from 'web3-eth'
@@ -69,6 +70,8 @@ class EvmReporter {
 
     subRedis: any
 
+    lastHeadSeenAt: Date | null = null
+
     mostRecentBlockHashes: LRU<string, string> = new LRU({
         max: config.MAX_REORG_SIZE * 5,
     })
@@ -97,10 +100,17 @@ class EvmReporter {
         this._createWeb3Provider()
         this._subscribeToNewHeads()
         this._subscribeToForcedRollbacks()
+
+        // Start interval check for dropped connection.
+        setInterval(
+            async () => await this._checkForDroppedConnection(), 
+            config.DROPPED_CONNECTION_CHECK_INTERVAL,
+        )
     }
 
     _subscribeToNewHeads() {
         this.web3.subscribeToNewHeads((error, data) => {
+            this.lastHeadSeenAt = new Date()
             if (error) {
                 console.log(error)
                 logger.error(chalk.red(`RPC subscription error: ${error}`))
@@ -714,6 +724,24 @@ class EvmReporter {
             `[${this.chainId}] Rotating HR Providers — New Index: ${this.connectionIndex}/${this.endpoints.length}`
         )
         
+        this._createWeb3Provider()
+        this._subscribeToNewHeads()
+    }
+
+    async _checkForDroppedConnection() {
+        if (!this.lastHeadSeenAt) return
+
+        const minSinceLastHead = numSecondsBetween(new Date(), this.lastHeadSeenAt)
+        if (minSinceLastHead <= config.MAX_TIME_GAP_UNTIL_AUTO_RECONNECT) return
+        logger.warn(`Max time gap between heads reached -- attempting auto-reconnect...`)
+        this.lastHeadSeenAt = null
+        
+        const provider = this.web3?.web3?.currentProvider as any
+        provider?.removeAllListeners && provider.removeAllListeners()
+        provider?.disconnect && provider.disconnect()
+        this.web3 = null
+
+        await sleep(10)
         this._createWeb3Provider()
         this._subscribeToNewHeads()
     }
