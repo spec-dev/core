@@ -149,7 +149,7 @@ class EvmReporter {
             this.startedDeepReorgDetection = true
             setInterval(
                 () => this._detectDeepReorgs(), 
-                this.web3.finalityScanInterval || config.FINALITY_SCAN_INTERVAL,
+                this.web3?.finalityScanInterval || config.FINALITY_SCAN_INTERVAL,
             )
         }
 
@@ -228,7 +228,9 @@ class EvmReporter {
             logger.info(chalk.red(`REORG DETECTED - Marking blocks ${givenBlock.number} -> ${highestBlockNumber} as uncled.`))
 
             if (highestBlockNumber - givenBlock.number > config.MAX_REORG_SIZE) {
-                throw `Unbelievable Reorg detected ${highestBlockNumber} -> ${givenBlock.number}`
+                // TODO: Bring back throwing when back online.
+                logger.error(`Unbelievable Reorg detected ${highestBlockNumber} -> ${givenBlock.number}`)
+                return
             }
 
             await this._uncleBlocks(
@@ -525,6 +527,8 @@ class EvmReporter {
     }
 
     async _detectDeepReorgs() {
+        if (!this.web3) return
+
         // Get the block range to scan (leading up to the head).
         let fromBlockNumber = await this._getLatestFinalizedBlockNumber()
         if (fromBlockNumber === null) return
@@ -555,6 +559,7 @@ class EvmReporter {
             const { hash: currentHash, timestamp } = savedBlocks[blockNumber.toString()]
             let actualHash
             try {
+                if (!this.web3) return
                 actualHash = await this.web3.blockHashForNumber(blockNumber)
             } catch (err) {
                 logger.error(`Finality scan error: ${err}`)
@@ -603,6 +608,7 @@ class EvmReporter {
 
         // Get latest block number tagged as finalized.
         try {
+            if (!this.web3) return null
             return await this.web3.latestFinalizedBlockNumber()
         } catch (err) {
             logger.error(`[${this.chainId}] Error getting latest finalized block: ${err}`)
@@ -678,7 +684,7 @@ class EvmReporter {
         const msg = (
             `[${this.chainId}] DEEP REORG DETECTED at ${blockNumber} ` + 
             `(savedHead=${largestNumber}, seenHead=${this.highestSeen}, depths=${savedDepth}:${actualDepth}, ` + 
-            `current=${currentHash}, actual=${actualHash}, provider=${this.web3.url})`
+            `current=${currentHash}, actual=${actualHash}, provider=${this.web3?.url})`
         )
         logger.warn(chalk.redBright(msg))
         if (actualDepth > config.MAX_DEPTH_BEFORE_REORG_NOTIFICATION) {
