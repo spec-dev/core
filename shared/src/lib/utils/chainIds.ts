@@ -94,7 +94,7 @@ const tokenPrimitives = [
     { table: 'tokens.erc20_balance', appendOnly: false, crossChain: true },
     { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
     { table: 'tokens.nft_balance', appendOnly: false, crossChain: true },
-    { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
+    // { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
 ]
 
 export const primitivesForChainId = {
