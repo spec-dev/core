@@ -927,9 +927,8 @@ function formatLogAsSpecEvent(
     chainId: string,
     transaction: EvmTransaction
 ): StringKeyMap {
-    const eventOrigin = {
+    let eventOrigin: StringKeyMap = {
         contractAddress: log.address,
-        transaction,
         transactionHash: log.transactionHash,
         transactionIndex: log.transactionIndex,
         logIndex: log.logIndex,
@@ -944,6 +943,12 @@ function formatLogAsSpecEvent(
         ...eventOrigin,
         contractName: contractInstanceName,
         logIndex: log.logIndex,
+    }
+
+    // add after creating the fixed properties above.
+    eventOrigin = {
+        ...eventOrigin,
+        transaction,
     }
 
     const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
