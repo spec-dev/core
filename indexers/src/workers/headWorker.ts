@@ -221,9 +221,6 @@ async function runJob(job: Job) {
 }
 
 export function getHeadWorker(): Worker {
-    createWeb3Provider()
-    createWsProviderPool()
-
     worker = new Worker(
         config.HEAD_REPORTER_QUEUE_KEY,
         runJob,

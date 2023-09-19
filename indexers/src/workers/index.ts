@@ -30,8 +30,17 @@ import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwn
 import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
 import { getSeedNativeErc20BalancesWithOwnersWorker } from './seedNativeErc20BalancesWithOwnersWorker'
 import { getTrimAbisWorker } from './trimAbisWorker'
+import { 
+    createWsProviderPool, 
+} from '../wsProviderPool'
+import { 
+    createWeb3Provider,
+} from '../httpProviderPool'
 
 export async function getWorker(): Promise<IndexerWorker> {
+    createWeb3Provider()
+    createWsProviderPool()
+
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
     }
