@@ -379,7 +379,7 @@ async function generateLiveObjectEventsForNamespace(
     // Check before publishing.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
         logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
-        return
+        return []
     }
 
     // Publish all live object events for the namespace.
