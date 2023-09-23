@@ -39,6 +39,7 @@ import { getWsProviderPool } from '../wsProviderPool'
 
 const errors = {
     EXECUTION_REVERTED: 'execution reverted',
+    OUT_OF_GAS: 'out of gas',
     NUMERIC_FAULT: 'NUMERIC_FAULT',
 }
 
@@ -224,7 +225,10 @@ export async function resolveERC20Metadata(contract: StringKeyMap): Promise<Stri
             return { name, symbol, decimals, totalSupply }
         } catch (err) {
             const message = err.message || err.toString() || ''
-            if (message.toLowerCase().includes(errors.EXECUTION_REVERTED)) return {}
+            if (
+                message.toLowerCase().includes(errors.EXECUTION_REVERTED) || 
+                message.toLowerCase().includes(errors.OUT_OF_GAS)
+            ) return {}
             if (numAttempts < config.EXPO_BACKOFF_MAX_ATTEMPTS) {
                 const switchAbi = message.includes(errors.NUMERIC_FAULT)
                 if (switchAbi && !usingBytesAbi) {
