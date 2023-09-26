@@ -28,7 +28,7 @@ export function createWsProviderPool(isRangeMode?: boolean, initialGroupIndex: n
         wsProviderGroupIndex = initialGroupIndex
     }
     const endpoints = wsProviderGroupEndpoints[wsProviderGroupIndex] || wsProviderGroupEndpoints[0] || []
-    wsProviderPool = new WebsocketProviderPool(endpoints, isRangeMode)
+    wsProviderPool = new WebsocketProviderPool(endpoints, isRangeMode, 5000)
 }
 
 export function teardownWsProviderPool() {

@@ -14,9 +14,12 @@ class WebsocketProviderPool {
 
     isRangeMode: boolean
 
-    constructor(endpoints: string[], isRangeMode?: boolean) {
+    wsRpcTimeout: number | null
+
+    constructor(endpoints: string[], isRangeMode?: boolean, wsRpcTimeout?: number) {
         this.endpoints = endpoints
         this.isRangeMode = isRangeMode || false
+        this.wsRpcTimeout = wsRpcTimeout || null
         this._buildPool()
     }
 
@@ -49,7 +52,12 @@ class WebsocketProviderPool {
     _buildPool() {
         const pool = {}
         for (let i = 0; i < this.endpoints.length; i++) {
-            pool[i] = newEvmWeb3ForChainId(config.CHAIN_ID, this.endpoints[i], this.isRangeMode)
+            pool[i] = newEvmWeb3ForChainId(
+                config.CHAIN_ID,
+                this.endpoints[i],
+                this.isRangeMode,
+                this.wsRpcTimeout
+            )
         }
         this.pool = pool
     }

@@ -102,4 +102,5 @@ export interface EvmWeb3Options {
     finalityScanInterval?: number
     finalityScanOffsetRight?: number
     isRangeMode?: boolean
+    wsRpcTimeout?: number
 }

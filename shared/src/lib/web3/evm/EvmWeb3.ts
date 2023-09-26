@@ -58,6 +58,8 @@ class EvmWeb3 {
 
     hittingGatewayErrors: boolean = false
 
+    wsRpcTimeout: number | null
+
     get isWebsockets(): boolean {
         return this.url.startsWith('ws://') || this.url.startsWith('wss://')
     }
@@ -65,6 +67,7 @@ class EvmWeb3 {
     constructor(url: string, options?: EvmWeb3Options) {
         options = options || {}
         this.url = url
+        this.wsRpcTimeout = options.wsRpcTimeout || null
         this.web3 = this.isWebsockets ? this._newWebsocketConnection() : this._newHttpConnection()
         this.canGetBlockReceipts = options.canGetBlockReceipts || false
         this.canGetParityTraces = options.canGetParityTraces || false
@@ -624,34 +627,41 @@ class EvmWeb3 {
     }
 
     _newWebsocketConnection(): Web3 {
-        return new Web3(
-            new Web3.providers.WebsocketProvider(this.url, {
-                clientConfig: {
-                    keepalive: true,
-                    keepaliveInterval: 60000,
-                },
-                reconnect: {
-                    auto: true,
-                    delay: 300,
-                    maxAttempts: 100,
-                    onTimeout: true,
-                },
-            })
-        )
+        const options: StringKeyMap = {
+            clientConfig: {
+                keepalive: true,
+                keepaliveInterval: 60000,
+            },
+            reconnect: {
+                auto: true,
+                delay: 300,
+                maxAttempts: 100,
+                onTimeout: true,
+            },
+        }
+        if (this.wsRpcTimeout !== null) {
+            options.timeout = this.wsRpcTimeout
+        }
+        return new Web3(new Web3.providers.WebsocketProvider(this.url, options))
     }
 }
 
-export function newEthereumWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
+export function newEthereumWeb3(
+    url: string,
+    isRangeMode?: boolean,
+    wsRpcTimeout?: number
+): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: true,
         finalityScanOffsetRight: 8,
         finalityScanInterval: 60000,
         isRangeMode,
+        wsRpcTimeout,
     })
 }
 
-export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
+export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: url.includes('quiknode'),
@@ -660,20 +670,26 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
         finalityScanOffsetRight: 20,
         finalityScanInterval: 60000,
         isRangeMode,
+        wsRpcTimeout,
     })
 }
 
-export function newEvmWeb3ForChainId(chainId: string, url: string, isRangeMode?: boolean): EvmWeb3 {
+export function newEvmWeb3ForChainId(
+    chainId: string,
+    url: string,
+    isRangeMode?: boolean,
+    wsRpcTimeout?: number
+): EvmWeb3 {
     switch (chainId) {
         // ETHEREUM
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
-            return newEthereumWeb3(url, isRangeMode)
+            return newEthereumWeb3(url, isRangeMode, wsRpcTimeout)
 
         // POLYGON
         case chainIds.POLYGON:
         case chainIds.MUMBAI:
-            return newPolygonWeb3(url, isRangeMode)
+            return newPolygonWeb3(url, isRangeMode, wsRpcTimeout)
 
         default:
             throw `Invalid chain id: ${chainId}`
