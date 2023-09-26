@@ -24,6 +24,7 @@ import {
     indexerRedisKeys,
     schemaForChainId,
     SharedTables,
+    toChunks,
     identPath,
     StringKeyMap,
     numSecondsBetween,
@@ -32,6 +33,7 @@ import config from '../config'
 import { BlockHeader } from 'web3-eth'
 import { reportBlock } from '../queue'
 import { NewBlockSpec } from '../types'
+import { createWsProviderPool, getWsProviderPool, hasHitMaxCalls, teardownWsProviderPool } from '../wsProviderPool'
 import { rollbackTables } from '../services/rollbackTables'
 import chalk from 'chalk'
 import LRU from 'lru-cache'
@@ -78,6 +80,10 @@ class EvmReporter {
 
     startedDeepReorgDetection: boolean = false
 
+    skipNextDeepReorgCheck: boolean = false
+
+    lastFinalityScanCeiling: number | null = null
+
     constructor() {
         this.chainId = config.CHAIN_ID
         this.subRedis = newIndexerRedisClient(config.INDEXER_REDIS_URL)
@@ -122,7 +128,7 @@ class EvmReporter {
         logger.info(chalk.greenBright(`Listening for new heads on chain ${this.chainId}...`))
     }
 
-    _onNewBlockHeader(data: BlockHeader) {
+    _onNewBlockHeader(data: BlockHeader, forced: boolean = false) {
         if (this.isFailing) return
 
         const blockNumber = Number(data.number)
@@ -147,10 +153,7 @@ class EvmReporter {
         
         if (!this.startedDeepReorgDetection) {
             this.startedDeepReorgDetection = true
-            setInterval(
-                () => this._detectDeepReorgs(), 
-                this.web3?.finalityScanInterval || config.FINALITY_SCAN_INTERVAL,
-            )
+            this._detectDeepReorgs().catch(e => logger.error(e))
         }
 
         // If another reorg occurs within the buffer while still working
@@ -169,7 +172,7 @@ class EvmReporter {
             }
         }
 
-        if (blockNumber < this.highestSeen) {
+        if (!forced && blockNumber < this.highestSeen) {
             range(blockNumber + 1, this.highestSeen).forEach(number => {
                 this.ignoreOnceDueToReorg.add(number)
             })
@@ -527,12 +530,26 @@ class EvmReporter {
     }
 
     async _detectDeepReorgs() {
-        if (!this.web3) return
+        await sleep(this.web3?.finalityScanInterval || config.FINALITY_SCAN_INTERVAL)
+
+        if (!this.web3) {
+            return this._detectDeepReorgs()
+        }
+        if (this.skipNextDeepReorgCheck) {
+            this.skipNextDeepReorgCheck = false
+            return this._detectDeepReorgs()
+        }
 
         // Get the block range to scan (leading up to the head).
         let fromBlockNumber = await this._getLatestFinalizedBlockNumber()
-        if (fromBlockNumber === null) return
+        if (fromBlockNumber === null) {
+            return this._detectDeepReorgs()
+        }
         fromBlockNumber -= config.FINALITY_SCAN_OFFSET_LEFT
+        if (this.lastFinalityScanCeiling !== null && fromBlockNumber > this.lastFinalityScanCeiling) {
+            fromBlockNumber = this.lastFinalityScanCeiling - 1
+        }
+
         const offsetRight = this.web3.finalityScanOffsetRight || config.FINALITY_SCAN_OFFSET_RIGHT
         const toBlockNumber = Math.max(this.highestSeen - offsetRight, 0)
         
@@ -540,33 +557,51 @@ class EvmReporter {
         const savedBlocks = await this._getSavedBlocksInRange(fromBlockNumber, toBlockNumber)
         if (!Object.keys(savedBlocks).length) {
             logger.notify(`[${this.chainId}] No blocks between ${fromBlockNumber} -> ${toBlockNumber}`)
-            return
+            return this._detectDeepReorgs()
         }
 
         // Sort the block numbers least-to-greatest.
         const blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
         const largestNumber = blockNumbers[blockNumbers.length - 1]
+        this.lastFinalityScanCeiling = largestNumber
 
         logger.info(chalk.magenta(
             `Checking for deep reorgs across ${blockNumbers.length} blocks:` + 
             ` ${blockNumbers[0]} -> ${largestNumber} (head=${this.highestSeen}, offset=${this.highestSeen - largestNumber})`
         ))
 
-        // Iterate over the block range, finding the smallest block number with a hash mismatch.
         const t0 = performance.now()
+        let actualHashes = []
+        try {
+            actualHashes = await this._getActualBlockHashesForBlockRange(blockNumbers)
+        } catch (err) {
+            logger.error(`Finality scan error: ${err}`)
+            return this._detectDeepReorgs()
+        }
+        const tf = performance.now()
+        const elapsed = Number(((tf - t0) / 1000).toFixed(2))
+        if (elapsed > 1000) {
+            logger.error(`Got incredibly delayed deep reorg timer response (${elapsed}s) — ignoring.`)
+            return this._detectDeepReorgs()
+        }
+
+        if (hasHitMaxCalls()) {
+            teardownWsProviderPool()
+            await sleep(50)
+            createWsProviderPool(true)
+        }
+
         const mismatches: StringKeyMap = []
-        for (const blockNumber of blockNumbers) {
+        for (let i = 0; i < blockNumbers.length; i++) {
+            const blockNumber = blockNumbers[i]
             const { hash: currentHash, timestamp } = savedBlocks[blockNumber.toString()]
-            let actualHash
-            try {
-                if (!this.web3) return
-                actualHash = await this.web3.blockHashForNumber(blockNumber)
-            } catch (err) {
-                logger.error(`Finality scan error: ${err}`)
-                return
+            const actualHash = actualHashes[i]
+            if (!actualHash) {
+                logger.error(`No actual hash fetched for ${blockNumber}: ${actualHash}`)
+                return this._detectDeepReorgs()
             }
             if (currentHash !== actualHash) {
-                mismatches.push({ blockNumber, largestNumber, currentHash, actualHash,timestamp })
+                mismatches.push({ blockNumber, largestNumber, currentHash, actualHash, timestamp })
             }
         }
         
@@ -574,12 +609,26 @@ class EvmReporter {
             const earliestMismatch = mismatches[0]
             const otherMismatches = mismatches.slice(1)
             await this._handleDeepHashMismatch(earliestMismatch, otherMismatches)
-            return
+            return this._detectDeepReorgs()
         }
 
-        const tf = performance.now()
-        const elapsed = Number(((tf - t0) / 1000).toFixed(2))
         logger.info(chalk.magenta(`No deep reorgs found (${elapsed}s)`)) 
+        return this._detectDeepReorgs()
+    }
+
+    async _getActualBlockHashesForBlockRange(blockNumbers: number[]): Promise<string[]> {
+        const chunks = toChunks(blockNumbers, config.FINALITY_SCAN_CHUNK_SIZE)
+        const rangeHashes = []
+        for (const chunk of chunks) {
+            await sleep(config.FINALITY_SCAN_ITERATION_DELAY)
+            rangeHashes.push(...(await Promise.all(chunk.map(n => this._actualHashForNumber(n)))))
+        }
+        return rangeHashes
+    }
+
+    async _actualHashForNumber(number: number) {
+        const { block } = await getWsProviderPool().getBlock(null, number, false)
+        return block.hash
     }
 
     async _getLatestFinalizedBlockNumber() {
@@ -695,6 +744,8 @@ class EvmReporter {
         otherMismatches.forEach(mismatch => {
             this.mostRecentBlockHashes.set(mismatch.blockNumber.toString(), mismatch.actualHash)
         })
+
+        this.skipNextDeepReorgCheck = true
 
         const mockHeader = {
             number: blockNumber,

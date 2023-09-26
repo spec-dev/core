@@ -656,9 +656,9 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean): EvmWeb3 {
         canGetBlockReceipts: true,
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
-        confirmationsUntilFinalized: 200,
+        confirmationsUntilFinalized: 1700,
         finalityScanOffsetRight: 20,
-        finalityScanInterval: 30000,
+        finalityScanInterval: 60000,
         isRangeMode,
     })
 }

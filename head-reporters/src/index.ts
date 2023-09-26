@@ -3,6 +3,7 @@ import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
+import { createWsProviderPool } from './wsProviderPool'
 
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
@@ -25,6 +26,8 @@ async function listen() {
         IndexerDB.initialize(),
         indexerRedis.connect(),
     ])
+
+    createWsProviderPool(true)
 
     // Rollback a specific table to a specific block number. Useful when a 
     // live object version gets half indexed for particular block and then fails. 

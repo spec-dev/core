@@ -49,7 +49,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length) {
-            await indexerRedis.sAdd(`new-wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`vb-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
         }
 
         logger.info('DONE')
@@ -73,7 +73,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length >= 1000) {
-            await indexerRedis.sAdd(`new-wrong-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`vb-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
     }
