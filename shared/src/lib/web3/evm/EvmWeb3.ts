@@ -655,7 +655,7 @@ export function newEthereumWeb3(
         canGetBlockReceipts: true,
         canGetParityTraces: true,
         finalityScanOffsetRight: 5,
-        finalityScanInterval: 60000,
+        finalityScanInterval: 180000,
         isRangeMode,
         wsRpcTimeout,
     })
