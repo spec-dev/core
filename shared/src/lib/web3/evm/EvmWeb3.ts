@@ -654,7 +654,7 @@ export function newEthereumWeb3(
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: true,
-        finalityScanOffsetRight: 8,
+        finalityScanOffsetRight: 5,
         finalityScanInterval: 60000,
         isRangeMode,
         wsRpcTimeout,
@@ -666,9 +666,9 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?
         canGetBlockReceipts: true,
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
-        confirmationsUntilFinalized: 1700,
-        finalityScanOffsetRight: 20,
-        finalityScanInterval: 60000,
+        confirmationsUntilFinalized: 1800,
+        finalityScanOffsetRight: 10,
+        finalityScanInterval: 180000,
         isRangeMode,
         wsRpcTimeout,
     })
