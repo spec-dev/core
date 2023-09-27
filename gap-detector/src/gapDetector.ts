@@ -6,8 +6,8 @@ import { Queue, QueueScheduler } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
 
 const checkInTolerances = {
-    [chainIds.POLYGON]: 20,
-    [chainIds.MUMBAI]: 20,
+    [chainIds.POLYGON]: 40,
+    [chainIds.MUMBAI]: 40,
 }
 
 class GapDetector {
