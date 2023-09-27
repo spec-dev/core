@@ -18,6 +18,9 @@ export const getIndexer = (head: NewReportedHead): Indexer | null => {
         case chainIds.MUMBAI:
             return new PolygonIndexer(head, { indexTraces: false })
 
+        case chainIds.BASE:
+            return new EvmIndexer(head)
+
         default:
             return null
     }

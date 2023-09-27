@@ -54,6 +54,8 @@ spec:
           value: {{POLYGON_HEAD_REPORTER_QUEUE_KEY}}
         - name: MUMBAI_HEAD_REPORTER_QUEUE_KEY
           value: {{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}
+        - name: BASE_HEAD_REPORTER_QUEUE_KEY
+          value: {{BASE_HEAD_REPORTER_QUEUE_KEY}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FORCE_COLOR

@@ -22,6 +22,8 @@ export const abiRedisKeys = {
     POLYGON_FUNCTION_SIGNATURES: 'polygon-function-signatures',
     MUMBAI_CONTRACTS: 'mumbai-contracts',
     MUMBAI_FUNCTION_SIGNATURES: 'mumbai-function-signatures',
+    BASE_CONTRACTS: 'base-contracts',
+    BASE_FUNCTION_SIGNATURES: 'base-function-signatures',
     CONTRACT_GROUPS: 'contract-groups',
 }
 
@@ -35,6 +37,8 @@ const contractsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.POLYGON_CONTRACTS
         case chainIds.MUMBAI:
             return abiRedisKeys.MUMBAI_CONTRACTS
+        case chainIds.BASE:
+            return abiRedisKeys.BASE_CONTRACTS
         default:
             return null
     }
@@ -50,6 +54,8 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.POLYGON_FUNCTION_SIGNATURES
         case chainIds.MUMBAI:
             return abiRedisKeys.MUMBAI_FUNCTION_SIGNATURES
+        case chainIds.BASE:
+            return abiRedisKeys.BASE_FUNCTION_SIGNATURES
         default:
             return null
     }

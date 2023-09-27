@@ -8,6 +8,7 @@ const queueKeys = {
     [chainIds.GOERLI]: 'goerli-hrq',
     [chainIds.POLYGON]: 'poly-hrq2',
     [chainIds.MUMBAI]: 'mumbai-hrq',
+    [chainIds.BASE]: 'base-hrq',
 }
 
 export async function enqueueBlock(
