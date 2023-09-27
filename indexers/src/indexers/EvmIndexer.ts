@@ -507,9 +507,11 @@ class EvmIndexer {
         erc20TotalSupplyUpdates: StringKeyMap[]
         erc20Balances: Erc20Balance[]
     }> {
-        if (config.IS_RANGE_MODE || !this.indexTokenTransfers) {
-            return { tokenTransfers: [], erc20TotalSupplyUpdates: [], erc20Balances: [] }
-        }
+        // HACK
+        return { tokenTransfers: [], erc20TotalSupplyUpdates: [], erc20Balances: [] }
+        // if (config.IS_RANGE_MODE || !this.indexTokenTransfers) {
+        //     return { tokenTransfers: [], erc20TotalSupplyUpdates: [], erc20Balances: [] }
+        // }
 
         // All token transfers.
         const [tokenTransfers, erc20TotalSupplyUpdates, referencedErc20TokensMap] = await initTokenTransfers(
