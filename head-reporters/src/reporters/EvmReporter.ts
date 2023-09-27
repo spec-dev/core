@@ -525,7 +525,7 @@ class EvmReporter {
                 hash: blockHash,
                 timestamp: unixTimestamp,
             }
-            this._onNewBlockHeader(mockHeader as BlockHeader)
+            this._onNewBlockHeader(mockHeader as BlockHeader, true)
         })
     }
 
@@ -752,7 +752,7 @@ class EvmReporter {
             hash: actualHash,
             timestamp: Math.floor(new Date(timestamp).valueOf() / 1000)
         }
-        this._onNewBlockHeader(mockHeader as BlockHeader)
+        this._onNewBlockHeader(mockHeader as BlockHeader, true)
     }
 
     _createWeb3Provider() {
