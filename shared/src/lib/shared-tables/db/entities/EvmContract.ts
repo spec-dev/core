@@ -1,11 +1,11 @@
 import { Entity, PrimaryColumn, Column } from 'typeorm'
-import schemas from '../../schemas'
+import { currentChainSchema } from '../../../utils/chainIds'
 import { decamelize } from 'humps'
 
 /**
  * An EVM Contract
  */
-@Entity('contracts', { schema: schemas.ethereum() })
+@Entity('contracts', { schema: currentChainSchema() })
 export class EvmContract {
     // Contract address.
     @PrimaryColumn('varchar', { length: 50 })

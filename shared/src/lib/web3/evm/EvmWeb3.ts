@@ -679,6 +679,19 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?
     })
 }
 
+export function newBaseWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: true,
+        finalityScanOffsetLeft: 900,
+        finalityScanOffsetRight: 10,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
 export function newEvmWeb3ForChainId(
     chainId: string,
     url: string,
@@ -695,6 +708,10 @@ export function newEvmWeb3ForChainId(
         case chainIds.POLYGON:
         case chainIds.MUMBAI:
             return newPolygonWeb3(url, isRangeMode, wsRpcTimeout)
+
+        // BASE
+        case chainIds.BASE:
+            return newBaseWeb3(url, isRangeMode, wsRpcTimeout)
 
         default:
             throw `Invalid chain id: ${chainId}`

@@ -7,6 +7,7 @@ const chainIds: { [key: string]: string } = {
     GOERLI: '5',
     POLYGON: '137',
     MUMBAI: '80001',
+    BASE: '8453',
 }
 
 export const supportedChainIds = new Set(Object.values(chainIds))
@@ -16,6 +17,7 @@ export const chainSpecificSchemas = {
     GOERLI: 'goerli',
     POLYGON: 'polygon',
     MUMBAI: 'mumbai',
+    BASE: 'base',
 }
 
 export const chainSpecificNamespaces = {
@@ -23,6 +25,7 @@ export const chainSpecificNamespaces = {
     GOERLI: 'goerli',
     POLYGON: 'polygon',
     MUMBAI: 'mumbai',
+    BASE: 'base',
 }
 
 export const nameForChainId = {
@@ -30,6 +33,7 @@ export const nameForChainId = {
     [chainIds.GOERLI]: 'Goerli',
     [chainIds.POLYGON]: 'Polygon',
     [chainIds.MUMBAI]: 'Mumbai',
+    [chainIds.BASE]: 'Base',
 }
 
 export const fullNameForChainId = {
@@ -37,6 +41,7 @@ export const fullNameForChainId = {
     [chainIds.GOERLI]: 'Goerli',
     [chainIds.POLYGON]: 'Polygon mainnet',
     [chainIds.MUMBAI]: 'Mumbai',
+    [chainIds.BASE]: 'Base',
 }
 
 export const nativeTokenSymbolForChainId = {
@@ -44,6 +49,7 @@ export const nativeTokenSymbolForChainId = {
     [chainIds.GOERLI]: 'ETH',
     [chainIds.POLYGON]: 'MATIC',
     [chainIds.MUMBAI]: 'MATIC',
+    [chainIds.BASE]: 'ETH',
 }
 
 export const chainIdForSchema = {
@@ -51,6 +57,7 @@ export const chainIdForSchema = {
     [chainSpecificSchemas.GOERLI]: chainIds.GOERLI,
     [chainSpecificSchemas.POLYGON]: chainIds.POLYGON,
     [chainSpecificSchemas.MUMBAI]: chainIds.MUMBAI,
+    [chainSpecificSchemas.BASE]: chainIds.BASE,
 }
 
 export const schemaForChainId = invert(chainIdForSchema)
@@ -60,6 +67,7 @@ export const namespaceForChainId = {
     [chainIds.GOERLI]: chainSpecificNamespaces.GOERLI,
     [chainIds.POLYGON]: chainSpecificNamespaces.POLYGON,
     [chainIds.MUMBAI]: chainSpecificNamespaces.MUMBAI,
+    [chainIds.BASE]: chainSpecificNamespaces.BASE,
 }
 const chainIdForNamespace = invert(namespaceForChainId)
 
@@ -68,6 +76,7 @@ export const chainIdLiveObjectVersionPropertyOptions = [
     chainIds.GOERLI,
     chainIds.POLYGON,
     chainIds.MUMBAI,
+    chainIds.BASE,
 ].map((chainId) => ({
     name: nameForChainId[chainId],
     value: chainId,
@@ -79,6 +88,7 @@ export const avgBlockTimesForChainId = {
     [chainIds.GOERLI]: 12,
     [chainIds.POLYGON]: 2,
     [chainIds.MUMBAI]: 2,
+    [chainIds.BASE]: 2,
 }
 
 const basePrimitives = [
@@ -123,6 +133,13 @@ export const primitivesForChainId = {
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.MUMBAI], p.table].join('.'),
+        })),
+        ...tokenPrimitives,
+    ],
+    [chainIds.BASE]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.BASE], p.table].join('.'),
         })),
         ...tokenPrimitives,
     ],
