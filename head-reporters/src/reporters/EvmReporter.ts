@@ -545,7 +545,7 @@ class EvmReporter {
         if (fromBlockNumber === null) {
             return this._detectDeepReorgs()
         }
-        fromBlockNumber -= config.FINALITY_SCAN_OFFSET_LEFT
+        fromBlockNumber -= (this.web3.finalityScanOffsetLeft || config.FINALITY_SCAN_OFFSET_LEFT)
         if (this.lastFinalityScanCeiling !== null && fromBlockNumber > this.lastFinalityScanCeiling) {
             fromBlockNumber = this.lastFinalityScanCeiling - 1
         }

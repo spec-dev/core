@@ -100,6 +100,7 @@ export interface EvmWeb3Options {
     supportsFinalizedTag?: boolean
     confirmationsUntilFinalized?: number
     finalityScanInterval?: number
+    finalityScanOffsetLeft?: number
     finalityScanOffsetRight?: number
     isRangeMode?: boolean
     wsRpcTimeout?: number

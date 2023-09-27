@@ -48,6 +48,8 @@ class EvmWeb3 {
 
     finalityScanInterval: number | null
 
+    finalityScanOffsetLeft: number | null
+
     finalityScanOffsetRight: number | null
 
     isRangeMode: boolean
@@ -74,6 +76,7 @@ class EvmWeb3 {
         this.supportsFinalizedTag = options.supportsFinalizedTag !== false
         this.confirmationsUntilFinalized = options.confirmationsUntilFinalized || null
         this.finalityScanInterval = options.finalityScanInterval || null
+        this.finalityScanOffsetLeft = options.finalityScanOffsetLeft || null
         this.finalityScanOffsetRight = options.finalityScanOffsetRight || null
         this.isRangeMode = options.isRangeMode || false
     }
@@ -654,6 +657,7 @@ export function newEthereumWeb3(
     return new EvmWeb3(url, {
         canGetBlockReceipts: true,
         canGetParityTraces: true,
+        finalityScanOffsetLeft: 400,
         finalityScanOffsetRight: 5,
         finalityScanInterval: 180000,
         isRangeMode,
@@ -667,6 +671,7 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
         confirmationsUntilFinalized: 1800,
+        finalityScanOffsetLeft: 300,
         finalityScanOffsetRight: 10,
         finalityScanInterval: 180000,
         isRangeMode,
