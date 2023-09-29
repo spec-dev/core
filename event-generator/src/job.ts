@@ -1045,7 +1045,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
             viewPathsUpdated.push(...entry.map(r => r.table_path))
         }
     }
-    viewPathsUpdated = unique(viewPathsUpdated)
+    viewPathsUpdated = unique(viewPathsUpdated.filter(v => !!v))
     if (!viewPathsUpdated.length) return
 
     // Save the record count deltas for the view paths affected.
