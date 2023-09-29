@@ -58,6 +58,15 @@ export async function getEventVersion(
     }
 }
 
+export async function getEventVersionsInNsp(nsp: string): Promise<EventVersion[] | null> {
+    try {
+        return await eventVersionsRepo().findBy({ nsp })
+    } catch (err) {
+        logger.error(`Error getting EventVersions (nsp=${nsp}): ${err}`)
+        return null
+    }
+}
+
 export async function getEventVersionsByNamespacedVersions(
     namespacedVersions: string[]
 ): Promise<EventVersion[]> {

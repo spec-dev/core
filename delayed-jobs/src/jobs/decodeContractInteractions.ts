@@ -57,6 +57,7 @@ async function decodeContractInteractions(
     queryRangeSize: number,
     jobRangeSize: number,
     registrationJobUid?: string,
+    fullContractGroup?: string,
 ) {
     logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
     registrationJobUid && await updateContractRegistrationJobStatus(
@@ -74,7 +75,7 @@ async function decodeContractInteractions(
     // Format tables to query based on chain-specific schema.
     const tables = buildTableRefsForChainId(chainId)
 
-    const onDone = async () => {
+    const onDone = async (): Promise<boolean> => {
         await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
         await sleep(randomIntegerInRange(100, 500))
 
@@ -86,7 +87,10 @@ async function decodeContractInteractions(
                 registrationJobUid,
                 ContractRegistrationJobStatus.Complete,
             )
+            return true
         }
+
+        return false
     }
 
     // Determine the earliest block in which this contract was interacted with 
@@ -94,7 +98,13 @@ async function decodeContractInteractions(
     startBlock = startBlock === null ? await findStartBlock(tables, contractAddresses) : startBlock
     if (startBlock === null) {
         logger.error(`No interactions detected for (${contractAddresses.join(', ')}). Stopping.`)
-        registrationJobUid && await onDone()
+        let shouldResetEventRecordCounts = true
+        if (registrationJobUid) {
+            shouldResetEventRecordCounts = await onDone()
+        }
+        if (shouldResetEventRecordCounts && fullContractGroup) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
@@ -133,7 +143,13 @@ async function decodeContractInteractions(
     // All contract interactions decoded *for this contract*.
     if (endCursor >= finalEndBlock) {
         logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
-        registrationJobUid && await onDone()
+        let shouldResetEventRecordCounts = true
+        if (registrationJobUid) {
+            shouldResetEventRecordCounts = await onDone()
+        }
+        if (shouldResetEventRecordCounts && fullContractGroup) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
@@ -146,6 +162,7 @@ async function decodeContractInteractions(
         queryRangeSize,
         jobRangeSize,
         registrationJobUid,
+        fullContractGroup,
     })
 }
 
@@ -184,79 +201,79 @@ async function decodePrimitivesUsingContracts(
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
     
-        let [transactions, traces, logs] = await Promise.all([
-            decodeTransactions(start, end, contractAddresses, abisMap, tables),
-            decodeTraces(start, end, contractAddresses, abisMap, tables),
-            decodeLogs(start, end, contractAddresses, abisMap, tables),
-        ])
-        transactions = transactions || []
-        traces = traces || []
-        logs = logs || []
+        // let [transactions, traces, logs] = await Promise.all([
+        //     decodeTransactions(start, end, contractAddresses, abisMap, tables),
+        //     decodeTraces(start, end, contractAddresses, abisMap, tables),
+        //     decodeLogs(start, end, contractAddresses, abisMap, tables),
+        // ])
+        // transactions = transactions || []
+        // traces = traces || []
+        // logs = logs || []
 
-        // If on Polygon, ensure all traces have been pulled for these transactions since 
-        // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
-        if (onPolygon) {
-            const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
-            batchNewTraces.push(...newTraces)
-        }
+        // // If on Polygon, ensure all traces have been pulled for these transactions since 
+        // // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
+        // if (onPolygon) {
+        //     const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
+        //     batchNewTraces.push(...newTraces)
+        // }
 
-        batchTransactions.push(...transactions)
-        batchTraces.push(...traces)
-        batchLogs.push(...logs)
+        // batchTransactions.push(...transactions)
+        // batchTraces.push(...traces)
+        // batchLogs.push(...logs)
         
-        const saveTransactions = batchTransactions.length > SAVE_BATCH_SIZE
-        const saveTraces = batchTraces.length > SAVE_BATCH_SIZE
-        const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
-        const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
+        // const saveTransactions = batchTransactions.length > SAVE_BATCH_SIZE
+        // const saveTraces = batchTraces.length > SAVE_BATCH_SIZE
+        // const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
+        // const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
 
-        let savePromises = []
+        // let savePromises = []
 
-        if (saveTransactions) {
-            const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
-            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool, true)))
-            batchTransactions = []
-        }
-        if (savePromises.length > MAX_PARALLEL_PROMISES) {
-            await Promise.all(savePromises)
-            savePromises = []
-        }
+        // if (saveTransactions) {
+        //     const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
+        //     savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool, true)))
+        //     batchTransactions = []
+        // }
+        // if (savePromises.length > MAX_PARALLEL_PROMISES) {
+        //     await Promise.all(savePromises)
+        //     savePromises = []
+        // }
 
-        if (saveTraces) {
-            const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool, true)))
-            batchTraces = []
-        }
-        if (savePromises.length > MAX_PARALLEL_PROMISES) {
-            await Promise.all(savePromises)
-            savePromises = []
-        }
+        // if (saveTraces) {
+        //     const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
+        //     savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool, true)))
+        //     batchTraces = []
+        // }
+        // if (savePromises.length > MAX_PARALLEL_PROMISES) {
+        //     await Promise.all(savePromises)
+        //     savePromises = []
+        // }
 
-        if (insertNewTraces) {
-            const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chunk, tables.traces, pool)))
-            batchNewTraces = []
-        }
-        if (savePromises.length > MAX_PARALLEL_PROMISES) {
-            await Promise.all(savePromises)
-            savePromises = []
-        }
+        // if (insertNewTraces) {
+        //     const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
+        //     savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chunk, tables.traces, pool)))
+        //     batchNewTraces = []
+        // }
+        // if (savePromises.length > MAX_PARALLEL_PROMISES) {
+        //     await Promise.all(savePromises)
+        //     savePromises = []
+        // }
 
-        if (saveLogs) {
-            const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
-            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool, true)))
-            batchLogs = []
-        }
-        await Promise.all(savePromises)
+        // if (saveLogs) {
+        //     const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
+        //     savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool, true)))
+        //     batchLogs = []
+        // }
+        // await Promise.all(savePromises)
 
         cursor = cursor + queryRangeSize
     }
 
-    const savePromises = []
-    batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool, true))
-    batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool, true))
-    batchNewTraces.length && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
-    batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool, true))
-    savePromises.length && await Promise.all(savePromises)
+    // const savePromises = []
+    // batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool, true))
+    // batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool, true))
+    // batchNewTraces.length && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
+    // batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool, true))
+    // savePromises.length && await Promise.all(savePromises)
 
     return cursor
 }
@@ -514,6 +531,7 @@ export default function job(params: StringKeyMap) {
     const queryRangeSize = params.queryRangeSize || config.QUERY_BLOCK_RANGE_SIZE
     const jobRangeSize = params.jobRangeSize || config.JOB_BLOCK_RANGE_SIZE
     const registrationJobUid = params.registrationJobUid
+    const fullContractGroup = params.fullContractGroup
 
     return {
         perform: async () => {
@@ -526,6 +544,7 @@ export default function job(params: StringKeyMap) {
                     queryRangeSize,
                     jobRangeSize,
                     registrationJobUid,
+                    fullContractGroup,
                 )
             } catch (err) {
                 logger.error(err)

@@ -86,6 +86,7 @@ export async function publishLiveObjectVersion(
         payload,
         liveObjectId,
         example,
+        tablePath,
         namespacedLiveObjectVersion,
         inputEventVersions,
         inputCallNamespaceIds,
@@ -198,6 +199,7 @@ async function saveDataModels(
     payload: PublishLiveObjectVersionPayload,
     liveObjectId: number,
     example: StringKeyMap | null,
+    tablePath: string,
     namespacedLiveObjectVersion: string,
     inputEventVersions: EventVersion[],
     inputCallNamespaceIds: number[],
@@ -299,6 +301,12 @@ async function saveDataModels(
                     tx
                 ))
         })
+
+        // Set the stage for record count tracking.
+        await SharedTables.query(
+            `insert into record_counts (table_path) values ($1) on conflict do nothing`,
+            [tablePath]
+        )
     } catch (err) {
         logger.error(
             `Failed to save data models while publishing ${namespacedLiveObjectVersion}: ${err}`

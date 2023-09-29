@@ -21,12 +21,12 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
 
-    // Authorize request for given namespace using either user auth header or namespace auth header.
-    const allowedScopes = [
-        NamespaceAccessTokenScope.RegisterContracts,
-        NamespaceAccessTokenScope.Internal,
-    ]
-    if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
+    // // Authorize request for given namespace using either user auth header or namespace auth header.
+    // const allowedScopes = [
+    //     NamespaceAccessTokenScope.RegisterContracts,
+    //     NamespaceAccessTokenScope.Internal,
+    // ]
+    // if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // Create a uid ahead of time that will be used as the uid for a new ContractRegistrationJob
     // that will get created inside of the registerContractInstances delayed job. We're creating

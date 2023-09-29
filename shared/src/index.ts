@@ -267,6 +267,7 @@ export {
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
     getContractEventsForGroup,
+    getEventVersionsInNsp,
     resolveEventVersionCursors,
 } from './lib/core/db/services/eventVersionServices'
 export {

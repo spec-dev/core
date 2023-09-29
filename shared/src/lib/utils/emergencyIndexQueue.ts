@@ -6,7 +6,7 @@ import chainIds from './chainIds'
 const queueKeys = {
     [chainIds.ETHEREUM]: 'eth-hrq',
     [chainIds.GOERLI]: 'goerli-hrq',
-    [chainIds.POLYGON]: 'poly-hrq2',
+    [chainIds.POLYGON]: 'poly-hrq4',
     [chainIds.MUMBAI]: 'mumbai-hrq',
     [chainIds.BASE]: 'base-hrq',
 }
