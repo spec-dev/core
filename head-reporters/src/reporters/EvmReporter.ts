@@ -525,6 +525,7 @@ class EvmReporter {
                 hash: blockHash,
                 timestamp: unixTimestamp,
             }
+            this.ignoreOnceDueToReorg.delete(Number(blockNumber))
             this._onNewBlockHeader(mockHeader as BlockHeader, true)
         })
     }
@@ -752,6 +753,7 @@ class EvmReporter {
             hash: actualHash,
             timestamp: Math.floor(new Date(timestamp).valueOf() / 1000)
         }
+        this.ignoreOnceDueToReorg.delete(Number(blockNumber))
         this._onNewBlockHeader(mockHeader as BlockHeader, true)
     }
 
