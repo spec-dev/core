@@ -1038,13 +1038,15 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
     }
 
     // Get the view paths affected.
-    const viewPathsUpdated = []
+    let viewPathsUpdated = []
     const flat = results.flat()
     for (const entry of flat) {
         if (Array.isArray(entry)) {
             viewPathsUpdated.push(...entry.map(r => r.table_path))
         }
     }
+    viewPathsUpdated = unique(viewPathsUpdated)
+    if (!viewPathsUpdated.length) return
 
     // Save the record count deltas for the view paths affected.
     const placeholders = []
@@ -1061,7 +1063,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
             bindings,
         )
     } catch (err) {
-        logger.error(`[${chainId}:${blockNumber}] Error incrementing record count delats: ${err}`)
+        logger.error(`[${chainId}:${blockNumber}] Error incrementing record count deltas: ${err}`)
     }
 }
 

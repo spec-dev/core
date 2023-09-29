@@ -30,10 +30,10 @@ BEGIN
     CASE TG_OP
     WHEN 'INSERT' THEN
         rec := NEW;
-        EXECUTE 'INSERT INTO record_counts (table_path, updated_at) VALUES ($1, $2) ON CONFLICT (table_path) DO UPDATE SET value = record_counts.value + 1' USING table_path, rec.block_timestamp;
+        EXECUTE 'INSERT INTO record_counts (table_path, updated_at) VALUES ($1, $2) ON CONFLICT (table_path) DO UPDATE SET value = record_counts.value + 1, updated_at = excluded.updated_at' USING table_path, rec.block_timestamp;
     WHEN 'DELETE' THEN
         rec := OLD;
-        EXECUTE 'INSERT INTO record_counts (table_path, updated_at) VALUES ($1, $2) ON CONFLICT (table_path) DO UPDATE SET value = record_counts.value - 1 where record_counts.value > 0' USING table_path, now() at time zone 'utc';
+        EXECUTE 'INSERT INTO record_counts (table_path, updated_at) VALUES ($1, $2) ON CONFLICT (table_path) DO UPDATE SET value = record_counts.value - 1, updated_at = excluded.updated_at where record_counts.value > 0' USING table_path, now() at time zone 'utc';
     END CASE;
 
     RETURN rec;
