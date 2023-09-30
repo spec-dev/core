@@ -259,10 +259,10 @@ export {
     getContractInstancesInNamespace,
     getContractInstancesInGroup,
 } from './lib/core/db/services/contractInstanceServices'
-export { 
-    createEvent, 
-    getEvent, 
-    upsertEventsWithTx, 
+export {
+    createEvent,
+    getEvent,
+    upsertEventsWithTx,
     getEvents,
 } from './lib/core/db/services/eventServices'
 export {
