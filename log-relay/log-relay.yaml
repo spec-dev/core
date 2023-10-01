@@ -52,7 +52,7 @@ spec:
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FLIP
-          value: heads
+          value: tails
         readinessProbe:
           httpGet:
             path: /health-check
