@@ -25,7 +25,12 @@ SELECT DISTINCT ON (lv.live_object_id)
     n.slug AS namespace_slug, 
     n.code_url AS namespace_code_url, 
     n.has_icon AS namespace_has_icon, 
-    n.created_at AS namespace_created_at 
+    n.created_at AS namespace_created_at,
+    CASE
+        WHEN n.name LIKE '%.%'
+            THEN CONCAT(ARRAY_TO_STRING((STRING_TO_ARRAY(n.name, '.'))[3:4], '.'), '.', l.name)
+        ELSE CONCAT(n.name, '.', l.name)
+    END as group_name
 FROM live_object_versions lv
 LEFT JOIN live_objects l ON l.id = lv.live_object_id
 LEFT JOIN namespaces n ON n.id = l.namespace_id

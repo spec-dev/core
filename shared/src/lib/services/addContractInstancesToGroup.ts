@@ -34,6 +34,7 @@ import {
 import { SharedTables } from '../shared-tables/db/dataSource'
 import { getNamespaces } from '../core/db/services/namespaceServices'
 import { createContractGroup } from './createContractGroup'
+import { camelizeKeys } from 'humps'
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -226,23 +227,30 @@ export async function addContractInstancesToGroup(
         ),
     ])
 
-    // Get all transactions for the logs in this block so we can quickly
-    // check whether a log succeeded or not (by tx hash).
-    const logTxHashes = unique(logs.map((log) => log.transactionHash))
-    const phs = logTxHashes.map((_, i) => `$${i + 1}`).join(', ')
-    let logTxs = []
+    // Get all transactions for the logs & traces in this block so we can quickly
+    // check whether a log succeeded or not (by tx hash) and attach the full tx.
+    const uniqueTxHashes = unique([
+        ...logs.map((log) => log.transactionHash),
+        ...traces.map((trace) => trace.transactionHash),
+    ])
+    const phs = uniqueTxHashes.map((_, i) => `$${i + 1}`).join(', ')
+    let inputTxs = []
     try {
-        logTxs = logTxHashes.length
+        inputTxs = uniqueTxHashes.length
             ? await SharedTables.query(
                   `select * from ${tables.transactions} where "hash" in (${phs})`,
-                  logTxHashes
+                  uniqueTxHashes
               )
             : []
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
+    inputTxs = camelizeKeys(inputTxs) as any[]
+
+    const txMap = {}
     const txSuccess = {}
-    for (const tx of logTxs) {
+    for (const tx of inputTxs) {
+        txMap[tx.hash] = tx
         txSuccess[tx.hash] = tx.status != 0
     }
 
@@ -278,7 +286,8 @@ export async function addContractInstancesToGroup(
             decodedLog,
             groupAbi,
             contract.name,
-            chainId
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedEventData) continue
 
@@ -293,7 +302,7 @@ export async function addContractInstancesToGroup(
     // New block calls generated *for this contract group* due to one of the new addresses.
     const newCallSpecs = []
     for (const decodedTrace of decodedSuccessfulTraceCalls) {
-        const { functionName, input, id } = decodedTrace
+        const { functionName, input, id, transactionHash } = decodedTrace
         const signature = input?.slice(0, 10)
         const name = toNamespacedVersion(fullNsp, functionName, signature)
         const uniqueCallKey = [id, name].join(':')
@@ -304,9 +313,11 @@ export async function addContractInstancesToGroup(
             signature,
             groupAbi,
             contract.name,
-            chainId
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedCallData) continue
+
         const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
         newCallSpecs.push({
             origin: callOrigin,
@@ -338,5 +349,5 @@ async function upsertContractGroupForChainId(chainId: string, group: string, ful
 
     // Create contract group for the new target chain id.
     const [nsp, name] = group.split('.')
-    await createContractGroup(nsp, name, [chainId], groupAbi)
+    await createContractGroup(nsp, name, [chainId], groupAbi, false)
 }

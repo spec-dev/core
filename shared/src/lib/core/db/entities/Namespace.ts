@@ -58,6 +58,9 @@ export class Namespace {
     @Column({ nullable: true })
     verified: boolean
 
+    @Column({ nullable: true })
+    blurhash: string
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',
@@ -118,6 +121,7 @@ export class Namespace {
             updatedAt: this.updatedAt.toISOString(),
             joinedAt: this.joinedAt?.toISOString(),
             icon: this.hasIcon ? buildIconUrl(this.name) : null,
+            blurhash: this.blurhash,
             chainIds: await getChainIdsForNamespace(this.name),
             records: 1013861,
             lastInteraction: 10,

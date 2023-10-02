@@ -150,6 +150,7 @@ async function registerContractInstances(
             chainId, 
             registrationJobUid: uid,
             contractAddresses: [contractAddress],
+            fullContractGroup: fullNsp,
         })
     }
 }

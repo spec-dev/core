@@ -79,7 +79,8 @@ class BackfillTransfersWorker {
     }
 
     async _upsertTokenTransfers(tokenTransfers: TokenTransfer[], tx: any) {
-        const [updateCols, conflictCols] = fullTokenTransferUpsertConfig()
+        const [_, conflictCols] = fullTokenTransferUpsertConfig()
+        const conflictColStatement = conflictCols.map(ident).join(', ')
         tokenTransfers = uniqueByKeys(tokenTransfers, conflictCols.map(snakeToCamel)) as TokenTransfer[]
         await Promise.all(
             toChunks(tokenTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
@@ -88,23 +89,9 @@ class BackfillTransfersWorker {
                     .insert()
                     .into(TokenTransfer)
                     .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
-                    .execute()
-            })
-        )
-    }
-
-    async _upsertNftTransfers(nftTransfers: NftTransfer[], tx: any) {
-        const [updateCols, conflictCols] = fullNftTransferUpsertConfig(nftTransfers[0])
-        nftTransfers = uniqueByKeys(nftTransfers, conflictCols.map(snakeToCamel)) as NftTransfer[]
-        await Promise.all(
-            toChunks(nftTransfers, config.MAX_BINDINGS_SIZE).map((chunk) => {
-                return tx
-                    .createQueryBuilder()
-                    .insert()
-                    .into(NftTransfer)
-                    .values(chunk)
-                    .orUpdate(updateCols, conflictCols)
+                    .onConflict(
+                        `(${conflictColStatement}) DO NOTHING`,
+                    )
                     .execute()
             })
         )

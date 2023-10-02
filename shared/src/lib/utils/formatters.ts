@@ -1,5 +1,5 @@
 import { numberToHex as nth, hexToNumber as htn, hexToNumberString as htns } from 'web3-utils'
-import { StringKeyMap } from '../types'
+import { StringKeyMap, ContractEventSpec } from '../types'
 import { Abi } from '../abi/types'
 import humps from 'humps'
 import Web3 from 'web3'
@@ -8,6 +8,10 @@ import { toDate } from './date'
 import path from 'path'
 import { isContractNamespace } from './chainIds'
 import logger from '../logger'
+import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
+import { hash } from '../utils/hash'
+import { MAX_TABLE_NAME_LENGTH } from '../utils/pgMeta'
+import { EventVersion } from '../core/db/entities/EventVersion'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -147,6 +151,11 @@ export const fromNamespacedVersion = (
     const nsp = dotSplit.join('.')
 
     return { nsp, name, version }
+}
+
+export const splitOnLastOccurance = (value: string, delimiter: string): string[] => {
+    const index = value.lastIndexOf(delimiter)
+    return index < 0 ? [value] : [value.slice(0, index), value.slice(index + 1)]
 }
 
 export const uniqueByKeys = (iterable: StringKeyMap[], keys: string[]): StringKeyMap[] => {
@@ -498,9 +507,10 @@ export function formatLogAsSpecEvent(
     log: StringKeyMap,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction
 ): StringKeyMap | null {
-    const eventOrigin = {
+    let eventOrigin: StringKeyMap = {
         contractAddress: log.address,
         transactionHash: log.transactionHash,
         transactionIndex: log.transactionIndex,
@@ -516,6 +526,12 @@ export function formatLogAsSpecEvent(
         ...eventOrigin,
         contractName: contractInstanceName,
         logIndex: log.logIndex,
+    }
+
+    // add after creating the fixed properties above.
+    eventOrigin = {
+        ...eventOrigin,
+        transaction,
     }
 
     const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
@@ -565,12 +581,14 @@ export function formatTraceAsSpecCall(
     signature: string,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction
 ): StringKeyMap {
     const callOrigin = {
         _id: trace.id,
         contractAddress: trace.to,
         contractName: contractInstanceName,
+        transaction,
         transactionHash: trace.transactionHash,
         transactionIndex: trace.transactionIndex,
         traceIndex: trace.traceIndex,
@@ -672,4 +690,29 @@ export function formatAsLatestLiveObject(result) {
     } catch (err) {
         logger.error('format error', err)
     }
+}
+
+export function formatEventVersionViewNameFromEventSpec(
+    eventSpec: ContractEventSpec,
+    nsp: string
+): string {
+    const { contractName, eventName, abiItem } = eventSpec
+    const shortSig = abiItem.signature.slice(0, 10)
+    const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
+    return viewName.length >= MAX_TABLE_NAME_LENGTH
+        ? [nsp, hash(viewName).slice(0, 10)].join('_').toLowerCase()
+        : viewName
+}
+
+export function formatEventVersionViewName(eventVersion: EventVersion): string | null {
+    const splitNsp = eventVersion.nsp.split('.')
+    if (splitNsp.length < 4) return null
+    const nsp = splitNsp[2]
+    const contractName = splitNsp[3]
+    const eventName = eventVersion.name
+    const shortSig = eventVersion.version.slice(0, 10)
+    const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
+    return viewName.length >= MAX_TABLE_NAME_LENGTH
+        ? [nsp, hash(viewName).slice(0, 10)].join('_').toLowerCase()
+        : viewName
 }

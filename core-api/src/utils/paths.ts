@@ -12,6 +12,7 @@ const prefix = {
     PIPELINE: '/pipeline',
     CONTRACT: '/contract',
     NAMESPACE: '/namespace',
+    EVENT: '/event',
 }
 
 const paths = {
@@ -59,6 +60,11 @@ const paths = {
     // Event Version paths.
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',
     EVENT_VERSIONS: prefix.EVENT_VERSION + 's',
+    RESOLVE_EVENT_VERSION_CURSORS: prefix.EVENT_VERSION + 's' + '/resolve/cursors',
+    GET_EVENT_VERSION_DATA_AFTER: prefix.EVENT_VERSION + 's' + '/data/after',
+
+    //Event paths.
+    EVENTS: prefix.EVENT + 's',
 
     // Call Version paths.
     RESOLVE_CALL_VERSIONS: prefix.CALL_VERSION + 's' + '/resolve',

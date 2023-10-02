@@ -2,6 +2,7 @@ import { Worker, Job } from 'bullmq'
 import config from './config'
 import { logger, DelayedJobSpec } from '../../shared'
 import { getJob } from './jobs'
+import chalk from 'chalk'
 
 export function getWorker(): Worker {
     const worker = new Worker(
@@ -25,16 +26,16 @@ export function getWorker(): Worker {
 
     worker.on('completed', async (job) => {
         const jobSpec = job.data as DelayedJobSpec
-        logger.info(`Successfully performed delayed job ${jobSpec.name}.`)
+        logger.info(chalk.greenBright(`Successfully performed delayed job ${jobSpec.name}.`))
     })
 
     worker.on('failed', async (job, err) => {
         const jobSpec = job.data as DelayedJobSpec
-        logger.error(`Delayed job ${jobSpec.name} failed -- ${err}.`)
+        logger.error(chalk.redBright(`Delayed job ${jobSpec.name} failed -- ${err}.`))
     })
 
     worker.on('error', (err) => {
-        logger.error(`Delayed job worker error: ${err}.`)
+        logger.error(chalk.redBright(`Delayed job worker error: ${err}.`))
     })
 
     return worker

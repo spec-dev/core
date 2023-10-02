@@ -39,6 +39,7 @@ ethereum_head_reporter_queue_key=$( $shared_bin_dir/env_reader "eth" "HEAD_REPOR
 goerli_head_reporter_queue_key=$( $shared_bin_dir/env_reader "goerli" "HEAD_REPORTER_QUEUE_KEY" )
 polygon_head_reporter_queue_key=$( $shared_bin_dir/env_reader "polygon" "HEAD_REPORTER_QUEUE_KEY" )
 mumbai_head_reporter_queue_key=$( $shared_bin_dir/env_reader "mumbai" "HEAD_REPORTER_QUEUE_KEY" )
+base_head_reporter_queue_key=$( $shared_bin_dir/env_reader "base" "HEAD_REPORTER_QUEUE_KEY" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -60,12 +61,6 @@ $shared_bin_dir/assert_env "INDEXER_DB_PORT" "$indexer_db_port"
 $shared_bin_dir/assert_env "INDEXER_DB_USERNAME" "$indexer_db_username"
 $shared_bin_dir/assert_env "INDEXER_DB_PASSWORD" "$indexer_db_password"
 
-# Head reporter queue keys
-#$shared_bin_dir/assert_env "ETHEREUM_HEAD_REPORTER_QUEUE_KEY" "$ethereum_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "GOERLI_HEAD_REPORTER_QUEUE_KEY" "$goerli_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "POLYGON_HEAD_REPORTER_QUEUE_KEY" "$polygon_head_reporter_queue_key"
-#$shared_bin_dir/assert_env "MUMBAI_HEAD_REPORTER_QUEUE_KEY" "$mumbai_head_reporter_queue_key"
-
 # ======== GET LATEST IMAGE ======== #
 
 aws_account_id=$( $shared_bin_dir/env_reader "$env" "AWS_ACCOUNT_ID" )
@@ -75,7 +70,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "GAP_DETECTOR_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="68ae1e4"
+image_version="827a785"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -101,6 +96,7 @@ template=$( cat "$template_path" | \
     sed "s|{{GOERLI_HEAD_REPORTER_QUEUE_KEY}}|$goerli_head_reporter_queue_key|g" | \
     sed "s|{{POLYGON_HEAD_REPORTER_QUEUE_KEY}}|$polygon_head_reporter_queue_key|g" | \
     sed "s|{{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}|$mumbai_head_reporter_queue_key|g" | \
+    sed "s|{{BASE_HEAD_REPORTER_QUEUE_KEY}}|$base_head_reporter_queue_key|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating gap-detector job resources..."

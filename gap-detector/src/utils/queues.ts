@@ -6,4 +6,5 @@ export const queueNameForChainId = {
     [chainIds.GOERLI]: config.GOERLI_HEAD_REPORTER_QUEUE_KEY,
     [chainIds.POLYGON]: config.POLYGON_HEAD_REPORTER_QUEUE_KEY,
     [chainIds.MUMBAI]: config.MUMBAI_HEAD_REPORTER_QUEUE_KEY,
+    [chainIds.BASE]: config.BASE_HEAD_REPORTER_QUEUE_KEY,
 }

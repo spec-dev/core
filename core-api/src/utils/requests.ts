@@ -37,8 +37,8 @@ export const codes = {
 }
 
 export async function authorizeRequestForNamespace(
-    req,
-    res,
+    req: any,
+    res: any,
     namespaceName: string,
     allowedScopes: string[]
 ): Promise<boolean> {

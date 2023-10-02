@@ -2,6 +2,7 @@ import { CoreDB } from '../core/db/dataSource'
 import { SharedTables } from '../shared-tables/db/dataSource'
 import { LiveObjectVersion } from '../core/db/entities/LiveObjectVersion'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
+import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
@@ -181,6 +182,7 @@ function buildGenerator(
         }
 
         const successfulTxHashes = {}
+        const chainTxsByHash = {}
         let promises = []
         for (const chainId of chainsToQuery) {
             const wrapper = async () => {
@@ -195,7 +197,7 @@ function buildGenerator(
                     i++
                 }
                 const txResults = await SharedTables.query(
-                    `select hash, status from ${ident(schema)}.${ident(
+                    `select * from ${ident(schema)}.${ident(
                         'transactions'
                     )} where hash in (${placeholders.join(', ')})`,
                     txHashes
@@ -203,6 +205,11 @@ function buildGenerator(
                 successfulTxHashes[chainId] = new Set(
                     txResults.filter((tx) => tx.status != 0).map((tx) => tx.hash)
                 )
+                const txsByHash = {}
+                for (const tx of txResults) {
+                    txsByHash[tx.hash] = camelizeKeys(tx)
+                }
+                chainTxsByHash[chainId] = txsByHash
             }
             promises.push(wrapper())
         }
@@ -248,10 +255,12 @@ function buildGenerator(
 
         const inputSpecs = []
         for (let input of sortedInputs) {
-            const { chainId, inputType } = input
+            const { chainId, inputType, transactionHash } = input
             delete input.chainId
             delete input.inputType
             const record = input
+            const chainTxs = chainTxsByHash[chainId] || {}
+            const tx = chainTxs[transactionHash]
 
             if (inputType === 'event') {
                 const contractGroups =
@@ -270,7 +279,8 @@ function buildGenerator(
                         record,
                         contractGroupAbi,
                         contractInstanceName,
-                        chainId
+                        chainId,
+                        tx
                     )
                     if (!formattedEventData) continue
 
@@ -301,7 +311,8 @@ function buildGenerator(
                         signature,
                         contractGroupAbi,
                         contractInstanceName,
-                        chainId
+                        chainId,
+                        tx
                     )
                     if (!formattedCallData) continue
 
@@ -339,9 +350,9 @@ Example return structure:
             "inputEventsQueryComps": [
                 "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
-            "inputEventIds": Set<[
+            "inputEventIds": Set(
                 "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
-            ]>
+            )
             "inputFunctionsQueryComps": [],
             "inputFunctionIds": Set<[]>
             "timestampCursor": "2022-10-10T05:00:00.000Z"
@@ -913,9 +924,10 @@ function formatLogAsSpecEvent(
     log: StringKeyMap,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction
 ): StringKeyMap {
-    const eventOrigin = {
+    let eventOrigin: StringKeyMap = {
         contractAddress: log.address,
         transactionHash: log.transactionHash,
         transactionIndex: log.transactionIndex,
@@ -931,6 +943,12 @@ function formatLogAsSpecEvent(
         ...eventOrigin,
         contractName: contractInstanceName,
         logIndex: log.logIndex,
+    }
+
+    // add after creating the fixed properties above.
+    eventOrigin = {
+        ...eventOrigin,
+        transaction,
     }
 
     const groupAbiItem = contractGroupAbi.find((item) => item.signature === log.topic0)
@@ -980,12 +998,14 @@ function formatTraceAsSpecCall(
     signature: string,
     contractGroupAbi: Abi,
     contractInstanceName: string,
-    chainId: string
+    chainId: string,
+    transaction: EvmTransaction
 ): StringKeyMap {
     const callOrigin = {
         _id: trace.id,
         contractAddress: trace.to,
         contractName: contractInstanceName,
+        transaction,
         transactionHash: trace.transactionHash,
         transactionIndex: trace.transactionIndex,
         traceIndex: trace.traceIndex,

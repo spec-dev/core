@@ -32,8 +32,11 @@ export async function rollbackTables(chainId: string, block: BlockHeader, toNumb
     const { appendOnlyPrimitives, updatablePrimitives } = getPrimitivesByType(chainId)
     const updatablePrimitiveTablePaths = new Set(updatablePrimitives.map(p => p.table))
 
-    // Delete from append-only primitive tables >= blockNumber.
-    await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber, toNumber)
+    // Delete append-only primitives >= blockNumber and rollback any record counts.
+    await Promise.all([
+        deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber, toNumber),
+        rollbackRecordCounts(chainId, blockNumber),
+    ])
 
     // Get all tables that are being tracked for operations.
     const opTables: StringKeyMap[] = updatablePrimitives.map(obj => ({ ...obj, isPrimitive: true }))
@@ -170,6 +173,53 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
         chainId,
         blockNumber,
     )))
+}
+
+async function rollbackRecordCounts(chainId: string, blockNumber: number) {
+    let deltas = []
+    try {
+        deltas = (await SharedTables.query(
+            `select * from record_count_deltas where chain_id = $1 and block_number >= $2`,
+            [chainId, blockNumber]
+        )) || []
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error finding record count deltas during rollback: ${err}`)
+        return
+    }
+    
+    const aggregates = {}
+    for (const { table_path, value } of deltas) {
+        aggregates[table_path] = aggregates[table_path] || 0
+        aggregates[table_path] += value
+    }
+    const tablePaths = Object.keys(aggregates)
+    if (!tablePaths.length) return
+    const tablePathChunks = toChunks(tablePaths, 20)
+
+    try {
+        await SharedTables.manager.transaction(async (tx) => {
+            for (const chunk of tablePathChunks) {
+                await Promise.all(chunk.map(tablePath => (
+                    tx.query(
+                        `update record_counts set value = value - $1 where table_path = $2`,
+                        [aggregates[tablePath], tablePath]
+                    )
+                )))
+            }
+        })
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error rolling back record counts during rollback: ${err}`)
+        return
+    }
+
+    try {
+        await SharedTables.query(
+            `delete from record_count_deltas where chain_id = $1 and block_number >= $2`,
+            [chainId, blockNumber]
+        )
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error deleting record count deltas during rollback: ${err}`)
+    }
 }
 
 export async function getOpTrackingTablesForChain(chainId: string): Promise<string[]> {
@@ -382,8 +432,16 @@ async function upsertRecordsToPreviousStates(
         const sortedRecordKeys = Object.keys(opRecord.before).sort()
         for (const colName of sortedRecordKeys) {
             if (conflictColNamesSet.has(colName)) continue
+
             updateColNames.push(colName)
-            updateColValues.push(opRecord.before[colName])
+
+            // Re-stringify JSON column types.
+            let colValue = opRecord.before[colName]
+            if (colValue && typeof colValue === 'object') {
+                colValue = stringifyObjectTypeColValue(tablePath, colName, colValue)
+            }
+            
+            updateColValues.push(colValue)
         }
 
         const uniqueKey = ['c', ...conflictColNames, 'u', ...updateColNames].join(':')
@@ -556,4 +614,14 @@ async function setLiveObjectVersionsThatRelyOnTableToFailing(
         updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing),
         ...lovIds.map(lovId => markLovFailure(lovId, blockTimestamp)),
     ])
+}
+
+function stringifyObjectTypeColValue(tablePath: string, colName: string, value: any): any {
+    const originalValue = value
+    try {
+        return JSON.stringify(value)
+    } catch (err) {
+        logger.error(`Error stringifying ${tablePath}.${colName} during rollback: ${value} - ${err}`)
+        return originalValue
+    }
 }

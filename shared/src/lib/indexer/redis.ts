@@ -9,8 +9,12 @@ import { unique } from '../utils/formatters'
 
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 
+export function newRedisClient(url: string) {
+    return createClient({ url })
+}
+
 // Create redis client.
-export const redis = configureRedis ? createClient({ url: config.INDEXER_REDIS_URL }) : null
+export const redis = configureRedis ? newRedisClient(config.INDEXER_REDIS_URL) : null
 
 // Log any redis client errors.
 redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
@@ -24,6 +28,7 @@ export const keys = {
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
     FREEZE_ABOVE_BLOCK_PREFIX: 'freeze-above-block',
     FREEZE_ABOVE_BLOCK_UPDATE: 'freeze-above-block-update',
+    FORCED_ROLLBACK: 'forced-rollback',
     PROCESS_NEW_HEADS_PREFIX: 'process-new-heads',
     PROCESS_INDEX_JOBS_PREFIX: 'process-index-jobs',
     PROCESS_EVENT_SORTER_JOBS_PREFIX: 'process-event-sorter',
@@ -127,14 +132,33 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
-export async function getLastEventId(eventName: string): Promise<string | null> {
+export async function getLastEvent(eventName: string): Promise<StringKeyMap | null> {
     try {
         const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]
         const eventData = lastEntry?.message?.event
         if (!eventData) return null
-        return JSON.parse(eventData)?.id || null
+        return JSON.parse(eventData)
     } catch (err) {
-        logger.error(`Error getting last event id for ${eventName}: ${err}.`)
+        logger.error(`Error getting last event for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
+export async function getLastEventId(eventName: string): Promise<string | null> {
+    return (await getLastEvent(eventName))?.id || null
+}
+
+// In this function, the "ids" are our "nonces".
+export async function getEventIdDirectlyBeforeId(
+    eventName: string,
+    targetId: string
+): Promise<string | null> {
+    try {
+        const prevEntry = ((await redis?.xRevRange(eventName, targetId, '-', { COUNT: 2 })) ||
+            [])[1]
+        return prevEntry?.id || null
+    } catch (err) {
+        logger.error(`Error getting event id directly before ${targetId} for ${eventName}: ${err}.`)
         return null
     }
 }
@@ -987,5 +1011,25 @@ export async function getAdditionalContractsToGenerateInputsFor(
             `Error getting additional contracts to generate inputs for (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
         )
         return null
+    }
+}
+
+export async function publishForcedRollback(
+    chainId: string,
+    blockNumber: number,
+    blockHash: string | null,
+    unixTimestamp: number
+) {
+    try {
+        await redis?.publish(
+            [keys.FORCED_ROLLBACK, chainId].join('-'),
+            JSON.stringify({
+                blockNumber: blockNumber === null ? null : Number(blockNumber),
+                blockHash: blockHash,
+                unixTimestamp,
+            })
+        )
+    } catch (err) {
+        throw `Error publishing forced rollback event (chainId=${chainId}, blockNumber=${blockNumber}, blockHash=${blockHash}): ${err}`
     }
 }

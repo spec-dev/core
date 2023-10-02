@@ -3,7 +3,7 @@ import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
-import uuid4 from 'uuid4'
+import { createWsProviderPool } from './wsProviderPool'
 
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
@@ -27,6 +27,8 @@ async function listen() {
         indexerRedis.connect(),
     ])
 
+    createWsProviderPool(true)
+
     // Rollback a specific table to a specific block number. Useful when a 
     // live object version gets half indexed for particular block and then fails. 
     if (config.ROLLBACK_TABLE && config.ROLLBACK_TARGET !== null) {
@@ -40,7 +42,7 @@ async function listen() {
         return
     }
 
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
 
     // Force-run an uncle that failed after patch fix.
     if (config.FORCE_UNCLE_RANGE.length === 2) {

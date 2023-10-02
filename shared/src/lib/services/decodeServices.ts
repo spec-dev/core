@@ -332,7 +332,7 @@ export async function decodeLogs(
     )
     if (logs === null) return null
 
-    // NOTE: Commenting this out so that contracts with transfer events can "fix" 
+    // NOTE: Commenting this out so that contracts with transfer events can "fix"
     // themselves from our previous decision where we were auto-converting the ZERO_ADDRESS into null.
     // if (includeDecodedResults) {
     //     logs.forEach((log) => {

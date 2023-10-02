@@ -8,7 +8,7 @@ export interface Indexer {
     head: NewReportedHead
     resolvedBlockHash: string | null
     timedOut: boolean
-    perform: () => Promise<StringKeyMap | void>
+    perform: (isJobWaitingWithBlockNumber?: Function) => Promise<StringKeyMap | void>
 }
 
 export interface EventOrigin {

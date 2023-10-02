@@ -26,7 +26,7 @@ export async function callContract(
             const message = (err.message || err.toString() || '').toLowerCase()
 
             // Always error when reverted.
-            if (message.includes('execution reverted')) {
+            if (message.includes('execution reverted') || message.includes('out of gas')) {
                 return { error: { message: err.message, code: err.code } }
             }
 

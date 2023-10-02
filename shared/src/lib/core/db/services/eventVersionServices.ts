@@ -9,8 +9,14 @@ import {
     isContractNamespace,
     chainIdForContractNamespace,
 } from '../../../utils/chainIds'
-import { fromNamespacedVersion, toNamespacedVersion, unique } from '../../../utils/formatters'
+import {
+    fromNamespacedVersion,
+    toNamespacedVersion,
+    unique,
+    splitOnLastOccurance,
+} from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
+import { getLastEvent } from '../../../indexer/redis'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -77,6 +83,15 @@ export async function getEventVersions(
         })
     } catch (err) {
         logger.error(`Error getting EventVersions: ${err}`)
+        return null
+    }
+}
+
+export async function getEventVersionsInNsp(nsp: string): Promise<EventVersion[] | null> {
+    try {
+        return await eventVersionsRepo().findBy({ nsp })
+    } catch (err) {
+        logger.error(`Error getting EventVersions (nsp=${nsp}): ${err}`)
         return null
     }
 }
@@ -241,4 +256,89 @@ export async function getContractEventsForGroup(group: string): Promise<StringKe
     }
 
     return events
+}
+
+export async function resolveEventVersionCursors(givenName: string): Promise<StringKeyMap> {
+    const [nspName, version] = givenName.split('@')
+    const splitName = nspName.split('.')
+    const numSections = splitName.length
+    const isValid =
+        numSections === 2 ||
+        numSections === 3 ||
+        (numSections === 5 && isContractNamespace(nspName))
+    if (!isValid) throw `Invalid event "${givenName}"`
+
+    // Event versions where query filter.
+    const where = []
+
+    // Live object event.
+    const isLiveObjectEventVerison = splitName.length === 2
+    if (isLiveObjectEventVerison) {
+        const [nsp, name] = splitName
+        const filters: StringKeyMap = { nsp, name }
+        if (version) {
+            filters.version = version
+        }
+        where.push(filters)
+    }
+    // Contract event.
+    else {
+        // Chain-specific namespace already given...
+        if (numSections === 5) {
+            const [nsp, name] = splitOnLastOccurance(nspName, '.')
+            const filters: StringKeyMap = { nsp, name }
+            if (version) {
+                filters.version = version
+            }
+            where.push(filters)
+        }
+
+        // Add all supported chain specific namespaces.
+        for (const supportedChainId of supportedChainIds) {
+            const [nsp, name] = splitOnLastOccurance(nspName, '.')
+            const fullNsp = `${contractNamespaceForChainId(supportedChainId)}.${nsp}`
+            const filters: StringKeyMap = { nsp: fullNsp, name }
+            if (version) {
+                filters.version = version
+            }
+            where.push(filters)
+        }
+    }
+
+    // Get any matching event versions (can be multiple for the given event name).
+    let eventVersions = []
+    try {
+        eventVersions = await eventVersionsRepo().find({ where })
+    } catch (err) {
+        const error = `Error finding event versions: ${err}`
+        logger.error(error)
+        throw error
+    }
+    if (!eventVersions.length) throw `No event exists for "${givenName}"`
+
+    // Format into full event names.
+    const fullEventNames = eventVersions.map((ev) =>
+        toNamespacedVersion(ev.nsp, ev.name, ev.version)
+    )
+
+    // Get the latest cursor for each event.
+    const cursors = []
+    const latestEvents = await Promise.all(fullEventNames.map(getLastEvent))
+    let latestEvent = null
+    for (let i = 0; i < fullEventNames.length; i++) {
+        const event = latestEvents[i]
+        if (
+            event &&
+            (!latestEvent ||
+                new Date(event.origin.blockTimestamp) > new Date(latestEvent.origin.blockTimestamp))
+        ) {
+            latestEvent = event
+        }
+        cursors.push({
+            name: fullEventNames[i],
+            nonce: event?.origin?.nonce || `${Date.now()}-0`,
+        })
+    }
+
+    return { cursors, latestEvent }
 }

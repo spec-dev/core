@@ -1,14 +1,8 @@
 import config from '../config'
 import { getIndexer } from '../indexers'
 import {
-    insertIndexedBlocks,
-    setIndexedBlocksToSucceeded,
     logger,
     NewReportedHead,
-    IndexedBlockStatus,
-    IndexedBlock,
-    getBlocksInNumberRange,
-    range,
     StringKeyMap,
     PolygonBlock,
     PolygonLog,
@@ -36,11 +30,6 @@ import { exit } from 'process'
 
 const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
-const redo = [
-    34889335,
-    34889336,
-]
-
 class PolygonSpecificNumbersWorker {
     
     numbers: number[]
@@ -54,10 +43,6 @@ class PolygonSpecificNumbersWorker {
     upsertConstraints: StringKeyMap
 
     batchResults: any[] = []
-
-    batchBlockNumbersIndexed: number[] = []
-
-    batchExistingBlocksMap: { [key: number]: IndexedBlock } = {}
 
     chunkSize: number = 2000
 
@@ -75,7 +60,7 @@ class PolygonSpecificNumbersWorker {
     async run() {
         this.smartWalletInitializerAddresses = await this._getIvySmartWalletInitializerAddresses()
 
-        const groups = toChunks(redo, this.groupSize)
+        const groups = toChunks(this.numbers, this.groupSize)
         for (const group of groups) {
             await this._indexBlockGroup(group)
         }

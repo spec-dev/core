@@ -20,6 +20,7 @@ ethereum_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_RPC_P
 goerli_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "GOERLI_RPC_POOL_ENDPOINTS" )
 polygon_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "MUMBAI_RPC_POOL_ENDPOINTS" )
 mumbai_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "POLYGON_RPC_POOL_ENDPOINTS" )
+base_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "BASE_RPC_POOL_ENDPOINTS" )
 pinata_gateway_origin=$( $shared_bin_dir/env_reader "$env" "PINATA_GATEWAY_ORIGIN" )
 pinata_gateway_token=$( $shared_bin_dir/env_reader "$env" "PINATA_GATEWAY_TOKEN" )
 
@@ -30,6 +31,7 @@ $shared_bin_dir/assert_env "ETHEREUM_RPC_POOL_ENDPOINTS" "$ethereum_rpc_pool_end
 $shared_bin_dir/assert_env "GOERLI_RPC_POOL_ENDPOINTS" "$goerli_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "MUMBAI_RPC_POOL_ENDPOINTS" "$polygon_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "POLYGON_RPC_POOL_ENDPOINTS" "$mumbai_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "BASE_RPC_POOL_ENDPOINTS" "$base_rpc_pool_endpoints"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -39,7 +41,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "RPC_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
+# image_version=$( $shared_bin_dir/latest_sha )
+image_version="d5c5bd5"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -54,6 +57,7 @@ template=$( cat "$template_path" | \
     sed "s|{{GOERLI_RPC_POOL_ENDPOINTS}}|$goerli_rpc_pool_endpoints|g" | \
     sed "s|{{MUMBAI_RPC_POOL_ENDPOINTS}}|$polygon_rpc_pool_endpoints|g" | \
     sed "s|{{POLYGON_RPC_POOL_ENDPOINTS}}|$mumbai_rpc_pool_endpoints|g" | \
+    sed "s|{{BASE_RPC_POOL_ENDPOINTS}}|$base_rpc_pool_endpoints|g" | \
     sed "s|{{PINATA_GATEWAY_ORIGIN}}|$pinata_gateway_origin|g" | \
     sed "s|{{PINATA_GATEWAY_TOKEN}}|$pinata_gateway_token|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )

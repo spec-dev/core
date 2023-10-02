@@ -5,6 +5,7 @@ import {
     getPublishedEventsAfterEventCursors, 
     logger, 
     schemaForChainId, 
+    getEventIdDirectlyBeforeId,
     StringKeyMap, 
     toChunks, 
     range,
@@ -58,6 +59,14 @@ async function getNewEventsAfterCursors(cursors: EventCursor[], publish, channel
     for (const eventName in eventsMap) {
         const specEvents = eventsMap[eventName] || []
         if (!specEvents.length) continue
+
+        for (let i = 0; i < specEvents.length; i++) {
+            if (i === 0) {
+                specEvents[i].prevNonce = await getEventIdDirectlyBeforeId(eventName, specEvents[i].nonce)
+            } else {
+                specEvents[i].prevNonce = specEvents[i - 1].nonce
+            }
+        }
 
         const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)
     

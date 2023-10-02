@@ -103,6 +103,11 @@ const config: StringKeyMap = {
 
     // Metadata config.
     METADATA_RESOLUTION_TIMEOUT: Number(ev('METADATA_RESOLUTION_TIMEOUT', 5000)),
+
+    // Exponential backoff config for HTTP request retries.
+    EXPO_BACKOFF_DELAY: 200,
+    EXPO_BACKOFF_MAX_ATTEMPTS: 10,
+    EXPO_BACKOFF_FACTOR: 1.5,
 }
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`

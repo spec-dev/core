@@ -86,6 +86,7 @@ export async function publishLiveObjectVersion(
         payload,
         liveObjectId,
         example,
+        tablePath,
         namespacedLiveObjectVersion,
         inputEventVersions,
         inputCallNamespaceIds,
@@ -198,6 +199,7 @@ async function saveDataModels(
     payload: PublishLiveObjectVersionPayload,
     liveObjectId: number,
     example: StringKeyMap | null,
+    tablePath: string,
     namespacedLiveObjectVersion: string,
     inputEventVersions: EventVersion[],
     inputCallNamespaceIds: number[],
@@ -218,20 +220,20 @@ async function saveDataModels(
                 tx
             )
 
-            // Only create the <Name>Upserted event for non-contract event live objects.
+            // Only create the <Name>Changed event for non-contract event live objects.
             if (!representsContractEvent) {
-                // LiveObjectUpserted event.
+                // LiveObjectChanged event.
                 const event = ((await upsertEventsWithTx(
                     [
                         {
                             namespaceId: namespace.id,
-                            name: `${payload.name}Upserted`,
+                            name: `${payload.name}Changed`,
                         },
                     ],
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted event version
+                // LiveObjectChanged event version
                 const eventVersion = ((await upsertEventVersionsWithTx(
                     [
                         {
@@ -244,7 +246,7 @@ async function saveDataModels(
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted live event version.
+                // LiveObjectChanged live event version.
                 if (eventVersion) {
                     await createLiveEventVersionsWithTx(
                         [
@@ -299,6 +301,12 @@ async function saveDataModels(
                     tx
                 ))
         })
+
+        // Set the stage for record count tracking.
+        await SharedTables.query(
+            `insert into record_counts (table_path) values ($1) on conflict do nothing`,
+            [tablePath]
+        )
     } catch (err) {
         logger.error(
             `Failed to save data models while publishing ${namespacedLiveObjectVersion}: ${err}`

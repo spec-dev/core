@@ -27,6 +27,7 @@ import {
     toDate,
     markLovFailure,
     getLovFailure,
+    nowAsUTCDateString,
     publishEvents, 
     getDBTimestamp,
     isValidAddress,
@@ -36,6 +37,8 @@ import {
     getAdditionalContractsToGenerateInputsFor,
     getHighestBlock,
     range,
+    EventVersion,
+    formatEventVersionViewName,
 } from '../../shared'
 import { Pool } from 'pg'
 
@@ -171,12 +174,11 @@ async function perform(data: StringKeyMap) {
         for (const lovNsp in eventGroups) {
             const eventEntries = eventGroups[lovNsp] || []
             const callEntries = callGroups[lovNsp] || []
-
-            // TODO: Merge these back into the correct tx-based order 
             inputGroups[lovNsp] = [...callEntries, ...eventEntries]
-
             seenLovNsps.add(lovNsp)
         }
+        // Only do the below if the above loop didn't run for the particular namespace.
+        // That's what seenLovNsps is tracking.
         for (const lovNsp in callGroups) {
             if (seenLovNsps.has(lovNsp)) continue
             inputGroups[lovNsp] = callGroups[lovNsp] || []
@@ -259,6 +261,8 @@ async function perform(data: StringKeyMap) {
         logger.notify(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping pre-cache-clear.`))
         return
     }    
+
+    await updateRecordCountsWithEvents(blockEvents, blockNumber)
 
     await Promise.all([
         deleteBlockCalls(config.CHAIN_ID, blockNumber),
@@ -380,12 +384,12 @@ async function generateLiveObjectEventsForNamespace(
     // Check before publishing.
     if (!(await canBlockBeOperatedOn(config.CHAIN_ID, blockNumber))) {
         logger.warn(chalk.yellow(`[${blockNumber}] Reorg was detected. Stopping.`))
-        return
+        return []
     }
 
-    // Publish generated events on-the-fly as they come back.
+    // Publish all live object events for the namespace.
     try {
-        eventsToPublish.length && await publishEvents(eventsToPublish, true)
+        eventsToPublish.length && await publishEvents(sortLiveObjectOutputEvents(eventsToPublish), true)
     } catch (err) {
         throw `[${blockNumber}] Publishing events for namespace ${nsp} failed: ${err}`
     }
@@ -437,6 +441,7 @@ export async function generateLiveObjectEventsWithProtection(
             `[${blockNumber}]: Generating events failed (lovId=${lovId}) 
             for inputs: ${JSON.stringify(inputs, null, 4)}`, err,
         )
+        logger.error(`[${blockNumber}]: LIVE OBJECT FAILED (lovId=${lovId})`)
         await updateLiveObjectVersionStatus(lovId, LiveObjectVersionStatus.Failing)
         const blockTimestamp = await getBlockTimestamp(blockNumber)
         blockTimestamp && await markLovFailure(lovId, blockTimestamp)
@@ -572,7 +577,7 @@ async function generateLiveObjectEvents(
         
         for (const event of generatedEvents) {
             const { nsp: eventNsp } = fromNamespacedVersion(event.name)
-            if (!acceptedOutputEvents.has(event.name) && eventNsp !== lovNsp) {
+            if (!acceptedOutputEvents.has(event.name) && eventNsp !== lovNsp) { // allow * within the same namespace
                 logger.error(`[${blockNumber}] Live object (lovId=${lovId}) is not allowed to generate event: ${event.name}`)
                 continue
             }
@@ -584,8 +589,9 @@ async function generateLiveObjectEvents(
 
             const liveObjectEvent = {
                 ...event,
-                origin: input.origin,
+                origin: { ...input.origin }
             }
+            delete liveObjectEvent.origin.transaction
 
             liveObjectEvents.push(liveObjectEvent)
         }
@@ -990,6 +996,77 @@ async function getLiveObjectVersionResults(
     return usableResults
 }
 
+async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber: number) {
+    if (!events.length) return
+    const chainId = config.CHAIN_ID
+    const chainSchema = schemaForChainId[chainId]
+
+    // Get the full paths of the Postgres views associated with each of these event types.
+    const eventCounts = {}
+    for (const event of events) {
+        const { nsp, name, version } = fromNamespacedVersion(event.name)
+        if (!nsp || nsp.split('.').length < 4) continue
+        
+        const viewName = formatEventVersionViewName({ nsp, name, version } as EventVersion)
+        if (!viewName) {
+            logger.error(`No view name could be created from ${event.name}`)
+            continue
+        }
+
+        const viewPath = [chainSchema, viewName].join('.')
+        eventCounts[viewPath] = eventCounts[viewPath] || 0
+        eventCounts[viewPath] += 1
+    }
+    const viewPaths = Object.keys(eventCounts)
+    if (!viewPaths.length) return
+
+    // Increment the record counts for each view path.
+    const now = nowAsUTCDateString()
+    let results = []
+    try {
+        await SharedTables.manager.transaction(async (tx) => {
+            results = await Promise.all(viewPaths.map(viewPath => (
+                tx.query(
+                    `update record_counts set value = value + $1, updated_at = $2 where table_path = $3 and paused is not true returning table_path`,
+                    [eventCounts[viewPath], now, viewPath]
+                )
+            )))
+        })
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error incrementing record counts: ${err}`)
+        return
+    }
+
+    // Get the view paths affected.
+    let viewPathsUpdated = []
+    const flat = results.flat()
+    for (const entry of flat) {
+        if (Array.isArray(entry)) {
+            viewPathsUpdated.push(...entry.map(r => r.table_path))
+        }
+    }
+    viewPathsUpdated = unique(viewPathsUpdated.filter(v => !!v))
+    if (!viewPathsUpdated.length) return
+
+    // Save the record count deltas for the view paths affected.
+    const placeholders = []
+    const bindings = []
+    let i = 1
+    for (const viewPath of viewPathsUpdated) {
+        placeholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3})`)
+        bindings.push(...[viewPath, eventCounts[viewPath], blockNumber, chainId])
+        i += 4
+    }
+    try {
+        await SharedTables.query(
+            `INSERT INTO record_count_deltas (table_path, value, block_number, chain_id) VALUES ${placeholders.join(', ')} ON CONFLICT (table_path, block_number, chain_id) DO UPDATE SET value = excluded.value`,
+            bindings,
+        )
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error incrementing record count deltas: ${err}`)
+    }
+}
+
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
@@ -1027,15 +1104,23 @@ async function getLargestBlockNumberFromIndexerDB(): Promise<number | null> {
 
 function sortContractEvents(contractEvents: StringKeyMap[]): StringKeyMap[] {
     return (contractEvents || []).sort((a, b) => (
-        (a.transactionIndex - b.transactionIndex) || 
-        (Number(a.logIndex) - Number(b.logIndex))
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.logIndex) - Number(b.origin.logIndex))
     ))
 }
 
 function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
     return (contractCalls || []).sort((a, b) => (
-        (a.transactionIndex - b.transactionIndex) || 
-        (Number(a.traceIndex) - Number(b.traceIndex))
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0))
+    ))
+}
+
+function sortLiveObjectOutputEvents(outputEvents: StringKeyMap[]): StringKeyMap[] {
+    return (outputEvents || []).sort((a, b) => (
+        (a.origin.transactionIndex - b.origin.transactionIndex) || 
+        (Number(a.origin.logIndex || 0) - Number(b.origin.logIndex || 0)) || 
+        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0))
     ))
 }
 

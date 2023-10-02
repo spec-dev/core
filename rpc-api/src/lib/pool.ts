@@ -26,6 +26,7 @@ class MultiChainRpcPool {
             [chainIds.GOERLI]: getEndpointsList(config.GOERLI_RPC_POOL_ENDPOINTS),
             [chainIds.POLYGON]: getEndpointsList(config.POLYGON_RPC_POOL_ENDPOINTS),
             [chainIds.MUMBAI]: getEndpointsList(config.MUMBAI_RPC_POOL_ENDPOINTS),
+            [chainIds.BASE]: getEndpointsList(config.BASE_RPC_POOL_ENDPOINTS),
         }
         this._buildPool()
         this.connectionIndexes = {}

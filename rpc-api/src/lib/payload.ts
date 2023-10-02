@@ -14,6 +14,11 @@ export interface MetadataPayload {
     pointer: string
 }
 
+export interface ERC20TokenMetadataPayload {
+    chainId: string
+    tokenAddress: string
+}
+
 export function parseCallPayload(data: StringKeyMap): ValidatedPayload<CallPayload> {
     const chainId = data?.chainId?.toString()
     const contractAddress = data?.contractAddress
@@ -81,5 +86,27 @@ export function parseMetadataPayload(data: StringKeyMap): ValidatedPayload<Metad
     return {
         isValid: true,
         payload: { protocolId, pointer },
+    }
+}
+
+export function parseERC20TokenMetadataPayload(data: StringKeyMap): ValidatedPayload<ERC20TokenMetadataPayload> {
+    const chainId = data?.chainId?.toString()
+    const tokenAddress = data?.tokenAddress
+
+    if (!supportedChainIds.has(chainId)) {
+        return { isValid: false, error: `Invalid "chainId": ${chainId}` }
+    }
+
+    if (!tokenAddress) {
+        return { isValid: false, error: '"tokenAddress" required' }
+    }
+    
+    if (!isValidAddress(tokenAddress)) {
+        return { isValid: false, error: `Invalid "tokenAddress": ${tokenAddress}`}
+    }
+
+    return {
+        isValid: true,
+        payload: { chainId, tokenAddress },
     }
 }

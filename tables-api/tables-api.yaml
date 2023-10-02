@@ -56,7 +56,7 @@ spec:
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: FLIP
-          value: tails
+          value: heads
         - name: FORCE_COLOR
           value: "1" 
         readinessProbe:
@@ -132,7 +132,7 @@ spec:
         - name: INDEXER_REDIS_PORT
           value: "{{INDEXER_REDIS_PORT}}"
         - name: FLIP
-          value: heads
+          value: tails
         - name: FORCE_COLOR
           value: "1" 
         readinessProbe:

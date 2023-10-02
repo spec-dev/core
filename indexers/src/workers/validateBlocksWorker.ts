@@ -2,16 +2,8 @@ import config from '../config'
 import {
     logger,
     SharedTables,
-    StringKeyMap,
-    uniqueByKeys,
-    fullErc20TokenUpsertConfig,
-    fullNftCollectionUpsertConfig,
-    NftCollection,
-    Erc20Token,
-    camelizeKeys,
     schemaForChainId,
     toChunks,
-    snakeToCamel,
     range,
     indexerRedis,
     sleep,
@@ -19,7 +11,7 @@ import {
 import { ident } from 'pg-format'
 import chalk from 'chalk'
 import { exit } from 'process'
-import { getRpcPool } from '../rpcPool'
+import { createWsProviderPool, getWsProviderPool } from '../wsProviderPool'
 
 class ValidateBlocksWorker {
 
@@ -39,6 +31,7 @@ class ValidateBlocksWorker {
         this.cursor = from
         this.groupSize = groupSize || 1
         this.mismatches = []
+        createWsProviderPool(true, 0)
     }
  
     async run() {
@@ -56,7 +49,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length) {
-            await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`vb-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
         }
 
         logger.info('DONE')
@@ -80,7 +73,7 @@ class ValidateBlocksWorker {
         }
 
         if (this.mismatches.length >= 1000) {
-            await indexerRedis.sAdd(`redo-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
+            await indexerRedis.sAdd(`vb-${config.CHAIN_ID}`, this.mismatches.map(n => n.toString()))
             this.mismatches = []
         }
     }
@@ -94,9 +87,9 @@ class ValidateBlocksWorker {
     }
 
     async _getActualBlockHashes(hashes: number[]): Promise<string[]> {
-        const numberChunks = toChunks(hashes, 40)
+        const chunks = toChunks(hashes, 40)
         const rangeHashes = []
-        for (const chunk of numberChunks) {
+        for (const chunk of chunks) {
             await sleep(120)
             rangeHashes.push(...(await Promise.all(chunk.map(n => this._hashForNumber(n)))))
         }
@@ -104,7 +97,7 @@ class ValidateBlocksWorker {
     }
 
     async _hashForNumber(number: number) {
-        const block = await getRpcPool().getBlock(number, false)
+        const { block } = await getWsProviderPool().getBlock(null, number, false)
         return block.hash
     }
 }

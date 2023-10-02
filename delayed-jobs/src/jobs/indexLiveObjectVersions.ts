@@ -16,6 +16,7 @@ import {
     getGeneratedEventsCursors,
     addContractInstancesToGroup,
     isValidAddress,
+    contractNamespaceForChainId,
     supportedChainIds,
 } from '../../../shared'
 import config from '../config'
@@ -38,6 +39,7 @@ export async function indexLiveObjectVersions(
     updateOpTrackingFloor: boolean,
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
+    resetCountsForContractGroups: string[] = []
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
     
@@ -114,6 +116,11 @@ export async function indexLiveObjectVersions(
                 try {
                     await Promise.all(groupContractInstancesToRegister.map(({ group, addresses, chainId, blockNumber }) => {
                         logger.info(`[${chainId}] Registering ${addresses.length} contracts to "${group}"...`)
+
+                        const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
+                        const fullContractGroup = [chainSpecificContractNsp, group].join('.')  
+                        resetCountsForContractGroups = resetCountsForContractGroups.concat(fullContractGroup)
+
                         return addContractInstancesToGroup(
                             addresses,
                             chainId,
@@ -125,6 +132,7 @@ export async function indexLiveObjectVersions(
                 } catch (err) {
                     throw `[:${cursor}] IndexLOV ${lovIds.join(', ')} Failed to register new contracts ${JSON.stringify(groupContractInstancesToRegister)}: ${err}`
                 }
+                resetCountsForContractGroups = unique(resetCountsForContractGroups)
 
                 // Recreate the generator after registering new contracts
                 // because this will change the generator's queries.
@@ -149,20 +157,32 @@ export async function indexLiveObjectVersions(
     } catch (err) {
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
+        resetCountsForContractGroups = unique(resetCountsForContractGroups)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
         return
     }
+
+    resetCountsForContractGroups = unique(resetCountsForContractGroups)
 
     // All done -> set to "live".
     if (!cursor) {
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
     // Only used if an interations cap is enforced.
     if (maxIterations && iteration >= maxIterations) {
         logger.info(`[${lovIds.join(', ')}] Completed max ${maxIterations} iterations.`)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
@@ -181,6 +201,7 @@ export async function indexLiveObjectVersions(
         updateOpTrackingFloor,
         setLovToIndexingBefore,
         setLovToLiveAfter,
+        resetCountsForContractGroups,
     })
 }
 
@@ -498,6 +519,7 @@ export default function job(params: StringKeyMap) {
     const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
     const setLovToIndexingBefore = params.setLovToIndexingBefore === true
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
+    const resetCountsForContractGroups = params.resetCountsForContractGroups || []
 
     return {
         perform: async () => indexLiveObjectVersions(
@@ -512,6 +534,7 @@ export default function job(params: StringKeyMap) {
             updateOpTrackingFloor,
             setLovToIndexingBefore,
             setLovToLiveAfter,
+            resetCountsForContractGroups,
         )
     }
 }
