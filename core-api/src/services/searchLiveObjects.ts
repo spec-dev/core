@@ -34,6 +34,8 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
+                namespace_blurhash, 
+                namespace_verified, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
                 group_name
@@ -101,7 +103,7 @@ function formatAsLatestLiveObject(result) {
     // TODO: Clean this up.
     let codeUrl = null
     if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
-        codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'master', config.folder, 'spec.ts')
+        codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'main', config.folder, 'spec.ts')
     }
 
     return {
@@ -111,6 +113,8 @@ function formatAsLatestLiveObject(result) {
         desc: result.liveObjectDesc,
         icon,
         codeUrl,
+        blurhash: result.namespaceBlurhash,
+        verified: result.namespaceVerified,
         isContractEvent,
         latestVersion: {
             nsp: result.versionNsp,

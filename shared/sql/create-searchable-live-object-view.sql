@@ -24,6 +24,8 @@ SELECT DISTINCT ON (lv.live_object_id)
     n.slug AS namespace_slug, 
     n.code_url AS namespace_code_url, 
     n.has_icon AS namespace_has_icon, 
+    n.blurhash AS namespace_blurhash,
+    n.verified AS namespace_verified,
     n.created_at AS namespace_created_at,
     CASE
         WHEN n.name LIKE '%.%'

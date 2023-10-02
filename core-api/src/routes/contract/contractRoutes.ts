@@ -84,8 +84,10 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
     const groupedContracts = []
 
     contracts.forEach(contract => {
-        const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
-        if (!groupName) return
+        const groupName = [
+            contract.namespace.slug.split('.')[2],
+            contract.name,
+        ].join('.')
 
         const chainId = chainIdForContractNamespace(contract.namespace.slug)
         groups[groupName] = groups[groupName] || {chainIds: [], contractCount: 0}
