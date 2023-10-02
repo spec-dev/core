@@ -12,7 +12,6 @@ import {
     chainIdForContractNamespace 
 } from '../../../../shared'
 import { StringKeyMap } from '../../types'
-import { contractGroupNameFromNamespace } from '../../utils/extract'
 
 /**
  * Create a new, empty contract group.
