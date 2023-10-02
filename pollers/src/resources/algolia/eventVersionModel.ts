@@ -20,7 +20,7 @@ export class EventVersionModel extends AlgoliaModel {
         const formattedEventVersions = []
 
         eventVersions.forEach(version => {
-            const chainIds = chainIdForContractNamespace(version.event.namespace.slug)
+            const chainIds = [chainIdForContractNamespace(version.event.namespace.slug)] || []
             const isContractEvent = isContractNamespace(version.event.namespace.name)
             const icon = (isContractEvent 
                 ? buildIconUrl(version.event.namespace.name.split('.')[2])
