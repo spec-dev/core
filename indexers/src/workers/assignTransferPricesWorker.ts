@@ -228,7 +228,7 @@ export class AssignTransferPricesWorker {
             // Create temp table and insert updates + primary key data.
             await client.query('BEGIN')
             await client.query(
-                `CREATE TEMP TABLE ${tempTableName} (id integer not null primary key, value_usd numeric, value_eth numeric, value_matic numeric) ON COMMIT DROP`
+                `CREATE TEMP TABLE ${tempTableName} (id bigint not null primary key, value_usd numeric, value_eth numeric, value_matic numeric) ON COMMIT DROP`
             )
 
             // Bulk insert the updated records to the temp table.
