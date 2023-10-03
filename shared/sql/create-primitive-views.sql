@@ -81,3 +81,39 @@ SELECT
     block_timestamp,
     unnest(ARRAY['137'::text]) AS chain_id
 FROM polygon.transactions;
+
+CREATE OR REPLACE VIEW tokens.transfers AS
+SELECT
+    id,
+    transfer_id,
+    transaction_hash,
+    log_index,
+    token_address,
+    token_name,
+    token_symbol,
+    token_decimals,
+    token_standard,
+    token_id,
+    from_address,
+    to_address,
+    is_mint,
+    CASE
+        WHEN token_address = '0x0000000000000000000000000000000000000000'
+            THEN true
+        ELSE false
+    END as is_native,
+    CASE
+        WHEN transaction_hash is null
+            THEN true
+        ELSE false
+    END as is_block_reward,
+    value,
+    value_usd,
+    value_eth,
+    value_matic,
+    block_number,
+    block_hash,
+    block_timestamp,
+    chain_id
+FROM tokens.token_transfers
+WHERE token_address = '0x0000000000000000000000000000000000000000' OR log_index is not null;
