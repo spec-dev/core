@@ -1,6 +1,11 @@
 import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
 import { supportedChainIds, toNumber, toDate } from '../../../../shared'
 
+export interface ParseLatestLovRecordsPayload {
+    id: string
+    cursor: string | null
+}
+
 export function parseGenerateTestInputsPayload(
     data: StringKeyMap
 ): ValidatedPayload<GenerateTestInputsPayload> {
@@ -94,5 +99,21 @@ export function parseGenerateTestInputsPayload(
             streamId,
             isContractFactory,
         } as GenerateTestInputsPayload,
+    }
+}
+
+export function parseLatestLovRecordsPayload(
+    data: StringKeyMap
+): ValidatedPayload<ParseLatestLovRecordsPayload> {
+    const id = data?.id
+    const cursor = data?.cursor || null
+
+    if (!id) {
+        return { isValid: false, error: '"id" is required' }
+    }
+
+    return {
+        isValid: true,
+        payload: { id, cursor },
     }
 }

@@ -293,6 +293,7 @@ export {
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
+    getLiveObjectVersion,
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,

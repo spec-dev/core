@@ -93,12 +93,8 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
     const config = result.versionConfig
     const tablePath = config?.table || null
     const recordCountInfo = tablePath ? (recordCountsData[tablePath] || {}) : {}
-
-    let numRecords = 0
-    if (typeof recordCountInfo.count === 'number' || typeof recordCountInfo.count === 'string') {
-        numRecords = parseInt(recordCountInfo.count)
-        numRecords = Number.isNaN(numRecords) ? 0 : numRecords
-    }
+    let numRecords = parseInt(recordCountInfo.count)
+    numRecords = Number.isNaN(numRecords) ? 0 : numRecords
 
     let icon
     if (result.liveObjectHasIcon) {

@@ -33,6 +33,15 @@ export async function createLiveObjectVersion(
     return liveObjectVersion
 }
 
+export async function getLiveObjectVersion(uid: string): Promise<LiveObjectVersion | null> {
+    try {
+        return await liveObjectVersions().findOneBy({ uid })
+    } catch (err) {
+        logger.error(`Error fetching LiveObjectVersion(uid=${uid}): ${err}`)
+        return null
+    }
+}
+
 export async function getLiveObjectVersionsByNamespacedVersions(
     namespacedVersions: string[]
 ): Promise<LiveObjectVersion[]> {
