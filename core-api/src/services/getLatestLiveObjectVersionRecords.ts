@@ -42,6 +42,15 @@ async function getLatestLiveObjectVersionRecords(
         }
         records = recordsAfterCursor
     }
+
+    const isContractEvent = liveObjectVersion.nsp.includes('.')
+    if (!isContractEvent) {
+        records = records.map(r => {
+            const record = { ...r }
+            delete record.id
+            return record
+        })
+    }
     
     return {
         data: { 
