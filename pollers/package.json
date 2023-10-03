@@ -14,7 +14,9 @@
         "typeorm": "typeorm-ts-node-esm"
     },
     "dependencies": {
-        "cross-fetch": "^3.1.5"
+        "cross-fetch": "^3.1.5",
+        "pg": "^8.7.3",
+        "pg-listen": "^1.7.0"
     },
     "devDependencies": {
         "@types/node": "^18.0.3",

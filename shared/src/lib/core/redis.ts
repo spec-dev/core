@@ -27,6 +27,7 @@ const keys = {
     LATEST_TOKEN_PRICES: 'latest-token-prices',
     TEST_STREAM_INPUT_GEN: 'test-stream-input-gen',
     FEATURED_NAMESPACES: 'featured-namespaces',
+    RECORD_COUNTS: 'record-counts',
 }
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
@@ -103,6 +104,16 @@ export async function setLatestTokenPrices(map: StringKeyMap): Promise<boolean> 
         return true
     } catch (err) {
         logger.error(`Error setting latest token prices in redis: ${JSON.stringify(err)}.`)
+        return false
+    }
+}
+
+export async function updateRecordCountsCache(map: StringKeyMap): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.RECORD_COUNTS, map)
+        return true
+    } catch (err) {
+        logger.error(`Error updating record counts cache: ${JSON.stringify(err)}.`)
         return false
     }
 }
