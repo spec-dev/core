@@ -34,7 +34,7 @@ async function cacheRecordCounts() {
     )
 
     try {
-        await this.pgListener.connect()
+        await pgListener.connect()
         await pgListener.listenTo(config.RECORD_COUNT_CHANGED_PG_CHANNEL)
     } catch (err) {
         throw `Error listening to record count changed channel: ${err}`
