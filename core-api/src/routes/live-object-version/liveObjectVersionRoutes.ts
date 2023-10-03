@@ -4,7 +4,7 @@ import { parseGenerateTestInputsPayload, parseLatestLovRecordsPayload } from './
 import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
-import { getLiveObjectVersion } from '../../../../shared'
+import { getLiveObjectVersion, getLiveObjectByUid, getLatestLiveObjectVersion } from '../../../../shared'
 
 /**
  * Generate test input data (events and calls) for a live object version.
@@ -36,12 +36,16 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
+    const { id: liveObjectUid, cursor } = payload
 
-    // Find LiveObjectVersion by uid.
-    const { id: uid, cursor } = payload
-    const liveObjectVersion = await getLiveObjectVersion(uid)
+    // TODO: Consolidate this into a single query.
+    const liveObject = await getLiveObjectByUid(liveObjectUid)
+    if (!liveObject) {
+        return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_NOT_FOUND })
+    }
+    const liveObjectVersion = await getLatestLiveObjectVersion(liveObject.id)
     if (!liveObjectVersion) {
-        return res.status(codes.NOT_FOUND).json({ error: errors.LOV_NOT_FOUND })
+        return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_VERSION_NOT_FOUND })
     }
 
     // Get the latest LOV records after the given cursor (if any).

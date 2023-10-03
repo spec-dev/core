@@ -290,6 +290,7 @@ export {
     createLiveObject,
     getLiveObject,
     upsertLiveObject,
+    getLiveObjectByUid,
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
