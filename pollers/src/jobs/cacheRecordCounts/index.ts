@@ -64,12 +64,12 @@ async function onRecordCountChanged(event) {
 }
 
 async function getAllRecordCounts(): Promise<StringKeyMap[]> {
-    return camelizeKeys(await SharedTables.query('select table_path, value from record_counts')) as StringKeyMap[]
+    return camelizeKeys(await SharedTables.query('select table_path, value, updated_at from record_counts')) as StringKeyMap[]
 }
 
 async function getRecordCountsForNamespace(nsp: string): Promise<StringKeyMap[]> {
     return camelizeKeys(await SharedTables.query(
-        'select table_path, value from record_counts where table_path like $1 or table_path like $2',
+        'select table_path, value, updated_at from record_counts where table_path like $1 or table_path like $2',
         [`${nsp}.%`, `%.${nsp}_%`]
     )) as StringKeyMap[]
 }
@@ -96,7 +96,7 @@ async function calculateAndCacheAggregateNamespaceRecordCounts(recordCounts: Str
                 updatedAt,
             }
         }
-        namespaceCounts[nsp].count += value    
+        namespaceCounts[nsp].count += value
         if (new Date(updatedAt) > new Date(namespaceCounts[nsp].updatedAt)) {
             namespaceCounts[nsp].updatedAt = updatedAt
         }    
