@@ -249,6 +249,8 @@ export {
     setCachedFeaturedNamespaces,
     updateRecordCountsCache,
     updateNamespaceRecordCountsCache,
+    getCachedRecordCounts,
+    getCachedNamespaceRecordCounts,
 } from './lib/core/redis'
 export {
     createContract,

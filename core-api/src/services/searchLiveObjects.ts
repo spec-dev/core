@@ -5,6 +5,7 @@ import {
     logger,
     isContractNamespace,
     camelizeKeys,
+    getCachedRecordCounts,
 } from '../../../shared'
 import path from 'path'
 import config from '../config'
@@ -78,16 +79,26 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
     // Camelize result keys.
     results = camelizeKeys(results)
 
+    const liveObjectTablePaths = results.map(r => r.versionConfig?.table).filter(v => !!v)
+    const recordCountsData = liveObjectTablePaths.length ? await getCachedRecordCounts(liveObjectTablePaths) : []
+
     // Return formatted results.
     return {
-        data: results.map(formatAsLatestLiveObject),
+        data: results.map(r => formatAsLatestLiveObject(r, recordCountsData)),
     }
 }
 
-function formatAsLatestLiveObject(result) {
-    // Format results.
-    const config = result.versionConfig
+function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: StringKeyMap) {
     const isContractEvent = isContractNamespace(result.namespaceName)
+    const config = result.versionConfig
+    const tablePath = config?.table || null
+    const recordCountInfo = tablePath ? (recordCountsData[tablePath] || {}) : {}
+
+    let numRecords = 0
+    if (typeof recordCountInfo.count === 'number' || typeof recordCountInfo.count === 'string') {
+        numRecords = parseInt(recordCountInfo.count)
+        numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+    }
 
     let icon
     if (result.liveObjectHasIcon) {
@@ -125,8 +136,8 @@ function formatAsLatestLiveObject(result) {
             config: config,
             createdAt: result.versionCreatedAt.toISOString(),
         },
-        records: 1013861,
-        lastInteraction: 10,
+        records: numRecords,
+        lastInteraction: recordCountInfo.updatedAt || null,
     }
 }
 
