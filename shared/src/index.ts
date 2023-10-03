@@ -167,6 +167,7 @@ export { range, randomIntegerInRange } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
 export { chainIds }
 export {
+    chainSpecificSchemas,
     supportedChainIds,
     chainIdForSchema,
     contractNamespaceForChainId,
@@ -247,6 +248,7 @@ export {
     getCachedFeaturedNamespaces,
     setCachedFeaturedNamespaces,
     updateRecordCountsCache,
+    updateNamespaceRecordCountsCache,
 } from './lib/core/redis'
 export {
     createContract,

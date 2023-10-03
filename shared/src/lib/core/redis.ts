@@ -28,6 +28,7 @@ const keys = {
     TEST_STREAM_INPUT_GEN: 'test-stream-input-gen',
     FEATURED_NAMESPACES: 'featured-namespaces',
     RECORD_COUNTS: 'record-counts',
+    NAMESPACE_RECORD_COUNTS: 'namespace-record-counts',
 }
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
@@ -114,6 +115,16 @@ export async function updateRecordCountsCache(map: StringKeyMap): Promise<boolea
         return true
     } catch (err) {
         logger.error(`Error updating record counts cache: ${JSON.stringify(err)}.`)
+        return false
+    }
+}
+
+export async function updateNamespaceRecordCountsCache(map: StringKeyMap): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.NAMESPACE_RECORD_COUNTS, map)
+        return true
+    } catch (err) {
+        logger.error(`Error updating namespace record counts cache: ${JSON.stringify(err)}.`)
         return false
     }
 }
