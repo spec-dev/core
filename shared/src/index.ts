@@ -257,6 +257,7 @@ export {
     upsertContracts,
     upsertContractWithTx,
     getAllContractGroups,
+    getOldestContractInGroup,
 } from './lib/core/db/services/contractServices'
 export {
     createContractInstance,
