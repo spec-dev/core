@@ -1,10 +1,10 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseGenerateTestInputsPayload, parseLatestLovRecordsPayload } from './liveObjectVersionPayloads'
+import { parseGenerateTestInputsPayload, parseLatestLovRecordsPayload, parseGetLiveObjectVersionPayload } from './liveObjectVersionPayloads'
 import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
-import { getLiveObjectVersion, getLiveObjectByUid, getLatestLiveObjectVersion } from '../../../../shared'
+import { getLiveObjectByUid, getLatestLiveObjectVersion, resolveLovWithPartialId } from '../../../../shared'
 
 /**
  * Generate test input data (events and calls) for a live object version.
@@ -55,4 +55,23 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
     }
 
     return res.status(codes.SUCCESS).json(data)
+})
+
+/**
+ * Generate test input data (events and calls) for a live object version.
+ */
+ app.get(paths.LIVE_OBJECT_VERSION, async (req, res) => {
+    // Parse & validate payload.
+    const { payload, isValid, error } = parseGetLiveObjectVersionPayload(req.query)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    // Try to resolve live object version by the "id" given.
+    const lov = await resolveLovWithPartialId(payload.id)
+    if (!lov) {
+        return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_VERSION_NOT_FOUND })
+    }
+
+    return res.status(codes.SUCCESS).json(lov.publicView())
 })

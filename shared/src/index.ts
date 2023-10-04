@@ -303,6 +303,7 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
+    resolveLovWithPartialId,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,
