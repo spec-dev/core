@@ -210,12 +210,13 @@ async function decodePrimitivesUsingContracts(
         traces = traces || []
         logs = logs || []
 
+        // NOTE: Turning off for now (10.11.23 - @whittlbc)
         // If on Polygon, ensure all traces have been pulled for these transactions since 
         // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
-        if (onPolygon) {
-            const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
-            batchNewTraces.push(...newTraces)
-        }
+        // if (onPolygon) {
+        //     const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
+        //     batchNewTraces.push(...newTraces)
+        // }
 
         batchTransactions.push(...transactions)
         batchTraces.push(...traces)
