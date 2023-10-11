@@ -192,6 +192,7 @@ class GapDetector {
     }
 
     async _enqueueBlock(indexedBlock: IndexedBlock) {
+        return
         const { id, number, hash } = indexedBlock
         const chainId = indexedBlock.chainId.toString()
         const head: NewReportedHead = {
