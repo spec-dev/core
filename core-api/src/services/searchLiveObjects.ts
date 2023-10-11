@@ -6,8 +6,8 @@ import {
     isContractNamespace,
     camelizeKeys,
     getCachedRecordCounts,
+    stripTrailingSlash,
 } from '../../../shared'
-import path from 'path'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
 import { regExSplitOnUppercase } from '../utils/regEx'
@@ -107,10 +107,9 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
         icon = '' // TODO: Need fallback
     }
 
-    // TODO: Clean this up.
     let codeUrl = null
     if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
-        codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'main', config.folder, 'spec.ts')
+        codeUrl = [stripTrailingSlash(result.namespaceCodeUrl), 'blob', 'main', config.folder, 'spec.ts'].join('/')
     }
 
     return {
