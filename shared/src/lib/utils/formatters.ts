@@ -9,6 +9,11 @@ import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
 import { hash } from '../utils/hash'
 import { MAX_TABLE_NAME_LENGTH } from '../utils/pgMeta'
 import { EventVersion } from '../core/db/entities/EventVersion'
+import { chainIdForContractNamespace, isContractNamespace } from './chainIds'
+import path from 'path'
+import logger from '../logger'
+import { getChainIdsForNamespace, getNamespace } from '../core/db/services/namespaceServices'
+import { contractGroupNameFromNamespace } from './extract'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -663,4 +668,109 @@ export function formatEventVersionViewName(eventVersion: EventVersion): string |
     return viewName.length >= MAX_TABLE_NAME_LENGTH
         ? [nsp, hash(viewName).slice(0, 10)].join('_').toLowerCase()
         : viewName
+}
+
+export const capitalizeFirstLetter = (val) => {
+    if (!val) {
+        return
+    }
+    return val[0].toUpperCase() + val.slice(1)
+}
+
+export async function formatAlgoliaNamespace(result: StringKeyMap): Promise<StringKeyMap> {
+    try {
+        // Format results.
+        const chainIds = await getChainIdsForNamespace(result.name)
+
+        return {
+            id: result.id,
+            name: result.name,
+            displayName: result.displayName,
+            slug: result.slug,
+            shortDesc: result.shortDesc,
+            verified: result.verified || false,
+            icon: result.hasIcon ? buildIconUrl(result.name) : null,
+            blurhash: result.blurhash,
+            chainIds: chainIds,
+        }
+    } catch (err) {
+        logger.error('Error formatting Algolia namespace', err)
+    }
+}
+
+export function formatAlgoliaLiveObject(result: StringKeyMap) {
+    try {
+        // Format results.
+        const isContractEvent = isContractNamespace(result.namespaceName)
+
+        let icon
+        if (result.liveObjectHasIcon) {
+            icon = buildIconUrl(result.liveObjectUid)
+        } else if (result.namespaceHasIcon) {
+            icon = buildIconUrl(result.namespaceName)
+        } else if (isContractEvent) {
+            icon = buildIconUrl(result.namespaceName.split('.')[2])
+        } else {
+            icon = '' // TODO: Need fallback
+        }
+
+        return {
+            id: result.liveObjectUid,
+            name: result.liveObjectName,
+            displayName: result.liveObjectDisplayName,
+            desc: result.liveObjectDesc,
+            icon,
+            blurhash: result.namespaceBlurhash,
+            verified: result.namespaceVerified,
+            isContractEvent,
+            latestVersion: {
+                nsp: result.versionNsp,
+                name: result.versionName,
+                version: result.versionVersion,
+                chainIds: Object.keys(result.versionConfig.chains),
+            },
+        }
+    } catch (err) {
+        logger.error('Error formatting Algolia live object', err)
+    }
+}
+
+export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
+    try {
+        const groups: StringKeyMap = {}
+        const groupedContracts = []
+
+        contracts.forEach((contract) => {
+            console.log('name - ', contract.name)
+            const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
+            if (!groupName) return
+
+            const chainId = chainIdForContractNamespace(contract.namespace.name)
+            const icon = buildIconUrl(groupName.split('.')[0]) || null
+            groups[groupName] = groups[groupName] || {
+                name: contract.name,
+                numInstances: 0,
+                namespace: {
+                    slug: contract.namespace.slug,
+                    verified: contract.namespace.verified,
+                    icon: icon,
+                    blurhash: contract.namespace.blurhash,
+                    chainIds: [],
+                },
+            }
+            groups[groupName].namespace.chainIds.push(chainId)
+            groups[groupName].numInstances += contract.contractInstances.length
+        })
+
+        Object.entries(groups).forEach(([groupName, values]) =>
+            groupedContracts.push({
+                groupName,
+                ...values,
+            })
+        )
+
+        return groupedContracts
+    } catch (err) {
+        logger.error('Error formatting Algolia contracts', err)
+    }
 }
