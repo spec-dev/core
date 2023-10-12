@@ -33,6 +33,15 @@ export async function createLiveObjectVersion(
     return liveObjectVersion
 }
 
+export async function getLiveObjectVersion(uid: string): Promise<LiveObjectVersion | null> {
+    try {
+        return await liveObjectVersions().findOneBy({ uid })
+    } catch (err) {
+        logger.error(`Error fetching LiveObjectVersion(uid=${uid}): ${err}`)
+        return null
+    }
+}
+
 export async function getLiveObjectVersionsByNamespacedVersions(
     namespacedVersions: string[]
 ): Promise<LiveObjectVersion[]> {
@@ -172,6 +181,41 @@ export async function getLiveObjectVersionsByNamespace(nsp: string): Promise<Liv
         return liveObjectVersions
     } catch (err) {
         logger.error(`Error getting LiveObjectVersions for ${nsp}: ${err}`)
+        return null
+    }
+}
+
+// someId is either the uid of the LOV or a partial version of the namespaced-version.
+export async function resolveLovWithPartialId(someId: string): Promise<StringKeyMap | null> {
+    let id = someId
+
+    // Get by uid if not a namespaced-version.
+    if (!id.includes('.')) {
+        return getLiveObjectVersion(id)
+    }
+
+    const fakeVersion = 'fake'
+    let { nsp, name, version } = fromNamespacedVersion(
+        id.includes('@') ? id : `${id}@${fakeVersion}`
+    )
+    if (!nsp || !name || !version) {
+        return null
+    }
+
+    const queryParams: any = { nsp, name }
+    if (version !== fakeVersion) {
+        queryParams.version = version
+    }
+
+    try {
+        const results = await liveObjectVersions().find({
+            where: queryParams,
+            order: { createdAt: 'DESC' },
+            take: 1,
+        })
+        return results[0]
+    } catch (err) {
+        logger.error(`Error finding LOV by ${queryParams}: ${err}`)
         return null
     }
 }

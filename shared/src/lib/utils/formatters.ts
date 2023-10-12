@@ -774,3 +774,10 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
         logger.error('Error formatting Algolia contracts', err)
     }
 }
+
+export const stripTrailingSlash = (val: string): string => {
+    while (val.endsWith('/')) {
+        val = val.slice(0, val.length - 1)
+    }
+    return val
+}

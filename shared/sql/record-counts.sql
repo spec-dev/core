@@ -40,5 +40,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- CREATE TRIGGER "allov2_profile_increment_count" AFTER INSERT ON allov2.profile FOR EACH ROW EXECUTE PROCEDURE track_record_counts();
--- CREATE TRIGGER "allov2_profile_decrement_count" AFTER DELETE ON allov2.profile FOR EACH ROW EXECUTE PROCEDURE track_record_counts();
+-- Trigger for record counts table any time a record count is upserted.
+CREATE OR REPLACE FUNCTION track_record_count_changed() RETURNS trigger AS $$
+DECLARE
+    rec RECORD;
+    base_payload TEXT;
+    payload TEXT;
+BEGIN
+    rec := NEW;
+    base_payload := ''
+        || '{'
+        || '"timestamp":"' || CURRENT_TIMESTAMP AT TIME ZONE 'UTC' || '",'
+        || '"operation":"' || TG_OP                                || '",';
+    payload := base_payload || '"data":' || row_to_json(rec) || '}';
+    PERFORM pg_notify('record_count_changed', payload);
+    RETURN rec;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "track_record_count_inserts" AFTER INSERT ON record_counts FOR EACH ROW EXECUTE PROCEDURE track_record_count_changed();
+CREATE TRIGGER "track_record_count_updates" AFTER UPDATE ON record_counts FOR EACH ROW EXECUTE PROCEDURE track_record_count_changed();

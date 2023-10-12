@@ -132,6 +132,21 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
+export async function getLastXEvents(
+    eventName: string,
+    count: number
+): Promise<StringKeyMap[] | null> {
+    try {
+        return ((await redis?.xRevRange(eventName, '+', '-', { COUNT: count })) || [])
+            .map((entry) => entry?.message?.event)
+            .filter((event) => !!event)
+            .map((event) => JSON.parse(event))
+    } catch (err) {
+        logger.error(`Error getting last ${count} events for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
 export async function getLastEvent(eventName: string): Promise<StringKeyMap | null> {
     try {
         const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]

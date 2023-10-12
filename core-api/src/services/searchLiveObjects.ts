@@ -5,8 +5,9 @@ import {
     logger,
     isContractNamespace,
     camelizeKeys,
+    getCachedRecordCounts,
+    stripTrailingSlash,
 } from '../../../shared'
-import path from 'path'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
 import { regExSplitOnUppercase } from '../utils/regEx'
@@ -34,6 +35,8 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
+                namespace_blurhash, 
+                namespace_verified, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
                 group_name
@@ -76,16 +79,22 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
     // Camelize result keys.
     results = camelizeKeys(results)
 
+    const liveObjectTablePaths = results.map(r => r.versionConfig?.table).filter(v => !!v)
+    const recordCountsData = liveObjectTablePaths.length ? await getCachedRecordCounts(liveObjectTablePaths) : []
+
     // Return formatted results.
     return {
-        data: results.map(formatAsLatestLiveObject),
+        data: results.map(r => formatAsLatestLiveObject(r, recordCountsData)),
     }
 }
 
-function formatAsLatestLiveObject(result) {
-    // Format results.
-    const config = result.versionConfig
+function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: StringKeyMap) {
     const isContractEvent = isContractNamespace(result.namespaceName)
+    const config = result.versionConfig
+    const tablePath = config?.table || null
+    const recordCountInfo = tablePath ? (recordCountsData[tablePath] || {}) : {}
+    let numRecords = parseInt(recordCountInfo.count)
+    numRecords = Number.isNaN(numRecords) ? 0 : numRecords
 
     let icon
     if (result.liveObjectHasIcon) {
@@ -98,10 +107,9 @@ function formatAsLatestLiveObject(result) {
         icon = '' // TODO: Need fallback
     }
 
-    // TODO: Clean this up.
     let codeUrl = null
     if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
-        codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'master', config.folder, 'spec.ts')
+        codeUrl = [stripTrailingSlash(result.namespaceCodeUrl), 'blob', 'main', config.folder, 'spec.ts'].join('/')
     }
 
     return {
@@ -111,6 +119,8 @@ function formatAsLatestLiveObject(result) {
         desc: result.liveObjectDesc,
         icon,
         codeUrl,
+        blurhash: result.namespaceBlurhash,
+        verified: result.namespaceVerified,
         isContractEvent,
         latestVersion: {
             nsp: result.versionNsp,
@@ -121,8 +131,8 @@ function formatAsLatestLiveObject(result) {
             config: config,
             createdAt: result.versionCreatedAt.toISOString(),
         },
-        records: 1013861,
-        lastInteraction: 10,
+        records: numRecords,
+        lastInteraction: recordCountInfo.updatedAt || null,
     }
 }
 

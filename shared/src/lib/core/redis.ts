@@ -27,6 +27,8 @@ const keys = {
     LATEST_TOKEN_PRICES: 'latest-token-prices',
     TEST_STREAM_INPUT_GEN: 'test-stream-input-gen',
     FEATURED_NAMESPACES: 'featured-namespaces',
+    RECORD_COUNTS: 'record-counts',
+    NAMESPACE_RECORD_COUNTS: 'namespace-record-counts',
 }
 
 export async function addLog(projectUid: string, data: StringKeyMap) {
@@ -104,6 +106,90 @@ export async function setLatestTokenPrices(map: StringKeyMap): Promise<boolean> 
     } catch (err) {
         logger.error(`Error setting latest token prices in redis: ${JSON.stringify(err)}.`)
         return false
+    }
+}
+
+export async function updateRecordCountsCache(map: StringKeyMap): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.RECORD_COUNTS, map)
+        return true
+    } catch (err) {
+        logger.error(`Error updating record counts cache: ${JSON.stringify(err)}.`)
+        return false
+    }
+}
+
+export async function getCachedRecordCounts(tablePaths?: string[]): Promise<StringKeyMap> {
+    try {
+        if (tablePaths?.length) {
+            const results = await redis?.hmGet(keys.RECORD_COUNTS, tablePaths)
+            const data = {}
+            for (let i = 0; i < tablePaths.length; i++) {
+                const tablePath = tablePaths[i]
+                const result = results[i]
+                if (!result) continue
+                data[tablePath] = JSON.parse(result)
+            }
+            return data
+        }
+
+        const results = await redis?.hGetAll(keys.RECORD_COUNTS)
+        const data = {}
+        for (const key in results) {
+            const result = results[key]
+            if (!result) continue
+            data[key] = JSON.parse(result)
+        }
+        return data
+    } catch (err) {
+        logger.error(
+            `Error getting cached record counts for table paths ${tablePaths?.join(
+                ', '
+            )}: ${JSON.stringify(err)}.`
+        )
+        return {}
+    }
+}
+
+export async function updateNamespaceRecordCountsCache(map: StringKeyMap): Promise<boolean> {
+    try {
+        await redis?.hSet(keys.NAMESPACE_RECORD_COUNTS, map)
+        return true
+    } catch (err) {
+        logger.error(`Error updating namespace record counts cache: ${JSON.stringify(err)}.`)
+        return false
+    }
+}
+
+export async function getCachedNamespaceRecordCounts(nsps?: string[]): Promise<StringKeyMap> {
+    try {
+        if (nsps?.length) {
+            const results = await redis?.hmGet(keys.NAMESPACE_RECORD_COUNTS, nsps)
+            const data = {}
+            for (let i = 0; i < nsps.length; i++) {
+                const nsp = nsps[i]
+                const result = results[i]
+                if (!result) continue
+                data[nsp] = JSON.parse(result)
+            }
+            return data
+        }
+
+        const results = await redis?.hGetAll(keys.NAMESPACE_RECORD_COUNTS)
+        const data = {}
+        for (const key in results) {
+            const result = results[key]
+            if (!result) continue
+            data[key] = JSON.parse(result)
+        }
+        return data
+    } catch (err) {
+        logger.error(
+            `Error getting cached namespace record counts for namespaces ${nsps?.join(
+                ', '
+            )}: ${JSON.stringify(err)}.`
+        )
+        return {}
     }
 }
 

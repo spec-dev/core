@@ -42,6 +42,8 @@ const paths = {
     PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
     INDEX_LIVE_OBJECT_VERSIONS: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + 's' + '/index',
     GENERATE_LOV_TEST_INPUT_DATA: prefix.LIVE_OBJECT_VERSION + '/generate-test-inputs',
+    LATEST_LOV_RECORDS: prefix.LIVE_OBJECT_VERSION + '/latest-records',
+    LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION,
 
     // Contract Instance paths.
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
@@ -53,6 +55,7 @@ const paths = {
     CONTRACT_GROUP: prefix.CONTRACT + '/group',
     CONTRACT_GROUPS: prefix.CONTRACT + '/group' + 's',
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
+    CONTRACT_GROUP_PAGE: prefix.CONTRACT + '/group/page',
 
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
@@ -62,7 +65,7 @@ const paths = {
     RESOLVE_EVENT_VERSION_CURSORS: prefix.EVENT_VERSION + 's' + '/resolve/cursors',
     GET_EVENT_VERSION_DATA_AFTER: prefix.EVENT_VERSION + 's' + '/data/after',
 
-    //Event paths.
+    // Event paths.
     EVENTS: prefix.EVENT + 's',
 
     // Call Version paths.

@@ -44,3 +44,5 @@ spec:
           value: "1" 
         - name: JOB_INTERVAL
           value: "600000"
+        - name: FLIP
+          value: tails
