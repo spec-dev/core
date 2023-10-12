@@ -86,6 +86,10 @@ export async function getAllContractGroups(filters: StringKeyMap): Promise<Contr
                 createdAt: true,
                 namespace: {
                     slug: true,
+                    name: true,
+                    hasIcon: true,
+                    verified: true,
+                    blurhash: true,
                 },
                 contractInstances: {
                     chainId: true,

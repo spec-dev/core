@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW live_object_version_namespace_view AS
+CREATE OR REPLACE VIEW searchable_live_object_view AS
 SELECT DISTINCT ON (lv.live_object_id)
     l.id AS live_object_id, 
     l.uid AS live_object_uid, 
@@ -25,6 +25,7 @@ SELECT DISTINCT ON (lv.live_object_id)
     n.code_url AS namespace_code_url, 
     n.has_icon AS namespace_has_icon, 
     n.created_at AS namespace_created_at,
+    n.blurhash AS namespace_blurhash,
     CASE
         WHEN n.name LIKE '%.%'
             THEN CONCAT(ARRAY_TO_STRING((STRING_TO_ARRAY(n.name, '.'))[3:4], '.'), '.', l.name)
