@@ -85,6 +85,7 @@ export {
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
     getLastEventId,
+    getLastXEvents,
     getLastEvent,
     getPublishedEventsAfterEventCursors,
     getPolygonContracts,

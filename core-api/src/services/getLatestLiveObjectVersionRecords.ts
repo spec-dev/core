@@ -1,4 +1,4 @@
-import { SharedTables, StringKeyMap, LiveObjectVersion, logger, camelToSnake, identPath, camelizeKeys } from '../../../shared'
+import { SharedTables, StringKeyMap, LiveObjectVersion, logger, camelToSnake, identPath, camelizeKeys, toNamespacedVersion, getLastXEvents } from '../../../shared'
 import { ident, literal } from 'pg-format'
 
 const limit = 10
@@ -20,14 +20,31 @@ async function getLatestLiveObjectVersionRecords(
 
     // Get the latest *limited* records.
     let records: StringKeyMap[] = []
+
+    const { nsp, name, version } = liveObjectVersion
+    const namespacedVersion = toNamespacedVersion(nsp, name, version)
+    const propertyNames = liveObjectVersion.properties.map(p => p.name)
+
     try {
-        records = camelizeKeys((await SharedTables.query(
-            `select * from ${identPath(table)} order by ${ident(timestampColumn)} desc limit ${literal(limit)}`
-        ))) as StringKeyMap[]
+        const recordEvents = await getLastXEvents(namespacedVersion, limit)
+        if (recordEvents.length) {
+            for (const event of recordEvents) {
+                const record = {}
+                for (const propertyName of propertyNames) {
+                    record[propertyName] = event.data[propertyName]
+                }
+                records.push(record)
+            }
+        } else {
+            records = camelizeKeys((await SharedTables.query(
+                `select * from ${identPath(table)} order by ${ident(timestampColumn)} desc limit ${literal(limit)}`
+            ))) as StringKeyMap[]    
+        }
     } catch (err) {
         logger.error(`Error getting latest records from ${table}: ${err}`)
         return { error: 'Failed to pull latest records' }
     }
+
 
     const uniqueRecordId = (record: StringKeyMap) => {
         return uniqueBy.map(property => record[property]).join(',')
