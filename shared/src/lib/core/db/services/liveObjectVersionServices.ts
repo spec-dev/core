@@ -2,7 +2,7 @@ import { LiveObjectVersion, LiveObjectVersionStatus } from '../entities/LiveObje
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { fromNamespacedVersion } from '../../../utils/formatters'
+import { camelizeKeys, fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 
@@ -145,4 +145,33 @@ export async function updateLiveObjectVersionStatus(
         return false
     }
     return true
+}
+
+export async function getLiveObjectVersionsByNamespace(nsp: string): Promise<LiveObjectVersion[]> {
+    let liveObjectVersions
+    try {
+        liveObjectVersions = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name,
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_config,
+                namespace_name,
+                namespace_has_icon,
+                namespace_blurhash
+            FROM searchable_live_object_view
+            WHERE (version_nsp = $1::text OR version_nsp ilike CONCAT('%.', $1, '.%'))`,
+            [nsp]
+        )
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
+    } catch (err) {
+        logger.error(`Error getting LiveObjectVersions for ${nsp}: ${err}`)
+        return null
+    }
 }

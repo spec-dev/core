@@ -187,6 +187,7 @@ import logger from './lib/logger'
 export { logger }
 export * from './lib/types'
 export * from './lib/utils/date'
+export * from './lib/utils/extract'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
 export * from './lib/utils/standardAbis'
@@ -295,6 +296,7 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
+    getLiveObjectVersionsByNamespace,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,
