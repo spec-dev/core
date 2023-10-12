@@ -25,14 +25,24 @@ async function getLatestLiveObjectVersionRecords(
     const namespacedVersion = toNamespacedVersion(nsp, name, version)
     const propertyNames = liveObjectVersion.properties.map(p => p.name)
 
+    const uniqueRecordId = (record: StringKeyMap) => {
+        return uniqueBy.map(property => record[property]).join(',')
+    }
+
     try {
         const recordEvents = await getLastXEvents(namespacedVersion, limit)
         if (recordEvents.length) {
+            const seen = new Set()
             for (const event of recordEvents) {
                 const record = {}
                 for (const propertyName of propertyNames) {
                     record[propertyName] = event.data[propertyName]
                 }
+
+                const recordId = uniqueRecordId(record)
+                if (seen.has(recordId)) continue
+                seen.add(recordId)
+
                 records.push(record)
             }
         } else {
@@ -43,11 +53,6 @@ async function getLatestLiveObjectVersionRecords(
     } catch (err) {
         logger.error(`Error getting latest records from ${table}: ${err}`)
         return { error: 'Failed to pull latest records' }
-    }
-
-
-    const uniqueRecordId = (record: StringKeyMap) => {
-        return uniqueBy.map(property => record[property]).join(',')
     }
 
     if (cursor) {
