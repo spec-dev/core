@@ -741,7 +741,6 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
         const groupedContracts = []
 
         contracts.forEach((contract) => {
-            console.log('name - ', contract.name)
             const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
             if (!groupName) return
 
