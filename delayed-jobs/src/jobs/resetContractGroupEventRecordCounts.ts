@@ -29,7 +29,7 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     // Get all event versions in this contract group's namespace.
     const eventVersions = await getEventVersionsInNsp(fullContractGroup)
     if (!eventVersions?.length) {
-        logger.error(chalk.redBright(`No event versions found in namespace ${fullContractGroup}...`))
+        logger.warn(chalk.yellow(`No event versions found in namespace ${fullContractGroup}. Stopping.`))
         return
     }
 
