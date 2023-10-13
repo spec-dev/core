@@ -91,6 +91,9 @@ export async function getAllContractGroups(
                 namespace: {
                     name: true,
                     slug: true,
+                    hasIcon: true,
+                    verified: true,
+                    blurhash: true,
                 },
                 contractInstances: {
                     chainId: true,

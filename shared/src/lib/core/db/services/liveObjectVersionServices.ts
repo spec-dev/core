@@ -151,9 +151,9 @@ export async function updateLiveObjectVersionStatus(
 export async function getLiveObjectVersionsToSync(
     timeSynced: string = null
 ): Promise<LiveObjectVersion[]> {
-    let lovs
+    let liveObjectVersions
     try {
-        lovs = await CoreDB.query(
+        liveObjectVersions = await CoreDB.query(
             `SELECT
                 live_object_uid,
                 live_object_name, 
@@ -163,21 +163,17 @@ export async function getLiveObjectVersionsToSync(
                 version_nsp,
                 version_name, 
                 version_version,
-                version_properties,
-                version_example,
                 version_config,
-                version_created_at,
                 version_updated_at,
                 namespace_name,
-                namespace_code_url, 
                 namespace_has_icon, 
-                namespace_created_at
+                namespace_blurhash
             FROM searchable_live_object_view
             WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz`,
             [new Date(timeSynced)]
         )
-        lovs = camelizeKeys(lovs)
-        return lovs
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
     } catch (err) {
         logger.error(
             `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
