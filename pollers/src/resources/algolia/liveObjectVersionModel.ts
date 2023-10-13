@@ -1,4 +1,4 @@
-import { StringKeyMap, formatAsLatestLiveObject, getLiveObjectVersionsToSync, logger } from '../../../../shared'
+import { StringKeyMap, formatAlgoliaLiveObject, formatAsLatestLiveObject, getLiveObjectVersionsToSync, logger } from '../../../../shared'
 import { AlgoliaModel } from './algoliaModel'
 
 export class LiveObjectVersionModel extends AlgoliaModel {
@@ -17,10 +17,10 @@ export class LiveObjectVersionModel extends AlgoliaModel {
 
     async getUpdated(timeSynced: string, syncAll: string): Promise<StringKeyMap[]> {
         try {
-            const lovs = syncAll === 'true' ? await getLiveObjectVersionsToSync() : await getLiveObjectVersionsToSync(timeSynced)
-            return lovs.map(lov => formatAsLatestLiveObject(lov))
+            const liveObjectVersions = syncAll === 'true' ? await getLiveObjectVersionsToSync() : await getLiveObjectVersionsToSync(timeSynced)
+            return liveObjectVersions.map(lov => formatAlgoliaLiveObject(lov))
         } catch (err) {
-            logger.error(`Error formatting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`)
+            logger.error(`Error getting live object versions for Algolia: ${err}`)
         }
     }
 }

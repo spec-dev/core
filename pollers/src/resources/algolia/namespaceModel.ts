@@ -1,4 +1,4 @@
-import { StringKeyMap, getNamespaces } from '../../../../shared'
+import { StringKeyMap, formatAlgoliaNamespace, getNamespaces, logger } from '../../../../shared'
 import { AlgoliaModel } from './algoliaModel'
 
 export class NamespaceModel extends AlgoliaModel {
@@ -16,7 +16,11 @@ export class NamespaceModel extends AlgoliaModel {
     }
 
     async getUpdated(timeSynced: string, syncAll: string): Promise<StringKeyMap[]> {
-        const namespaces = syncAll === 'true' ? await getNamespaces([]) : await getNamespaces([], timeSynced)
-        return await Promise.all(namespaces.map(n => n.publicView()))
+        try {
+            const namespaces = syncAll === 'true' ? await getNamespaces([]) : await getNamespaces([], timeSynced)
+            return await Promise.all(namespaces.map(n => formatAlgoliaNamespace(n)))
+        } catch (err) {
+            logger.error(`Error getting namespaces for Algolia: ${err}`)
+        }
     }
 }
