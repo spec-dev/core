@@ -6,6 +6,7 @@ const pollersConfig: StringKeyMap = {
     JOB_INTERVAL: Number(ev('JOB_INTERVAL', 60000)),
     CMC_API_KEY: ev('CMC_API_KEY'),
     CLEANUP_OPS_OLDER_THAN: Number(ev('CLEANUP_OPS_OLDER_THAN', 5)),
+    RECORD_COUNT_CHANGED_PG_CHANNEL: 'record_count_changed',
 }
 
 export default pollersConfig

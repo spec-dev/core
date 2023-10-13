@@ -13,6 +13,7 @@ import { LiveEventVersion } from './LiveEventVersion'
 import { LiveObject } from './LiveObject'
 import { StringKeyMap } from '../../../types'
 import { LiveCallHandler } from './LiveCallHandler'
+import { toNamespacedVersion } from '../../../utils/formatters'
 
 export interface LiveObjectVersionProperty {
     name: string
@@ -109,4 +110,15 @@ export class LiveObjectVersion {
 
     @OneToMany(() => LiveCallHandler, (liveCallHandler) => liveCallHandler.liveObjectVersion)
     liveCallHandlers: LiveCallHandler[]
+
+    publicView(): StringKeyMap {
+        return {
+            id: this.uid,
+            name: toNamespacedVersion(this.nsp, this.name, this.version),
+            properties: this.properties || [],
+            primaryTimestampProperty: this.config?.primaryTimestampProperty,
+            uniqueBy: (this.config?.uniqueBy || [])[0] || [],
+            createdAt: this.createdAt,
+        }
+    }
 }

@@ -645,55 +645,6 @@ export function formatTraceAsSpecCall(
     }
 }
 
-export function formatAsLatestLiveObject(result) {
-    try {
-        // Format results.
-        const config = result.versionConfig
-        const isContractEvent = isContractNamespace(result.namespaceName)
-
-        let icon
-        if (result.liveObjectHasIcon) {
-            icon = buildIconUrl(result.liveObjectUid)
-        } else if (result.namespaceHasIcon) {
-            icon = buildIconUrl(result.namespaceName)
-        } else if (isContractEvent) {
-            icon = buildIconUrl(result.namespaceName.split('.')[2])
-        } else {
-            icon = '' // TODO: Need fallback
-        }
-
-        // TODO: Clean this up.
-        let codeUrl = null
-        if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
-            codeUrl = path.join(result.namespaceCodeUrl, 'blob', 'master', config.folder, 'spec.ts')
-        }
-
-        return {
-            id: result.liveObjectUid,
-            name: result.liveObjectName,
-            displayName: result.liveObjectDisplayName,
-            desc: result.liveObjectDesc,
-            icon,
-            codeUrl,
-            isContractEvent,
-            latestVersion: {
-                nsp: result.versionNsp,
-                name: result.versionName,
-                version: result.versionVersion,
-                properties: result.versionProperties,
-                example: result.versionExample,
-                config: config,
-                createdAt: result.versionCreatedAt.toISOString(),
-                updatedAt: result.versionUpdatedAt.toISOString(),
-            },
-            records: 1013861,
-            lastInteraction: 10,
-        }
-    } catch (err) {
-        logger.error('format error', err)
-    }
-}
-
 export function formatEventVersionViewNameFromEventSpec(
     eventSpec: ContractEventSpec,
     nsp: string
@@ -792,7 +743,7 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
             const icon = buildIconUrl(groupName.split('.')[0]) || null
             const customerNsp = customerNspFromContractNsp(contract.namespace.name)
             groups[groupName] = groups[groupName] || {
-                id: contract.uid,
+                id: contract.id,
                 name: contract.name,
                 numInstances: 0,
                 customerNsp,
@@ -819,4 +770,11 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
     } catch (err) {
         logger.error('Error formatting Algolia contracts', err)
     }
+}
+
+export const stripTrailingSlash = (val: string): string => {
+    while (val.endsWith('/')) {
+        val = val.slice(0, val.length - 1)
+    }
+    return val
 }

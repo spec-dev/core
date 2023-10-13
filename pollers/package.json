@@ -16,7 +16,9 @@
     "dependencies": {
         "algoliasearch": "^4.19.1",
         "cross-fetch": "^3.1.5",
-        "chalk": "4.1.0"
+        "chalk": "4.1.0",
+        "pg": "^8.7.3",
+        "pg-listen": "^1.7.0"
     },
     "devDependencies": {
         "@types/node": "^18.0.3",

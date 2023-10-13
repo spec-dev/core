@@ -3,7 +3,10 @@ import {
     CoreDB,
     logger,
     camelizeKeys,
-    formatAsLatestLiveObject,
+    getCachedRecordCounts,
+    stripTrailingSlash,
+    isContractNamespace,
+    buildIconUrl,
 } from '../../../shared'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
@@ -33,6 +36,8 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
+                namespace_blurhash, 
+                namespace_verified, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
                 group_name
@@ -75,9 +80,60 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
     // Camelize result keys.
     results = camelizeKeys(results)
 
+    const liveObjectTablePaths = results.map(r => r.versionConfig?.table).filter(v => !!v)
+    const recordCountsData = liveObjectTablePaths.length ? await getCachedRecordCounts(liveObjectTablePaths) : []
+
     // Return formatted results.
     return {
-        data: results.map(formatAsLatestLiveObject),
+        data: results.map(r => formatAsLatestLiveObject(r, recordCountsData)),
+    }
+}
+
+function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: StringKeyMap) {
+    const isContractEvent = isContractNamespace(result.namespaceName)
+    const config = result.versionConfig
+    const tablePath = config?.table || null
+    const recordCountInfo = tablePath ? (recordCountsData[tablePath] || {}) : {}
+    let numRecords = parseInt(recordCountInfo.count)
+    numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+
+    let icon
+    if (result.liveObjectHasIcon) {
+        icon = buildIconUrl(result.liveObjectUid)
+    } else if (result.namespaceHasIcon) {
+        icon = buildIconUrl(result.namespaceName)
+    } else if (isContractEvent) {
+        icon = buildIconUrl(result.namespaceName.split('.')[2])
+    } else {
+        icon = '' // TODO: Need fallback
+    }
+
+    let codeUrl = null
+    if (!isContractEvent && result.namespaceCodeUrl && !!config?.folder) {
+        codeUrl = [stripTrailingSlash(result.namespaceCodeUrl), 'blob', 'main', config.folder, 'spec.ts'].join('/')
+    }
+
+    return {
+        id: result.liveObjectUid,
+        name: result.liveObjectName,
+        displayName: result.liveObjectDisplayName,
+        desc: result.liveObjectDesc,
+        icon,
+        codeUrl,
+        blurhash: result.namespaceBlurhash,
+        verified: result.namespaceVerified,
+        isContractEvent,
+        latestVersion: {
+            nsp: result.versionNsp,
+            name: result.versionName,
+            version: result.versionVersion,
+            properties: result.versionProperties,
+            example: result.versionExample,
+            config: config,
+            createdAt: result.versionCreatedAt.toISOString(),
+        },
+        records: numRecords,
+        lastInteraction: recordCountInfo.updatedAt || null,
     }
 }
 

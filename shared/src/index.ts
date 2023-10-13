@@ -85,6 +85,7 @@ export {
     hasBlockBeenIndexedForLogs,
     storePublishedEvent,
     getLastEventId,
+    getLastXEvents,
     getLastEvent,
     getPublishedEventsAfterEventCursors,
     getPolygonContracts,
@@ -167,6 +168,7 @@ export { range, randomIntegerInRange } from './lib/utils/math'
 import chainIds from './lib/utils/chainIds'
 export { chainIds }
 export {
+    chainSpecificSchemas,
     supportedChainIds,
     chainIdForSchema,
     contractNamespaceForChainId,
@@ -246,12 +248,17 @@ export {
     deleteCachedInputGenForStreamId,
     getCachedFeaturedNamespaces,
     setCachedFeaturedNamespaces,
+    updateRecordCountsCache,
+    updateNamespaceRecordCountsCache,
+    getCachedRecordCounts,
+    getCachedNamespaceRecordCounts,
 } from './lib/core/redis'
 export {
     createContract,
     upsertContracts,
     upsertContractWithTx,
     getAllContractGroups,
+    getOldestContractInGroup,
 } from './lib/core/db/services/contractServices'
 export {
     createContractInstance,
@@ -286,9 +293,11 @@ export {
     createLiveObject,
     getLiveObject,
     upsertLiveObject,
+    getLiveObjectByUid,
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
+    getLiveObjectVersion,
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
@@ -297,6 +306,7 @@ export {
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
     getLiveObjectVersionsToSync,
+    resolveLovWithPartialId,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

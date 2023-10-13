@@ -29,7 +29,7 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     // Get all event versions in this contract group's namespace.
     const eventVersions = await getEventVersionsInNsp(fullContractGroup)
     if (!eventVersions?.length) {
-        logger.error(chalk.redBright(`No event versions found in namespace ${fullContractGroup}...`))
+        logger.warn(chalk.yellow(`No event versions found in namespace ${fullContractGroup}. Stopping.`))
         return
     }
 
@@ -154,12 +154,16 @@ async function upsertAndUnpauseRecordCounts(
     const placeholders = []
     const bindings = []
     let i = 1
+    const timestamps = await Promise.all(
+        viewPaths.map(viewPath => getLatestBlockTimestampForView(pool, viewPath))
+    )
     const now = nowAsUTCDateString()
     for (let j = 0; j < viewPaths.length; j++) {
         const viewPath = viewPaths[j]
         const recordCount = recordCounts[j]
+        const timestamp = timestamps[j] || now
         placeholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3})`)
-        bindings.push(...[viewPath, recordCount, false, now])
+        bindings.push(...[viewPath, recordCount, false, timestamp])
         i += 4
     }
 
@@ -266,6 +270,28 @@ async function deleteRecordCountDeltasBelowBlockNumber(
     }
 
     return success
+}
+
+async function getLatestBlockTimestampForView(pool: Pool, viewPath: string): Promise<string | null> {
+    const client = await pool.connect()
+    let result
+    try {
+        result = await client.query(
+            `SELECT block_timestamp FROM ${identPath(viewPath)} order by block_number desc limit 1`,
+            [],
+        )
+    } catch (err) {
+        logger.error(
+            `Failed to get latest block_timestamp for ${viewPath}: ${err}`
+        )
+    } finally {
+        client.release()
+    }
+    if (!result) return null
+
+    const blockTimestamp = (result.rows || [])[0]?.block_timestamp || null
+
+    return blockTimestamp ? new Date(blockTimestamp).toISOString() : null
 }
 
 export default function job(params: StringKeyMap) {

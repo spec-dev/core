@@ -85,7 +85,7 @@ export async function getAllContractGroups(
         return await contractsRepo().find({
             relations: { namespace: true, contractInstances: true },
             select: {
-                uid: true,
+                id: true,
                 name: true,
                 createdAt: true,
                 namespace: {
@@ -109,6 +109,28 @@ export async function getAllContractGroups(
         })
     } catch (err) {
         logger.error(`Error getting Contract Groups: ${err}`)
+        return null
+    }
+}
+
+export async function getOldestContractInGroup(group: string): Promise<Contract[] | null> {
+    try {
+        return await contractsRepo().find({
+            select: {
+                id: true,
+                name: true,
+                createdAt: true,
+            },
+            where: {
+                namespace: {
+                    slug: ILike(`%.contracts.${group}`),
+                },
+            },
+            order: { createdAt: 'ASC' },
+            take: 1,
+        })
+    } catch (err) {
+        logger.error(`Error getting oldest contract in group ${group}: ${err}`)
         return null
     }
 }

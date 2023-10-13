@@ -31,7 +31,9 @@ SELECT DISTINCT ON (lv.live_object_id)
         WHEN n.name LIKE '%.%'
             THEN CONCAT(ARRAY_TO_STRING((STRING_TO_ARRAY(n.name, '.'))[3:4], '.'), '.', l.name)
         ELSE CONCAT(n.name, '.', l.name)
-    END as group_name
+    END AS group_name,
+    n.blurhash AS namespace_blurhash,
+    n.verified AS namespace_verified
 FROM live_object_versions lv
 LEFT JOIN live_objects l ON l.id = lv.live_object_id
 LEFT JOIN namespaces n ON n.id = l.namespace_id

@@ -1,4 +1,4 @@
-import { StringKeyMap, formatAlgoliaLiveObject, formatAsLatestLiveObject, getLiveObjectVersionsToSync, logger } from '../../../../shared'
+import { StringKeyMap, formatAlgoliaLiveObject, getLiveObjectVersionsToSync, logger } from '../../../../shared'
 import { AlgoliaModel } from './algoliaModel'
 
 export class LiveObjectVersionModel extends AlgoliaModel {

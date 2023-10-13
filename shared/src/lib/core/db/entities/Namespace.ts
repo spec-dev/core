@@ -17,6 +17,7 @@ import { Project } from './Project'
 import { StringKeyMap } from '../../../types'
 import { buildIconUrl } from '../../../utils/formatters'
 import { getChainIdsForNamespace } from '../services/namespaceServices'
+import { getCachedNamespaceRecordCounts } from '../../redis'
 
 /**
  * A globally unique namespace for projects, contracts, events, live objects, etc.
@@ -106,6 +107,10 @@ export class Namespace {
     namespaceAccessTokens: NamespaceAccessToken[]
 
     async publicView(): Promise<StringKeyMap> {
+        const recordCountInfo = (await getCachedNamespaceRecordCounts([this.slug]))[this.slug] || {}
+        let numRecords = parseInt(recordCountInfo.count)
+        numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+
         return {
             id: this.id,
             name: this.name,
@@ -123,8 +128,8 @@ export class Namespace {
             icon: this.hasIcon ? buildIconUrl(this.name) : null,
             blurhash: this.blurhash,
             chainIds: await getChainIdsForNamespace(this.name),
-            records: 1013861,
-            lastInteraction: 10,
+            records: numRecords,
+            lastInteraction: recordCountInfo.updatedAt || null,
         }
     }
 }
