@@ -86,6 +86,7 @@ export async function getAllContractGroups(
             relations: { namespace: true, contractInstances: true },
             select: {
                 id: true,
+                uid: true,
                 name: true,
                 createdAt: true,
                 namespace: {

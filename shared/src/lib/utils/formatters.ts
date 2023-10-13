@@ -743,7 +743,7 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
             const icon = buildIconUrl(groupName.split('.')[0]) || null
             const customerNsp = customerNspFromContractNsp(contract.namespace.name)
             groups[groupName] = groups[groupName] || {
-                id: contract.id,
+                id: contract.uid,
                 name: contract.name,
                 numInstances: 0,
                 customerNsp,
