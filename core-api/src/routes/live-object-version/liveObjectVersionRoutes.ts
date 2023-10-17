@@ -58,7 +58,7 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
 })
 
 /**
- * Get a live object version by "id" (some potentially id or partial id).
+ * Get a live object version by "id" (some potential id or partial id).
  */
  app.get(paths.LIVE_OBJECT_VERSION, async (req, res) => {
     // Parse & validate payload.

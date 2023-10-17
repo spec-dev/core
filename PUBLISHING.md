@@ -6,7 +6,7 @@
 
 3. Add `INSERT` and `UPDATE` ops triggers to the live object table (see `shared/sql/ops-trigger.sql`).
 
-4. Register the live object table in the `op_tracking` table for each of the chains it uses.
+4. Add the `INSERT` AND `DELETE` triggers for record count tracking.
 
 5. If not already done, create a new database user (in shared tables) with a name equal to that live object's namespace.
 
@@ -59,6 +59,15 @@
 
 8. Update the live object version's `url` column with the url of the Deno function just created.
 
-9. Hit `/admin/live-object-version/index` to kick off the `indexLiveObjectVersion` delayed job. This will index all data for the live object up til now.
+9. Register the live object table in the `op_tracking` table for each of the chains it uses.
 
-10. Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).
+```sql
+insert into op_tracking (table_path, chain_id, is_enabled_above) values
+	('station.token_contract', '1', number),
+	('station.token_contract', '5', number),
+	('station.token_contract', '137', number);
+```
+
+10. Hit `/admin/live-object-version/index` to kick off the `indexLiveObjectVersion` delayed job. This will index all data for the live object up til now.
+
+11. Manually add any other Postgres indexes to the live object table that might speed up lookups (will be configurable by our end users in the future).

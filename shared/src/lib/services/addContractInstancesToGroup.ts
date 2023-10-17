@@ -32,7 +32,8 @@ import {
     bulkSaveLogs,
 } from './decodeServices'
 import { SharedTables } from '../shared-tables/db/dataSource'
-import { getNamespaces } from '../core/db/services/namespaceServices'
+import { upsertContractWithTx } from '../core/db/services/contractServices'
+import { getNamespaces, getNamespace } from '../core/db/services/namespaceServices'
 import { createContractGroup } from './createContractGroup'
 import { camelizeKeys } from 'humps'
 
@@ -73,11 +74,9 @@ export async function addContractInstancesToGroup(
     if (existingContractInstances === null) {
         throw `Failed finding existing contract instances in namespace: ${fullNsp}`
     }
-    if (!existingContractInstances.length) {
-        throw `No contract instances exist in namespace "${fullNsp}" yet`
-    }
-    const contract = existingContractInstances[0].contract
-    const namespace = contract.namespace
+
+    const namespace = await getNamespace(fullNsp)
+    if (!namespace) throw `No namespace found for ${fullNsp}`
 
     // Filter out given addresses already in the group.
     const existingContractInstanceAddresses = new Set(
@@ -126,10 +125,14 @@ export async function addContractInstancesToGroup(
     }
     await saveAbisMap(newAddressAbisMap, chainId)
 
+    const contractName = group.split('.').pop()
+
     // Create the new contract instances.
     let newContractInstances = []
     try {
         await CoreDB.manager.transaction(async (tx) => {
+            const contract = await upsertContractWithTx(namespace.id, contractName, '', tx)
+
             newContractInstances = await upsertContractInstancesWithTx(
                 newAddresses.map((address) => ({
                     chainId,
@@ -162,7 +165,7 @@ export async function addContractInstancesToGroup(
     for (const abiItem of eventAbiItems) {
         contractEventSpecs.push({
             eventName: abiItem.name,
-            contractName: contract.name,
+            contractName: contractName,
             contractInstances: allGroupContractInstances,
             namespace,
             abiItem,
@@ -285,7 +288,7 @@ export async function addContractInstancesToGroup(
         const formattedEventData = formatLogAsSpecEvent(
             decodedLog,
             groupAbi,
-            contract.name,
+            contractName,
             chainId,
             txMap[transactionHash]
         )
@@ -312,7 +315,7 @@ export async function addContractInstancesToGroup(
             decodedTrace,
             signature,
             groupAbi,
-            contract.name,
+            contractName,
             chainId,
             txMap[transactionHash]
         )
