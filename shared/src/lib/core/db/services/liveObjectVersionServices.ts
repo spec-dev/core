@@ -5,6 +5,7 @@ import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
+import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -178,9 +179,20 @@ export async function resolveLovWithPartialId(someId: string): Promise<StringKey
         queryParams.version = version
     }
 
+    const matches = [queryParams]
+
+    // Try all contract namespaces if this is an event lov.
+    if (queryParams.nsp.split('.').length === 2) {
+        for (const chainId of Array.from(supportedChainIds)) {
+            const contractsNspPrefix = contractNamespaceForChainId(chainId)
+            const fullNsp = [contractsNspPrefix, queryParams.nsp].join('.')
+            matches.push({ ...queryParams, nsp: fullNsp })
+        }
+    }
+
     try {
         const results = await liveObjectVersions().find({
-            where: queryParams,
+            where: matches,
             order: { createdAt: 'DESC' },
             take: 1,
         })
