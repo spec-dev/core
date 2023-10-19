@@ -30,3 +30,5 @@ spec:
           value: {{BUGSNAG_API_KEY}}
         - name: FORCE_COLOR
           value: "1" 
+        - name: WARN_AT_GAP_SIZE
+          value: "50"

@@ -1116,11 +1116,21 @@ function sortContractCalls(contractCalls: StringKeyMap[]): StringKeyMap[] {
     ))
 }
 
+// HACK - Huge hack
+const outputEventOrder = [
+    'station.TokenContractChanged@0.0.1',
+    'station.Erc1155TokenChanged@0.0.1',
+    'station.Erc1155OwnerChanged@0.0.1',
+    'station.Erc721TokenChanged@0.0.1',
+    'station.Erc20OwnerChanged@0.0.1'
+]
+
 function sortLiveObjectOutputEvents(outputEvents: StringKeyMap[]): StringKeyMap[] {
     return (outputEvents || []).sort((a, b) => (
         (a.origin.transactionIndex - b.origin.transactionIndex) || 
         (Number(a.origin.logIndex || 0) - Number(b.origin.logIndex || 0)) || 
-        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0))
+        (Number(a.origin.traceIndex || 0) - Number(b.origin.traceIndex || 0)) ||
+        (Math.max(outputEventOrder.indexOf(a.name), 0) - Math.max(outputEventOrder.indexOf(b.name), 0))
     ))
 }
 
