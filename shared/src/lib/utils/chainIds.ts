@@ -1,6 +1,15 @@
 import { Erc20Token } from '../shared-tables/db/entities/Erc20Token'
-import { invert, NULL_ADDRESS } from './formatters'
 import config from '../config'
+
+const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
+
+const invert = (obj1: object): object => {
+    const obj2 = {}
+    for (const key in obj1) {
+        obj2[obj1[key]] = key
+    }
+    return obj2
+}
 
 const chainIds: { [key: string]: string } = {
     ETHEREUM: '1',
