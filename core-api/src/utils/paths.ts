@@ -64,6 +64,7 @@ const paths = {
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',
     RESOLVE_EVENT_VERSION_CURSORS: prefix.EVENT_VERSION + 's' + '/resolve/cursors',
     GET_EVENT_VERSION_DATA_AFTER: prefix.EVENT_VERSION + 's' + '/data/after',
+    EVENT_VERSIONS_SEARCH: prefix.EVENT_VERSION + 's' + '/search',
 
     // Event paths.
     EVENTS: prefix.EVENT + 's',
