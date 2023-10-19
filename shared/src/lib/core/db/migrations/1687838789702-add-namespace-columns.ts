@@ -23,6 +23,5 @@ export class addNamespaceColumns1687838789702 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "short_desc"`)
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "desc"`)
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "display_name"`)
-        await queryRunner.query(`ALTER TABLE "namespaces" ADD "joined_at" TIMESTAMP WITH TIME ZONE`)
     }
 }
