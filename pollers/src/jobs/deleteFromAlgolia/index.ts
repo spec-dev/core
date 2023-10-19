@@ -2,9 +2,10 @@ import algoliasearch from 'algoliasearch'
 import { logger } from '../../../../shared/dist/main'
 import { resourceInstances } from '../../resources/algolia'
 import chalk from 'chalk'
+import config from '../../config'
 
 async function deleteFromAlgolia() {
-    const client = algoliasearch(process.env.ALGOLIA_APPLICATION_ID, process.env.ALGOLIA_ADMIN_API_KEY)
+    const client = algoliasearch(config.ALGOLIA_APPLICATION_ID, config.ALGOLIA_ADMIN_API_KEY)
     const resources = resourceInstances
     const idsToDelete = {
         namespace: [],

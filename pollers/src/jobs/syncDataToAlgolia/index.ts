@@ -2,12 +2,13 @@ import algoliasearch from 'algoliasearch'
 import { logger } from '../../../../shared'
 import { resourceInstances } from '../../resources/algolia'
 import chalk from 'chalk'
+import config from '../../config'
 
 let timeSynced
 
 async function syncDataToAlgolia() {
-    const client = algoliasearch(process.env.ALGOLIA_APPLICATION_ID, process.env.ALGOLIA_ADMIN_API_KEY)
-    const syncAll = process.env.ALGOLIA_SYNC_ALL
+    const client = algoliasearch(config.ALGOLIA_APPLICATION_ID, config.ALGOLIA_ADMIN_API_KEY)
+    const syncAll = config.ALGOLIA_SYNC_ALL
     const resources = resourceInstances
 
     resources.map(async (resource) => {
