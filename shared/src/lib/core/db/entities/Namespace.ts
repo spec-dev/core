@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    CreateDateColumn,
+    OneToMany,
+    UpdateDateColumn,
+} from 'typeorm'
 import { Contract } from './Contract'
 import { NamespaceAccessToken } from './NamespaceAccessToken'
 import { Event } from './Event'
@@ -61,6 +69,15 @@ export class Namespace {
     })
     createdAt: Date
 
+    @UpdateDateColumn({
+        type: 'timestamptz',
+        name: 'updated_at',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        nullable: true,
+    })
+    updatedAt: Date
+
     @Column({
         type: 'timestamptz',
         name: 'joined_at',
@@ -95,6 +112,7 @@ export class Namespace {
         numRecords = Number.isNaN(numRecords) ? 0 : numRecords
 
         return {
+            id: this.id,
             name: this.name,
             displayName: this.displayName,
             slug: this.slug,
@@ -105,6 +123,7 @@ export class Namespace {
             twitterUrl: this.twitterUrl,
             verified: this.verified || false,
             createdAt: this.createdAt.toISOString(),
+            updatedAt: this.updatedAt.toISOString(),
             joinedAt: this.joinedAt?.toISOString(),
             icon: this.hasIcon ? buildIconUrl(this.name) : null,
             blurhash: this.blurhash,

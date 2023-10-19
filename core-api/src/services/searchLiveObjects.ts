@@ -1,12 +1,12 @@
 import { StringKeyMap } from '../types'
 import {
-    buildIconUrl,
     CoreDB,
     logger,
-    isContractNamespace,
     camelizeKeys,
     getCachedRecordCounts,
     stripTrailingSlash,
+    isContractNamespace,
+    buildIconUrl,
 } from '../../../shared'
 import config from '../config'
 import { paramsToTsvector } from '../utils/formatters'
@@ -32,6 +32,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 version_example,
                 version_config,
                 version_created_at,
+                version_updated_at,
                 namespace_name, 
                 namespace_code_url, 
                 namespace_has_icon, 
@@ -40,7 +41,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
                 group_name
-            FROM live_object_version_namespace_view
+            FROM searchable_live_object_view
             WHERE
             CASE
                 WHEN $1::text IS NOT NULL THEN

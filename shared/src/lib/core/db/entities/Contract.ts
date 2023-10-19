@@ -8,6 +8,7 @@ import {
     OneToMany,
     Unique,
     JoinColumn,
+    UpdateDateColumn,
 } from 'typeorm'
 import { Namespace } from './Namespace'
 import { ContractInstance } from './ContractInstance'
@@ -38,6 +39,15 @@ export class Contract {
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
+
+    @UpdateDateColumn({
+        type: 'timestamptz',
+        name: 'updated_at',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        nullable: true,
+    })
+    updatedAt: Date
 
     @Column({ name: 'namespace_id' })
     namespaceId: number

@@ -7,6 +7,7 @@ import {
     ManyToOne,
     OneToMany,
     JoinColumn,
+    UpdateDateColumn,
 } from 'typeorm'
 import { LiveEventVersion } from './LiveEventVersion'
 import { LiveObject } from './LiveObject'
@@ -87,6 +88,15 @@ export class LiveObjectVersion {
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
+
+    @UpdateDateColumn({
+        type: 'timestamptz',
+        name: 'updated_at',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        nullable: true,
+    })
+    updatedAt: Date
 
     @Column({ name: 'live_object_id' })
     liveObjectId: number

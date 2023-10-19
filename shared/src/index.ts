@@ -279,6 +279,7 @@ export {
     getEventVersionsByNamespacedVersions,
     resolveEventVersionNames,
     getContractEventsForGroup,
+    getEventVersions,
     getEventVersionsInNsp,
     resolveEventVersionCursors,
 } from './lib/core/db/services/eventVersionServices'
@@ -304,6 +305,7 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
+    getLiveObjectVersionsToSync,
     resolveLovWithPartialId,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
@@ -434,3 +436,4 @@ export {
 } from './lib/services/contractEventServices'
 export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'
 export { resolveMetadata } from './lib/services/resolveMetadata'
+export { contractGroupNameFromNamespace } from './lib/utils/extract'

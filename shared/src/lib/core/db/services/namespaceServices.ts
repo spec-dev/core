@@ -2,7 +2,7 @@ import { Namespace } from '../entities/Namespace'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
-import { In, Raw } from 'typeorm'
+import { In, MoreThanOrEqual, Raw } from 'typeorm'
 import { chainIdForContractNamespace } from '../../../utils/chainIds'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
@@ -31,12 +31,16 @@ export async function getNamespace(name: string): Promise<Namespace | null> {
     }
 }
 
-export async function getNamespaces(names: string[]): Promise<Namespace[] | null> {
+export async function getNamespaces(
+    names: string[],
+    timeSynced: string = null
+): Promise<Namespace[] | null> {
     if (!names?.length) {
         try {
             return await namespaces().find({
                 where: {
                     name: Raw((alias) => `${alias} NOT LIKE '%.%' AND ${alias} != 'test'`),
+                    updatedAt: MoreThanOrEqual(new Date(timeSynced)),
                 },
                 order: { verified: 'ASC', createdAt: 'DESC' },
             })

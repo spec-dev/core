@@ -1,5 +1,5 @@
 import { exit } from 'process'
-import { logger, coreRedis, SharedTables } from '../../shared'
+import { logger, coreRedis, SharedTables, CoreDB } from '../../shared'
 import config from './config'
 import path from 'path'
 import { dynamicImport } from './utils/imports'
@@ -8,6 +8,7 @@ async function run() {
     await Promise.all([
         SharedTables.initialize(),
         coreRedis.connect(),
+        CoreDB.initialize(),
     ])
 
     let job

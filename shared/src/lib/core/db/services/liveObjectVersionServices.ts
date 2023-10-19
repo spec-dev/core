@@ -5,6 +5,7 @@ import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
+import { camelizeKeys } from 'humps'
 import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
@@ -155,6 +156,40 @@ export async function updateLiveObjectVersionStatus(
         return false
     }
     return true
+}
+
+export async function getLiveObjectVersionsToSync(
+    timeSynced: string = null
+): Promise<LiveObjectVersion[]> {
+    let liveObjectVersions
+    try {
+        liveObjectVersions = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name, 
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_config,
+                version_updated_at,
+                namespace_name,
+                namespace_has_icon, 
+                namespace_blurhash
+            FROM searchable_live_object_view
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz`,
+            [new Date(timeSynced)]
+        )
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
+    } catch (err) {
+        logger.error(
+            `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
+        )
+        return null
+    }
 }
 
 // someId is either the uid of the LOV or a partial version of the namespaced-version.
