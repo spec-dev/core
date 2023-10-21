@@ -14,7 +14,7 @@ env="eth"
 job_name="$1"
 deployment_name="$2"
 
-# Ex: bin/deploy pollTokenPrices poll-token-prices
+# Ex: bin/deploy syncDataToAlgolia sync-data-to-algolia
 
 # ======== VALIDATE ARGS ======== #
 
@@ -24,6 +24,8 @@ $shared_bin_dir/validate_arg "deployment_name" "$deployment_name"
 # ======== SET KEY VARS ======== #
 
 cmc_api_key=$( $shared_bin_dir/env_reader "$env" "CMC_API_KEY" )
+algolia_app_id=$( $shared_bin_dir/env_reader "$env" "ALGOLIA_APPLICATION_ID" )
+algolia_admin_key=$( $shared_bin_dir/env_reader "$env" "ALGOLIA_ADMIN_API_KEY" )
 
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
@@ -32,6 +34,13 @@ shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_POR
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
 
+# Core DB
+core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
+core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
+core_db_port=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PORT" )
+core_db_username=$( $shared_bin_dir/env_reader "$env" "CORE_DB_USERNAME" )
+core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
+
 # Core Redis
 core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
 core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
@@ -39,6 +48,8 @@ core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
 # ======== VALIDATE REQUIRED VARS ======== #
 
 $shared_bin_dir/assert_env "CMC_API_KEY" "$cmc_api_key"
+$shared_bin_dir/assert_env "ALGOLIA_APPLICATION_ID" "$algolia_app_id"
+$shared_bin_dir/assert_env "ALGOLIA_ADMIN_API_KEY" "$algolia_admin_key"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -46,6 +57,13 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+
+# Core DB
+$shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
+$shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
+$shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
+$shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
+$shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 
 # Core Redis
 $shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
@@ -59,8 +77,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "POLLERS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-# image_version=$( $shared_bin_dir/latest_sha )
-image_version="151f3e8"
+image_version=$( $shared_bin_dir/latest_sha )
+# image_version="151f3e8"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -73,8 +91,15 @@ template=$( cat "$template_path" | \
     sed "s|{{JOB_NAME}}|$job_name|g" | \
     sed "s|{{DEPLOYMENT_NAME}}|$deployment_name|g" | \
     sed "s|{{CMC_API_KEY}}|$cmc_api_key|g" | \
+    sed "s|{{ALGOLIA_APPLICATION_ID}}|$algolia_app_id|g" | \
+    sed "s|{{ALGOLIA_ADMIN_API_KEY}}|$algolia_admin_key|g" | \
     sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
     sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
+    sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
+    sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
+    sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
+    sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
+    sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \

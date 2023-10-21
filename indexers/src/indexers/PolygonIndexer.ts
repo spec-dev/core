@@ -7,6 +7,7 @@ import {
     savePolygonContracts,
     unique,
     SharedTables,
+    sleep,
 } from '../../../shared'
 import extractTransfersFromLogs from '../services/extractTransfersFromLogs'
 import {
@@ -80,6 +81,8 @@ class PolygonIndexer extends EvmIndexer {
         const referencedSmartWalletOwners = await this._getSmartWalletsForAddresses(unique(accounts))
         if (!referencedSmartWalletOwners.length) return {}
         const smartWalletOwners = new Set(referencedSmartWalletOwners)
+
+        await sleep(500)
         
         const referencedContractAddresses = unique(transfers.map(t => t.log.address))
         const contracts = await this._resolveContracts(referencedContractAddresses, this.chainId)
