@@ -305,7 +305,8 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
-    getLiveObjectVersionsToSync,
+    getCustomLiveObjectVersionsToSync,
+    getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
