@@ -21,6 +21,7 @@ const paths = {
 
     // User paths
     USER_LOGIN: prefix.USER + '/login',
+    USER_PROJECTS: prefix.USER + '/projects',
 
     // Project paths.
     PROJECT_WITH_KEY: prefix.PROJECT + '/with-key',

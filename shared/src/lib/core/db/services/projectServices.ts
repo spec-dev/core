@@ -44,3 +44,26 @@ export async function getProject(opts: StringKeyMap = {}): Promise<Project | nul
         return null
     }
 }
+
+export async function getAllUserProjects(userId: number): Promise<Project[] | null> {
+    try {
+        return await projects().find({
+            relations: {
+                projectRoles: {
+                    namespaceUser: true,
+                },
+                namespace: true,
+            },
+            where: {
+                projectRoles: {
+                    namespaceUser: {
+                        userId: userId,
+                    },
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error getting projects for userId ${userId}: ${err}`)
+        return null
+    }
+}
