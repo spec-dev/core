@@ -49,10 +49,10 @@ export async function getAllUserProjects(userId: number): Promise<Project[] | nu
     try {
         return await projects().find({
             relations: {
+                namespace: true,
                 projectRoles: {
                     namespaceUser: true,
                 },
-                namespace: true,
             },
             where: {
                 projectRoles: {
