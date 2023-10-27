@@ -97,8 +97,7 @@ app.get(paths.USER_PROJECTS, async (req, res) => {
     // Find all projects for user by user id.
     const projects = await getAllUserProjects(user.id)
     if (!projects) {
-        logger.error(`No projects exist for user ${user.id}.`)
-        return res.status(codes.NOT_FOUND).json({ error: errors.NOT_FOUND })
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
 
     // Return projects' member view.
