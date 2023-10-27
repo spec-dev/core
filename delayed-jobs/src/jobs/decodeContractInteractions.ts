@@ -201,9 +201,14 @@ async function decodePrimitivesUsingContracts(
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
     
-        let [transactions, traces, logs] = await Promise.all([
+        // let [transactions, traces, logs] = await Promise.all([
+        //     decodeTransactions(start, end, contractAddresses, abisMap, tables),
+        //     decodeTraces(start, end, contractAddresses, abisMap, tables),
+        //     decodeLogs(start, end, contractAddresses, abisMap, tables),
+        // ])
+        let traces = [] // turning off decoding (10.27.23)
+        let [transactions, logs] = await Promise.all([
             decodeTransactions(start, end, contractAddresses, abisMap, tables),
-            decodeTraces(start, end, contractAddresses, abisMap, tables),
             decodeLogs(start, end, contractAddresses, abisMap, tables),
         ])
         transactions = transactions || []
