@@ -234,7 +234,7 @@ export {
     getNamespaceAccessToken,
 } from './lib/core/db/services/namespaceAccessTokenService'
 export { getUserByEmail, createUser } from './lib/core/db/services/userServices'
-export { getProject } from './lib/core/db/services/projectServices'
+export { getProject, getAllUserProjects } from './lib/core/db/services/projectServices'
 export { createSession, getSession } from './lib/core/db/services/sessionServices'
 export {
     redis as coreRedis,
