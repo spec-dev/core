@@ -53,7 +53,7 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
         password: config.SHARED_TABLES_DB_PASSWORD,
         database: config.SHARED_TABLES_DB_NAME,
         max: config.SHARED_TABLES_MAX_POOL_SIZE,
-        statement_timeout: 600000, // 10min
+        statement_timeout: 30000,
     })
     pool.on('error', err => logger.error('PG client error', err))
 
@@ -281,8 +281,8 @@ async function getLatestBlockTimestampForView(pool: Pool, viewPath: string): Pro
             [],
         )
     } catch (err) {
-        logger.error(
-            `Failed to get latest block_timestamp for ${viewPath}: ${err}`
+        logger.warn(
+            `Getting latest block_timestamp for ${viewPath} -- most likely timed out: ${err}`
         )
     } finally {
         client.release()
