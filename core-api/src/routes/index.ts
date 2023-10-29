@@ -1,4 +1,5 @@
 import './admin/abi/abiRoutes'
+import './admin/contract/contractRoutes'
 import './admin/contract-instance/contractInstanceRoutes'
 import './admin/live-object-version/liveObjectVersionRoutes'
 import './admin/namespace/namespaceRoutes'
