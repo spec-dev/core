@@ -53,7 +53,7 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
         password: config.SHARED_TABLES_DB_PASSWORD,
         database: config.SHARED_TABLES_DB_NAME,
         max: config.SHARED_TABLES_MAX_POOL_SIZE,
-        statement_timeout: 30000,
+        statement_timeout: 300000,
     })
     pool.on('error', err => logger.error('PG client error', err))
 
@@ -108,9 +108,21 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
         }
     }
 
+    const shortPool = new Pool({
+        host: config.SHARED_TABLES_DB_HOST,
+        port: config.SHARED_TABLES_DB_PORT,
+        user: config.SHARED_TABLES_DB_USERNAME,
+        password: config.SHARED_TABLES_DB_PASSWORD,
+        database: config.SHARED_TABLES_DB_NAME,
+        max: config.SHARED_TABLES_MAX_POOL_SIZE,
+        statement_timeout: 30000,
+    })
+    shortPool.on('error', err => logger.error('PG client error', err))
+
     // Update record counts with new values and unpause.
-    await upsertAndUnpauseRecordCounts(pool, viewPaths, recordCounts)
+    await upsertAndUnpauseRecordCounts(shortPool, viewPaths, recordCounts)
     await pool.end()
+    await shortPool.end()
 
     const seconds = Number(((performance.now() - t0) / 1000).toFixed(2))
     logger.info(chalk.cyanBright(`DONE (${fullContractGroup}) in ${seconds}s`))
