@@ -28,6 +28,11 @@ export const publicMetadataGatewaysForId = {
 
 export const parseMetaPointer = (val: string, protocolId?: string): string | null => {
     if (!val) return null
+    if (val.startsWith('http://') || val.startsWith('https://')) {
+        val = new URL(val)?.pathname?.slice(1)
+    }
+    if (!val) return null
+
     if (protocolId) {
         const protocol = metaProtocolForId[protocolId]
         if (!protocol) return null
