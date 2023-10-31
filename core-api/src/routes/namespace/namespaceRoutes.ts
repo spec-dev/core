@@ -1,8 +1,8 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
 import { codes, errors } from '../../utils/requests'
-import { parseGetNamespacePayload } from './namespacePayloads'
-import { getCachedFeaturedNamespaces, getNamespace, getNamespaces } from '../../../../shared'
+import { parseGetNamespacePayload, parseNamespaceRecordCountsPayload } from './namespacePayloads'
+import { getCachedFeaturedNamespaces, getCachedNamespaceRecordCounts, getNamespace, getNamespaces } from '../../../../shared'
 
 /**
  * Get namespace.
@@ -61,4 +61,21 @@ app.get(paths.FEATURED_NAMESPACES, async (req, res) => {
     // Send response.
     const data = await Promise.all(featuredNamespaces.map(n => n.publicView()))
     return res.status(codes.SUCCESS).json(data)
+})
+
+/**
+ * Get record counts for namespaces.
+ */
+app.post(paths.NAMESPACE_RECORD_COUNTS, async (req, res) => {
+    const { payload, isValid, error } = parseNamespaceRecordCountsPayload(req.body)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    const recordCounts = await getCachedNamespaceRecordCounts(payload.nsps)
+    if (Object.keys(recordCounts).length === 0) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+
+    return res.status(codes.SUCCESS).json(recordCounts)
 })

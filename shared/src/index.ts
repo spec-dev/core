@@ -192,6 +192,7 @@ export * from './lib/utils/date'
 export * from './lib/utils/formatters'
 export * from './lib/utils/url'
 export * from './lib/utils/standardAbis'
+export * from './lib/utils/recordCounts'
 export { Namespace } from './lib/core/db/entities/Namespace'
 export { Contract } from './lib/core/db/entities/Contract'
 export { ContractInstance } from './lib/core/db/entities/ContractInstance'
@@ -307,6 +308,7 @@ export {
     updateLiveObjectVersionStatus,
     getLiveObjectVersionsToSync,
     resolveLovWithPartialId,
+    getTablePathsForLiveObjectVersions,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

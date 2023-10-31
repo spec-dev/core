@@ -45,6 +45,7 @@ const paths = {
     GENERATE_LOV_TEST_INPUT_DATA: prefix.LIVE_OBJECT_VERSION + '/generate-test-inputs',
     LATEST_LOV_RECORDS: prefix.LIVE_OBJECT_VERSION + '/latest-records',
     LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION,
+    LOV_RECORD_COUNTS: prefix.LIVE_OBJECT_VERSION + 's' + '/record-counts',
 
     // Contract Instance paths.
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
@@ -87,6 +88,7 @@ const paths = {
     NAMESPACES: prefix.NAMESPACE + 's',
     FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
     CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
+    NAMESPACE_RECORD_COUNTS: prefix.NAMESPACE + 's' + '/record-counts',
 }
 
 export default paths

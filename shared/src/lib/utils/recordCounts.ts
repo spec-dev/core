@@ -1,0 +1,1 @@
+export const MAX_RECORD_COUNT_REQUEST = 50
