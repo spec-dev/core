@@ -1,4 +1,4 @@
-import { MAX_RECORD_COUNT_REQUEST } from '../../../../shared/src'
+import coreApiConfig from '../../config'
 import { StringKeyMap, ValidatedPayload } from '../../types'
 
 export interface GetNamespacePayload {
@@ -29,8 +29,11 @@ export function parseNamespaceRecordCountsPayload(data: StringKeyMap): Validated
         return { isValid: false, error: '"nsps" was missing or empty' }
     }
 
-    if (nsps.length > MAX_RECORD_COUNT_REQUEST) {
-        return { isValid: false, error: `Request exceeds maximum limit of ${MAX_RECORD_COUNT_REQUEST} entries` }
+    if (nsps.length > coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE) {
+        return { 
+            isValid: false, 
+            error: `Request exceeds maximum limit of ${coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE} entries` 
+        }
     }
 
     return {

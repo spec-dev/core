@@ -1,10 +1,21 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseGenerateTestInputsPayload, parseLatestLovRecordsPayload, parseGetLiveObjectVersionPayload, parseLovRecordCountsPayload } from './liveObjectVersionPayloads'
+import { 
+    parseGenerateTestInputsPayload, 
+    parseLatestLovRecordsPayload, 
+    parseGetLiveObjectVersionPayload, 
+    parseLovRecordCountsPayload 
+} from './liveObjectVersionPayloads'
 import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
-import { getLiveObjectByUid, getLatestLiveObjectVersion, resolveLovWithPartialId, getTablePathsForLiveObjectVersions, StringKeyMap, getCachedRecordCounts } from '../../../../shared'
+import { 
+    getLiveObjectByUid, 
+    getLatestLiveObjectVersion, 
+    resolveLovWithPartialId, 
+    getTablePathsForLiveObjectVersions, 
+    getCachedRecordCounts 
+} from '../../../../shared'
 
 /**
  * Generate test input data (events and calls) for a live object version.
@@ -101,7 +112,7 @@ app.post(paths.LOV_RECORD_COUNTS, async (req, res) => {
     for (let i = 0; i < tablePaths.length; i++) {
         const tablePath = tablePaths[i]
         const id = ids[i]
-        recordCountsById[id] = recordCountsByPath[tablePath]
+        recordCountsById[id] = recordCountsByPath[tablePath] || {}
     }
 
     return res.status(codes.SUCCESS).json(recordCountsById)

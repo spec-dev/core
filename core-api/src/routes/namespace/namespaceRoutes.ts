@@ -73,9 +73,5 @@ app.post(paths.NAMESPACE_RECORD_COUNTS, async (req, res) => {
     }
 
     const recordCounts = await getCachedNamespaceRecordCounts(payload.nsps)
-    if (Object.keys(recordCounts).length === 0) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
-    }
-
     return res.status(codes.SUCCESS).json(recordCounts)
 })

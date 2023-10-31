@@ -1,5 +1,6 @@
 import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
-import { supportedChainIds, toNumber, toDate, MAX_RECORD_COUNT_REQUEST } from '../../../../shared'
+import { supportedChainIds, toNumber, toDate } from '../../../../shared'
+import coreApiConfig from '../../config'
 
 export interface ParseLatestLovRecordsPayload {
     id: string
@@ -148,8 +149,11 @@ export function parseLovRecordCountsPayload(data: StringKeyMap): ValidatedPayloa
         return { isValid: false, error: '"ids" was missing or empty' }
     }
 
-    if (ids.length > MAX_RECORD_COUNT_REQUEST) {
-        return { isValid: false, error: `Request exceeds maximum limit of ${MAX_RECORD_COUNT_REQUEST} entries` }
+    if (ids.length > coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE) {
+        return { 
+            isValid: false, 
+            error: `Request exceeds maximum limit of ${coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE} entries` 
+        }
     }
 
     return {
