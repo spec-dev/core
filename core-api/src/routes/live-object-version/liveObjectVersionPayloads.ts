@@ -1,5 +1,5 @@
 import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
-import { supportedChainIds, toNumber, toDate } from '../../../../shared'
+import { supportedChainIds, toNumber, toDate, MAX_RECORD_COUNT_REQUEST } from '../../../../shared'
 
 export interface ParseLatestLovRecordsPayload {
     id: string
@@ -8,6 +8,10 @@ export interface ParseLatestLovRecordsPayload {
 
 export interface GetLiveObjectVersionPayload {
     id: string
+}
+
+export interface LovRecordCountsPayload {
+    ids: string[]
 }
 
 export function parseGenerateTestInputsPayload(
@@ -134,5 +138,22 @@ export function parseGetLiveObjectVersionPayload(
     return {
         isValid: true,
         payload: { id },
+    }
+}
+
+export function parseLovRecordCountsPayload(data: StringKeyMap): ValidatedPayload<LovRecordCountsPayload> {
+    const ids = data?.ids || []
+
+    if (!ids.length) {
+        return { isValid: false, error: '"ids" was missing or empty' }
+    }
+
+    if (ids.length > MAX_RECORD_COUNT_REQUEST) {
+        return { isValid: false, error: `Request exceeds maximum limit of ${MAX_RECORD_COUNT_REQUEST} entries` }
+    }
+
+    return {
+        isValid: true,
+        payload: { ids },
     }
 }

@@ -237,3 +237,28 @@ export async function resolveLovWithPartialId(someId: string): Promise<StringKey
         return null
     }
 }
+
+export async function getTablePathsForLiveObjectVersions(uids: string[]): Promise<StringKeyMap> {
+    const tablePathMap: StringKeyMap = {}
+    try {
+        // Get live object versions by uid
+        const lovs = await liveObjectVersions().find({
+            select: {
+                uid: true,
+                config: {
+                    table: true,
+                },
+            },
+            where: {
+                uid: In(uids),
+            },
+        })
+
+        // Map table path to uid for each live object version.
+        lovs.forEach((lov) => (tablePathMap[lov.config.table] = lov.uid))
+        return tablePathMap
+    } catch (err) {
+        logger.error(`Error getting table paths for live object versions: ${err}`)
+        return null
+    }
+}
