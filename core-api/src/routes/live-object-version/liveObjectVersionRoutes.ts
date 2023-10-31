@@ -85,21 +85,24 @@ app.post(paths.LOV_RECORD_COUNTS, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
-    // Map table paths to live object version ids.
-    const tablePathMap = await getTablePathsForLiveObjectVersions(payload.ids)
-    if (!tablePathMap) {
+    const { ids } = payload 
+
+    // Get table paths for live object versions.
+    const tablePaths = await getTablePathsForLiveObjectVersions(ids)
+    if (!tablePaths.length) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
 
     // Map cached record counts to table paths.
-    const tablePaths = Object.keys(tablePathMap)
     const recordCountsByPath = tablePaths.length ? await getCachedRecordCounts(tablePaths) : []
-    
+
     // Map record counts to live object version ids.
     const recordCountsById = {}
-    Object.entries(tablePathMap).forEach(([path, id]) => {
-        recordCountsById[id] = recordCountsByPath[path]
-    })
+    for (let i = 0; i < tablePaths.length; i++) {
+        const tablePath = tablePaths[i]
+        const id = ids[i]
+        recordCountsById[id] = recordCountsByPath[tablePath]
+    }
 
     return res.status(codes.SUCCESS).json(recordCountsById)
 })

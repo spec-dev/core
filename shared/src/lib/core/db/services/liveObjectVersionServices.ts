@@ -238,10 +238,8 @@ export async function resolveLovWithPartialId(someId: string): Promise<StringKey
     }
 }
 
-export async function getTablePathsForLiveObjectVersions(uids: string[]): Promise<StringKeyMap> {
-    const tablePathMap: StringKeyMap = {}
+export async function getTablePathsForLiveObjectVersions(uids: string[]): Promise<string[]> {
     try {
-        // Get live object versions by uid
         const lovs = await liveObjectVersions().find({
             select: {
                 uid: true,
@@ -253,10 +251,7 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
                 uid: In(uids),
             },
         })
-
-        // Map table path to uid for each live object version.
-        lovs.forEach((lov) => (tablePathMap[lov.config.table] = lov.uid))
-        return tablePathMap
+        return lovs.map((lov) => lov.config.table)
     } catch (err) {
         logger.error(`Error getting table paths for live object versions: ${err}`)
         return null
