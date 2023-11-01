@@ -1,10 +1,21 @@
 import { app } from '../express'
 import paths from '../../utils/paths'
-import { parseGenerateTestInputsPayload, parseLatestLovRecordsPayload, parseGetLiveObjectVersionPayload } from './liveObjectVersionPayloads'
+import { 
+    parseGenerateTestInputsPayload, 
+    parseLatestLovRecordsPayload, 
+    parseGetLiveObjectVersionPayload, 
+    parseLovRecordCountsPayload 
+} from './liveObjectVersionPayloads'
 import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
-import { getLiveObjectByUid, getLatestLiveObjectVersion, resolveLovWithPartialId } from '../../../../shared'
+import { 
+    getLiveObjectByUid, 
+    getLatestLiveObjectVersion, 
+    resolveLovWithPartialId, 
+    getTablePathsForLiveObjectVersions, 
+    getCachedRecordCounts 
+} from '../../../../shared'
 
 /**
  * Generate test input data (events and calls) for a live object version.
@@ -74,4 +85,35 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
     }
 
     return res.status(codes.SUCCESS).json(lov.publicView())
+})
+
+/**
+ * Get record counts for live object versions.
+ */
+app.post(paths.LOV_RECORD_COUNTS, async (req, res) => {
+    const { payload, isValid, error } = parseLovRecordCountsPayload(req.body)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    const { ids } = payload 
+
+    // Get table paths for live object versions.
+    const tablePaths = await getTablePathsForLiveObjectVersions(ids)
+    if (!tablePaths.length) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+
+    // Map cached record counts to table paths.
+    const recordCountsByPath = tablePaths.length ? await getCachedRecordCounts(tablePaths) : []
+
+    // Map record counts to live object version ids.
+    const recordCountsById = {}
+    for (let i = 0; i < tablePaths.length; i++) {
+        const tablePath = tablePaths[i]
+        const id = ids[i]
+        recordCountsById[id] = recordCountsByPath[tablePath] || {}
+    }
+
+    return res.status(codes.SUCCESS).json(recordCountsById)
 })

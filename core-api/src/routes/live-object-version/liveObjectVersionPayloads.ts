@@ -1,5 +1,6 @@
 import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
 import { supportedChainIds, toNumber, toDate } from '../../../../shared'
+import coreApiConfig from '../../config'
 
 export interface ParseLatestLovRecordsPayload {
     id: string
@@ -8,6 +9,10 @@ export interface ParseLatestLovRecordsPayload {
 
 export interface GetLiveObjectVersionPayload {
     id: string
+}
+
+export interface LovRecordCountsPayload {
+    ids: string[]
 }
 
 export function parseGenerateTestInputsPayload(
@@ -134,5 +139,25 @@ export function parseGetLiveObjectVersionPayload(
     return {
         isValid: true,
         payload: { id },
+    }
+}
+
+export function parseLovRecordCountsPayload(data: StringKeyMap): ValidatedPayload<LovRecordCountsPayload> {
+    const ids = data?.ids || []
+
+    if (!ids.length) {
+        return { isValid: false, error: '"ids" was missing or empty' }
+    }
+
+    if (ids.length > coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE) {
+        return { 
+            isValid: false, 
+            error: `Request exceeds maximum limit of ${coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE} entries` 
+        }
+    }
+
+    return {
+        isValid: true,
+        payload: { ids },
     }
 }
