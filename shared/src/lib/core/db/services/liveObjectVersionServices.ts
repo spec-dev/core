@@ -158,7 +158,7 @@ export async function updateLiveObjectVersionStatus(
     return true
 }
 
-export async function getLiveObjectVersionsToSync(
+export async function getCustomLiveObjectVersionsToSync(
     timeSynced: string = null
 ): Promise<LiveObjectVersion[]> {
     let liveObjectVersions
@@ -179,7 +179,43 @@ export async function getLiveObjectVersionsToSync(
                 namespace_has_icon, 
                 namespace_blurhash
             FROM searchable_live_object_view
-            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz`,
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz
+            AND version_nsp NOT LIKE CONCAT('%.%')`,
+            [new Date(timeSynced)]
+        )
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
+    } catch (err) {
+        logger.error(
+            `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
+        )
+        return null
+    }
+}
+
+export async function getEventLiveObjectVersionsToSync(
+    timeSynced: string = null
+): Promise<LiveObjectVersion[]> {
+    let liveObjectVersions
+    try {
+        liveObjectVersions = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name, 
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_config,
+                version_updated_at,
+                namespace_name,
+                namespace_has_icon, 
+                namespace_blurhash
+            FROM searchable_live_object_view
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz
+            AND version_nsp LIKE CONCAT('%.%')`,
             [new Date(timeSynced)]
         )
         liveObjectVersions = camelizeKeys(liveObjectVersions)

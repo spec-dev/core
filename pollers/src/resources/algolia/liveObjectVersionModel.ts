@@ -1,4 +1,4 @@
-import { StringKeyMap, formatAlgoliaLiveObject, getLiveObjectVersionsToSync, logger } from '../../../../shared'
+import { StringKeyMap, formatAlgoliaLiveObject, getCustomLiveObjectVersionsToSync, logger } from '../../../../shared'
 import { AlgoliaModel } from './algoliaModel'
 
 export class LiveObjectVersionModel extends AlgoliaModel {
@@ -17,10 +17,10 @@ export class LiveObjectVersionModel extends AlgoliaModel {
 
     async getUpdated(timeSynced: string, syncAll: string): Promise<StringKeyMap[]> {
         try {
-            const liveObjectVersions = syncAll === 'true' ? await getLiveObjectVersionsToSync() : await getLiveObjectVersionsToSync(timeSynced)
+            const liveObjectVersions = syncAll === 'true' ? await getCustomLiveObjectVersionsToSync() : await getCustomLiveObjectVersionsToSync(timeSynced)
             return liveObjectVersions.map(lov => formatAlgoliaLiveObject(lov))
         } catch (err) {
-            logger.error(`Error getting live object versions for Algolia: ${err}`)
+            logger.error(`Error getting custom live object versions for Algolia: ${err}`)
         }
     }
 }

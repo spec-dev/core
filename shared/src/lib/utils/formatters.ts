@@ -670,6 +670,13 @@ export function formatEventVersionViewName(eventVersion: EventVersion): string |
         : viewName
 }
 
+export const splitOnUppercase = (val) => {
+    return val
+        ?.replace(/([0-9])([A-Z])/g, '$1 $2')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+}
+
 export async function formatAlgoliaNamespace(result: StringKeyMap): Promise<StringKeyMap> {
     try {
         // Format results.
@@ -696,6 +703,7 @@ export function formatAlgoliaLiveObject(result: StringKeyMap) {
         // Format results.
         const isContractEvent = isContractNamespace(result.namespaceName)
         const customerNsp = customerNspFromContractNsp(result.namespaceName)
+        const searchAttribute = splitOnUppercase(result.liveObjectName)
 
         let icon
         if (result.liveObjectHasIcon) {
@@ -718,6 +726,7 @@ export function formatAlgoliaLiveObject(result: StringKeyMap) {
             verified: result.namespaceVerified,
             isContractEvent,
             customerNsp,
+            searchAttribute,
             latestVersion: {
                 nsp: result.versionNsp,
                 name: result.versionName,
@@ -742,11 +751,13 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
             const chainId = chainIdForContractNamespace(contract.namespace.name)
             const icon = buildIconUrl(groupName.split('.')[0]) || null
             const customerNsp = customerNspFromContractNsp(contract.namespace.name)
+            const searchAttribute = splitOnUppercase(contract.name)
             groups[groupName] = groups[groupName] || {
                 id: contract.uid,
                 name: contract.name,
                 numInstances: 0,
                 customerNsp,
+                searchAttribute,
                 namespace: {
                     slug: contract.namespace.slug,
                     verified: contract.namespace.verified,
