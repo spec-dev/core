@@ -25,7 +25,7 @@ export function parseGetNamespacePayload(data: StringKeyMap): ValidatedPayload<G
 export function parseNamespaceRecordCountsPayload(data: StringKeyMap): ValidatedPayload<NamespaceRecordCountsPayload> {
     const nsps = data?.nsps || []
 
-    if (!nsps.length) {
+    if (!nsps.length || nsps.includes(null)) {
         return { isValid: false, error: '"nsps" was missing or empty' }
     }
 
