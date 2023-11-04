@@ -60,7 +60,6 @@ async function decodeContractInteractions(
     fullContractGroup?: string,
 ) {
     logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
-    return
     registrationJobUid && await updateContractRegistrationJobStatus(
         registrationJobUid, 
         ContractRegistrationJobStatus.Decoding,
