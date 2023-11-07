@@ -1,4 +1,4 @@
-import { SharedTables, StringKeyMap, LiveObjectVersion, logger, camelToSnake, identPath, camelizeKeys, toNamespacedVersion, getLastXEvents } from '../../../shared'
+import { ChainTables, StringKeyMap, LiveObjectVersion, logger, camelToSnake, identPath, camelizeKeys, toNamespacedVersion, getLastXEvents } from '../../../shared'
 import { ident, literal } from 'pg-format'
 
 const limit = 10
@@ -46,7 +46,8 @@ async function getLatestLiveObjectVersionRecords(
                 records.push(record)
             }
         } else {
-            records = camelizeKeys((await SharedTables.query(
+            const schema = table.split('.')[0]
+            records = camelizeKeys((await ChainTables.query(schema,
                 `select * from ${identPath(table)} order by ${ident(timestampColumn)} desc limit ${literal(limit)}`
             ))) as StringKeyMap[]    
         }

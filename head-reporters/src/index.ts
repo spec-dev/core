@@ -1,5 +1,5 @@
 import config from './config'
-import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId, identPath } from '../../shared'
+import { CoreDB, IndexerDB, indexerRedis, logger, ChainTables, schemaForChainId, identPath } from '../../shared'
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
@@ -9,7 +9,7 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        return (((await SharedTables.query(
+        return (((await ChainTables.query(schema,
             `select timestamp from ${identPath(tablePath)} where number = $1`, 
             [blockNumber]
         )) || [])[0] || {}).timestamp || null
@@ -22,7 +22,7 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
 async function listen() {
     await Promise.all([
         CoreDB.initialize(),
-        SharedTables.initialize(),
+        ChainTables.initialize(),
         IndexerDB.initialize(),
         indexerRedis.connect(),
     ])

@@ -1,8 +1,8 @@
 import {
-    SharedTables,
     logger,
     subtractHours,
     formatPgDateString,
+    ChainTables,
 } from '../../../../shared'
 import config from '../../config'
 
@@ -22,7 +22,7 @@ async function cleanupRecordCountDeltas() {
 
 async function deleteRecordCountDeltasOlderThan(timestamp: string) {
     try {
-        await SharedTables.query(
+        await ChainTables.query(null,
             `delete from record_count_deltas where created_at < $1`,
             [timestamp]
         )

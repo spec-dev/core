@@ -59,6 +59,20 @@ spec:
           value: "10"
         - name: SHARED_TABLES_OPTIONS
           value: "-c statement_timeout=120000ms"
+        - name: SHARED_TABLES_DB_URL
+          value: {{SHARED_TABLES_DB_URL}}
+        - name: ETHEREUM_DB_URL
+          value: {{ETHEREUM_DB_URL}}
+        - name: GOERLI_DB_URL
+          value: {{GOERLI_DB_URL}}
+        - name: POLYGON_DB_URL
+          value: {{POLYGON_DB_URL}}
+        - name: MUMBAI_DB_URL
+          value: {{MUMBAI_DB_URL}}
+        - name: BASE_DB_URL
+          value: {{BASE_DB_URL}}
+        - name: SINGLE_CHAIN_TABLE
+          value: "true"
         - name: CORE_DB_NAME
           value: {{CORE_DB_NAME}}
         - name: CORE_DB_HOST

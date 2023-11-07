@@ -10,6 +10,7 @@ import { camelizeKeys } from 'humps'
 import { sleep } from '../utils/time'
 import { randomIntegerInRange } from '../utils/math'
 import Web3 from 'web3'
+import ChainTables from '../chain-tables/ChainTables'
 import { specialErc20BalanceAffectingAbis } from '../utils/standardAbis'
 import {
     TRANSFER_TOPIC,
@@ -32,9 +33,9 @@ import {
 const web3 = new Web3()
 
 export async function bulkSaveTransactions(
+    schema: string,
     transactions: StringKeyMap[],
     table: string,
-    pool: Pool,
     log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
@@ -62,7 +63,7 @@ export async function bulkSaveTransactions(
         ', '
     )}`
 
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     let error
     try {
         await client.query('BEGIN')
@@ -92,16 +93,23 @@ export async function bulkSaveTransactions(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTransactions(transactions, table, pool, log, shouldThrow, attempt + 1)
+        return await bulkSaveTransactions(
+            schema,
+            transactions,
+            table,
+            log,
+            shouldThrow,
+            attempt + 1
+        )
     }
 
     if (shouldThrow) throw error
 }
 
 export async function bulkSaveTraces(
+    schema: string,
     traces: StringKeyMap[],
     table: string,
-    pool: Pool,
     log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
@@ -135,7 +143,7 @@ export async function bulkSaveTraces(
         ', '
     )}`
 
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     let error
     try {
         await client.query('BEGIN')
@@ -165,16 +173,16 @@ export async function bulkSaveTraces(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveTraces(traces, table, pool, log, shouldThrow, attempt + 1)
+        return await bulkSaveTraces(schema, traces, table, log, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
 }
 
 export async function bulkSaveLogs(
+    schema: string,
     logs: StringKeyMap[],
     table: string,
-    pool: Pool,
     log: boolean = false,
     shouldThrow: boolean = false,
     attempt: number = 1
@@ -202,7 +210,7 @@ export async function bulkSaveLogs(
         ', '
     )}`
 
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     let error
     try {
         await client.query('BEGIN')
@@ -232,7 +240,7 @@ export async function bulkSaveLogs(
             `Got deadlock updating ${table} with decoded data. Retrying...(${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`
         )
         await sleep(randomIntegerInRange(50, 500))
-        return await bulkSaveLogs(logs, table, pool, log, shouldThrow, attempt + 1)
+        return await bulkSaveLogs(schema, logs, table, log, shouldThrow, attempt + 1)
     }
 
     if (shouldThrow) throw error
@@ -242,6 +250,7 @@ export async function bulkSaveLogs(
  * Get all transactions sent *to* any of these contracts in this block range.
  */
 export async function decodeTransactions(
+    schema: string,
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
@@ -250,6 +259,7 @@ export async function decodeTransactions(
     includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     const transactions = await findContractInteractionsInBlockRange(
+        schema,
         tables.transactions,
         [
             'hash',
@@ -282,6 +292,7 @@ export async function decodeTransactions(
  * Get all traces calls *to* any of these contracts in this block range.
  */
 export async function decodeTraces(
+    schema: string,
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
@@ -289,7 +300,10 @@ export async function decodeTraces(
     tables: StringKeyMap,
     includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
+    return [] // hack
+
     const traces = await findContractInteractionsInBlockRange(
+        schema,
         tables.traces,
         ['id', 'input', 'output', 'trace_type', 'to', 'transaction_hash'],
         startBlock,
@@ -316,6 +330,7 @@ export async function decodeTraces(
  * Get all logs emitted by any of these contracts in this block range.
  */
 export async function decodeLogs(
+    schema: string,
     startBlock: number,
     endBlock: number,
     contractAddresses: string[],
@@ -324,6 +339,7 @@ export async function decodeLogs(
     includeDecodedResults?: boolean
 ): Promise<StringKeyMap[] | null> {
     const logs = await findContractLogsInBlockRange(
+        schema,
         tables.logs,
         startBlock,
         endBlock,
@@ -346,6 +362,7 @@ export async function decodeLogs(
 }
 
 export async function findContractInteractionsInBlockRange(
+    schema: string,
     table: string,
     columns: string[],
     startBlock: number,
@@ -374,7 +391,8 @@ export async function findContractInteractionsInBlockRange(
 
     try {
         return camelizeKeys(
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select ${columns
                     .map(ident)
                     .join(
@@ -394,6 +412,7 @@ export async function findContractInteractionsInBlockRange(
 }
 
 export async function findContractLogsInBlockRange(
+    schema: string,
     table: string,
     startBlock: number,
     endBlock: number,
@@ -422,7 +441,8 @@ export async function findContractLogsInBlockRange(
 
     try {
         return camelizeKeys(
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select * from ${table} where "address" in (${addressPlaceholders}) and ${suffixClause}`,
                 bindings
             )) || []

@@ -1,11 +1,11 @@
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
-import { logger, CoreDB, coreRedis, indexerRedis, abiRedis, SharedTables } from '../../shared'
+import { logger, CoreDB, coreRedis, indexerRedis, abiRedis, ChainTables } from '../../shared'
 import { app as expressApp } from './routes'
 import { agServer, httpServer } from './server'
 import { authConnection } from './utils/auth'
 
-const sharedTablesPromise = SharedTables.initialize()
+const chainTablesPromise = ChainTables.initialize()
 const coreDBPromise = CoreDB.initialize()
 const coreRedisPromise = coreRedis.connect()
 const indexerRedisPromise = indexerRedis.connect()
@@ -41,7 +41,7 @@ agServer.setMiddleware(agServer.MIDDLEWARE_INBOUND, async (stream) => {
 // Pipe HTTP requests to express.
 ;(async () => {
     await Promise.all([
-        sharedTablesPromise,
+        chainTablesPromise,
         coreDBPromise,
         coreRedisPromise,
         indexerRedisPromise,

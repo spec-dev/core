@@ -1,7 +1,6 @@
 import { EventCursor } from '../types'
 import config from '../config'
 import { 
-    SharedTables, 
     getPublishedEventsAfterEventCursors, 
     logger, 
     schemaForChainId, 
@@ -10,6 +9,7 @@ import {
     toChunks, 
     range,
     identPath,
+    ChainTables,
 } from '../../../shared'
 
 interface GetEventsAfterCursorsPayload {
@@ -108,6 +108,7 @@ async function markInvalidEvents(
         chainIds.push(chainId)
         const phs = range(1, blockNumbers.length).map(i => `$${i}`)
         queries.push({
+            schema,
             sql: `select hash, number from ${identPath([schema, 'blocks'].join('.'))} where number in (${phs.join(', ')})`,
             bindings: blockNumbers,
         })
@@ -116,8 +117,8 @@ async function markInvalidEvents(
     // Run all queries built above in parallel.
     let results = []
     try {
-        results = (await Promise.all(queries.map(({ sql, bindings }) => (
-            SharedTables.query(sql, bindings)
+        results = (await Promise.all(queries.map(({ schema, sql, bindings }) => (
+            ChainTables.query(schema, sql, bindings)
         )))) || []
     } catch (err) {
         logger.error(`Error fetching hashes for blocks:`, queries, err)

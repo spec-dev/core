@@ -655,7 +655,7 @@ export function newEthereumWeb3(
     wsRpcTimeout?: number
 ): EvmWeb3 {
     return new EvmWeb3(url, {
-        canGetBlockReceipts: true,
+        canGetBlockReceipts: false, // purposefully turned off. Block receipts CAN be fetched.
         canGetParityTraces: true,
         finalityScanOffsetLeft: 400,
         finalityScanOffsetRight: 5,
@@ -667,7 +667,7 @@ export function newEthereumWeb3(
 
 export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
     return new EvmWeb3(url, {
-        canGetBlockReceipts: true,
+        canGetBlockReceipts: false, // purposefully turned off. Block receipts CAN be fetched.
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
         confirmationsUntilFinalized: 1800,

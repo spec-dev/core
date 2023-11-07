@@ -5,14 +5,14 @@ import codes from './lib/codes'
 import paths from './lib/paths'
 import errors from './lib/errors'
 import { getQueryPayload, getTxPayload, isTableOpRestricted } from './lib/payload'
-import { performQuery, performTx, createQueryStream, loadSchemaRoles } from './lib/db'
+import { performQuery, performTx, createQueryStream } from './lib/db'
 import { streamQuery, cleanupStream } from './lib/stream'
 import { authRequest } from './lib/auth'
 import { QueryPayload } from '@spec.dev/qb'
-import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis, indexerRedisKeys } from '../../shared'
+import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis, indexerRedisKeys, ChainTables } from '../../shared'
 import chalk from 'chalk'
 
-const indexerRedisPromise = indexerRedis.connect()
+// const indexerRedisPromise = indexerRedis.connect()
 const pipelineCache = {}
 const supportedChainIdsArray = Array.from(supportedChainIds)
 
@@ -118,10 +118,12 @@ app.post(paths.QUERY, async (req, res) => {
         return res.status(codes.SUCCESS).json([])
     }
 
+    const schema = req.body.table.split('.')[0]
+
     // Run query and return JSON array of results.
     let records = []
     try {
-        records = await performQuery(query as QueryPayload, role)
+        records = await performQuery(query as QueryPayload, schema, role)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
@@ -152,10 +154,19 @@ app.post(paths.TRANSACTION, async (req, res) => {
         return res.status(codes.SUCCESS).json(queries.map(_ => []))
     }
 
+    // Ensure the DB role matches the table schema.
+    const payloads = Array.isArray(req.body) ? req.body : [req.body]
+    const schemas = new Set(payloads.map(p => p.table.split('.')[0]))
+    if (schemas.size > 1) {
+        logger.error('Multi-schema tx error', queries)
+        return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
+    }
+    const schema = Array.from(schemas)[0]
+
     // Perform all given queries in a single transaction & return JSON array of results.
     let resp = []
     try {
-        resp = await performTx(queries as QueryPayload[], role)
+        resp = await performTx(queries as QueryPayload[], schema, role)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
@@ -181,12 +192,15 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
     }
 
+    const schema = req.body.table.split('.')[0]
+
     // Create a query stream and stream the response.
     const usePrimaryDb = req.body?.nearHead === true
     let stream, conn, keepAliveTimer
     try {
         ;([stream, conn] = await createQueryStream(
             query as QueryPayload,
+            schema,
             usePrimaryDb,
         ))
         keepAliveTimer = streamQuery(stream, conn, res)
@@ -205,8 +219,9 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
 
 ;(async () => {
     // Start polling shared tables for the existing schema roles.
-    await Promise.all([loadSchemaRoles(), indexerRedisPromise])
-    setInterval(() => loadSchemaRoles(), config.LOAD_SCHEMA_ROLES_INTERVAL)
+    // await Promise.all([loadSchemaRoles(), indexerRedisPromise])
+    // setInterval(() => loadSchemaRoles(), config.LOAD_SCHEMA_ROLES_INTERVAL)
+    await ChainTables.initialize()
 
     // Listen for updates in the pipeline cache.
     await updatePipelineCache()

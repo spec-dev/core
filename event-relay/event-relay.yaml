@@ -61,6 +61,8 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_DB_URL
+          value: {{SHARED_TABLES_DB_URL}}
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "10"
         - name: INDEXER_DB_HOST
@@ -71,6 +73,16 @@ spec:
           value: {{INDEXER_DB_USERNAME}}
         - name: INDEXER_DB_PASSWORD
           value: {{INDEXER_DB_PASSWORD}}
+        - name: ETHEREUM_DB_URL
+          value: {{ETHEREUM_DB_URL}}
+        - name: GOERLI_DB_URL
+          value: {{GOERLI_DB_URL}}
+        - name: POLYGON_DB_URL
+          value: {{POLYGON_DB_URL}}
+        - name: MUMBAI_DB_URL
+          value: {{MUMBAI_DB_URL}}
+        - name: BASE_DB_URL
+          value: {{BASE_DB_URL}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FORCE_COLOR

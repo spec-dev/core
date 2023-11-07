@@ -1,5 +1,4 @@
 import { CoreDB } from '../core/db/dataSource'
-import { SharedTables } from '../shared-tables/db/dataSource'
 import { LiveObjectVersion } from '../core/db/entities/LiveObjectVersion'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
 import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
@@ -23,6 +22,7 @@ import {
 } from '../utils/formatters'
 import { EthTraceStatus } from '../shared-tables/db/entities/EthTrace'
 import { formatPgDateString } from '../utils/time'
+import ChainTables from '../chain-tables/ChainTables'
 
 const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -122,7 +122,7 @@ function buildGenerator(
     contractInstanceData: StringKeyMap,
     indexingContractFactoryLov: boolean = false
 ): Function {
-    const generator = async (startBlockDate?: Date, pool?: Pool) => {
+    const generator = async (startBlockDate?: Date) => {
         startBlockDate = startBlockDate || earliestStartCursor
         const endBlockDate = addSeconds(startBlockDate, batchSizeInSeconds)
 
@@ -142,7 +142,8 @@ function buildGenerator(
             const endPgDateTime = formatPgDateString(endBlockDate, false)
 
             const eventInputsQuery = inputEventsQueryComps.length
-                ? SharedTables.query(
+                ? ChainTables.query(
+                      schema,
                       `select * from ${ident(schema)}.${ident(
                           'logs'
                       )} where (${inputEventsQueryComps.join(
@@ -153,7 +154,8 @@ function buildGenerator(
                 : []
 
             const callInputsQuery = inputFunctionsQueryComps.length
-                ? SharedTables.query(
+                ? ChainTables.query(
+                      schema,
                       `select * from ${ident(schema)}.${ident(
                           'traces'
                       )} where (${inputFunctionsQueryComps.join(
@@ -196,7 +198,8 @@ function buildGenerator(
                     placeholders.push(`$${i}`)
                     i++
                 }
-                const txResults = await SharedTables.query(
+                const txResults = await ChainTables.query(
+                    schema,
                     `select * from ${ident(schema)}.${ident(
                         'transactions'
                     )} where hash in (${placeholders.join(', ')})`,
@@ -236,11 +239,10 @@ function buildGenerator(
             successfulInputs.push(camelizeKeys(input))
         }
 
-        if (indexingContractFactoryLov && pool) {
+        if (indexingContractFactoryLov) {
             successfulInputs = await decodeInputsIfNotAlready(
                 [...successfulInputs],
-                contractInstanceData,
-                pool
+                contractInstanceData
             )
         }
 
@@ -825,8 +827,7 @@ async function buildQueryCursors(
 
 async function decodeInputsIfNotAlready(
     inputs: StringKeyMap[],
-    contractInstanceData: StringKeyMap,
-    pool: Pool
+    contractInstanceData: StringKeyMap
 ): Promise<StringKeyMap[]> {
     const decodedInputs = []
     const logsToSaveByChainId = {}
@@ -880,12 +881,14 @@ async function decodeInputsIfNotAlready(
         for (const chainId in logsToSaveByChainId) {
             const schema = schemaForChainId[chainId]
             const tablePath = [schema, 'logs'].join('.')
-            savePromises.push(bulkSaveLogs(logsToSaveByChainId[chainId], tablePath, pool, true))
+            savePromises.push(bulkSaveLogs(schema, logsToSaveByChainId[chainId], tablePath, true))
         }
         for (const chainId in tracesToSaveByChainId) {
             const schema = schemaForChainId[chainId]
             const tablePath = [schema, 'traces'].join('.')
-            savePromises.push(bulkSaveTraces(tracesToSaveByChainId[chainId], tablePath, pool, true))
+            savePromises.push(
+                bulkSaveTraces(schema, tracesToSaveByChainId[chainId], tablePath, true)
+            )
         }
         savePromises.length && (await Promise.all(savePromises))
     } catch (err) {
@@ -903,7 +906,8 @@ async function findStartBlockTimestamp(
     if (!andClauses.length) return null
     try {
         const results =
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select block_timestamp from ${ident(schema)}.${ident(
                     table
                 )} where (${andClauses.join(' or ')}) order by block_timestamp asc limit 1`

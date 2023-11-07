@@ -14,7 +14,7 @@ import logger from '../logger'
 import { CONTRACT_ADDRESS_COL, CONTRACT_NAME_COL, CHAIN_ID_COL } from '../utils/liveObjects'
 import { Namespace } from '../core/db/entities/Namespace'
 import { PublishLiveObjectVersionPayload } from '../types'
-import { SharedTables } from '../shared-tables/db/dataSource'
+import ChainTables from '../chain-tables/ChainTables'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
 
 export async function upsertContractAndNamespace(
@@ -123,12 +123,12 @@ export async function upsertContractEventView(
     const upsertViewSql = `create or replace view ${ident(schema)}.${ident(name)} as 
 select
 ${select} 
-from ${ident(schema)}."logs" 
+from ${ident(schema)}."logs"
 where "topic0" = ${literal(eventSig)}
 and "address" in (${addresses.map((a) => literal(a)).join(', ')})`
 
     try {
-        await SharedTables.query(upsertViewSql)
+        await ChainTables.query(schema, upsertViewSql)
     } catch (err) {
         logger.error(`Error upserting view ${schema}.${name}: ${err}`)
         return false

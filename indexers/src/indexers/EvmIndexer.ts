@@ -186,22 +186,28 @@ class EvmIndexer {
         indexTokenBalances?: boolean
     }) {
         this.head = head
-        this.indexTraces = options?.indexTraces !== false
-        this.indexTokenTransfers = options?.indexTokenTransfers || false
-        this.indexTokenBalances = options?.indexTokenBalances || false
+
+        // NOTE: Turning off across all chains — @whittlbc (11.6.23)
+        this.indexTraces = false
+        this.indexTokenTransfers = false
+        this.indexTokenBalances = false
+        // this.indexTraces = options?.indexTraces !== false
+        // this.indexTokenTransfers = options?.indexTokenTransfers || false
+        // this.indexTokenBalances = options?.indexTokenBalances || false
+        
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
         this.contractEventNsp = contractNamespaceForChainId(this.chainId)
-        this.pool = new Pool({
-            host: config.SHARED_TABLES_DB_HOST,
-            port: config.SHARED_TABLES_DB_PORT,
-            user: config.SHARED_TABLES_DB_USERNAME,
-            password: config.SHARED_TABLES_DB_PASSWORD,
-            database: config.SHARED_TABLES_DB_NAME,
-            max: config.SHARED_TABLES_MAX_POOL_SIZE,
-            connectionTimeoutMillis: 60000,
-        })
-        this.pool.on('error', err => logger.error('PG client error', err))
+        // this.pool = new Pool({
+        //     host: config.SHARED_TABLES_DB_HOST,
+        //     port: config.SHARED_TABLES_DB_PORT,
+        //     user: config.SHARED_TABLES_DB_USERNAME,
+        //     password: config.SHARED_TABLES_DB_PASSWORD,
+        //     database: config.SHARED_TABLES_DB_NAME,
+        //     max: config.SHARED_TABLES_MAX_POOL_SIZE,
+        //     connectionTimeoutMillis: 60000,
+        // })
+        // this.pool.on('error', err => logger.error('PG client error', err))
     }
 
     async perform(isJobWaitingWithBlockNumber?: Function): Promise<StringKeyMap | void> {
@@ -1376,6 +1382,7 @@ class EvmIndexer {
     }
 
     async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string, attempt: number = 1) {
+        return
         if (!updates.length) return
         const tempTableName = `erc20_tokens_${short.generate()}`
         const insertPlaceholders = []
@@ -1388,29 +1395,29 @@ class EvmIndexer {
         }
         
         let error
-        const client = await this.pool.connect()
-        try {
-            // Create temp table and insert updates + primary key data.
-            await client.query('BEGIN')
-            await client.query(
-                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
-            )
+        // const client = await this.pool.connect()
+        // try {
+        //     // Create temp table and insert updates + primary key data.
+        //     await client.query('BEGIN')
+        //     await client.query(
+        //         `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
+        //     )
 
-            // Bulk insert the updated records to the temp table.
-            await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
+        //     // Bulk insert the updated records to the temp table.
+        //     await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
 
-            // Merge the temp table updates into the target table ("bulk update").
-            await client.query(
-                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
-            )
-            await client.query('COMMIT')
-        } catch (err) {
-            await client.query('ROLLBACK')
-            this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
-            error = err
-        } finally {
-            client.release()
-        }
+        //     // Merge the temp table updates into the target table ("bulk update").
+        //     await client.query(
+        //         `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
+        //     )
+        //     await client.query('COMMIT')
+        // } catch (err) {
+        //     await client.query('ROLLBACK')
+        //     this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
+        //     error = err
+        // } finally {
+        //     client.release()
+        // }
         if (!error) return
 
         const message = error.message || error.toString() || ''

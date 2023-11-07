@@ -1,4 +1,4 @@
-import { logger, indexerRedis, CoreDB, SharedTables, IndexerDB, abiRedis } from '../../shared'
+import { logger, indexerRedis, CoreDB, IndexerDB, abiRedis, ChainTables } from '../../shared'
 import { getWorker } from './worker'
 
 async function run() {
@@ -6,8 +6,8 @@ async function run() {
         indexerRedis.connect(),
         abiRedis.connect(),
         CoreDB.initialize(),
-        SharedTables.initialize(),
         IndexerDB.initialize(),
+        ChainTables.initialize(),
     ])
     logger.info('Starting event generator...')
     getWorker().run()

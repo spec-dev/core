@@ -6,7 +6,7 @@ import {
     getPolygonContracts,
     savePolygonContracts,
     unique,
-    SharedTables,
+    ChainTables,
     sleep,
 } from '../../../shared'
 import extractTransfersFromLogs from '../services/extractTransfersFromLogs'
@@ -301,7 +301,7 @@ class PolygonIndexer extends EvmIndexer {
             placeholders.push(`$${i}`)
             i++
         }
-        const results = (await SharedTables.query(
+        const results = (await ChainTables.query(null,
             `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')}) AND chain_id = $${i}`,
             [...addresses, this.chainId],
         )) || []

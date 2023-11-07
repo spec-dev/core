@@ -22,7 +22,6 @@ import { CoreDB } from '../core/db/dataSource'
 import { upsertContractEventView } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
 import { ident } from 'pg-format'
-import { Pool } from 'pg'
 import {
     decodeTransactions,
     decodeTraces,
@@ -31,11 +30,11 @@ import {
     bulkSaveTraces,
     bulkSaveLogs,
 } from './decodeServices'
-import { SharedTables } from '../shared-tables/db/dataSource'
 import { upsertContractWithTx } from '../core/db/services/contractServices'
 import { getNamespaces, getNamespace } from '../core/db/services/namespaceServices'
 import { createContractGroup } from './createContractGroup'
 import { camelizeKeys } from 'humps'
+import ChainTables from '../chain-tables/ChainTables'
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -52,7 +51,6 @@ export async function addContractInstancesToGroup(
     chainId: string,
     group: string,
     atBlockNumber: number,
-    pool: Pool,
     existingBlockEvents: StringKeyMap[] = [],
     existingBlockCalls: StringKeyMap[] = []
 ): Promise<StringKeyMap> {
@@ -187,9 +185,11 @@ export async function addContractInstancesToGroup(
 
     // Decode any interactions with these new contract addresses at the given block number.
     const tables = buildTableRefsForChainId(chainId)
+    const schema = schemaForChainId[chainId]
 
     const [transactions, traces, logs] = await Promise.all([
         decodeTransactions(
+            schema,
             atBlockNumber,
             atBlockNumber,
             newAddresses,
@@ -197,8 +197,24 @@ export async function addContractInstancesToGroup(
             tables,
             true
         ),
-        decodeTraces(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
-        decodeLogs(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
+        decodeTraces(
+            schema,
+            atBlockNumber,
+            atBlockNumber,
+            newAddresses,
+            newAddressAbisMap,
+            tables,
+            true
+        ),
+        decodeLogs(
+            schema,
+            atBlockNumber,
+            atBlockNumber,
+            newAddresses,
+            newAddressAbisMap,
+            tables,
+            true
+        ),
     ])
 
     const decodeErr = (table) => `[${chainId}:${atBlockNumber}] Failed to decode ${table}`
@@ -208,23 +224,23 @@ export async function addContractInstancesToGroup(
 
     await Promise.all([
         bulkSaveTransactions(
+            schemaForChainId[chainId],
             transactions.filter((t) => !t._alreadyDecoded),
             tables.transactions,
-            pool,
             false,
             true
         ),
         bulkSaveTraces(
+            schemaForChainId[chainId],
             traces.filter((t) => !t._alreadyDecoded),
             tables.traces,
-            pool,
             false,
             true
         ),
         bulkSaveLogs(
+            schemaForChainId[chainId],
             logs.filter((l) => !l._alreadyDecoded),
             tables.logs,
-            pool,
             false,
             true
         ),
@@ -240,7 +256,8 @@ export async function addContractInstancesToGroup(
     let inputTxs = []
     try {
         inputTxs = uniqueTxHashes.length
-            ? await SharedTables.query(
+            ? await ChainTables.query(
+                  schema,
                   `select * from ${tables.transactions} where "hash" in (${phs})`,
                   uniqueTxHashes
               )

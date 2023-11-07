@@ -9,6 +9,7 @@ import {
     identPath,
     nowAsUTCDateString,
     sleep,
+    ChainTables,
 } from '../../../shared'
 import { Pool } from 'pg'
 import config from '../config'
@@ -45,39 +46,25 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     }).filter(v => !!v)
     if (!viewPaths.length) return
     
-    // Create connection pool.
-    const pool = new Pool({
-        host: config.SHARED_TABLES_DB_HOST,
-        port: config.SHARED_TABLES_DB_PORT,
-        user: config.SHARED_TABLES_DB_USERNAME,
-        password: config.SHARED_TABLES_DB_PASSWORD,
-        database: config.SHARED_TABLES_DB_NAME,
-        max: config.SHARED_TABLES_MAX_POOL_SIZE,
-        statement_timeout: 300000,
-    })
-    pool.on('error', err => logger.error('PG client error', err))
-
     // Upsert & pause each view entry in the record counts table.
-    if (!(await upsertAndPauseRecordCounts(pool, viewPaths))) return 
+    if (!(await upsertAndPauseRecordCounts(viewPaths))) return 
 
     // Get the current block number using the event sorter series #.
     const initialBlockNumber = await getBlockEventsSeriesNumber(chainId)
     if (!initialBlockNumber) {
         logger.error(chalk.redBright(`[${fullContractGroup}] No series number found for chainId=${chainId}...`))
-        await pool.end()
         return
     }
 
     // Delete record count deltas for these views below this block number.
-    if (!(await deleteRecordCountDeltasBelowBlockNumber(pool, viewPaths, initialBlockNumber, chainId))) return
+    if (!(await deleteRecordCountDeltasBelowBlockNumber(viewPaths, initialBlockNumber, chainId))) return
 
     // Get the exact record counts for each view below the current block number.
     const recordCounts = await Promise.all(viewPaths.map(
-        viewPath => calculateRecordCountBelowBlockNumber(pool, viewPath, initialBlockNumber)
+        viewPath => calculateRecordCountBelowBlockNumber(chainSchema, viewPath, initialBlockNumber)
     ))
     for (const count of recordCounts) {
         if (count === null) {
-            await pool.end()
             return
         }
     }
@@ -89,19 +76,17 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     if (latestBlockNumber < initialBlockNumber) {
         logger.warn(chalk.yellow(`[${fullContractGroup}] Reorg detected mid record-count job. Restarting...`))
         await sleep(10000)
-        await pool.end()
         return resetContractGroupEventRecordCounts(fullContractGroup)
     }
 
     // Fill in the count gaps due to the time it took to run the first calculation.
     if (latestBlockNumber > initialBlockNumber) {
         const gapCounts = await Promise.all(viewPaths.map(
-            viewPath => calculateRecordCountBetweenBlockNumbers(pool, viewPath, initialBlockNumber, latestBlockNumber)
+            viewPath => calculateRecordCountBetweenBlockNumbers(chainSchema, viewPath, initialBlockNumber, latestBlockNumber)
         ))
         for (let i = 0; i < gapCounts.length; i++) {
             const gapCount = gapCounts[i]
             if (gapCount === null) {
-                await pool.end()
                 return
             }
             recordCounts[i] += gapCount
@@ -120,15 +105,14 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     shortPool.on('error', err => logger.error('PG client error', err))
 
     // Update record counts with new values and unpause.
-    await upsertAndUnpauseRecordCounts(shortPool, viewPaths, recordCounts)
-    await pool.end()
+    await upsertAndUnpauseRecordCounts(chainSchema, shortPool, viewPaths, recordCounts)
     await shortPool.end()
 
     const seconds = Number(((performance.now() - t0) / 1000).toFixed(2))
     logger.info(chalk.cyanBright(`DONE (${fullContractGroup}) in ${seconds}s`))
 }
 
-async function upsertAndPauseRecordCounts(pool: Pool, viewPaths: string[]): Promise<boolean> {
+async function upsertAndPauseRecordCounts(viewPaths: string[]): Promise<boolean> {
     const placeholders = []
     const bindings = []
     let i = 1
@@ -139,7 +123,7 @@ async function upsertAndPauseRecordCounts(pool: Pool, viewPaths: string[]): Prom
     }
 
     let success = true
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(null)
     try {
         await client.query('BEGIN')
         await client.query(
@@ -159,6 +143,7 @@ async function upsertAndPauseRecordCounts(pool: Pool, viewPaths: string[]): Prom
 }
 
 async function upsertAndUnpauseRecordCounts(
+    schema: string,
     pool: Pool, 
     viewPaths: string[],
     recordCounts: number[],
@@ -167,7 +152,7 @@ async function upsertAndUnpauseRecordCounts(
     const bindings = []
     let i = 1
     const timestamps = await Promise.all(
-        viewPaths.map(viewPath => getLatestBlockTimestampForView(pool, viewPath))
+        viewPaths.map(viewPath => getLatestBlockTimestampForView(schema, viewPath))
     )
     const now = nowAsUTCDateString()
     for (let j = 0; j < viewPaths.length; j++) {
@@ -180,6 +165,9 @@ async function upsertAndUnpauseRecordCounts(
     }
 
     let success = true
+
+    // NOTE: Leave as pool.connect - don't replace with ChainTables.
+    // -> using custom statement timeout.
     const client = await pool.connect()
     try {
         await client.query('BEGIN')
@@ -200,11 +188,11 @@ async function upsertAndUnpauseRecordCounts(
 }
 
 async function calculateRecordCountBelowBlockNumber(
-    pool: Pool,
+    schema: string,
     viewPath: string, 
     blockNumber: number,
 ): Promise<number | null> {
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     let result
     try {
         result = await client.query(
@@ -224,12 +212,12 @@ async function calculateRecordCountBelowBlockNumber(
 }
 
 async function calculateRecordCountBetweenBlockNumbers(
-    pool: Pool,
+    schema: string,
     viewPath: string, 
     fromBlockNumber: number,
     toBlockNumber: number,
 ): Promise<number | null> {
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     let result
     try {
         result = await client.query(
@@ -249,7 +237,6 @@ async function calculateRecordCountBetweenBlockNumbers(
 }
 
 async function deleteRecordCountDeltasBelowBlockNumber(
-    pool: Pool,
     viewPaths: string[],
     blockNumber: number,
     chainId: string,
@@ -265,7 +252,7 @@ async function deleteRecordCountDeltasBelowBlockNumber(
     bindings.push(...[blockNumber, chainId])
 
     let success = true
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(null)
     try {
         await client.query('BEGIN')
         await client.query(
@@ -284,8 +271,8 @@ async function deleteRecordCountDeltasBelowBlockNumber(
     return success
 }
 
-async function getLatestBlockTimestampForView(pool: Pool, viewPath: string): Promise<string | null> {
-    const client = await pool.connect()
+async function getLatestBlockTimestampForView(schema: string, viewPath: string): Promise<string | null> {
+    const client = await ChainTables.getConnection(schema)
     let result
     try {
         result = await client.query(
@@ -302,7 +289,6 @@ async function getLatestBlockTimestampForView(pool: Pool, viewPath: string): Pro
     if (!result) return null
 
     const blockTimestamp = (result.rows || [])[0]?.block_timestamp || null
-
     return blockTimestamp ? new Date(blockTimestamp).toISOString() : null
 }
 
