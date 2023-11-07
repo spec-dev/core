@@ -34,7 +34,7 @@ class ChainTablesManager {
         return conn
     }
 
-    async query(schema, sql: string, bindings: any[] = []): Promise<StringKeyMap[]> {
+    async query(schema: string, sql: string, bindings: any[] = []): Promise<StringKeyMap[]> {
         const conn = await this.getConnection(schema)
 
         let result
@@ -50,7 +50,7 @@ class ChainTablesManager {
         return result.rows || []
     }
 
-    async transaction(schema, logic) {
+    async transaction(schema: string, logic: Function) {
         const conn = await this.getConnection(schema)
 
         try {
@@ -93,7 +93,7 @@ class ChainTablesManager {
     _buildPool(url: string): Pool {
         return new Pool({
             url,
-            min: 2,
+            min: 0,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
             connectionTimeoutMillis: 30000, // 30s
             statement_timeout: 150000,
@@ -102,5 +102,4 @@ class ChainTablesManager {
 }
 
 const ChainTables = new ChainTablesManager()
-
 export default ChainTables
