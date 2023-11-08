@@ -45,6 +45,8 @@ spec:
           value: {{SHARED_TABLES_READER_USERNAME}}
         - name: SHARED_TABLES_READER_PASSWORD
           value: {{SHARED_TABLES_READER_PASSWORD}}
+        - name: SHARED_TABLES_MIN_POOL_SIZE
+          value: "0"
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "100"
         - name: SHARED_TABLES_DB_URL

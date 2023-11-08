@@ -1,7 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS "ethereum";
+CREATE SCHEMA IF NOT EXISTS "base";
 
--- ethereum.blocks
-CREATE TABLE "ethereum"."blocks" (
+-- base.blocks
+CREATE TABLE "base"."blocks" (
     "hash" character varying(70) NOT NULL, 
     "number" bigint NOT NULL,
     "parent_hash" character varying(70),
@@ -23,11 +23,11 @@ CREATE TABLE "ethereum"."blocks" (
     "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_00d4f3eb491f00ae5bece2a559e" PRIMARY KEY ("hash")
 );
-CREATE UNIQUE INDEX "idx_ethereum_blocks_by_number" ON "ethereum"."blocks" ("number");
-CREATE INDEX "idx_ethereum_blocks_by_timestamp" ON "ethereum"."blocks" ("timestamp");
+CREATE UNIQUE INDEX "idx_base_blocks_by_number" ON "base"."blocks" ("number");
+CREATE INDEX "idx_base_blocks_by_timestamp" ON "base"."blocks" ("timestamp");
 
--- ethereum.transactions
-CREATE TABLE "ethereum"."transactions" (
+-- base.transactions
+CREATE TABLE "base"."transactions" (
     "hash" character varying(70) NOT NULL, 
     "nonce" bigint NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -53,14 +53,14 @@ CREATE TABLE "ethereum"."transactions" (
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT "PK_6f30cde2f4cf5a630e053758400" PRIMARY KEY ("hash")
 );
-CREATE INDEX "idx_ethereum_transactions_block_timestamp" ON "ethereum"."transactions" ("block_timestamp");
-CREATE INDEX "idx_ethereum_transactions_block_number" ON "ethereum"."transactions" ("block_number");
-CREATE INDEX "idx_ethereum_tx_to_sorted" ON "ethereum"."transactions" ("to", "block_number");
-CREATE INDEX "idx_ethereum_transactions_to" ON "ethereum"."transactions" ("to");
-CREATE INDEX "idx_ethereum_transactions_from" ON "ethereum"."transactions" ("from");
+CREATE INDEX "idx_base_transactions_block_timestamp" ON "base"."transactions" ("block_timestamp");
+CREATE INDEX "idx_base_transactions_block_number" ON "base"."transactions" ("block_number");
+CREATE INDEX "idx_base_tx_to_sorted" ON "base"."transactions" ("to", "block_number");
+CREATE INDEX "idx_base_transactions_to" ON "base"."transactions" ("to");
+CREATE INDEX "idx_base_transactions_from" ON "base"."transactions" ("from");
 
--- ethereum.logs
-CREATE TABLE "ethereum"."logs" (
+-- base.logs
+CREATE TABLE "base"."logs" (
     "log_index" bigint NOT NULL, 
     "transaction_hash" character varying(70) NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -77,13 +77,22 @@ CREATE TABLE "ethereum"."logs" (
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_d0c26ca198324a31f47ccf3825b" PRIMARY KEY ("log_index", "transaction_hash")
 );
-CREATE INDEX "idx_ethereum_logs_by_block_number" ON "ethereum"."logs"("block_number");
-CREATE INDEX "idx_eth_logs_address_block_number" ON "ethereum"."logs"("address", "block_number");
-CREATE INDEX "idx_eth_logs_address_event_name" ON "ethereum"."logs"("address", "event_name");
-CREATE INDEX "idx_eth_logs_event_name" ON "ethereum"."logs"("event_name");
-CREATE INDEX "idx_eth_logs_order" ON "ethereum"."logs"("block_number", "log_index");
-CREATE INDEX "idx_eth_logs_view_order" ON "ethereum"."logs"("address", "event_name", "block_number", "log_index");
-CREATE INDEX "idx_ethereum_indexer_order" ON "ethereum"."logs"("address", "event_name", "block_timestamp");
-CREATE INDEX "idx_ethereum_indexer_order_topic" ON "ethereum"."logs"("address", "topic0", "block_timestamp");
-CREATE INDEX "idx_ethereum_logs_address_topic" ON "ethereum"."logs"("address", "topic0");
-CREATE INDEX "idx_ethereum_logs_view_order_topic" ON "ethereum"."logs"("address", "topic0", "block_number", "log_index");
+CREATE INDEX "idx_base_logs_by_block_number" ON "base"."logs"("block_number");
+CREATE INDEX "idx_base_logs_address_block_number" ON "base"."logs"("address", "block_number");
+CREATE INDEX "idx_base_logs_address_event_name" ON "base"."logs"("address", "event_name");
+CREATE INDEX "idx_base_logs_event_name" ON "base"."logs"("event_name");
+CREATE INDEX "idx_base_logs_order" ON "base"."logs"("block_number", "log_index");
+CREATE INDEX "idx_base_logs_view_order" ON "base"."logs"("address", "event_name", "block_number", "log_index");
+CREATE INDEX "idx_base_indexer_order" ON "base"."logs"("address", "event_name", "block_timestamp");
+CREATE INDEX "idx_base_indexer_order_topic" ON "base"."logs"("address", "topic0", "block_timestamp");
+CREATE INDEX "idx_base_logs_address_topic" ON "base"."logs"("address", "topic0");
+CREATE INDEX "idx_base_logs_view_order_topic" ON "base"."logs"("address", "topic0", "block_number", "log_index");
+
+-- Bear reader permissions.
+grant usage on schema base to bear;
+grant select on all tables in schema base to bear;
+grant select on all sequences in schema base to bear;
+grant execute on all functions in schema base to bear;
+alter default privileges in schema base grant select on tables to bear;
+alter default privileges in schema base grant select on sequences to bear;
+alter default privileges in schema base grant execute on functions to bear;

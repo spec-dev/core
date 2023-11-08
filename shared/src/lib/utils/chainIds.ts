@@ -103,17 +103,17 @@ export const avgBlockTimesForChainId = {
 const basePrimitives = [
     { table: 'blocks', appendOnly: true, crossChain: false },
     { table: 'transactions', appendOnly: true, crossChain: false },
-    { table: 'traces', appendOnly: true, crossChain: false },
     { table: 'logs', appendOnly: true, crossChain: false },
-    { table: 'contracts', appendOnly: true, crossChain: false },
+    // { table: 'traces', appendOnly: true, crossChain: false },
+    // { table: 'contracts', appendOnly: true, crossChain: false },
 ]
 
 const tokenPrimitives = [
-    { table: 'tokens.erc20_tokens', appendOnly: false, crossChain: true },
-    { table: 'tokens.erc20_balance', appendOnly: false, crossChain: true },
-    { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
-    { table: 'tokens.nft_balance', appendOnly: false, crossChain: true },
-    { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
+    // { table: 'tokens.erc20_tokens', appendOnly: false, crossChain: true },
+    // { table: 'tokens.erc20_balance', appendOnly: false, crossChain: true },
+    // { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
+    // { table: 'tokens.nft_balance', appendOnly: false, crossChain: true },
+    // { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
 ]
 
 export const primitivesForChainId = {

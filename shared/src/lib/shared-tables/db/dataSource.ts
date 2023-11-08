@@ -16,7 +16,7 @@ const urls = {
 const url = urls[config.CHAIN_ID] || config.SHARED_TABLES_DB_URL
 
 const extra: any = {
-    min: 2,
+    min: config.SHARED_TABLES_MIN_POOL_SIZE,
     max: config.SHARED_TABLES_MAX_POOL_SIZE,
 }
 if (config.SHARED_TABLES_OPTIONS) {

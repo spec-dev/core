@@ -3,6 +3,7 @@ import { StringKeyMap } from '../types'
 import { chainSpecificSchemas, schemaForChainId } from '../utils/chainIds'
 import { Pool } from 'pg'
 import logger from '../logger'
+import parseDbUrl from 'parse-database-url'
 
 const urls = {
     [chainSpecificSchemas.ETHEREUM]: config.ETHEREUM_DB_URL,
@@ -11,6 +12,13 @@ const urls = {
     [chainSpecificSchemas.MUMBAI]: config.MUMBAI_DB_URL,
     [chainSpecificSchemas.BASE]: config.BASE_DB_URL,
 }
+
+const chainSchemasInSharedTables = new Set([
+    chainSpecificSchemas.ETHEREUM,
+    chainSpecificSchemas.GOERLI,
+    chainSpecificSchemas.POLYGON,
+    chainSpecificSchemas.MUMBAI,
+])
 
 class ChainTablesManager {
     pools: { [key: string]: Pool } = {}
@@ -71,13 +79,18 @@ class ChainTablesManager {
         // Single chain pool.
         if (config.SINGLE_CHAIN_TABLE) {
             const chainSchema = schemaForChainId[config.CHAIN_ID]
+            if (chainSchemasInSharedTables.has(chainSchema)) return
             const url = urls[chainSchema]
             if (!url) return
-            pools[chainSchema] = url
+            pools[chainSchema] = this._buildPool(url)
+            pools[chainSchema].on('error', (err) =>
+                logger.error(`PG pool error for schema ${chainSchema}`, err)
+            )
         }
         // All chains.
         else {
             for (const schema in urls) {
+                if (chainSchemasInSharedTables.has(schema)) continue
                 const url = urls[schema]
                 if (!url) continue
                 pools[schema] = this._buildPool(url)
@@ -91,9 +104,15 @@ class ChainTablesManager {
     }
 
     _buildPool(url: string): Pool {
+        const config = parseDbUrl(url)
+        const { user, password, database, host, port } = config
         return new Pool({
-            url,
-            min: 0,
+            user,
+            password,
+            database,
+            host,
+            port: Number(port),
+            min: config.SHARED_TABLES_MIN_POOL_SIZE,
             max: config.SHARED_TABLES_MAX_POOL_SIZE,
             connectionTimeoutMillis: 30000, // 30s
             statement_timeout: 150000,
