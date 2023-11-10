@@ -20,7 +20,7 @@ export function parseGenerateTestInputsPayload(
 ): ValidatedPayload<GenerateTestInputsPayload> {
     const inputs = data?.inputs || {}
     const cursor = data?.cursor
-    const chainIds = data?.chainIds || []
+    const chainIds = (data?.chainIds || []).map(id => id.toString())
     let from = data?.from
     let fromBlock = data?.fromBlock
     let to = data?.to
