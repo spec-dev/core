@@ -69,6 +69,8 @@ spec:
           value: {{BUGSNAG_API_KEY}}
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
+        - name: ROLES
+          value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader"
         - name: FLIP
           value: tails
         - name: FORCE_COLOR

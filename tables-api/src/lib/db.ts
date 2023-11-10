@@ -6,10 +6,10 @@ import { QueryPayload } from '@spec.dev/qb'
 import QueryStream from 'pg-query-stream'
 import { ident } from 'pg-format'
 
+const schemaRoles = new Set(config.ROLES)
+
 function resolveRole(role?: string): string {
-    return role
-    // TODO: security
-    // return schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
+    return schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
 }
 
 async function getPoolConnection(

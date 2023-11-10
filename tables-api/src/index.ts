@@ -12,7 +12,7 @@ import { QueryPayload } from '@spec.dev/qb'
 import { specEnvs, logger, getFailingTables, getBlockOpsCeiling, supportedChainIds, indexerRedis, indexerRedisKeys, ChainTables } from '../../shared'
 import chalk from 'chalk'
 
-// const indexerRedisPromise = indexerRedis.connect()
+const indexerRedisPromise = indexerRedis.connect()
 const pipelineCache = {}
 const supportedChainIdsArray = Array.from(supportedChainIds)
 
@@ -221,6 +221,7 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
     // Start polling shared tables for the existing schema roles.
     // await Promise.all([loadSchemaRoles(), indexerRedisPromise])
     // setInterval(() => loadSchemaRoles(), config.LOAD_SCHEMA_ROLES_INTERVAL)
+    await indexerRedisPromise
     await ChainTables.initialize()
 
     // Listen for updates in the pipeline cache.
