@@ -23,7 +23,7 @@ interface ContractGroupsPayload {
 export function parseCreateContractGroupPayload(
     data: StringKeyMap
 ): ValidatedPayload<CreateContractGroupPayload> {
-    const chainIds = data?.chainIds || []
+    const chainIds = (data?.chainIds || []).map(id => id.toString())
     const nsp = data?.nsp
     const name = data?.name
     const abi = data?.abi
