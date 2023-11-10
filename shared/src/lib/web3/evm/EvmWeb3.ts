@@ -673,7 +673,7 @@ export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?
         confirmationsUntilFinalized: 1800,
         finalityScanOffsetLeft: 300,
         finalityScanOffsetRight: 10,
-        finalityScanInterval: 180000,
+        finalityScanInterval: 80000,
         isRangeMode,
         wsRpcTimeout,
     })
