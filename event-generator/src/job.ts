@@ -285,6 +285,7 @@ async function generateBlockInputsForNewlyRegisteredContracts(
                 addresses,
                 config.CHAIN_ID,
                 group,
+                null,
                 blockNumber,
                 pool,
                 existingBlockEvents,

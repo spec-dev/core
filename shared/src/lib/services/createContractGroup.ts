@@ -4,7 +4,7 @@ import { getNamespaces } from '../core/db/services/namespaceServices'
 import { contractNamespaceForChainId } from '../utils/chainIds'
 import { polishAbis } from '../utils/formatters'
 import { CoreDB } from '../core/db/dataSource'
-import { ContractEventSpec } from '../types'
+import { ContractEventSpec, StringKeyMap } from '../types'
 import {
     upsertContractAndNamespace,
     upsertContractEvents,
@@ -23,7 +23,7 @@ export async function createContractGroup(
     chainIds: string[],
     abi: Abi,
     saveGroupAbi: boolean = true
-) {
+): Promise<StringKeyMap> {
     const group = [nsp, name].join('.')
     if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
 
@@ -43,7 +43,9 @@ export async function createContractGroup(
     // Ensure namespaces don't already exist.
     const namespaces = await getNamespaces(fullNsps)
     if (namespaces === null) throw `Internal error`
-    if (namespaces.length) throw `Contract group already exists`
+    if (namespaces.length) {
+        return { exists: true }
+    }
 
     // Polish ABI and save it for the group.
     const fakeAddress = '0x'
@@ -66,7 +68,7 @@ export async function createContractGroup(
     const eventSpecs = await saveDataModels(chainIds, fullNsps, name, eventAbiItems)
     if (!eventSpecs.length) {
         logger.warn(`[${group}] No contract events to create live objects for.`)
-        return
+        return {}
     }
 
     // Package what's needed to turn these contract events into views and live objects.
@@ -83,6 +85,8 @@ export async function createContractGroup(
             throw 'Error publishing contract event live object'
         }
     }
+
+    return {}
 }
 
 async function saveDataModels(

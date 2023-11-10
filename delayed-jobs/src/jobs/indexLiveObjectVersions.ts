@@ -125,6 +125,7 @@ export async function indexLiveObjectVersions(
                             addresses,
                             chainId,
                             group,
+                            null,
                             blockNumber,
                             pool,
                         )

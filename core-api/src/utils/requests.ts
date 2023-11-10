@@ -54,12 +54,14 @@ export async function authorizeRequestForNamespace(
     // user auth token authorization
     if (userAuthHeader) {
         const user = await authorizeRequest(req, res)
+
         // Check if user has permissions to access namespace.
         const { canAccess } = await userHasNamespacePermissions(user.id, namespaceName)
         if (!canAccess) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false
         }
+
         return true
     }
 
@@ -76,7 +78,7 @@ export async function authorizeRequestForNamespace(
         const hasPerms =
             namespaceAccessToken &&
             new Date(namespaceAccessToken.expiresAt) > new Date() &&
-            namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+            namespaceAccessToken.scopes?.split(',').some((scope) => allowedScopes.includes(scope))
         if (!hasPerms) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false
