@@ -4,7 +4,7 @@ import { supportedChainIds } from '../../../../shared'
 export function parseContractRegistrationPayload(
     data: StringKeyMap
 ): ValidatedPayload<ContractRegistrationPayload> {
-    const chainId = data?.chainId
+    const chainId = data?.chainId?.toString()
     const nsp = data?.nsp
     const name = data?.name
     const desc = data?.desc || ''

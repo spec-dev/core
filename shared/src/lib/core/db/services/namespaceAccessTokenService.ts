@@ -8,27 +8,21 @@ const namespaceAccessTokens = () => CoreDB.getRepository(NamespaceAccessToken)
 
 export async function createNamespaceAccessToken(
     namespaceId: number,
-    scopes: string
+    scopes: string[]
 ): Promise<NamespaceAccessToken> {
     const namespaceAccessToken = new NamespaceAccessToken()
-
-    namespaceAccessToken.uid = uuid4()
+    namespaceAccessToken.uid = uuid4().replace(/-/g, '')
     namespaceAccessToken.namespaceId = namespaceId
-
-    const isSupportedScope = scopes
-        .split(',')
-        .every((item) =>
-            Object.values(NamespaceAccessTokenScope).includes(item as NamespaceAccessTokenScope)
-        )
-    if (!isSupportedScope) throw `Invalid scopes for: ${scopes}`
-
-    namespaceAccessToken.scopes = scopes
+    namespaceAccessToken.scopes = (scopes || []).join(',')
     namespaceAccessToken.expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365) // 1 year
+
     try {
         await namespaceAccessTokens().save(namespaceAccessToken)
     } catch (err) {
         logger.error(
-            `Error creating NamespaceAccessToken(namespaceId=${namespaceId}, scopes=${scopes}): ${err}`
+            `Error creating NamespaceAccessToken(namespaceId=${namespaceId}, scopes=${scopes?.join(
+                ','
+            )}): ${err}`
         )
         throw err
     }

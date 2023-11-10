@@ -13,6 +13,7 @@ import {
     getContractInstancesInNamespace,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
+import { Abi } from '../abi/types'
 import { supportedChainIds } from '../utils/chainIds'
 import { isValidContractGroup } from '../utils/validators'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
@@ -50,10 +51,13 @@ export async function addContractInstancesToGroup(
     addresses: string[],
     chainId: string,
     group: string,
-    atBlockNumber: number,
-    existingBlockEvents: StringKeyMap[] = [],
-    existingBlockCalls: StringKeyMap[] = []
+    abi?: Abi,
+    atBlockNumber?: number,
+    existingBlockEvents?: StringKeyMap[],
+    existingBlockCalls?: StringKeyMap[]
 ): Promise<StringKeyMap> {
+    existingBlockEvents = existingBlockEvents || []
+    existingBlockCalls = existingBlockCalls || []
     if (!isValidContractGroup(group)) throw `Invalid contract group: ${group}`
 
     // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
@@ -66,8 +70,6 @@ export async function addContractInstancesToGroup(
     // Ensure this contract group already exists for at least one chain.
     await upsertContractGroupForChainId(chainId, group, fullNsp)
 
-    // Find other existing contract instances in this group,
-    // and make sure it already has at least one entry.
     const existingContractInstances = await getContractInstancesInNamespace(fullNsp)
     if (existingContractInstances === null) {
         throw `Failed finding existing contract instances in namespace: ${fullNsp}`
@@ -84,7 +86,7 @@ export async function addContractInstancesToGroup(
         (address) => !existingContractInstanceAddresses.has(address)
     )
     if (!newAddresses.length) {
-        return { newEventSpecs: [], newCallSpecs: [] }
+        return { newEventSpecs: [], newCallSpecs: [], newAddresses }
     }
 
     // Get abis for the new individual addresses as well as the group's abi.
@@ -181,6 +183,10 @@ export async function addContractInstancesToGroup(
         const { schema, name } = viewSpec
         let success = await upsertContractEventView(viewSpec, chainId)
         if (!success) throw `Failed to update contract event view ${schema}.${name}`
+    }
+
+    if (!atBlockNumber && atBlockNumber !== 0) {
+        return { newEventSpecs: [], newCallSpecs: [], newAddresses }
     }
 
     // Decode any interactions with these new contract addresses at the given block number.
@@ -349,7 +355,7 @@ export async function addContractInstancesToGroup(
         })
     }
 
-    return { newEventSpecs, newCallSpecs }
+    return { newEventSpecs, newCallSpecs, newAddresses }
 }
 
 async function upsertContractGroupForChainId(chainId: string, group: string, fullNsp: string) {
