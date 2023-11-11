@@ -30,7 +30,7 @@ redis?.on('error', async (err) => {
     if (reconnectAttempt >= 3) return
     reconnectAttempt++
     logger.error(`Core Redis - attempting reconnect ${reconnectAttempt}`)
-    
+
     try {
         await redis?.disconnect()
         await sleep(1000)
