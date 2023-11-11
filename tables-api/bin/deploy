@@ -30,6 +30,14 @@ shared_tables_default_role=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_D
 shared_tables_reader_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
 shared_tables_reader_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_USERNAME" )
 shared_tables_reader_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_PASSWORD" )
+shared_tables_db_url=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_URL" )
+
+# Chain Tables
+ethereum_db_url=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_DB_URL" )
+goerli_db_url=$( $shared_bin_dir/env_reader "$env" "GOERLI_DB_URL" )
+polygon_db_url=$( $shared_bin_dir/env_reader "$env" "POLYGON_DB_URL" )
+mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
+base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -52,6 +60,14 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DEFAULT_ROLE" "$shared_tables_default_
 $shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_reader_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_READER_USERNAME" "$shared_tables_reader_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_READER_PASSWORD" "$shared_tables_reader_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
+
+# Chain Tables
+$shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
+$shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
+$shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
+$shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
+$shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -89,6 +105,12 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_READER_HOST}}|$shared_tables_reader_host|g" | \
     sed "s|{{SHARED_TABLES_READER_USERNAME}}|$shared_tables_reader_username|g" | \
     sed "s|{{SHARED_TABLES_READER_PASSWORD}}|$shared_tables_reader_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
+    sed "s|{{ETHEREUM_DB_URL}}|$ethereum_db_url|g" | \
+    sed "s|{{GOERLI_DB_URL}}|$goerli_db_url|g" | \
+    sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \
+    sed "s|{{MUMBAI_DB_URL}}|$mumbai_db_url|g" | \
+    sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )

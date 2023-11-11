@@ -104,8 +104,8 @@ class ChainTablesManager {
     }
 
     _buildPool(url: string): Pool {
-        const config = parseDbUrl(url)
-        const { user, password, database, host, port } = config
+        const dbConfig = parseDbUrl(url)
+        const { user, password, database, host, port } = dbConfig
         return new Pool({
             user,
             password,

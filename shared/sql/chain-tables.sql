@@ -89,6 +89,7 @@ CREATE INDEX "idx_base_logs_address_topic" ON "base"."logs"("address", "topic0")
 CREATE INDEX "idx_base_logs_view_order_topic" ON "base"."logs"("address", "topic0", "block_number", "log_index");
 
 -- Bear reader permissions.
+create user bear;
 grant usage on schema base to bear;
 grant select on all tables in schema base to bear;
 grant select on all sequences in schema base to bear;
