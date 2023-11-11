@@ -24,6 +24,7 @@ import {
     externalToInternalDebugTraces,
 } from './transforms'
 import chainIds from '../../utils/chainIds'
+import fetch from 'cross-fetch'
 
 export const blockTags = {
     LATEST: 'latest',
