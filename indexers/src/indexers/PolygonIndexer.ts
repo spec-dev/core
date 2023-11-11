@@ -29,6 +29,7 @@ class PolygonIndexer extends EvmIndexer {
         indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
+        emitTransactions: boolean
     }) {
         super(head, options)
         this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`

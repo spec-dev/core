@@ -99,6 +99,8 @@ class EvmIndexer {
     
     indexTokenBalances: boolean 
 
+    emitTransactions: boolean
+
     timedOut: boolean = false
 
     resolvedBlockHash: string | null
@@ -184,6 +186,7 @@ class EvmIndexer {
         indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
+        emitTransactions?: boolean
     }) {
         this.head = head
 
@@ -194,6 +197,8 @@ class EvmIndexer {
         // this.indexTraces = options?.indexTraces !== false
         // this.indexTokenTransfers = options?.indexTokenTransfers || false
         // this.indexTokenBalances = options?.indexTokenBalances || false
+
+        this.emitTransactions = options?.emitTransactions
         
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
@@ -422,7 +427,7 @@ class EvmIndexer {
         ]
 
         // <chain>.NewTransactions
-        this.transactions?.length && originEventInputs.push(
+        this.transactions?.length && this.emitTransactions && originEventInputs.push(
             ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
                 originEvents.chain.NewTransactions(txs, eventOrigin)
             ))

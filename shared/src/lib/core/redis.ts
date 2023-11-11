@@ -3,6 +3,7 @@ import config from '../config'
 import logger from '../logger'
 import { StringKeyMap } from '../types'
 import { range } from '../utils/math'
+import { sleep } from '../utils/time'
 import { specEnvs } from '../utils/env'
 
 // Create redis client.
@@ -20,8 +21,25 @@ export const redis = configureRedis
         : createClient({ url })
     : null
 
-// Log any redis client errors.
-redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
+// Log any redis client errors and attempt reconnections.
+let reconnectAttempt = 0
+redis?.on('error', async (err) => {
+    console.error(err)
+    logger.error(`Core Redis error: ${err}`)
+
+    if (reconnectAttempt >= 3) return
+    reconnectAttempt++
+    logger.error(`Core Redis - attempting reconnect ${reconnectAttempt}`)
+    
+    try {
+        await redis?.disconnect()
+        await sleep(1000)
+        await redis?.connect()
+    } catch (err) {
+        console.error(err)
+        logger.error(`Core Redis -- reconnect error: ${err}`)
+    }
+})
 
 const keys = {
     LATEST_TOKEN_PRICES: 'latest-token-prices',

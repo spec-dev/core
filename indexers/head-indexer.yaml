@@ -98,6 +98,16 @@ spec:
           value: {{MUMBAI_DB_URL}}
         - name: BASE_DB_URL
           value: {{BASE_DB_URL}}
+        - name: OPTIMISM_DB_URL
+          value: {{OPTIMISM_DB_URL}}
+        - name: ARBITRUM_DB_URL
+          value: {{ARBITRUM_DB_URL}}
+        - name: PGN_DB_URL
+          value: {{PGN_DB_URL}}
+        - name: CELO_DB_URL
+          value: {{CELO_DB_URL}}
+        - name: LINEA_DB_URL
+          value: {{LINEA_DB_URL}}
         - name: SINGLE_CHAIN_TABLE
           value: "true"
         - name: ABI_REDIS_HOST

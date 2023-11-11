@@ -54,6 +54,11 @@ goerli_db_url=$( $shared_bin_dir/env_reader "$env" "GOERLI_DB_URL" )
 polygon_db_url=$( $shared_bin_dir/env_reader "$env" "POLYGON_DB_URL" )
 mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
 base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
+optimism_db_url=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_DB_URL" )
+arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
+pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
+celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
+linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -96,6 +101,11 @@ $shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
 $shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
 $shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
 $shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -143,6 +153,11 @@ template=$( cat "$template_path" | \
     sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \
     sed "s|{{MUMBAI_DB_URL}}|$mumbai_db_url|g" | \
     sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
+    sed "s|{{OPTIMISM_DB_URL}}|$optimism_db_url|g" | \
+    sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
+    sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
+    sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" )
 

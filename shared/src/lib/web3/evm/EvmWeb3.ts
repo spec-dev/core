@@ -693,6 +693,81 @@ export function newBaseWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: n
     })
 }
 
+export function newOptimismWeb3(
+    url: string,
+    isRangeMode?: boolean,
+    wsRpcTimeout?: number
+): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: true,
+        finalityScanOffsetLeft: 900,
+        finalityScanOffsetRight: 10,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
+export function newArbitrumWeb3(
+    url: string,
+    isRangeMode?: boolean,
+    wsRpcTimeout?: number
+): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: true,
+        finalityScanOffsetLeft: 1500,
+        finalityScanOffsetRight: 10,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
+export function newPGNWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: true,
+        finalityScanOffsetLeft: 900,
+        finalityScanOffsetRight: 10,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
+export function newCeloWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: false,
+        confirmationsUntilFinalized: 400,
+        finalityScanOffsetLeft: 400,
+        finalityScanOffsetRight: 7,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
+export function newLineaWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
+    return new EvmWeb3(url, {
+        canGetBlockReceipts: false,
+        canGetParityTraces: false,
+        supportsFinalizedTag: false,
+        confirmationsUntilFinalized: 400,
+        finalityScanOffsetLeft: 400,
+        finalityScanOffsetRight: 5,
+        finalityScanInterval: 180000,
+        isRangeMode,
+        wsRpcTimeout,
+    })
+}
+
 export function newEvmWeb3ForChainId(
     chainId: string,
     url: string,
@@ -700,20 +775,24 @@ export function newEvmWeb3ForChainId(
     wsRpcTimeout?: number
 ): EvmWeb3 {
     switch (chainId) {
-        // ETHEREUM
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
             return newEthereumWeb3(url, isRangeMode, wsRpcTimeout)
-
-        // POLYGON
         case chainIds.POLYGON:
         case chainIds.MUMBAI:
             return newPolygonWeb3(url, isRangeMode, wsRpcTimeout)
-
-        // BASE
         case chainIds.BASE:
             return newBaseWeb3(url, isRangeMode, wsRpcTimeout)
-
+        case chainIds.OPTIMISM:
+            return newOptimismWeb3(url, isRangeMode, wsRpcTimeout)
+        case chainIds.ARBITRUM:
+            return newArbitrumWeb3(url, isRangeMode, wsRpcTimeout)
+        case chainIds.PGN:
+            return newPGNWeb3(url, isRangeMode, wsRpcTimeout)
+        case chainIds.CELO:
+            return newCeloWeb3(url, isRangeMode, wsRpcTimeout)
+        case chainIds.LINEA:
+            return newLineaWeb3(url, isRangeMode, wsRpcTimeout)
         default:
             throw `Invalid chain id: ${chainId}`
     }

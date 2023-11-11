@@ -109,6 +109,10 @@ export class EvmTransaction {
     // Timestamp of when this transaction's block was collated.
     @Column('timestamptz', { name: 'block_timestamp' })
     blockTimestamp: Date
+
+    // Blockchain id.
+    @Column('varchar', { name: 'chain_id' })
+    chainId: string
 }
 
 export const fullEvmTransactionUpsertConfig = (transaction: EvmTransaction): string[][] => {

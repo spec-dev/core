@@ -21,7 +21,7 @@ const chainIds: { [key: string]: string } = {
     ARBITRUM: '42161',
     PGN: '424',
     CELO: '42220',
-    LINEA: '59144'
+    LINEA: '59144',
 }
 
 export const supportedChainIds = new Set(Object.values(chainIds))

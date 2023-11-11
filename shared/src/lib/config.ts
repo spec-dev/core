@@ -118,6 +118,11 @@ const config: StringKeyMap = {
     POLYGON_DB_URL: ev('POLYGON_DB_URL'),
     MUMBAI_DB_URL: ev('MUMBAI_DB_URL'),
     BASE_DB_URL: ev('BASE_DB_URL'),
+    OPTIMISM_DB_URL: ev('OPTIMISM_DB_URL'),
+    ARBITRUM_DB_URL: ev('ARBITRUM_DB_URL'),
+    PGN_DB_URL: ev('PGN_DB_URL'),
+    CELO_DB_URL: ev('CELO_DB_URL'),
+    LINEA_DB_URL: ev('LINEA_DB_URL'),
 }
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`
