@@ -12,6 +12,11 @@ const urls = {
     [chainIds.POLYGON]: config.POLYGON_DB_URL,
     [chainIds.MUMBAI]: config.MUMBAI_DB_URL,
     [chainIds.BASE]: config.BASE_DB_URL,
+    [chainIds.OPTIMISM]: config.OPTIMISM_DB_URL,
+    [chainIds.ARBITRUM]: config.ARBITRUM_DB_URL,
+    [chainIds.PGN]: config.PGN_DB_URL,
+    [chainIds.CELO]: config.CELO_DB_URL,
+    [chainIds.LINEA]: config.LINEA_DB_URL,
 }
 const url = urls[config.CHAIN_ID] || config.SHARED_TABLES_DB_URL
 
