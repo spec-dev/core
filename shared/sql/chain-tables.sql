@@ -1,7 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS "pgn";
+CREATE SCHEMA IF NOT EXISTS "linea";
 
--- pgn.blocks
-CREATE TABLE "pgn"."blocks" (
+-- linea.blocks
+CREATE TABLE "linea"."blocks" (
     "hash" character varying(70) NOT NULL, 
     "number" bigint NOT NULL,
     "parent_hash" character varying(70),
@@ -23,11 +23,11 @@ CREATE TABLE "pgn"."blocks" (
     "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_00d4f3eb491f00ae5bece2a559e" PRIMARY KEY ("hash")
 );
-CREATE UNIQUE INDEX "idx_pgn_blocks_by_number" ON "pgn"."blocks" ("number");
-CREATE INDEX "idx_pgn_blocks_by_timestamp" ON "pgn"."blocks" ("timestamp");
+CREATE UNIQUE INDEX "idx_linea_blocks_by_number" ON "linea"."blocks" ("number");
+CREATE INDEX "idx_linea_blocks_by_timestamp" ON "linea"."blocks" ("timestamp");
 
--- pgn.transactions
-CREATE TABLE "pgn"."transactions" (
+-- linea.transactions
+CREATE TABLE "linea"."transactions" (
     "hash" character varying(70) NOT NULL, 
     "nonce" bigint NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -42,7 +42,7 @@ CREATE TABLE "pgn"."transactions" (
     "status" smallint,
     "root" character varying(70),
     "gas" character varying(70), 
-    "gas_price" character varying(70), 
+    "gas_price" character varying(70),
     "max_fee_per_gas" character varying(70), 
     "max_priority_fee_per_gas" character varying(70),
     "gas_used" character varying(70),
@@ -51,17 +51,17 @@ CREATE TABLE "pgn"."transactions" (
     "block_hash" character varying(70) NOT NULL,
     "block_number" bigint NOT NULL,
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "chain_id" character varying NOT NULL DEFAULT '424',
+    "chain_id" character varying NOT NULL DEFAULT '59144',
     CONSTRAINT "PK_6f30cde2f4cf5a630e053758400" PRIMARY KEY ("hash")
 );
-CREATE INDEX "idx_pgn_transactions_block_timestamp" ON "pgn"."transactions" ("block_timestamp");
-CREATE INDEX "idx_pgn_transactions_block_number" ON "pgn"."transactions" ("block_number");
-CREATE INDEX "idx_pgn_tx_to_sorted" ON "pgn"."transactions" ("to", "block_number");
-CREATE INDEX "idx_pgn_transactions_to" ON "pgn"."transactions" ("to");
-CREATE INDEX "idx_pgn_transactions_from" ON "pgn"."transactions" ("from");
+CREATE INDEX "idx_linea_transactions_block_timestamp" ON "linea"."transactions" ("block_timestamp");
+CREATE INDEX "idx_linea_transactions_block_number" ON "linea"."transactions" ("block_number");
+CREATE INDEX "idx_linea_tx_to_sorted" ON "linea"."transactions" ("to", "block_number");
+CREATE INDEX "idx_linea_transactions_to" ON "linea"."transactions" ("to");
+CREATE INDEX "idx_linea_transactions_from" ON "linea"."transactions" ("from");
 
--- pgn.logs
-CREATE TABLE "pgn"."logs" (
+-- linea.logs
+CREATE TABLE "linea"."logs" (
     "log_index" bigint NOT NULL, 
     "transaction_hash" character varying(70) NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -78,23 +78,23 @@ CREATE TABLE "pgn"."logs" (
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_d0c26ca198324a31f47ccf3825b" PRIMARY KEY ("log_index", "transaction_hash")
 );
-CREATE INDEX "idx_pgn_logs_by_block_number" ON "pgn"."logs"("block_number");
-CREATE INDEX "idx_pgn_logs_address_block_number" ON "pgn"."logs"("address", "block_number");
-CREATE INDEX "idx_pgn_logs_address_event_name" ON "pgn"."logs"("address", "event_name");
-CREATE INDEX "idx_pgn_logs_event_name" ON "pgn"."logs"("event_name");
-CREATE INDEX "idx_pgn_logs_order" ON "pgn"."logs"("block_number", "log_index");
-CREATE INDEX "idx_pgn_logs_view_order" ON "pgn"."logs"("address", "event_name", "block_number", "log_index");
-CREATE INDEX "idx_pgn_indexer_order" ON "pgn"."logs"("address", "event_name", "block_timestamp");
-CREATE INDEX "idx_pgn_indexer_order_topic" ON "pgn"."logs"("address", "topic0", "block_timestamp");
-CREATE INDEX "idx_pgn_logs_address_topic" ON "pgn"."logs"("address", "topic0");
-CREATE INDEX "idx_pgn_logs_view_order_topic" ON "pgn"."logs"("address", "topic0", "block_number", "log_index");
+CREATE INDEX "idx_linea_logs_by_block_number" ON "linea"."logs"("block_number");
+CREATE INDEX "idx_linea_logs_address_block_number" ON "linea"."logs"("address", "block_number");
+CREATE INDEX "idx_linea_logs_address_event_name" ON "linea"."logs"("address", "event_name");
+CREATE INDEX "idx_linea_logs_event_name" ON "linea"."logs"("event_name");
+CREATE INDEX "idx_linea_logs_order" ON "linea"."logs"("block_number", "log_index");
+CREATE INDEX "idx_linea_logs_view_order" ON "linea"."logs"("address", "event_name", "block_number", "log_index");
+CREATE INDEX "idx_linea_indexer_order" ON "linea"."logs"("address", "event_name", "block_timestamp");
+CREATE INDEX "idx_linea_indexer_order_topic" ON "linea"."logs"("address", "topic0", "block_timestamp");
+CREATE INDEX "idx_linea_logs_address_topic" ON "linea"."logs"("address", "topic0");
+CREATE INDEX "idx_linea_logs_view_order_topic" ON "linea"."logs"("address", "topic0", "block_number", "log_index");
 
 -- Bear reader permissions.
 create user bear;
-grant usage on schema pgn to bear;
-grant select on all tables in schema pgn to bear;
-grant select on all sequences in schema pgn to bear;
-grant execute on all functions in schema pgn to bear;
-alter default privileges in schema pgn grant select on tables to bear;
-alter default privileges in schema pgn grant select on sequences to bear;
-alter default privileges in schema pgn grant execute on functions to bear;
+grant usage on schema linea to bear;
+grant select on all tables in schema linea to bear;
+grant select on all sequences in schema linea to bear;
+grant execute on all functions in schema linea to bear;
+alter default privileges in schema linea grant select on tables to bear;
+alter default privileges in schema linea grant select on sequences to bear;
+alter default privileges in schema linea grant execute on functions to bear;
