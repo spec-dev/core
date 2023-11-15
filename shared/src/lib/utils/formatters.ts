@@ -789,3 +789,64 @@ export const stripTrailingSlash = (val: string): string => {
     }
     return val
 }
+
+export function formatLiveObjectPageData(
+    result: StringKeyMap,
+    recordCountsData: StringKeyMap,
+    isEvent: boolean
+) {
+    const lov = isEvent ? result.liveEventVersions[0].liveObjectVersion : result
+    const liveObject = lov.liveObject
+    const namespace = lov.liveObject.namespace
+    const isContractEvent = isContractNamespace(namespace.name)
+    const config = lov.config
+    const tablePath = config?.table || null
+    const recordCountInfo = tablePath ? recordCountsData[tablePath] || {} : {}
+    let numRecords = parseInt(recordCountInfo.count)
+    numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+
+    let icon
+    if (liveObject.hasIcon) {
+        icon = buildIconUrl(liveObject.uid)
+    } else if (namespace.hasIcon) {
+        icon = buildIconUrl(namespace.name)
+    } else if (isContractEvent) {
+        icon = buildIconUrl(namespace.name.split('.')[2])
+    } else {
+        icon = '' // TODO: Need fallback
+    }
+
+    let codeUrl = null
+    if (!isContractEvent && namespace.codeUrl && !!config?.folder) {
+        codeUrl = [
+            stripTrailingSlash(namespace.codeUrl),
+            'blob',
+            'main',
+            config.folder,
+            'spec.ts',
+        ].join('/')
+    }
+
+    return {
+        id: liveObject.uid,
+        name: liveObject.name,
+        displayName: liveObject.displayName,
+        desc: liveObject.desc,
+        icon,
+        codeUrl,
+        blurhash: namespace.blurhash,
+        verified: namespace.verified,
+        isContractEvent,
+        latestVersion: {
+            nsp: lov.nsp,
+            name: lov.name,
+            version: lov.version,
+            properties: lov.properties,
+            example: lov.example,
+            config: config,
+            createdAt: lov.createdAt.toISOString(),
+        },
+        records: numRecords,
+        lastInteraction: recordCountInfo.updatedAt || null,
+    }
+}

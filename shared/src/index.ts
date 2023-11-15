@@ -282,6 +282,7 @@ export {
     getEventVersions,
     getEventVersionsInNsp,
     resolveEventVersionCursors,
+    getEventVersionsByLiveObject,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -309,6 +310,7 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
+    getLiveObjectPageData,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

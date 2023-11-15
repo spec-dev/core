@@ -2,11 +2,12 @@ import { LiveObjectVersion, LiveObjectVersionStatus } from '../entities/LiveObje
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { fromNamespacedVersion } from '../../../utils/formatters'
+import { formatLiveObjectPageData, fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
 import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
+import { getCachedRecordCounts } from '../../redis'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -291,4 +292,34 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
         logger.error(`Error getting table paths for live object versions: ${err}`)
         return null
     }
+}
+
+export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap | null> {
+    let liveObjectVersion
+    try {
+        liveObjectVersion = await liveObjectVersions().findOne({
+            relations: {
+                liveObject: {
+                    namespace: true,
+                },
+            },
+            where: {
+                liveObject: { uid },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
+        return null
+    }
+
+    // Camelize result keys.
+    liveObjectVersion = camelizeKeys(liveObjectVersion)
+
+    const liveObjectTablePath = liveObjectVersion.versionConfig?.table
+    const recordCountsData = liveObjectTablePath
+        ? await getCachedRecordCounts(liveObjectTablePath)
+        : []
+
+    // Return formatted live object version.
+    return formatLiveObjectPageData(liveObjectVersion, recordCountsData, false)
 }
