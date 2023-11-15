@@ -6,6 +6,7 @@ import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
 import { toDate } from '../utils/date'
 import { unique } from '../utils/formatters'
+import { sleep } from '../utils/time'
 
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 
@@ -16,8 +17,25 @@ export function newRedisClient(url: string) {
 // Create redis client.
 export const redis = configureRedis ? newRedisClient(config.INDEXER_REDIS_URL) : null
 
-// Log any redis client errors.
-redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
+// Log any redis client errors and attempt reconnections.
+let reconnectAttempt = 0
+redis?.on('error', async (err) => {
+    console.error(err)
+    logger.error(`Indexer Redis error: ${err}`)
+
+    if (reconnectAttempt >= 3) return
+    reconnectAttempt++
+    logger.error(`Indexer Redis - attempting reconnect ${reconnectAttempt}`)
+
+    try {
+        await redis?.disconnect()
+        await sleep(1000)
+        await redis?.connect()
+    } catch (err) {
+        console.error(err)
+        logger.error(`Indexer Redis -- reconnect error: ${err}`)
+    }
+})
 
 export const keys = {
     UNCLED_BLOCKS: 'uncled-blocks',

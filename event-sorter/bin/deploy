@@ -14,7 +14,7 @@ env=$1
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|eth-dev|goerli|polygon|mumbai|base"
+$shared_bin_dir/validate_arg "env" "$env" "eth|eth-dev|goerli|polygon|mumbai|base|op|arb|pgn|celo|linea"
 
 # ======== SET KEY VARS ======== #
 

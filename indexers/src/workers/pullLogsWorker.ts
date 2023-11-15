@@ -3,7 +3,7 @@ import JSONStream from 'JSONStream'
 import {
     logger,
     StringKeyMap,
-    PolygonLog,
+    EvmLog,
     SharedTables,
     uniqueByKeys,
     normalizeEthAddress,
@@ -57,7 +57,6 @@ class PullLogsWorker {
     async _streamLogs(resp) {
         this.batch = []
         this.savePromises = []
-
         this._createJSONStream()
 
         const readData = () =>
@@ -120,8 +119,14 @@ class PullLogsWorker {
         )
 
         await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder().insert().into(PolygonLog).values(logs).orIgnore().execute()
+            await tx.createQueryBuilder()
+                .insert()
+                .into(EvmLog)
+                .values(logs)
+                .orIgnore()
+                .execute()
         })
+
         await sleep(100)
     }
 

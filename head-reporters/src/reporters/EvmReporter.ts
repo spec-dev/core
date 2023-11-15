@@ -23,7 +23,7 @@ import {
     newIndexerRedisClient,
     indexerRedisKeys,
     schemaForChainId,
-    SharedTables,
+    ChainTables,
     toChunks,
     identPath,
     StringKeyMap,
@@ -672,7 +672,7 @@ class EvmReporter {
 
         let rows = []
         try {
-            rows = await SharedTables.query(
+            rows = await ChainTables.query(schema,
                 `select number, hash, timestamp from ${identPath(tablePath)} where number >= $1 and number <= $2 order by number asc`,
                 [fromNumber, toNumber]
             )    
@@ -692,12 +692,12 @@ class EvmReporter {
         const schema = schemaForChainId[this.chainId]
         const tablePath = [schema, 'blocks'].join('.')
         try {
-            const result = (await SharedTables.query(
+            const result = (await ChainTables.query(schema,
                 `select number from ${identPath(tablePath)} order by number desc limit 1`
             ))[0] || {}
             return result.number ? Number(result.number) : null
         } catch (err) {
-            logger.error(`Error finding largest block number in SharedTables for ${tablePath}: ${err}`)
+            logger.error(`Error finding largest block number in ChainTables for ${tablePath}: ${err}`)
             return null
         }
     }

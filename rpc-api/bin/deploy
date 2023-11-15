@@ -21,6 +21,11 @@ goerli_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "GOERLI_RPC_POOL_
 polygon_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "MUMBAI_RPC_POOL_ENDPOINTS" )
 mumbai_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "POLYGON_RPC_POOL_ENDPOINTS" )
 base_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "BASE_RPC_POOL_ENDPOINTS" )
+optimism_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_RPC_POOL_ENDPOINTS" )
+arbitrum_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_RPC_POOL_ENDPOINTS" )
+pgn_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "PGN_RPC_POOL_ENDPOINTS" )
+celo_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "CELO_RPC_POOL_ENDPOINTS" )
+linea_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "LINEA_RPC_POOL_ENDPOINTS" )
 pinata_gateway_origin=$( $shared_bin_dir/env_reader "$env" "PINATA_GATEWAY_ORIGIN" )
 pinata_gateway_token=$( $shared_bin_dir/env_reader "$env" "PINATA_GATEWAY_TOKEN" )
 
@@ -32,6 +37,11 @@ $shared_bin_dir/assert_env "GOERLI_RPC_POOL_ENDPOINTS" "$goerli_rpc_pool_endpoin
 $shared_bin_dir/assert_env "MUMBAI_RPC_POOL_ENDPOINTS" "$polygon_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "POLYGON_RPC_POOL_ENDPOINTS" "$mumbai_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "BASE_RPC_POOL_ENDPOINTS" "$base_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "OPTIMISM_RPC_POOL_ENDPOINTS" "$optimism_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "ARBITRUM_RPC_POOL_ENDPOINTS" "$arbitrum_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "PGN_RPC_POOL_ENDPOINTS" "$pgn_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "CELO_RPC_POOL_ENDPOINTS" "$celo_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "LINEA_RPC_POOL_ENDPOINTS" "$linea_rpc_pool_endpoints"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -42,7 +52,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "RPC_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="3265028"
+image_version="1c80b35"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -58,6 +68,11 @@ template=$( cat "$template_path" | \
     sed "s|{{MUMBAI_RPC_POOL_ENDPOINTS}}|$polygon_rpc_pool_endpoints|g" | \
     sed "s|{{POLYGON_RPC_POOL_ENDPOINTS}}|$mumbai_rpc_pool_endpoints|g" | \
     sed "s|{{BASE_RPC_POOL_ENDPOINTS}}|$base_rpc_pool_endpoints|g" | \
+    sed "s|{{OPTIMISM_RPC_POOL_ENDPOINTS}}|$optimism_rpc_pool_endpoints|g" | \
+    sed "s|{{ARBITRUM_RPC_POOL_ENDPOINTS}}|$arbitrum_rpc_pool_endpoints|g" | \
+    sed "s|{{PGN_RPC_POOL_ENDPOINTS}}|$pgn_rpc_pool_endpoints|g" | \
+    sed "s|{{CELO_RPC_POOL_ENDPOINTS}}|$celo_rpc_pool_endpoints|g" | \
+    sed "s|{{LINEA_RPC_POOL_ENDPOINTS}}|$linea_rpc_pool_endpoints|g" | \
     sed "s|{{PINATA_GATEWAY_ORIGIN}}|$pinata_gateway_origin|g" | \
     sed "s|{{PINATA_GATEWAY_TOKEN}}|$pinata_gateway_token|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )

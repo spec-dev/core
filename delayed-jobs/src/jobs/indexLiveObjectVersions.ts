@@ -12,7 +12,7 @@ import {
     LiveObjectVersion,
     In,
     unique,
-    SharedTables,
+    ChainTables,
     getGeneratedEventsCursors,
     addContractInstancesToGroup,
     isValidAddress,
@@ -47,17 +47,6 @@ export async function indexLiveObjectVersions(
         timer = null
     }, maxJobTime)
 
-    // Create connection pool.
-    const pool = new Pool({
-        host: config.SHARED_TABLES_DB_HOST,
-        port: config.SHARED_TABLES_DB_PORT,
-        user: config.SHARED_TABLES_DB_USERNAME,
-        password: config.SHARED_TABLES_DB_PASSWORD,
-        database: config.SHARED_TABLES_DB_NAME,
-        max: config.SHARED_TABLES_MAX_POOL_SIZE,
-    })
-    pool.on('error', err => logger.error('PG client error', err))
-
     let cursor = null
     try {
         // Create input generator.
@@ -90,7 +79,7 @@ export async function indexLiveObjectVersions(
         while (true) {
             // Get next batch of inputs from this cursor (datetime) and filter out inputs already 
             // seen (if new contracts were registered half-way through the previous batch.
-            const results = await generateFrom(cursor, pool)
+            const results = await generateFrom(cursor)
             const inputs = (results.inputs || []).filter(input => !inputsFilter.has(uniqueInputKey(input)))
             inputsFilter = new Set<string>()
 
@@ -127,7 +116,6 @@ export async function indexLiveObjectVersions(
                             group,
                             null,
                             blockNumber,
-                            pool,
                         )
                     }))
                 } catch (err) {
@@ -256,7 +244,7 @@ async function updateOpTrackingFloors(tables: string[]) {
     }
 
     try {
-        await Promise.all(queries.map(({ sql, bindings}) => SharedTables.query(sql, bindings)))
+        await Promise.all(queries.map(({ sql, bindings }) => ChainTables.query(null, sql, bindings)))
     } catch (err) {
         throw `Failed to update op-tracking floors for ${tables.join(', ')}: ${err}`
     }

@@ -22,6 +22,19 @@ shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOS
 shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_db_url=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_URL" )
+
+# Chain Tables
+ethereum_db_url=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_DB_URL" )
+goerli_db_url=$( $shared_bin_dir/env_reader "$env" "GOERLI_DB_URL" )
+polygon_db_url=$( $shared_bin_dir/env_reader "$env" "POLYGON_DB_URL" )
+mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
+base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
+optimism_db_url=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_DB_URL" )
+arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
+pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
+celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
+linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -40,6 +53,11 @@ goerli_head_reporter_queue_key=$( $shared_bin_dir/env_reader "goerli" "HEAD_REPO
 polygon_head_reporter_queue_key=$( $shared_bin_dir/env_reader "polygon" "HEAD_REPORTER_QUEUE_KEY" )
 mumbai_head_reporter_queue_key=$( $shared_bin_dir/env_reader "mumbai" "HEAD_REPORTER_QUEUE_KEY" )
 base_head_reporter_queue_key=$( $shared_bin_dir/env_reader "base" "HEAD_REPORTER_QUEUE_KEY" )
+optimism_head_reporter_queue_key=$( $shared_bin_dir/env_reader "op" "HEAD_REPORTER_QUEUE_KEY" )
+arbitrum_head_reporter_queue_key=$( $shared_bin_dir/env_reader "arb" "HEAD_REPORTER_QUEUE_KEY" )
+pgn_head_reporter_queue_key=$( $shared_bin_dir/env_reader "pgn" "HEAD_REPORTER_QUEUE_KEY" )
+celo_head_reporter_queue_key=$( $shared_bin_dir/env_reader "celo" "HEAD_REPORTER_QUEUE_KEY" )
+linea_head_reporter_queue_key=$( $shared_bin_dir/env_reader "linea" "HEAD_REPORTER_QUEUE_KEY" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -49,6 +67,19 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
+
+# Chain Tables
+$shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
+$shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
+$shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
+$shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
+$shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -85,6 +116,17 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
+    sed "s|{{ETHEREUM_DB_URL}}|$ethereum_db_url|g" | \
+    sed "s|{{GOERLI_DB_URL}}|$goerli_db_url|g" | \
+    sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \
+    sed "s|{{MUMBAI_DB_URL}}|$mumbai_db_url|g" | \
+    sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
+    sed "s|{{OPTIMISM_DB_URL}}|$optimism_db_url|g" | \
+    sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
+    sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
+    sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
@@ -97,6 +139,11 @@ template=$( cat "$template_path" | \
     sed "s|{{POLYGON_HEAD_REPORTER_QUEUE_KEY}}|$polygon_head_reporter_queue_key|g" | \
     sed "s|{{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}|$mumbai_head_reporter_queue_key|g" | \
     sed "s|{{BASE_HEAD_REPORTER_QUEUE_KEY}}|$base_head_reporter_queue_key|g" | \
+    sed "s|{{OPTIMISM_HEAD_REPORTER_QUEUE_KEY}}|$optimism_head_reporter_queue_key|g" | \
+    sed "s|{{ARBITRUM_HEAD_REPORTER_QUEUE_KEY}}|$arbitrum_head_reporter_queue_key|g" | \
+    sed "s|{{PGN_HEAD_REPORTER_QUEUE_KEY}}|$pgn_head_reporter_queue_key|g" | \
+    sed "s|{{CELO_HEAD_REPORTER_QUEUE_KEY}}|$celo_head_reporter_queue_key|g" | \
+    sed "s|{{LINEA_HEAD_REPORTER_QUEUE_KEY}}|$linea_head_reporter_queue_key|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating gap-detector job resources..."

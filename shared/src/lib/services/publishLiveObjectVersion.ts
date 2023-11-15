@@ -12,7 +12,7 @@ import { EventVersion } from '../core/db/entities/EventVersion'
 import { doesSharedTableExist, doesSharedViewExist } from '../utils/pgMeta'
 import { LiveObjectVersionProperty } from '../core/db/entities/LiveObjectVersion'
 import { chainIdForSchema, supportedChainIds } from '../utils/chainIds'
-import { SharedTables } from '../shared-tables/db/dataSource'
+import ChainTables from '../chain-tables/ChainTables'
 import { INT8 } from '../utils/colTypes'
 import { guessColTypeFromPropertyType } from '../utils/propertyTypes'
 import { upsertEventsWithTx } from '../core/db/services/eventServices'
@@ -139,7 +139,8 @@ async function deriveChainSupportFromTable(
     let derivedChainIds = []
     try {
         const result =
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select distinct(${ident(chainIdColumnName)}) from ${ident(schema)}.${ident(table)}`
             )) || []
         derivedChainIds = result
@@ -168,7 +169,8 @@ async function pullExampleFromTable(
 
     let record
     try {
-        record = ((await SharedTables.query(
+        record = ((await ChainTables.query(
+            schema,
             `select * from ${ident(schema)}.${ident(table)} limit 1;`
         )) || [])[0]
     } catch (err) {
@@ -303,7 +305,8 @@ async function saveDataModels(
         })
 
         // Set the stage for record count tracking.
-        await SharedTables.query(
+        await ChainTables.query(
+            null,
             `insert into record_counts (table_path) values ($1) on conflict do nothing`,
             [tablePath]
         )

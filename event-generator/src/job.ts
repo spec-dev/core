@@ -21,7 +21,6 @@ import {
     getBlockCalls,
     updateLiveObjectVersionStatus,
     LiveObjectVersionStatus,
-    SharedTables,
     schemaForChainId,
     identPath,
     toDate,
@@ -37,21 +36,10 @@ import {
     getAdditionalContractsToGenerateInputsFor,
     getHighestBlock,
     range,
+    ChainTables,
     EventVersion,
     formatEventVersionViewName,
 } from '../../shared'
-import { Pool } from 'pg'
-
-// Create connection pool.
-const pool = new Pool({
-    host: config.SHARED_TABLES_DB_HOST,
-    port: config.SHARED_TABLES_DB_PORT,
-    user: config.SHARED_TABLES_DB_USERNAME,
-    password: config.SHARED_TABLES_DB_PASSWORD,
-    database: config.SHARED_TABLES_DB_NAME,
-    max: config.SHARED_TABLES_MAX_POOL_SIZE,
-})
-pool.on('error', err => logger.error('PG client error', err))
 
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
@@ -240,12 +228,12 @@ async function perform(data: StringKeyMap) {
     // already aggregated that weren't able to use the newly registered contracts yet
     // will incorporate those additions.
     if (newContractRegistrations.length) {
-        const [largestNumberInSharedTables, largestNumberInIndexerDB] = await Promise.all([
-            getLargestBlockNumberFromSharedTables(),
+        const [largestNumberInChainTables, largestNumberInIndexerDB] = await Promise.all([
+            getLargestBlockNumberFromChainTables(),
             getLargestBlockNumberFromIndexerDB(),
         ])
         const ceiling = Math.max(
-            (largestNumberInSharedTables || 0) + 1,
+            (largestNumberInChainTables || 0) + 1,
             (largestNumberInIndexerDB || 0) + 1,
             blockNumber + 1,
         )
@@ -287,7 +275,6 @@ async function generateBlockInputsForNewlyRegisteredContracts(
                 group,
                 null,
                 blockNumber,
-                pool,
                 existingBlockEvents,
                 existingBlockCalls,
             )
@@ -1025,13 +1012,13 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
     const now = nowAsUTCDateString()
     let results = []
     try {
-        await SharedTables.manager.transaction(async (tx) => {
-            results = await Promise.all(viewPaths.map(viewPath => (
+        await ChainTables.transaction(null, async (tx) => {
+            results = (await Promise.all(viewPaths.map(viewPath => (
                 tx.query(
                     `update record_counts set value = value + $1, updated_at = $2 where table_path = $3 and paused is not true returning table_path`,
                     [eventCounts[viewPath], now, viewPath]
                 )
-            )))
+            )))).map(r => r.rows || [])
         })
     } catch (err) {
         logger.error(`[${chainId}:${blockNumber}] Error incrementing record counts: ${err}`)
@@ -1059,7 +1046,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
         i += 4
     }
     try {
-        await SharedTables.query(
+        await ChainTables.query(null,
             `INSERT INTO record_count_deltas (table_path, value, block_number, chain_id) VALUES ${placeholders.join(', ')} ON CONFLICT (table_path, block_number, chain_id) DO UPDATE SET value = excluded.value`,
             bindings,
         )
@@ -1072,7 +1059,7 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        return (((await SharedTables.query(
+        return (((await ChainTables.query(schema,
             `select timestamp from ${identPath(tablePath)} where number = $1`, 
             [blockNumber]
         )) || [])[0] || {}).timestamp || null
@@ -1082,16 +1069,16 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     }
 }
 
-async function getLargestBlockNumberFromSharedTables(): Promise<number | null> {
+async function getLargestBlockNumberFromChainTables(): Promise<number | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        const result = (await SharedTables.query(
+        const result = (await ChainTables.query(schema,
             `select number from ${identPath(tablePath)} order by number desc limit 1`
         ))[0] || {}
         return result.number ? Number(result.number) : null
     } catch (err) {
-        throw `Error finding largest block number in SharedTables for ${tablePath}: ${err}`
+        throw `Error finding largest block number in ChainTables for ${tablePath}: ${err}`
     }
 }
 

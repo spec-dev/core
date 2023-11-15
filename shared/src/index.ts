@@ -439,3 +439,5 @@ export {
 export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'
 export { resolveMetadata } from './lib/services/resolveMetadata'
 export { contractGroupNameFromNamespace } from './lib/utils/extract'
+import ChainTables from './lib/chain-tables/ChainTables'
+export { ChainTables }

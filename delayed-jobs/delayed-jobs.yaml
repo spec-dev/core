@@ -34,8 +34,32 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_MIN_POOL_SIZE
+          value: "0"
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "20"
+        - name: SHARED_TABLES_DB_URL
+          value: {{SHARED_TABLES_DB_URL}}
+        - name: ETHEREUM_DB_URL
+          value: {{ETHEREUM_DB_URL}}
+        - name: GOERLI_DB_URL
+          value: {{GOERLI_DB_URL}}
+        - name: POLYGON_DB_URL
+          value: {{POLYGON_DB_URL}}
+        - name: MUMBAI_DB_URL
+          value: {{MUMBAI_DB_URL}}
+        - name: BASE_DB_URL
+          value: {{BASE_DB_URL}}
+        - name: OPTIMISM_DB_URL
+          value: {{OPTIMISM_DB_URL}}
+        - name: ARBITRUM_DB_URL
+          value: {{ARBITRUM_DB_URL}}
+        - name: PGN_DB_URL
+          value: {{PGN_DB_URL}}
+        - name: CELO_DB_URL
+          value: {{CELO_DB_URL}}
+        - name: LINEA_DB_URL
+          value: {{LINEA_DB_URL}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT

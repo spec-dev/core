@@ -5,13 +5,31 @@ import { Abi, AbiItem } from './types'
 import { StringMap, StringKeyMap } from '../types'
 import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
+import { sleep } from '../utils/time'
 
 // Create redis client.
 const configureRedis = config.ENV === specEnvs.LOCAL || config.ABI_REDIS_HOST !== 'localhost'
 export const redis = configureRedis ? createClient({ url: config.ABI_REDIS_URL }) : null
 
-// Log any redis client errors.
-redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
+// Log any redis client errors and attempt reconnections.
+let reconnectAttempt = 0
+redis?.on('error', async (err) => {
+    console.error(err)
+    logger.error(`ABI Redis error: ${err}`)
+
+    if (reconnectAttempt >= 3) return
+    reconnectAttempt++
+    logger.error(`ABI Redis - attempting reconnect ${reconnectAttempt}`)
+
+    try {
+        await redis?.disconnect()
+        await sleep(1000)
+        await redis?.connect()
+    } catch (err) {
+        console.error(err)
+        logger.error(`ABI Redis -- reconnect error: ${err}`)
+    }
+})
 
 export const abiRedisKeys = {
     ETH_CONTRACTS: 'eth-contracts',
@@ -24,6 +42,16 @@ export const abiRedisKeys = {
     MUMBAI_FUNCTION_SIGNATURES: 'mumbai-function-signatures',
     BASE_CONTRACTS: 'base-contracts',
     BASE_FUNCTION_SIGNATURES: 'base-function-signatures',
+    OPTIMISM_CONTRACTS: 'optimism-contracts',
+    OPTIMISM_FUNCTION_SIGNATURES: 'optimism-function-signatures',
+    ARBITRUM_CONTRACTS: 'arbitrum-contracts',
+    ARBITRUM_FUNCTION_SIGNATURES: 'arbitrum-function-signatures',
+    PGN_CONTRACTS: 'pgn-contracts',
+    PGN_FUNCTION_SIGNATURES: 'pgn-function-signatures',
+    CELO_CONTRACTS: 'celo-contracts',
+    CELO_FUNCTION_SIGNATURES: 'celo-function-signatures',
+    LINEA_CONTRACTS: 'linea-contracts',
+    LINEA_FUNCTION_SIGNATURES: 'linea-function-signatures',
     CONTRACT_GROUPS: 'contract-groups',
 }
 
@@ -39,6 +67,16 @@ const contractsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.MUMBAI_CONTRACTS
         case chainIds.BASE:
             return abiRedisKeys.BASE_CONTRACTS
+        case chainIds.OPTIMISM:
+            return abiRedisKeys.OPTIMISM_CONTRACTS
+        case chainIds.ARBITRUM:
+            return abiRedisKeys.ARBITRUM_CONTRACTS
+        case chainIds.PGN:
+            return abiRedisKeys.PGN_CONTRACTS
+        case chainIds.CELO:
+            return abiRedisKeys.CELO_CONTRACTS
+        case chainIds.LINEA:
+            return abiRedisKeys.LINEA_CONTRACTS
         default:
             return null
     }
@@ -56,6 +94,16 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.MUMBAI_FUNCTION_SIGNATURES
         case chainIds.BASE:
             return abiRedisKeys.BASE_FUNCTION_SIGNATURES
+        case chainIds.OPTIMISM:
+            return abiRedisKeys.OPTIMISM_FUNCTION_SIGNATURES
+        case chainIds.ARBITRUM:
+            return abiRedisKeys.ARBITRUM_FUNCTION_SIGNATURES
+        case chainIds.PGN:
+            return abiRedisKeys.PGN_FUNCTION_SIGNATURES
+        case chainIds.CELO:
+            return abiRedisKeys.CELO_FUNCTION_SIGNATURES
+        case chainIds.LINEA:
+            return abiRedisKeys.LINEA_FUNCTION_SIGNATURES
         default:
             return null
     }
