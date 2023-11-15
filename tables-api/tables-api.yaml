@@ -80,7 +80,7 @@ spec:
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: ROLES
-          value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader"
+          value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader,test"
         - name: FLIP
           value: tails
         - name: FORCE_COLOR

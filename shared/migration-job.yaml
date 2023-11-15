@@ -48,4 +48,6 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_DB_URL
+          value: {{SHARED_TABLES_DB_URL}}
       restartPolicy: Never

@@ -70,7 +70,7 @@ export async function updatePublishAndDeployLiveObjectVersionJobCursor(
 ): Promise<boolean> {
     try {
         await CoreDB.query(
-            `update publish_and_deploy_live_object_version_jobs set cursors = $1 where uid = $2`,
+            `update publish_and_deploy_live_object_version_jobs set cursor = $1 where uid = $2`,
             [cursor.toISOString(), uid]
         )
     } catch (err) {

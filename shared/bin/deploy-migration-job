@@ -47,6 +47,7 @@ shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_HOS
 shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_db_url=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_URL" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -78,6 +79,7 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -115,6 +117,7 @@ template=$( cat "$template_path" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
     sed "s|{{CORE_DB_USERNAME}}|$core_db_username|g" | \
     sed "s|{{CORE_DB_PASSWORD}}|$core_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
     sed "s|{{SHARED_TABLES_DB_NAME}}|$shared_tables_db_name|g" | \
     sed "s|{{SHARED_TABLES_DB_HOST}}|$shared_tables_db_host|g" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
