@@ -1,12 +1,12 @@
 import { ValidatedPayload, StringKeyMap } from '../../types'
 
-interface GetLiveObjectVersionPublishJobPayload {
+interface GetPublishLiveObjectVersionJobPayload {
     uid: string
 }
 
-export function parseGetLiveObjectVersionPublishJobPayload(
+export function parseGetPublishLiveObjectVersionJobPayload(
     data: StringKeyMap
-): ValidatedPayload<GetLiveObjectVersionPublishJobPayload> {
+): ValidatedPayload<GetPublishLiveObjectVersionJobPayload> {
     const uid = data?.uid
 
     if (!uid) {
