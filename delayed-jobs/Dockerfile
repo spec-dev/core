@@ -9,6 +9,7 @@ COPY delayed-jobs/package.json ./
 COPY delayed-jobs/tsconfig.json ./
 
 COPY delayed-jobs/src ./src
+COPY delayed-jobs/deno ./deno
 COPY shared /usr/shared
 
 RUN npm install
@@ -29,7 +30,7 @@ COPY --from=builder /usr/shared/dist ./dist
 RUN mkdir -p /usr/app
 WORKDIR /usr/app
 COPY delayed-jobs/package.json ./
-COPY delayed-jobs/deno ./
+COPY delayed-jobs/deno ./deno
 RUN npm install --only=production
 COPY --from=builder /usr/app/dist ./dist
 
