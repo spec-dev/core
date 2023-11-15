@@ -381,8 +381,8 @@ export default function job(params: StringKeyMap) {
         perform: async () => publishAndDeployLiveObjectVersion(
             nsp,
             name,
-            folder,
             version,
+            folder,
             uid,
         )
     }

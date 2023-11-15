@@ -114,7 +114,8 @@ image_version=$( $shared_bin_dir/latest_sha )
 # image_version="57bbc05"
 
 # image_version="6fd6bcc"
-image_version="1c80b35"
+# image_version="1c80b35"
+image_version="52c5f92"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
