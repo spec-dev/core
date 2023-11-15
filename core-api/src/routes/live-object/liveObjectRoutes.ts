@@ -26,7 +26,7 @@ app.post(paths.LIVE_OBJECTS_SEARCH, async (req, res) => {
 /**
  * Get current version of live object and associated event versions by uid.
  */
-app.get(paths.LIVE_OBJECTS_PAGE, async (req, res) => {
+app.get(paths.LIVE_OBJECT_PAGE, async (req, res) => {
     // Parse & validate payload.
     const { payload, isValid, error } = parseLiveObjectPagePayload(req.query)
     if (!isValid) {
