@@ -80,9 +80,9 @@ export async function getLiveObjectByUid(uid: string): Promise<LiveObject | null
 
 export async function getLiveObjectForLov(namespacedVersion: string): Promise<LiveObject | null> {
     const { nsp, name, version } = fromNamespacedVersion(namespacedVersion)
-    let lov
+    let lovs
     try {
-        lov = await liveObjectVersions().find({
+        lovs = await liveObjectVersions().find({
             relations: { liveObject: true },
             where: { nsp, name, version },
         })
@@ -90,5 +90,5 @@ export async function getLiveObjectForLov(namespacedVersion: string): Promise<Li
         logger.error(`Error getting LiveObject for lov=${namespacedVersion}: ${err}`)
         return null
     }
-    return lov?.liveObject
+    return lovs[0]?.liveObject
 }
