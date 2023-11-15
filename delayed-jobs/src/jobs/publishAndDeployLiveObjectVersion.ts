@@ -145,8 +145,8 @@ export async function publishAndDeployLiveObjectVersion(
     // Get/build map of input group ABIs.
     const uniqueContractGroups = new Set<string>()
     for (const inputEvent of liveObjectSpec.inputEvents) {
-        const { name } = fromNamespacedVersion(inputEvent)
-        const group = name.split('.').slice(2).join('.')
+        const { nsp } = fromNamespacedVersion(inputEvent)
+        const group = nsp.split('.').slice(2).join('.')
         uniqueContractGroups.add(group)
     }
     const contractGroupNames: string[] = Array.from(uniqueContractGroups)
