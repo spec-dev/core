@@ -9,21 +9,21 @@ import uuid4 from 'uuid4'
 const publishAndDeployLiveObjectVersionJobRepo = () =>
     CoreDB.getRepository(PublishAndDeployLiveObjectVersionJob)
 
-export async function createPublishAndDeployLiveObjectVersionJobServices(
+export async function createPublishAndDeployLiveObjectVersionJob(
     nsp: string,
     name: string,
-    folder: string,
     version: string,
+    folder: string,
     uid?: string | null
 ): Promise<PublishAndDeployLiveObjectVersionJob> {
     const publishAndDeployLiveObjectVersionJob = new PublishAndDeployLiveObjectVersionJob()
     publishAndDeployLiveObjectVersionJob.uid = uid || uuid4()
     publishAndDeployLiveObjectVersionJob.nsp = nsp
     publishAndDeployLiveObjectVersionJob.name = name
-    publishAndDeployLiveObjectVersionJob.folder = folder
     publishAndDeployLiveObjectVersionJob.version = version
+    publishAndDeployLiveObjectVersionJob.folder = folder
     publishAndDeployLiveObjectVersionJob.status = PublishAndDeployLiveObjectVersionJobStatus.Created
-    publishAndDeployLiveObjectVersionJob.cursor = new Date()
+    publishAndDeployLiveObjectVersionJob.cursor = null
 
     try {
         await publishAndDeployLiveObjectVersionJobRepo().save(publishAndDeployLiveObjectVersionJob)

@@ -12,10 +12,11 @@ import {
     LiveObjectVersion,
     In,
     unique,
-    SharedTables,
+    ChainTables,
     getGeneratedEventsCursors,
     addContractInstancesToGroup,
     isValidAddress,
+    contractNamespaceForChainId,
     supportedChainIds,
     updatePublishAndDeployLiveObjectVersionJobStatus,
     PublishAndDeployLiveObjectVersionJobStatus,
@@ -43,23 +44,13 @@ export async function indexLiveObjectVersions(
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
     publishJobTableUid?: string,
+    resetCountsForContractGroups: string[] = []
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
     
     let timer = setTimeout(() => {
         timer = null
     }, maxJobTime)
-
-    // Create connection pool.
-    const pool = new Pool({
-        host: config.SHARED_TABLES_DB_HOST,
-        port: config.SHARED_TABLES_DB_PORT,
-        user: config.SHARED_TABLES_DB_USERNAME,
-        password: config.SHARED_TABLES_DB_PASSWORD,
-        database: config.SHARED_TABLES_DB_NAME,
-        max: config.SHARED_TABLES_MAX_POOL_SIZE,
-    })
-    pool.on('error', err => logger.error('PG client error', err))
 
     let cursor = null
     try {
@@ -93,7 +84,7 @@ export async function indexLiveObjectVersions(
         while (true) {
             // Get next batch of inputs from this cursor (datetime) and filter out inputs already 
             // seen (if new contracts were registered half-way through the previous batch.
-            const results = await generateFrom(cursor, pool)
+            const results = await generateFrom(cursor)
             const inputs = (results.inputs || []).filter(input => !inputsFilter.has(uniqueInputKey(input)))
             inputsFilter = new Set<string>()
 
@@ -119,17 +110,23 @@ export async function indexLiveObjectVersions(
                 try {
                     await Promise.all(groupContractInstancesToRegister.map(({ group, addresses, chainId, blockNumber }) => {
                         logger.info(`[${chainId}] Registering ${addresses.length} contracts to "${group}"...`)
+
+                        const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
+                        const fullContractGroup = [chainSpecificContractNsp, group].join('.')  
+                        resetCountsForContractGroups = resetCountsForContractGroups.concat(fullContractGroup)
+
                         return addContractInstancesToGroup(
                             addresses,
                             chainId,
                             group,
+                            null,
                             blockNumber,
-                            pool,
                         )
                     }))
                 } catch (err) {
                     throw `[:${cursor}] IndexLOV ${lovIds.join(', ')} Failed to register new contracts ${JSON.stringify(groupContractInstancesToRegister)}: ${err}`
                 }
+                resetCountsForContractGroups = unique(resetCountsForContractGroups)
 
                 // Recreate the generator after registering new contracts
                 // because this will change the generator's queries.
@@ -163,6 +160,10 @@ export async function indexLiveObjectVersions(
     } catch (err) {
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
+        resetCountsForContractGroups = unique(resetCountsForContractGroups)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
 
         if (publishJobTableUid) {
@@ -170,6 +171,8 @@ export async function indexLiveObjectVersions(
         }
         return
     }
+
+    resetCountsForContractGroups = unique(resetCountsForContractGroups)
 
     // All done -> set to "live".
     if (!cursor) {
@@ -187,12 +190,18 @@ export async function indexLiveObjectVersions(
 
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
     // Only used if an interations cap is enforced.
     if (maxIterations && iteration >= maxIterations) {
         logger.info(`[${lovIds.join(', ')}] Completed max ${maxIterations} iterations.`)
+        for (const fullContractGroup of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
@@ -211,7 +220,8 @@ export async function indexLiveObjectVersions(
         updateOpTrackingFloor,
         setLovToIndexingBefore,
         setLovToLiveAfter,
-        publishJobTableUid
+        publishJobTableUid,
+        resetCountsForContractGroups,
     })
 }
 
@@ -265,7 +275,7 @@ async function updateOpTrackingFloors(tables: string[]) {
     }
 
     try {
-        await Promise.all(queries.map(({ sql, bindings}) => SharedTables.query(sql, bindings)))
+        await Promise.all(queries.map(({ sql, bindings }) => ChainTables.query(null, sql, bindings)))
     } catch (err) {
         throw `Failed to update op-tracking floors for ${tables.join(', ')}: ${err}`
     }
@@ -529,10 +539,9 @@ export default function job(params: StringKeyMap) {
     const updateOpTrackingFloor = params.updateOpTrackingFloor !== false
     const setLovToIndexingBefore = params.setLovToIndexingBefore === true
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
-
-    // Used by the publishAndDeployLiveObjectVersionJob
+    const resetCountsForContractGroups = params.resetCountsForContractGroups || []
     const publishJobTableUid = params.publishJobTableUid
-
+    
     return {
         perform: async () => indexLiveObjectVersions(
             lovIds,
@@ -546,7 +555,8 @@ export default function job(params: StringKeyMap) {
             updateOpTrackingFloor,
             setLovToIndexingBefore,
             setLovToLiveAfter,
-            publishJobTableUid
+            publishJobTableUid,
+            resetCountsForContractGroups,
         )
     }
 }

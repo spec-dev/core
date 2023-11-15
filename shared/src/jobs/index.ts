@@ -7,6 +7,7 @@ import createEventVersion from './createEventVersion'
 import createLiveEventVersion from './createLiveEventVersion'
 import createUser from './createUser'
 import createNamespaceUser from './createNamespaceUser'
+import createNamespaceAccessToken from './createNamespaceAccessToken'
 import createProject from './createProject'
 import createProjectRole from './createProjectRole'
 import createContract from './createContract'
@@ -33,6 +34,7 @@ const jobs = {
     createLiveEventVersion,
     createUser,
     createNamespaceUser,
+    createNamespaceAccessToken,
     createProject,
     createProjectRole,
     createContract,

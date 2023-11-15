@@ -3,6 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { StringKeyMap } from '../../../types'
+import { ILike } from 'typeorm'
 
 const eventsRepo = () => CoreDB.getRepository(Event)
 
@@ -59,4 +60,33 @@ export async function upsertEventsWithTx(data: StringKeyMap[], tx: any): Promise
             .returning('*')
             .execute()
     ).generatedMaps
+}
+
+export async function getEvents(filters: StringKeyMap): Promise<Event[] | null> {
+    try {
+        return await eventsRepo().find({
+            relations: { namespace: true, eventVersions: true },
+            select: {
+                name: true,
+                desc: true,
+                namespace: {
+                    name: true,
+                    slug: true,
+                },
+                eventVersions: {
+                    createdAt: true,
+                    version: true,
+                },
+            },
+            where: {
+                namespace: {
+                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                },
+            },
+            order: { eventVersions: { createdAt: 'DESC' } },
+        })
+    } catch (err) {
+        logger.error(`Error getting Events: ${err}`)
+        return null
+    }
 }

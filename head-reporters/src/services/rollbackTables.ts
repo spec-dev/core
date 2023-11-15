@@ -6,7 +6,6 @@ import { OpRecord, OpType } from '../types'
 import { 
     logger, 
     primitivesForChainId, 
-    SharedTables, 
     StringKeyMap, 
     randomIntegerInRange, 
     sleep,
@@ -22,6 +21,7 @@ import {
     updateLiveObjectVersionStatus,
     LiveObjectVersionStatus,
     range,
+    ChainTables,
 } from '../../../shared'
 
 export async function rollbackTables(chainId: string, block: BlockHeader, toNumber: number) {
@@ -32,8 +32,11 @@ export async function rollbackTables(chainId: string, block: BlockHeader, toNumb
     const { appendOnlyPrimitives, updatablePrimitives } = getPrimitivesByType(chainId)
     const updatablePrimitiveTablePaths = new Set(updatablePrimitives.map(p => p.table))
 
-    // Delete from append-only primitive tables >= blockNumber.
-    await deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber, toNumber)
+    // Delete append-only primitives >= blockNumber and rollback any record counts.
+    await Promise.all([
+        deleteAppendOnlyPrimitivesAtOrAboveNumber(appendOnlyPrimitives, chainId, blockNumber, toNumber),
+        rollbackRecordCounts(chainId, blockNumber),
+    ])
 
     // Get all tables that are being tracked for operations.
     const opTables: StringKeyMap[] = updatablePrimitives.map(obj => ({ ...obj, isPrimitive: true }))
@@ -144,18 +147,20 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
     const ops = []
     for (const primitive of appendOnlyPrimitives) {
         const { table, crossChain } = primitive
-        const tableName = table.split('.')[1]
+        const [schema, tableName] = table.split('.')
         const numberColumn = tableName === 'blocks' ? 'number' : 'block_number'
 
         if (crossChain) {
             const phs = range(1, blockNumbers.length).map(i => `$${i}`)
             ops.push({
+                schema,
                 table,
                 query: `delete from ${identPath(table)} where ${ident(numberColumn)} in (${phs.join(', ')}) and "chain_id" = $${blockNumbers.length + 1}`,
                 bindings: [...blockNumbers, chainId]
             })
         } else {
             ops.push({
+                schema,
                 table,
                 query: `delete from ${identPath(table)} where ${ident(numberColumn)} >= $1`,
                 bindings: [blockNumber]
@@ -164,6 +169,7 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
     }
 
     await Promise.all(ops.map(op => runQueryWithDeadlockProtection(
+        op.schema,
         op.table,
         op.query,
         op.bindings,
@@ -172,9 +178,56 @@ async function deleteAppendOnlyPrimitivesAtOrAboveNumber(
     )))
 }
 
+async function rollbackRecordCounts(chainId: string, blockNumber: number) {
+    let deltas = []
+    try {
+        deltas = (await ChainTables.query(null,
+            `select * from record_count_deltas where chain_id = $1 and block_number >= $2`,
+            [chainId, blockNumber]
+        )) || []
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error finding record count deltas during rollback: ${err}`)
+        return
+    }
+    
+    const aggregates = {}
+    for (const { table_path, value } of deltas) {
+        aggregates[table_path] = aggregates[table_path] || 0
+        aggregates[table_path] += value
+    }
+    const tablePaths = Object.keys(aggregates)
+    if (!tablePaths.length) return
+    const tablePathChunks = toChunks(tablePaths, 20)
+
+    try {
+        await ChainTables.transaction(null, async (tx) => {
+            for (const chunk of tablePathChunks) {
+                await Promise.all(chunk.map(tablePath => (
+                    tx.query(
+                        `update record_counts set value = value - $1 where table_path = $2`,
+                        [aggregates[tablePath], tablePath]
+                    )
+                )))
+            }
+        })
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error rolling back record counts during rollback: ${err}`)
+        return
+    }
+
+    try {
+        await ChainTables.query(null,
+            `delete from record_count_deltas where chain_id = $1 and block_number >= $2`,
+            [chainId, blockNumber]
+        )
+    } catch (err) {
+        logger.error(`[${chainId}:${blockNumber}] Error deleting record count deltas during rollback: ${err}`)
+    }
+}
+
 export async function getOpTrackingTablesForChain(chainId: string): Promise<string[]> {
     return (
-        await SharedTables.query(`select table_path from op_tracking where chain_id = $1`, [chainId])
+        await ChainTables.query(null, `select table_path from op_tracking where chain_id = $1`, [chainId])
     ).map(row => row.table_path)
 }
 
@@ -189,7 +242,7 @@ async function setOpTrackingFloor(opTables: StringKeyMap[], chainId: string, blo
     }
     
     try {
-        await SharedTables.query(
+        await ChainTables.query(null,
             `insert into op_tracking (table_path, chain_id, is_enabled_above) values ${placeholders.join(', ')} on conflict (table_path, chain_id) do update set is_enabled_above = excluded.is_enabled_above`,
             bindings,
         )    
@@ -250,9 +303,9 @@ async function findEarliestRecordSnapshotsAtOrAboveNumber(
     const [schema, table] = tablePath.split('.')
     const opTable = [ident(schema), ident(`${table}_ops`)].join('.')
     try {
-        return await SharedTables.query(
+        return (await ChainTables.query(schema,
             `select distinct on (pk_values) * from ${opTable} ${whereClause} order by pk_values ASC, block_number ASC, ts ASC`
-        )
+        )) as OpRecord[]
     } catch (err) {
         const error = `Error finding record snapshots >= ${blockNumber} (table_path=${opTable}, chain_id=${chainId}): ${err}`
         logger.error(err)
@@ -320,10 +373,12 @@ async function rollbackTableRecords(
     const upsertGroups = toChunks(upserts, 2000)
     const deleteGroups = toChunks(deletes, 2000)
 
+    const schema = tablePath.split('.')[0]
+
     let attempt = 1
     while (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK) {
         try {
-            await SharedTables.manager.transaction(async (tx) => {
+            await ChainTables.transaction(schema, async (tx) => {
                 // Rollback records.
                 await Promise.all([
                     ...upsertGroups.map(records => upsertRecordsToPreviousStates(tablePath, records, tx)),
@@ -382,8 +437,16 @@ async function upsertRecordsToPreviousStates(
         const sortedRecordKeys = Object.keys(opRecord.before).sort()
         for (const colName of sortedRecordKeys) {
             if (conflictColNamesSet.has(colName)) continue
+
             updateColNames.push(colName)
-            updateColValues.push(opRecord.before[colName])
+
+            // Re-stringify JSON column types.
+            let colValue = opRecord.before[colName]
+            if (colValue && typeof colValue === 'object') {
+                colValue = stringifyObjectTypeColValue(tablePath, colName, colValue)
+            }
+            
+            updateColValues.push(colValue)
         }
 
         const uniqueKey = ['c', ...conflictColNames, 'u', ...updateColNames].join(':')
@@ -482,6 +545,7 @@ function getReverseOpType(opType: OpType): OpType {
 } 
 
 async function runQueryWithDeadlockProtection(
+    schema: string,
     table: string,
     query: string, 
     bindings: any[],
@@ -490,7 +554,7 @@ async function runQueryWithDeadlockProtection(
     attempt: number = 0
 ) {
     try {
-        await SharedTables.query(query, bindings)
+        await ChainTables.query(schema, query, bindings)
     } catch (err) {
         logger.error(`Error rolling back ${table} >= ${blockNumber}`, query, bindings, err)
         const message = err.message || err.toString() || ''
@@ -502,6 +566,7 @@ async function runQueryWithDeadlockProtection(
             )
             await sleep(randomIntegerInRange(50, 500))
             return await runQueryWithDeadlockProtection(
+                schema,
                 table, 
                 query,
                 bindings, 
@@ -556,4 +621,14 @@ async function setLiveObjectVersionsThatRelyOnTableToFailing(
         updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing),
         ...lovIds.map(lovId => markLovFailure(lovId, blockTimestamp)),
     ])
+}
+
+function stringifyObjectTypeColValue(tablePath: string, colName: string, value: any): any {
+    const originalValue = value
+    try {
+        return JSON.stringify(value)
+    } catch (err) {
+        logger.error(`Error stringifying ${tablePath}.${colName} during rollback: ${value} - ${err}`)
+        return originalValue
+    }
 }

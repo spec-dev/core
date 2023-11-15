@@ -1,29 +1,53 @@
-import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload, GeneratePublishLiveObjectVersionPayload } from '../../types'
+import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../../types'
 import { supportedChainIds, toNumber, toDate } from '../../../../shared'
+import coreApiConfig from '../../config'
 
-// PUBLISH_LIVE_OBJECT_VERSION
+export interface PublishLiveObjectVersionPayload {
+    nsp: string
+    name: string
+    version: string
+    folder: string
+}
+
+export interface ParseLatestLovRecordsPayload {
+    id: string
+    cursor: string | null
+}
+
+export interface GetLiveObjectVersionPayload {
+    id: string
+}
+
+export interface LovRecordCountsPayload {
+    ids: string[]
+}
+
 export function parsePublishLiveObjectVersionPayload(
     data: StringKeyMap
-): ValidatedPayload<GeneratePublishLiveObjectVersionPayload> {
+): ValidatedPayload<PublishLiveObjectVersionPayload> {
     const nsp = data?.nsp
     const name = data?.name
-    const folder = data?.folder
     const version = data?.version
+    let folder = data?.folder
 
     if (!nsp) {
-        return { isValid: false, error: 'No nsp given' }
+        return { isValid: false, error: 'No "nsp" given' }
     }
-
     if (!name) {
-        return { isValid: false, error: 'No name given' }
+        return { isValid: false, error: 'No "name" given' }
     }
-
-    if (!folder) {
-        return { isValid: false, error: 'No folder given' }
-    }
-
     if (!version) {
-        return { isValid: false, error: 'No version given' }
+        return { isValid: false, error: 'No "version" given' }
+    }
+    if (!folder) {
+        return { isValid: false, error: 'No "folder" given' }
+    }
+
+    while (folder.startsWith('.') || folder.startsWith('/')) {
+        folder = folder.slice(1)
+    }
+    if (!folder) {
+        return { isValid: false, error: 'Invalid "folder" given' }
     }
 
     return {
@@ -31,8 +55,8 @@ export function parsePublishLiveObjectVersionPayload(
         payload: {
             nsp,
             name,
+            version,
             folder,
-            version
         }
     }
 }
@@ -42,7 +66,7 @@ export function parseGenerateTestInputsPayload(
 ): ValidatedPayload<GenerateTestInputsPayload> {
     const inputs = data?.inputs || {}
     const cursor = data?.cursor
-    const chainIds = data?.chainIds || []
+    const chainIds = (data?.chainIds || []).map(id => id.toString())
     let from = data?.from
     let fromBlock = data?.fromBlock
     let to = data?.to
@@ -130,5 +154,56 @@ export function parseGenerateTestInputsPayload(
             streamId,
             isContractFactory,
         } as GenerateTestInputsPayload,
+    }
+}
+
+export function parseLatestLovRecordsPayload(
+    data: StringKeyMap
+): ValidatedPayload<ParseLatestLovRecordsPayload> {
+    const id = data?.id
+    const cursor = data?.cursor || null
+
+    if (!id) {
+        return { isValid: false, error: '"id" is required' }
+    }
+
+    return {
+        isValid: true,
+        payload: { id, cursor },
+    }
+}
+
+export function parseGetLiveObjectVersionPayload(
+    data: StringKeyMap
+): ValidatedPayload<GetLiveObjectVersionPayload> {
+    const id = data?.id
+
+    if (!id) {
+        return { isValid: false, error: '"id" is required' }
+    }
+
+    return {
+        isValid: true,
+        payload: { id },
+    }
+}
+
+export function parseLovRecordCountsPayload(data: StringKeyMap): ValidatedPayload<LovRecordCountsPayload> {
+    const ids = data?.ids || []
+
+    if (!ids.length) {
+        return { isValid: false, error: '"ids" was missing or empty' }
+    }
+
+    if (ids.length > coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE) {
+        return { 
+            isValid: false, 
+            error: `Request exceeds maximum limit of ${coreApiConfig.MAX_RECORD_COUNT_BATCH_SIZE} entries` 
+        }
+    }
+
+    return {
+        isValid: true,
+        payload: { ids },
     }
 }

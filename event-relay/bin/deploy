@@ -14,7 +14,7 @@ env=$1
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev|base"
 
 # ======== SET KEY VARS ======== #
 
@@ -42,6 +42,19 @@ shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER
 shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_db_url=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_URL" )
+
+# Chain Tables
+ethereum_db_url=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_DB_URL" )
+goerli_db_url=$( $shared_bin_dir/env_reader "$env" "GOERLI_DB_URL" )
+polygon_db_url=$( $shared_bin_dir/env_reader "$env" "POLYGON_DB_URL" )
+mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
+base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
+optimism_db_url=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_DB_URL" )
+arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
+pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
+celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
+linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
 
 # Indexer DB
 indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
@@ -75,6 +88,19 @@ $shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
+
+# Chain Tables
+$shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
+$shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
+$shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
+$shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
+$shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
 
 # Indexer DB
 $shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
@@ -91,7 +117,9 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
+# image_version=$( $shared_bin_dir/latest_sha )
+# image_version="2df4cbf"
+image_version="1c80b35"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -122,6 +150,17 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
+    sed "s|{{ETHEREUM_DB_URL}}|$ethereum_db_url|g" | \
+    sed "s|{{GOERLI_DB_URL}}|$goerli_db_url|g" | \
+    sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \
+    sed "s|{{MUMBAI_DB_URL}}|$mumbai_db_url|g" | \
+    sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
+    sed "s|{{OPTIMISM_DB_URL}}|$optimism_db_url|g" | \
+    sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
+    sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
+    sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" )
 

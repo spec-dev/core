@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn, OneToMany } from 'typeorm'
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Index,
+    CreateDateColumn,
+    OneToMany,
+    UpdateDateColumn,
+} from 'typeorm'
 import { Contract } from './Contract'
 import { NamespaceAccessToken } from './NamespaceAccessToken'
 import { Event } from './Event'
@@ -9,6 +17,7 @@ import { Project } from './Project'
 import { StringKeyMap } from '../../../types'
 import { buildIconUrl } from '../../../utils/formatters'
 import { getChainIdsForNamespace } from '../services/namespaceServices'
+import { getCachedNamespaceRecordCounts } from '../../redis'
 
 /**
  * A globally unique namespace for projects, contracts, events, live objects, etc.
@@ -50,12 +59,24 @@ export class Namespace {
     @Column({ nullable: true })
     verified: boolean
 
+    @Column({ nullable: true })
+    blurhash: string
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
+
+    @UpdateDateColumn({
+        type: 'timestamptz',
+        name: 'updated_at',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        nullable: true,
+    })
+    updatedAt: Date
 
     @Column({
         type: 'timestamptz',
@@ -86,7 +107,12 @@ export class Namespace {
     namespaceAccessTokens: NamespaceAccessToken[]
 
     async publicView(): Promise<StringKeyMap> {
+        const recordCountInfo = (await getCachedNamespaceRecordCounts([this.slug]))[this.slug] || {}
+        let numRecords = parseInt(recordCountInfo.count)
+        numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+
         return {
+            id: this.id,
             name: this.name,
             displayName: this.displayName,
             slug: this.slug,
@@ -97,11 +123,13 @@ export class Namespace {
             twitterUrl: this.twitterUrl,
             verified: this.verified || false,
             createdAt: this.createdAt.toISOString(),
+            updatedAt: this.updatedAt.toISOString(),
             joinedAt: this.joinedAt?.toISOString(),
             icon: this.hasIcon ? buildIconUrl(this.name) : null,
+            blurhash: this.blurhash,
             chainIds: await getChainIdsForNamespace(this.name),
-            records: 1013861,
-            lastInteraction: 10,
+            records: numRecords,
+            lastInteraction: recordCountInfo.updatedAt || null,
         }
     }
 }

@@ -46,6 +46,7 @@ export class PublishAndDeployLiveObjectVersionJob {
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'cursor',
+        nullable: true,
     })
     cursor: Date
 
@@ -77,7 +78,7 @@ export class PublishAndDeployLiveObjectVersionJob {
             name: this.name,
             version: this.version,
             status: this.status,
-            cursor: this.cursor,
+            cursor: this.cursor?.toISOString(),
             failed: this.failed,
             error: this.error,
             createdAt: this.createdAt.toISOString(),

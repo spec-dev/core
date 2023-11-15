@@ -1,14 +1,15 @@
 import { EventCursor } from '../types'
 import config from '../config'
 import { 
-    SharedTables, 
     getPublishedEventsAfterEventCursors, 
     logger, 
     schemaForChainId, 
+    getEventIdDirectlyBeforeId,
     StringKeyMap, 
     toChunks, 
     range,
     identPath,
+    ChainTables,
 } from '../../../shared'
 
 interface GetEventsAfterCursorsPayload {
@@ -59,6 +60,14 @@ async function getNewEventsAfterCursors(cursors: EventCursor[], publish, channel
         const specEvents = eventsMap[eventName] || []
         if (!specEvents.length) continue
 
+        for (let i = 0; i < specEvents.length; i++) {
+            if (i === 0) {
+                specEvents[i].prevNonce = await getEventIdDirectlyBeforeId(eventName, specEvents[i].nonce)
+            } else {
+                specEvents[i].prevNonce = specEvents[i - 1].nonce
+            }
+        }
+
         const batches = toChunks(specEvents, config.FETCHING_MISSED_EVENTS_BATCH_SIZE)
     
         for (let batch of batches) {
@@ -99,6 +108,7 @@ async function markInvalidEvents(
         chainIds.push(chainId)
         const phs = range(1, blockNumbers.length).map(i => `$${i}`)
         queries.push({
+            schema,
             sql: `select hash, number from ${identPath([schema, 'blocks'].join('.'))} where number in (${phs.join(', ')})`,
             bindings: blockNumbers,
         })
@@ -107,8 +117,8 @@ async function markInvalidEvents(
     // Run all queries built above in parallel.
     let results = []
     try {
-        results = (await Promise.all(queries.map(({ sql, bindings }) => (
-            SharedTables.query(sql, bindings)
+        results = (await Promise.all(queries.map(({ schema, sql, bindings }) => (
+            ChainTables.query(schema, sql, bindings)
         )))) || []
     } catch (err) {
         logger.error(`Error fetching hashes for blocks:`, queries, err)

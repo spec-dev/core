@@ -65,6 +65,8 @@ const config: StringKeyMap = {
     SHARED_TABLES_DB_PORT: Number(ev('SHARED_TABLES_DB_PORT', 5432)),
     SHARED_TABLES_DB_USERNAME: ev('SHARED_TABLES_DB_USERNAME', 'spec'),
     SHARED_TABLES_DB_PASSWORD: ev('SHARED_TABLES_DB_PASSWORD', ''),
+    SHARED_TABLES_DB_URL: ev('SHARED_TABLES_DB_URL', ''),
+    SHARED_TABLES_MIN_POOL_SIZE: Number(ev('SHARED_TABLES_MIN_POOL_SIZE', 2)),
     SHARED_TABLES_MAX_POOL_SIZE: Number(ev('SHARED_TABLES_MAX_POOL_SIZE', 10)),
     SHARED_TABLES_OPTIONS: ev('SHARED_TABLES_OPTIONS'),
 
@@ -103,6 +105,24 @@ const config: StringKeyMap = {
 
     // Metadata config.
     METADATA_RESOLUTION_TIMEOUT: Number(ev('METADATA_RESOLUTION_TIMEOUT', 5000)),
+
+    // Exponential backoff config for HTTP request retries.
+    EXPO_BACKOFF_DELAY: 200,
+    EXPO_BACKOFF_MAX_ATTEMPTS: 10,
+    EXPO_BACKOFF_FACTOR: 1.5,
+
+    // Chain Tables
+    SINGLE_CHAIN_TABLE: [true, 'true'].includes(ev('SINGLE_CHAIN_TABLE', '').toLowerCase()),
+    ETHEREUM_DB_URL: ev('ETHEREUM_DB_URL'),
+    GOERLI_DB_URL: ev('GOERLI_DB_URL'),
+    POLYGON_DB_URL: ev('POLYGON_DB_URL'),
+    MUMBAI_DB_URL: ev('MUMBAI_DB_URL'),
+    BASE_DB_URL: ev('BASE_DB_URL'),
+    OPTIMISM_DB_URL: ev('OPTIMISM_DB_URL'),
+    ARBITRUM_DB_URL: ev('ARBITRUM_DB_URL'),
+    PGN_DB_URL: ev('PGN_DB_URL'),
+    CELO_DB_URL: ev('CELO_DB_URL'),
+    LINEA_DB_URL: ev('LINEA_DB_URL'),
 }
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`

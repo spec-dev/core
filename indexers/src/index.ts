@@ -7,6 +7,7 @@ import {
     CoreDB,
     abiRedis,
     coreRedis,
+    ChainTables,
 } from '../../shared'
 import { getWorker } from './workers'
 
@@ -15,6 +16,7 @@ async function run() {
     await Promise.all([
         IndexerDB.initialize(),
         SharedTables.initialize(),
+        ChainTables.initialize(),
         CoreDB.initialize(),
         indexerRedis.connect(),
         abiRedis.connect(),

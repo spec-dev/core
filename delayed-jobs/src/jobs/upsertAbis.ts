@@ -10,7 +10,7 @@ import {
     sleep,
     toChunks,
     EthContract,
-    SharedTables,
+    ChainTables,
     functionSignatureToAbiInputs,
     createAbiItemSignature,
     chainIds,
@@ -110,10 +110,10 @@ async function getContracts(addresses: string[], chainId: string): Promise<EthCo
 
     const phs = range(1, addresses.length).map(i => `$${i}`)
     try {
-        return await SharedTables.query(
+        return (await ChainTables.query(schema,
             `select "address", "bytecode" from ${ident(schema)}."contracts" where "address" in (${phs.join(', ')})`,
             addresses,
-        )
+        )) as EthContract[]
     } catch (err) {
         logger.error(`Error querying ${ident(schema)}."contracts": ${err}`)
         return []
@@ -377,7 +377,7 @@ async function getFirstProxyUpgradedEventLog(contractAddress: string, chainId: s
         return []
     }
     try {
-        const results = await SharedTables.query(
+        const results = await ChainTables.query(schema,
             `select * from ${ident(schema)}."logs" where "address" = $1 and "topic0" = $2 order by block_number desc limit 1`,
             [contractAddress, PROXY_UPGRADED_TOPIC],
         )

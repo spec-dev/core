@@ -12,7 +12,7 @@ import { EventVersion } from '../core/db/entities/EventVersion'
 import { doesSharedTableExist, doesSharedViewExist } from '../utils/pgMeta'
 import { LiveObjectVersionProperty } from '../core/db/entities/LiveObjectVersion'
 import { chainIdForSchema, supportedChainIds } from '../utils/chainIds'
-import { SharedTables } from '../shared-tables/db/dataSource'
+import ChainTables from '../chain-tables/ChainTables'
 import { INT8 } from '../utils/colTypes'
 import { guessColTypeFromPropertyType } from '../utils/propertyTypes'
 import { upsertEventsWithTx } from '../core/db/services/eventServices'
@@ -86,6 +86,7 @@ export async function publishLiveObjectVersion(
         payload,
         liveObjectId,
         example,
+        tablePath,
         namespacedLiveObjectVersion,
         inputEventVersions,
         inputCallNamespaceIds,
@@ -138,7 +139,8 @@ async function deriveChainSupportFromTable(
     let derivedChainIds = []
     try {
         const result =
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select distinct(${ident(chainIdColumnName)}) from ${ident(schema)}.${ident(table)}`
             )) || []
         derivedChainIds = result
@@ -167,7 +169,8 @@ async function pullExampleFromTable(
 
     let record
     try {
-        record = ((await SharedTables.query(
+        record = ((await ChainTables.query(
+            schema,
             `select * from ${ident(schema)}.${ident(table)} limit 1;`
         )) || [])[0]
     } catch (err) {
@@ -198,6 +201,7 @@ async function saveDataModels(
     payload: PublishLiveObjectVersionPayload,
     liveObjectId: number,
     example: StringKeyMap | null,
+    tablePath: string,
     namespacedLiveObjectVersion: string,
     inputEventVersions: EventVersion[],
     inputCallNamespaceIds: number[],
@@ -218,20 +222,20 @@ async function saveDataModels(
                 tx
             )
 
-            // Only create the <Name>Upserted event for non-contract event live objects.
+            // Only create the <Name>Changed event for non-contract event live objects.
             if (!representsContractEvent) {
-                // LiveObjectUpserted event.
+                // LiveObjectChanged event.
                 const event = ((await upsertEventsWithTx(
                     [
                         {
                             namespaceId: namespace.id,
-                            name: `${payload.name}Upserted`,
+                            name: `${payload.name}Changed`,
                         },
                     ],
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted event version
+                // LiveObjectChanged event version
                 const eventVersion = ((await upsertEventVersionsWithTx(
                     [
                         {
@@ -244,7 +248,7 @@ async function saveDataModels(
                     tx
                 )) || {})[0]
 
-                // LiveObjectUpserted live event version.
+                // LiveObjectChanged live event version.
                 if (eventVersion) {
                     await createLiveEventVersionsWithTx(
                         [
@@ -299,6 +303,13 @@ async function saveDataModels(
                     tx
                 ))
         })
+
+        // Set the stage for record count tracking.
+        await ChainTables.query(
+            null,
+            `insert into record_counts (table_path) values ($1) on conflict do nothing`,
+            [tablePath]
+        )
     } catch (err) {
         logger.error(
             `Failed to save data models while publishing ${namespacedLiveObjectVersion}: ${err}`

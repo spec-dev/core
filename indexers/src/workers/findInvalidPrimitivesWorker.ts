@@ -48,7 +48,7 @@ class FindInvalidPrimitivesWorker {
         }
 
         if (this.mismatches.size) {
-            await indexerRedis.sAdd(`redo2-${config.CHAIN_ID}`, Array.from(this.mismatches))
+            await indexerRedis.sAdd(`octip-${config.CHAIN_ID}`, Array.from(this.mismatches))
         }
 
         logger.info('DONE')
@@ -99,7 +99,7 @@ class FindInvalidPrimitivesWorker {
         })
 
         if (this.mismatches.size) {
-            await indexerRedis.sAdd(`redo2-${config.CHAIN_ID}`, Array.from(this.mismatches))
+            await indexerRedis.sAdd(`octip-${config.CHAIN_ID}`, Array.from(this.mismatches))
             this.mismatches = new Set()
         }
     }

@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: rpc-api
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       component: rpc-api
@@ -33,6 +33,18 @@ spec:
           value: {{MUMBAI_RPC_POOL_ENDPOINTS}}
         - name: POLYGON_RPC_POOL_ENDPOINTS
           value: {{POLYGON_RPC_POOL_ENDPOINTS}}
+        - name: BASE_RPC_POOL_ENDPOINTS
+          value: {{BASE_RPC_POOL_ENDPOINTS}}
+        - name: OPTIMISM_RPC_POOL_ENDPOINTS
+          value: {{OPTIMISM_RPC_POOL_ENDPOINTS}}
+        - name: ARBITRUM_RPC_POOL_ENDPOINTS
+          value: {{ARBITRUM_RPC_POOL_ENDPOINTS}}
+        - name: PGN_RPC_POOL_ENDPOINTS
+          value: {{PGN_RPC_POOL_ENDPOINTS}}
+        - name: CELO_RPC_POOL_ENDPOINTS
+          value: {{CELO_RPC_POOL_ENDPOINTS}}
+        - name: LINEA_RPC_POOL_ENDPOINTS
+          value: {{LINEA_RPC_POOL_ENDPOINTS}}
         - name: PINATA_GATEWAY_ORIGIN
           value: {{PINATA_GATEWAY_ORIGIN}}
         - name: PINATA_GATEWAY_TOKEN

@@ -4,7 +4,7 @@ import { getNamespaces } from '../core/db/services/namespaceServices'
 import { contractNamespaceForChainId } from '../utils/chainIds'
 import { polishAbis } from '../utils/formatters'
 import { CoreDB } from '../core/db/dataSource'
-import { ContractEventSpec } from '../types'
+import { ContractEventSpec, StringKeyMap } from '../types'
 import {
     upsertContractAndNamespace,
     upsertContractEvents,
@@ -12,11 +12,18 @@ import {
     publishContractEventLiveObject,
 } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
+import { saveContractGroupAbi } from '../abi/redis'
 
 /**
  * Create a new, empty contract group for a set of chain ids.
  */
-export async function createContractGroup(nsp: string, name: string, chainIds: string[], abi: Abi) {
+export async function createContractGroup(
+    nsp: string,
+    name: string,
+    chainIds: string[],
+    abi: Abi,
+    saveGroupAbi: boolean = true
+): Promise<StringKeyMap> {
     const group = [nsp, name].join('.')
     if (group.split('.').length !== 2) throw `Invalid contract group: ${group}`
 
@@ -36,13 +43,18 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
     // Ensure namespaces don't already exist.
     const namespaces = await getNamespaces(fullNsps)
     if (namespaces === null) throw `Internal error`
-    if (namespaces.length) throw `Contract group already exists`
+    if (namespaces.length) {
+        return { exists: true }
+    }
 
-    // Polish group abi.
+    // Polish ABI and save it for the group.
     const fakeAddress = '0x'
     const [polishedAbisMap, _] = polishAbis({ [fakeAddress]: abi })
     const polishedAbi = polishedAbisMap[fakeAddress] || []
     if (!polishedAbi.length) throw 'Invalid ABI'
+    if (saveGroupAbi && !(await saveContractGroupAbi(group, polishedAbi))) {
+        throw 'Failed to save ABI'
+    }
 
     // Get all ABI event items with fully-named params.
     const eventAbiItems = polishedAbi.filter(
@@ -56,7 +68,7 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
     const eventSpecs = await saveDataModels(chainIds, fullNsps, name, eventAbiItems)
     if (!eventSpecs.length) {
         logger.warn(`[${group}] No contract events to create live objects for.`)
-        return
+        return {}
     }
 
     // Package what's needed to turn these contract events into views and live objects.
@@ -73,6 +85,8 @@ export async function createContractGroup(nsp: string, name: string, chainIds: s
             throw 'Error publishing contract event live object'
         }
     }
+
+    return {}
 }
 
 async function saveDataModels(

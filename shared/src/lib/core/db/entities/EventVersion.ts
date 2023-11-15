@@ -7,6 +7,7 @@ import {
     ManyToOne,
     OneToMany,
     JoinColumn,
+    UpdateDateColumn,
 } from 'typeorm'
 import { Event } from './Event'
 import { LiveEventVersion } from './LiveEventVersion'
@@ -39,6 +40,15 @@ export class EventVersion {
         default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
     })
     createdAt: Date
+
+    @UpdateDateColumn({
+        type: 'timestamptz',
+        name: 'updated_at',
+        default: () => `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        onUpdate: `CURRENT_TIMESTAMP at time zone 'UTC'`,
+        nullable: true,
+    })
+    updatedAt: Date
 
     @Column('int8', { name: 'event_id' })
     eventId: number

@@ -11,9 +11,11 @@ export class addNamespaceColumns1687838789702 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "namespaces" ADD "twitter_url" character varying`)
         await queryRunner.query(`ALTER TABLE "namespaces" ADD "verified" boolean`)
         await queryRunner.query(`ALTER TABLE "namespaces" ADD "joined_at" TIMESTAMP WITH TIME ZONE`)
+        await queryRunner.query(`ALTER TABLE "namespaces" ADD "blurhash" character varying`)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "blurhash"`)
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "joined_at"`)
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "verified"`)
         await queryRunner.query(`ALTER TABLE "namespaces" DROP COLUMN "twitter_url"`)

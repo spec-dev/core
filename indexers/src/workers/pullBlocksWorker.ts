@@ -4,7 +4,7 @@ import {
     logger,
     StringKeyMap,
     SharedTables,
-    PolygonBlock,
+    EvmBlock,
     sleep,
     uniqueByKeys,
     normalizeEthAddress,
@@ -125,7 +125,7 @@ class PullBlocksWorker {
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
                 .insert()
-                .into(PolygonBlock)
+                .into(EvmBlock)
                 .values(blocks)
                 .orIgnore()
                 .execute()
@@ -134,30 +134,30 @@ class PullBlocksWorker {
 
     _bigQueryModelToInternalModel(bqBlock: StringKeyMap): StringKeyMap {
         return {
-            hash: bqBlock.hash,
-            number: Number(bqBlock.number),
+            hash: bqBlock.block_hash,
+            number: Number(bqBlock.block_number),
             parentHash: normalize32ByteHash(bqBlock.parent_hash),
             nonce: bqBlock.nonce,
-            sha3Uncles: normalize32ByteHash(bqBlock.sha3_uncles),
+            sha3Uncles: normalize32ByteHash(bqBlock.uncles_sha3),
             logsBloom: normalizeByteData(bqBlock.logs_bloom),
             transactionsRoot: normalize32ByteHash(bqBlock.transactions_root),
             stateRoot: normalize32ByteHash(bqBlock.state_root),
             receiptsRoot: normalize32ByteHash(bqBlock.receipts_root),
             miner: normalizeEthAddress(bqBlock.miner),
-            difficulty: bqBlock.difficulty,
-            totalDifficulty: bqBlock.total_difficulty,
+            difficulty: bqBlock.difficulty?.string_value,
+            totalDifficulty: bqBlock.total_difficulty?.string_value,
             size: attemptToParseNumber(bqBlock.size),
             extraData: normalizeByteData(bqBlock.extra_data),
             gasLimit: toString(bqBlock.gas_limit),
             gasUsed: toString(bqBlock.gas_used),
             transactionCount: Number(bqBlock.transaction_count || 0),
-            timestamp: new Date(bqBlock.timestamp).toISOString(),
+            timestamp: new Date(bqBlock.block_timestamp).toISOString(),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/polygon-blocks/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/optimism-blocks/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {

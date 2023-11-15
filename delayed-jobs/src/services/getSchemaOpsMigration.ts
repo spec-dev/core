@@ -1,11 +1,11 @@
 import { StringKeyMap, identPath } from "../../../shared"
 import { ident } from 'pg-format'
 
-export async function getSchemaOpsMigration(
+export function getSchemaOpsMigration(
     schemaName: string,
     tableName: string
-): Promise<{ error: Error | null, schemaOpsMigration: StringKeyMap }> {
-    const schemaOpsMigration = [{
+): StringKeyMap[] {
+    return [{
         'sql': `create table if not exists ${identPath(`${schemaName}.${tableName}_ops`)}(` +
             'id serial primary key, ' +
             'pk_names text not null, ' +
@@ -31,7 +31,6 @@ export async function getSchemaOpsMigration(
         'sql': `create index ${ident(`idx_${schemaName}_${tableName}_ops_order`)} on ${identPath(`${schemaName}.${tableName}_ops`)}(pk_values, block_number, ts)`,
         'bindings': []
     }]
-    return { error: null, schemaOpsMigration }
 }
 
 

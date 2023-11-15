@@ -67,7 +67,10 @@ async function pollTokenPrices() {
 async function saveTokenPrices(pricedTokens: StringKeyMap[], latestTimestamp: Date): Promise<boolean> {
     const recordsToSave = pricedTokens.filter(t => new Date(t.timestamp) >= latestTimestamp)
     logger.info(`Saving ${recordsToSave.length} token prices...`)
+    
     try {
+        // NOTE: To enable this again, make sure TokenPrice is actually 
+        // included as one of the entites of SharedTables and the table actually exists...
         await SharedTables.manager.transaction(async (tx) => {
             await tx
                 .createQueryBuilder()

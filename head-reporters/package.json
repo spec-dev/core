@@ -20,6 +20,7 @@
         "@alch/alchemy-web3": "^1.4.4",
         "bullmq": "^3.12.0",
         "chalk": "4.1.0",
+        "lru-cache": "^7.13.1",
         "pg-format": "^1.0.4",
         "short-uuid": "^4.2.0",
         "uuid4": "^2.0.2",

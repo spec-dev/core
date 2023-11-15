@@ -13,6 +13,7 @@ import {
     getContractInstancesInNamespace,
     upsertContractInstancesWithTx,
 } from '../core/db/services/contractInstanceServices'
+import { Abi } from '../abi/types'
 import { supportedChainIds } from '../utils/chainIds'
 import { isValidContractGroup } from '../utils/validators'
 import { getContractGroupAbi, getAbis, saveAbisMap } from '../abi/redis'
@@ -22,7 +23,6 @@ import { CoreDB } from '../core/db/dataSource'
 import { upsertContractEventView } from './contractEventServices'
 import { designDataModelsFromEventSpec } from './designDataModelsFromEventSpecs'
 import { ident } from 'pg-format'
-import { Pool } from 'pg'
 import {
     decodeTransactions,
     decodeTraces,
@@ -31,9 +31,11 @@ import {
     bulkSaveTraces,
     bulkSaveLogs,
 } from './decodeServices'
-import { SharedTables } from '../shared-tables/db/dataSource'
-import { getNamespaces } from '../core/db/services/namespaceServices'
+import { upsertContractWithTx } from '../core/db/services/contractServices'
+import { getNamespaces, getNamespace } from '../core/db/services/namespaceServices'
 import { createContractGroup } from './createContractGroup'
+import { camelizeKeys } from 'humps'
+import ChainTables from '../chain-tables/ChainTables'
 
 const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
     const schema = schemaForChainId[chainId]
@@ -49,11 +51,13 @@ export async function addContractInstancesToGroup(
     addresses: string[],
     chainId: string,
     group: string,
-    atBlockNumber: number,
-    pool: Pool,
-    existingBlockEvents: StringKeyMap[] = [],
-    existingBlockCalls: StringKeyMap[] = []
+    abi?: Abi,
+    atBlockNumber?: number,
+    existingBlockEvents?: StringKeyMap[],
+    existingBlockCalls?: StringKeyMap[]
 ): Promise<StringKeyMap> {
+    existingBlockEvents = existingBlockEvents || []
+    existingBlockCalls = existingBlockCalls || []
     if (!isValidContractGroup(group)) throw `Invalid contract group: ${group}`
 
     // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
@@ -66,17 +70,13 @@ export async function addContractInstancesToGroup(
     // Ensure this contract group already exists for at least one chain.
     await upsertContractGroupForChainId(chainId, group, fullNsp)
 
-    // Find other existing contract instances in this group,
-    // and make sure it already has at least one entry.
     const existingContractInstances = await getContractInstancesInNamespace(fullNsp)
     if (existingContractInstances === null) {
         throw `Failed finding existing contract instances in namespace: ${fullNsp}`
     }
-    if (!existingContractInstances.length) {
-        throw `No contract instances exist in namespace "${fullNsp}" yet`
-    }
-    const contract = existingContractInstances[0].contract
-    const namespace = contract.namespace
+
+    const namespace = await getNamespace(fullNsp)
+    if (!namespace) throw `No namespace found for ${fullNsp}`
 
     // Filter out given addresses already in the group.
     const existingContractInstanceAddresses = new Set(
@@ -86,7 +86,7 @@ export async function addContractInstancesToGroup(
         (address) => !existingContractInstanceAddresses.has(address)
     )
     if (!newAddresses.length) {
-        return { newEventSpecs: [], newCallSpecs: [] }
+        return { newEventSpecs: [], newCallSpecs: [], newAddresses }
     }
 
     // Get abis for the new individual addresses as well as the group's abi.
@@ -125,10 +125,14 @@ export async function addContractInstancesToGroup(
     }
     await saveAbisMap(newAddressAbisMap, chainId)
 
+    const contractName = group.split('.').pop()
+
     // Create the new contract instances.
     let newContractInstances = []
     try {
         await CoreDB.manager.transaction(async (tx) => {
+            const contract = await upsertContractWithTx(namespace.id, contractName, '', tx)
+
             newContractInstances = await upsertContractInstancesWithTx(
                 newAddresses.map((address) => ({
                     chainId,
@@ -161,7 +165,7 @@ export async function addContractInstancesToGroup(
     for (const abiItem of eventAbiItems) {
         contractEventSpecs.push({
             eventName: abiItem.name,
-            contractName: contract.name,
+            contractName: contractName,
             contractInstances: allGroupContractInstances,
             namespace,
             abiItem,
@@ -181,11 +185,17 @@ export async function addContractInstancesToGroup(
         if (!success) throw `Failed to update contract event view ${schema}.${name}`
     }
 
+    if (!atBlockNumber && atBlockNumber !== 0) {
+        return { newEventSpecs: [], newCallSpecs: [], newAddresses }
+    }
+
     // Decode any interactions with these new contract addresses at the given block number.
     const tables = buildTableRefsForChainId(chainId)
+    const schema = schemaForChainId[chainId]
 
     const [transactions, traces, logs] = await Promise.all([
         decodeTransactions(
+            schema,
             atBlockNumber,
             atBlockNumber,
             newAddresses,
@@ -193,8 +203,24 @@ export async function addContractInstancesToGroup(
             tables,
             true
         ),
-        decodeTraces(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
-        decodeLogs(atBlockNumber, atBlockNumber, newAddresses, newAddressAbisMap, tables, true),
+        decodeTraces(
+            schema,
+            atBlockNumber,
+            atBlockNumber,
+            newAddresses,
+            newAddressAbisMap,
+            tables,
+            true
+        ),
+        decodeLogs(
+            schema,
+            atBlockNumber,
+            atBlockNumber,
+            newAddresses,
+            newAddressAbisMap,
+            tables,
+            true
+        ),
     ])
 
     const decodeErr = (table) => `[${chainId}:${atBlockNumber}] Failed to decode ${table}`
@@ -204,45 +230,53 @@ export async function addContractInstancesToGroup(
 
     await Promise.all([
         bulkSaveTransactions(
+            schemaForChainId[chainId],
             transactions.filter((t) => !t._alreadyDecoded),
             tables.transactions,
-            pool,
             false,
             true
         ),
         bulkSaveTraces(
+            schemaForChainId[chainId],
             traces.filter((t) => !t._alreadyDecoded),
             tables.traces,
-            pool,
             false,
             true
         ),
         bulkSaveLogs(
+            schemaForChainId[chainId],
             logs.filter((l) => !l._alreadyDecoded),
             tables.logs,
-            pool,
             false,
             true
         ),
     ])
 
-    // Get all transactions for the logs in this block so we can quickly
-    // check whether a log succeeded or not (by tx hash).
-    const logTxHashes = unique(logs.map((log) => log.transactionHash))
-    const phs = logTxHashes.map((_, i) => `$${i + 1}`).join(', ')
-    let logTxs = []
+    // Get all transactions for the logs & traces in this block so we can quickly
+    // check whether a log succeeded or not (by tx hash) and attach the full tx.
+    const uniqueTxHashes = unique([
+        ...logs.map((log) => log.transactionHash),
+        ...traces.map((trace) => trace.transactionHash),
+    ])
+    const phs = uniqueTxHashes.map((_, i) => `$${i + 1}`).join(', ')
+    let inputTxs = []
     try {
-        logTxs = logTxHashes.length
-            ? await SharedTables.query(
+        inputTxs = uniqueTxHashes.length
+            ? await ChainTables.query(
+                  schema,
                   `select * from ${tables.transactions} where "hash" in (${phs})`,
-                  logTxHashes
+                  uniqueTxHashes
               )
             : []
     } catch (err) {
         throw `Error querying ${tables.transactions} for block number ${atBlockNumber}: ${err}`
     }
+    inputTxs = camelizeKeys(inputTxs) as any[]
+
+    const txMap = {}
     const txSuccess = {}
-    for (const tx of logTxs) {
+    for (const tx of inputTxs) {
+        txMap[tx.hash] = tx
         txSuccess[tx.hash] = tx.status != 0
     }
 
@@ -277,8 +311,9 @@ export async function addContractInstancesToGroup(
         const formattedEventData = formatLogAsSpecEvent(
             decodedLog,
             groupAbi,
-            contract.name,
-            chainId
+            contractName,
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedEventData) continue
 
@@ -293,7 +328,7 @@ export async function addContractInstancesToGroup(
     // New block calls generated *for this contract group* due to one of the new addresses.
     const newCallSpecs = []
     for (const decodedTrace of decodedSuccessfulTraceCalls) {
-        const { functionName, input, id } = decodedTrace
+        const { functionName, input, id, transactionHash } = decodedTrace
         const signature = input?.slice(0, 10)
         const name = toNamespacedVersion(fullNsp, functionName, signature)
         const uniqueCallKey = [id, name].join(':')
@@ -303,10 +338,12 @@ export async function addContractInstancesToGroup(
             decodedTrace,
             signature,
             groupAbi,
-            contract.name,
-            chainId
+            contractName,
+            chainId,
+            txMap[transactionHash]
         )
         if (!formattedCallData) continue
+
         const { callOrigin, inputs, inputArgs, outputs, outputArgs } = formattedCallData
         newCallSpecs.push({
             origin: callOrigin,
@@ -318,7 +355,7 @@ export async function addContractInstancesToGroup(
         })
     }
 
-    return { newEventSpecs, newCallSpecs }
+    return { newEventSpecs, newCallSpecs, newAddresses }
 }
 
 async function upsertContractGroupForChainId(chainId: string, group: string, fullNsp: string) {
@@ -338,5 +375,5 @@ async function upsertContractGroupForChainId(chainId: string, group: string, ful
 
     // Create contract group for the new target chain id.
     const [nsp, name] = group.split('.')
-    await createContractGroup(nsp, name, [chainId], groupAbi)
+    await createContractGroup(nsp, name, [chainId], groupAbi, false)
 }

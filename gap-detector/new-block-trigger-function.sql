@@ -65,3 +65,20 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_new_mumbai_block AFTER INSERT ON mumbai.blocks 
 FOR EACH ROW EXECUTE PROCEDURE new_mumbai_block_sub();
+
+-- BASE --------
+
+CREATE OR REPLACE FUNCTION new_base_block_sub() RETURNS trigger AS $$
+DECLARE
+    rec RECORD;
+    payload TEXT;
+BEGIN
+    rec := NEW;
+    payload := '{"number":"' || rec.number || '"}';
+    PERFORM pg_notify('new_block_chain_8453', payload);
+    RETURN rec;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_new_base_block AFTER INSERT ON base.blocks 
+FOR EACH ROW EXECUTE PROCEDURE new_base_block_sub();

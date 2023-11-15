@@ -46,10 +46,3 @@ export interface GenerateTestInputsPayload {
     streamId: string | null
     isContractFactory: boolean
 }
-
-export interface GeneratePublishLiveObjectVersionPayload {
-    nsp: string,
-    name: string,
-    folder: string,
-    version: string
-}

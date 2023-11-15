@@ -1,15 +1,15 @@
 import config from './config'
-import { CoreDB, IndexerDB, indexerRedis, logger, SharedTables, schemaForChainId, identPath } from '../../shared'
+import { CoreDB, IndexerDB, indexerRedis, logger, ChainTables, schemaForChainId, identPath } from '../../shared'
 import { EvmReporter } from './reporters'
 import { BlockHeader } from 'web3-eth'
 import { rollbackTable } from './services/rollbackTables'
-import uuid4 from 'uuid4'
+import { createWsProviderPool } from './wsProviderPool'
 
 async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        return (((await SharedTables.query(
+        return (((await ChainTables.query(schema,
             `select timestamp from ${identPath(tablePath)} where number = $1`, 
             [blockNumber]
         )) || [])[0] || {}).timestamp || null
@@ -22,10 +22,12 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
 async function listen() {
     await Promise.all([
         CoreDB.initialize(),
-        SharedTables.initialize(),
+        ChainTables.initialize(),
         IndexerDB.initialize(),
         indexerRedis.connect(),
     ])
+
+    createWsProviderPool(true)
 
     // Rollback a specific table to a specific block number. Useful when a 
     // live object version gets half indexed for particular block and then fails. 
@@ -40,7 +42,7 @@ async function listen() {
         return
     }
 
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
 
     // Force-run an uncle that failed after patch fix.
     if (config.FORCE_UNCLE_RANGE.length === 2) {

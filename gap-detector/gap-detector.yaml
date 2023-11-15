@@ -30,6 +30,8 @@ spec:
           value: {{SHARED_TABLES_DB_USERNAME}}
         - name: SHARED_TABLES_DB_PASSWORD
           value: {{SHARED_TABLES_DB_PASSWORD}}
+        - name: SHARED_TABLES_MIN_POOL_SIZE
+          value: "0"
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "20"
         - name: INDEXER_REDIS_HOST
@@ -54,7 +56,21 @@ spec:
           value: {{POLYGON_HEAD_REPORTER_QUEUE_KEY}}
         - name: MUMBAI_HEAD_REPORTER_QUEUE_KEY
           value: {{MUMBAI_HEAD_REPORTER_QUEUE_KEY}}
+        - name: BASE_HEAD_REPORTER_QUEUE_KEY
+          value: {{BASE_HEAD_REPORTER_QUEUE_KEY}}
+        - name: OPTIMISM_HEAD_REPORTER_QUEUE_KEY
+          value: {{OPTIMISM_HEAD_REPORTER_QUEUE_KEY}}
+        - name: ARBITRUM_HEAD_REPORTER_QUEUE_KEY
+          value: {{ARBITRUM_HEAD_REPORTER_QUEUE_KEY}}
+        - name: PGN_HEAD_REPORTER_QUEUE_KEY
+          value: {{PGN_HEAD_REPORTER_QUEUE_KEY}}
+        - name: CELO_HEAD_REPORTER_QUEUE_KEY
+          value: {{CELO_HEAD_REPORTER_QUEUE_KEY}}
+        - name: LINEA_HEAD_REPORTER_QUEUE_KEY
+          value: {{LINEA_HEAD_REPORTER_QUEUE_KEY}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: FORCE_COLOR
           value: "1" 
+        - name: GAP_TOLERANCE
+          value: "60"

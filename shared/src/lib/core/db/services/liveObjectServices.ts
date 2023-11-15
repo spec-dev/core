@@ -63,3 +63,14 @@ export async function getLiveObject(namespaceId: number, name: string): Promise<
 
     return liveObject
 }
+
+export async function getLiveObjectByUid(uid: string): Promise<LiveObject | null> {
+    let liveObject
+    try {
+        liveObject = await liveObjects().findOneBy({ uid })
+    } catch (err) {
+        logger.error(`Error getting LiveObject for uid=${uid}: ${err}`)
+        return null
+    }
+    return liveObject
+}

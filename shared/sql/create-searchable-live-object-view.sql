@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW live_object_version_namespace_view AS
+CREATE OR REPLACE VIEW searchable_live_object_view AS
 SELECT DISTINCT ON (lv.live_object_id)
     l.id AS live_object_id, 
     l.uid AS live_object_uid, 
@@ -18,13 +18,21 @@ SELECT DISTINCT ON (lv.live_object_id)
     lv.example AS version_example, 
     lv.config AS version_config, 
     lv.created_at AS version_created_at,
+    lv.updated_at AS version_updated_at,
     lv.live_object_id AS version_live_object_id,
     n.id AS namespace_id, 
     n.name AS namespace_name, 
     n.slug AS namespace_slug, 
     n.code_url AS namespace_code_url, 
     n.has_icon AS namespace_has_icon, 
-    n.created_at AS namespace_created_at 
+    n.created_at AS namespace_created_at,
+    CASE
+        WHEN n.name LIKE '%.%'
+            THEN CONCAT(ARRAY_TO_STRING((STRING_TO_ARRAY(n.name, '.'))[3:4], '.'), '.', l.name)
+        ELSE CONCAT(n.name, '.', l.name)
+    END AS group_name,
+    n.blurhash AS namespace_blurhash,
+    n.verified AS namespace_verified
 FROM live_object_versions lv
 LEFT JOIN live_objects l ON l.id = lv.live_object_id
 LEFT JOIN namespaces n ON n.id = l.namespace_id

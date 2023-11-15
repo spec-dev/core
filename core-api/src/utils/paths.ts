@@ -13,6 +13,7 @@ const prefix = {
     PIPELINE: '/pipeline',
     CONTRACT: '/contract',
     NAMESPACE: '/namespace',
+    EVENT: '/event',
 }
 
 const paths = {
@@ -21,6 +22,7 @@ const paths = {
 
     // User paths
     USER_LOGIN: prefix.USER + '/login',
+    USER_PROJECTS: prefix.USER + '/projects',
 
     // Project paths.
     PROJECT_WITH_KEY: prefix.PROJECT + '/with-key',
@@ -43,6 +45,9 @@ const paths = {
     INDEX_LIVE_OBJECT_VERSIONS: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + 's' + '/index',
     GENERATE_LOV_TEST_INPUT_DATA: prefix.LIVE_OBJECT_VERSION + '/generate-test-inputs',
     PUBLISH_LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION + '/publish',
+    LATEST_LOV_RECORDS: prefix.LIVE_OBJECT_VERSION + '/latest-records',
+    LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION,
+    LOV_RECORD_COUNTS: prefix.LIVE_OBJECT_VERSION + 's' + '/record-counts',
 
     // Contract Instance paths.
     NEW_CONTRACT_INSTANCES: prefix.ADMIN + prefix.CONTRACT_INSTANCE + 's',
@@ -54,6 +59,9 @@ const paths = {
     CONTRACT_GROUP: prefix.CONTRACT + '/group',
     CONTRACT_GROUPS: prefix.CONTRACT + '/group' + 's',
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
+    CONTRACT_GROUP_PAGE: prefix.CONTRACT + '/group/page',
+    RESET_CONTRACT_GROUP_RECORD_COUNTS: prefix.ADMIN + prefix.CONTRACT + '/group/recount-records',
+    ADD_CONTRACTS_TO_GROUP: prefix.CONTRACT + '/group/add',
 
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
@@ -63,6 +71,12 @@ const paths = {
 
     // Event Version paths.
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',
+    EVENT_VERSIONS: prefix.EVENT_VERSION + 's',
+    RESOLVE_EVENT_VERSION_CURSORS: prefix.EVENT_VERSION + 's' + '/resolve/cursors',
+    GET_EVENT_VERSION_DATA_AFTER: prefix.EVENT_VERSION + 's' + '/data/after',
+
+    // Event paths.
+    EVENTS: prefix.EVENT + 's',
 
     // Call Version paths.
     RESOLVE_CALL_VERSIONS: prefix.CALL_VERSION + 's' + '/resolve',
@@ -80,6 +94,7 @@ const paths = {
     NAMESPACES: prefix.NAMESPACE + 's',
     FEATURED_NAMESPACES: prefix.NAMESPACE + 's' + '/featured',
     CACHE_FEATURED_NAMESPACES: prefix.ADMIN + prefix.NAMESPACE + 's' + '/featured',
+    NAMESPACE_RECORD_COUNTS: prefix.NAMESPACE + 's' + '/record-counts',
 }
 
 export default paths

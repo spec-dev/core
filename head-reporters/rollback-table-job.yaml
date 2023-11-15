@@ -29,6 +29,8 @@ spec:
           value: "{{ROLLBACK_TARGET}}"
         - name: CHAIN_ID
           value: "{{CHAIN_ID}}"
+        - name: WS_PROVIDER_POOL
+          value: {{WS_PROVIDER_POOL}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
@@ -57,6 +59,30 @@ spec:
           value: "10"
         - name: SHARED_TABLES_OPTIONS
           value: "-c statement_timeout=120000ms"
+        - name: SHARED_TABLES_DB_URL
+          value: {{SHARED_TABLES_DB_URL}}
+        - name: ETHEREUM_DB_URL
+          value: {{ETHEREUM_DB_URL}}
+        - name: GOERLI_DB_URL
+          value: {{GOERLI_DB_URL}}
+        - name: POLYGON_DB_URL
+          value: {{POLYGON_DB_URL}}
+        - name: MUMBAI_DB_URL
+          value: {{MUMBAI_DB_URL}}
+        - name: BASE_DB_URL
+          value: {{BASE_DB_URL}}
+        - name: OPTIMISM_DB_URL
+          value: {{OPTIMISM_DB_URL}}
+        - name: ARBITRUM_DB_URL
+          value: {{ARBITRUM_DB_URL}}
+        - name: PGN_DB_URL
+          value: {{PGN_DB_URL}}
+        - name: CELO_DB_URL
+          value: {{CELO_DB_URL}}
+        - name: LINEA_DB_URL
+          value: {{LINEA_DB_URL}}
+        - name: SINGLE_CHAIN_TABLE
+          value: "true"
         - name: CORE_DB_NAME
           value: {{CORE_DB_NAME}}
         - name: CORE_DB_HOST

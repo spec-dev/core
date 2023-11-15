@@ -1,23 +1,24 @@
 import {
     StringKeyMap,
-    SharedTables,
-    identPath
+    ChainTables,
 } from "../../../shared"
-const sharedTablesManager = SharedTables.manager
 
 export async function getOpsMigration(
     schemaName: string,
     tableName: string,
     chains: string[]
-): Promise<{ error: Error | null, opsMigration: StringKeyMap }> {
-
+): Promise<{ error?: Error | null, opsMigration?: StringKeyMap }> {
     const opsMigration = []
-
     for (const chainId of chains) {
-        const isEnabledAbove = await getIsEnabledAbove(chainId)
+        let isEnabledAbove
+        try {
+            isEnabledAbove = await getIsEnabledAbove(chainId)
+        } catch (err) {
+            return { error: err }
+        }
         opsMigration.push({
-            sql: `insert into op_tracking(table_path, chain_id, is_enabled_above) values($1, $2, $3)`,
-            bindings: [identPath(`${schemaName}.${tableName}`),  chainId, isEnabledAbove],
+            sql: `insert into op_tracking(table_path, chain_id, is_enabled_above) values ($1, $2, $3) on conflict (table_path, chain_id) do nothing`,
+            bindings: [`${schemaName}.${tableName}`, chainId, isEnabledAbove],
         })
     }
     return { error: null, opsMigration }
@@ -31,12 +32,12 @@ async function getIsEnabledAbove(chainId: string): Promise<boolean> {
 
     let rows = []
     try {
-        rows = await sharedTablesManager.query(query.sql, query.bindings);
+        rows = await ChainTables.query(null, query.sql, query.bindings);
         if (rows.length === 0) {
             throw Error(`No op_tracking entry for chain_id: ${chainId}. If you are running localy, add some fake op_tracking entries to the db.`)
         }
         return rows[0].is_enabled_above
     } catch (err) {
-        throw err
+        throw 'FUCKKK'
     }
 }

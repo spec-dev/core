@@ -1,9 +1,7 @@
 import { ContractEventSpec, ContractEventViewSpec, PublishLiveObjectVersionPayload } from '../types'
 import { schemaForChainId } from '../utils/chainIds'
 import { buildContractEventAsLiveObjectVersionPayload } from '../utils/liveObjects'
-import { camelToSnake } from '../utils/formatters'
-import { hash } from '../utils/hash'
-import { MAX_TABLE_NAME_LENGTH } from '../utils/pgMeta'
+import { camelToSnake, formatEventVersionViewNameFromEventSpec } from '../utils/formatters'
 
 export function designDataModelsFromEventSpec(
     eventSpec: ContractEventSpec,
@@ -16,7 +14,7 @@ export function designDataModelsFromEventSpec(
 } {
     const eventParams = eventSpec.abiItem.inputs || []
     const viewSchema = schemaForChainId[chainId]
-    const viewName = createEventVersionViewName(eventSpec, nsp)
+    const viewName = formatEventVersionViewNameFromEventSpec(eventSpec, nsp)
     const viewPath = [viewSchema, viewName].join('.')
 
     // Package what's needed to publish a live object version of this contract event.
@@ -44,13 +42,4 @@ export function designDataModelsFromEventSpec(
     }
 
     return { viewSpec, lovSpec, chainId }
-}
-
-function createEventVersionViewName(eventSpec: ContractEventSpec, nsp: string): string {
-    const { contractName, eventName, abiItem } = eventSpec
-    const shortSig = abiItem.signature.slice(0, 10)
-    const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
-    return viewName.length >= MAX_TABLE_NAME_LENGTH
-        ? [nsp, hash(viewName).slice(0, 10)].join('_').toLowerCase()
-        : viewName
 }

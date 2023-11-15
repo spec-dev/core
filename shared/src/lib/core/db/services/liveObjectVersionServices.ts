@@ -5,6 +5,8 @@ import uuid4 from 'uuid4'
 import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
+import { camelizeKeys } from 'humps'
+import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -31,6 +33,15 @@ export async function createLiveObjectVersion(
     }
 
     return liveObjectVersion
+}
+
+export async function getLiveObjectVersion(uid: string): Promise<LiveObjectVersion | null> {
+    try {
+        return await liveObjectVersions().findOneBy({ uid })
+    } catch (err) {
+        logger.error(`Error fetching LiveObjectVersion(uid=${uid}): ${err}`)
+        return null
+    }
 }
 
 export async function getLiveObjectVersionsByNamespacedVersions(
@@ -155,4 +166,139 @@ export async function updateLiveObjectVersionStatus(
         return false
     }
     return true
+}
+
+export async function getCustomLiveObjectVersionsToSync(
+    timeSynced: string = null
+): Promise<LiveObjectVersion[]> {
+    let liveObjectVersions
+    try {
+        liveObjectVersions = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name, 
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_config,
+                version_updated_at,
+                namespace_name,
+                namespace_has_icon, 
+                namespace_blurhash
+            FROM searchable_live_object_view
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz
+            AND version_nsp NOT LIKE CONCAT('%.%')`,
+            [new Date(timeSynced)]
+        )
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
+    } catch (err) {
+        logger.error(
+            `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
+        )
+        return null
+    }
+}
+
+export async function getEventLiveObjectVersionsToSync(
+    timeSynced: string = null
+): Promise<LiveObjectVersion[]> {
+    let liveObjectVersions
+    try {
+        liveObjectVersions = await CoreDB.query(
+            `SELECT
+                live_object_uid,
+                live_object_name, 
+                live_object_display_name, 
+                live_object_desc, 
+                live_object_has_icon, 
+                version_nsp,
+                version_name, 
+                version_version,
+                version_config,
+                version_updated_at,
+                namespace_name,
+                namespace_has_icon, 
+                namespace_blurhash
+            FROM searchable_live_object_view
+            WHERE $1::timestamptz IS NULL or version_updated_at >= $1::timestamptz
+            AND version_nsp LIKE CONCAT('%.%')`,
+            [new Date(timeSynced)]
+        )
+        liveObjectVersions = camelizeKeys(liveObjectVersions)
+        return liveObjectVersions
+    } catch (err) {
+        logger.error(
+            `Error getting LiveObjectVersions updated since last sync at ${timeSynced}: ${err}`
+        )
+        return null
+    }
+}
+
+// someId is either the uid of the LOV or a partial version of the namespaced-version.
+export async function resolveLovWithPartialId(someId: string): Promise<StringKeyMap | null> {
+    let id = someId
+
+    // Get by uid if not a namespaced-version.
+    if (!id.includes('.')) {
+        return getLiveObjectVersion(id)
+    }
+
+    const fakeVersion = 'fake'
+    let { nsp, name, version } = fromNamespacedVersion(
+        id.includes('@') ? id : `${id}@${fakeVersion}`
+    )
+    if (!nsp || !name || !version) {
+        return null
+    }
+
+    const queryParams: any = { nsp, name }
+    if (version !== fakeVersion) {
+        queryParams.version = version
+    }
+
+    const matches = [queryParams]
+
+    // Try all contract namespaces if this is an event lov.
+    if (queryParams.nsp.split('.').length === 2) {
+        for (const chainId of Array.from(supportedChainIds)) {
+            const contractsNspPrefix = contractNamespaceForChainId(chainId)
+            const fullNsp = [contractsNspPrefix, queryParams.nsp].join('.')
+            matches.push({ ...queryParams, nsp: fullNsp })
+        }
+    }
+
+    try {
+        const results = await liveObjectVersions().find({
+            where: matches,
+            order: { createdAt: 'DESC' },
+            take: 1,
+        })
+        return results[0]
+    } catch (err) {
+        logger.error(`Error finding LOV by ${queryParams}: ${err}`)
+        return null
+    }
+}
+
+export async function getTablePathsForLiveObjectVersions(uids: string[]): Promise<string[] | null> {
+    try {
+        const lovs = await liveObjectVersions().find({
+            select: {
+                config: {
+                    table: true,
+                },
+            },
+            where: {
+                uid: In(uids),
+            },
+        })
+        return lovs.map((lov) => lov.config.table)
+    } catch (err) {
+        logger.error(`Error getting table paths for live object versions: ${err}`)
+        return null
+    }
 }

@@ -1,11 +1,9 @@
-import { StringKeyMap, SharedTables } from "../../../shared/dist/main"
-
-const sharedTablesManager = SharedTables.manager
+import { StringKeyMap, ChainTables } from "../../../shared/dist/main"
+import { ident } from 'pg-format'
 
 export async function getUserPermissionsMigration(
     schemaName: string
 ): Promise<{ error: Error | null, userPermissionsMigration: StringKeyMap }> {
-
     let userPermissionsMigration = []
 
     try {
@@ -14,37 +12,39 @@ export async function getUserPermissionsMigration(
         return { error, userPermissionsMigration: null }
     }
 
+    const identSchemaName = ident(schemaName)
+
     userPermissionsMigration = userPermissionsMigration.concat([
         {
-            sql: `create user ${schemaName}`,
+            sql: `create user ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `grant usage on schema ${schemaName} to ${schemaName}`,
+            sql: `grant usage on schema ${identSchemaName} to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `grant all privileges on all tables in schema ${schemaName} to ${schemaName}`,
+            sql: `grant all privileges on all tables in schema ${identSchemaName} to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `grant all privileges on all sequences in schema ${schemaName} to ${schemaName}`,
+            sql: `grant all privileges on all sequences in schema ${identSchemaName} to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `grant all privileges on all functions in schema ${schemaName} to ${schemaName}`,
+            sql: `grant all privileges on all functions in schema ${identSchemaName} to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `alter default privileges in schema ${schemaName} grant all on tables to ${schemaName}`,
+            sql: `alter default privileges in schema ${identSchemaName} grant all on tables to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `alter default privileges in schema ${schemaName} grant all on sequences to ${schemaName}`,
+            sql: `alter default privileges in schema ${identSchemaName} grant all on sequences to ${identSchemaName}`,
             bindings: []
         },
         {
-            sql: `alter default privileges in schema ${schemaName} grant all on functions to ${schemaName}`,
+            sql: `alter default privileges in schema ${identSchemaName} grant all on functions to ${identSchemaName}`,
             bindings: []
         }
     ])
@@ -60,7 +60,7 @@ async function doesUserExist(userName: string): Promise<boolean> {
 
     let rows = []
     try {
-        rows = await sharedTablesManager.query(query.sql, query.bindings);
+        rows = await ChainTables.query(null, query.sql, query.bindings);
     } catch (err) {
         throw err
     }

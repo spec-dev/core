@@ -16,7 +16,9 @@ import {
 } from '../../../shared'
 import { ident } from 'pg-format'
 import { exit } from 'process'
+import { teardownWsProviderPool, createWsProviderPool } from '../wsProviderPool'
 import { resolveNewTokenContracts } from '../services/contractServices'
+import { teardownWeb3Provider, createWeb3Provider } from '../httpProviderPool'
 
 class SeedTokenContractsWorker {
 
@@ -32,6 +34,8 @@ class SeedTokenContractsWorker {
 
     nftCollections: NftCollection[]
 
+    iterations: number
+
     constructor(from: number, to?: number | null, groupSize?: number) {
         this.from = from
         this.to = to
@@ -39,6 +43,7 @@ class SeedTokenContractsWorker {
         this.groupSize = groupSize || 1
         this.erc20Tokens = []
         this.nftCollections = []
+        this.iterations = 0
     }
 
     async run() {
@@ -68,6 +73,16 @@ class SeedTokenContractsWorker {
     }
 
     async _indexGroup(start: number, end: number) {
+        this.iterations++
+        if (this.iterations % 100 === 0) {
+            teardownWeb3Provider()
+            teardownWsProviderPool()
+            await sleep(50)
+            createWeb3Provider()
+            createWsProviderPool()
+            await sleep(50)
+        }
+
         logger.info(`Indexing ${start} --> ${end}...`)
 
         // Get contracts for this block range.

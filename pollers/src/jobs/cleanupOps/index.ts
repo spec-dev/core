@@ -1,10 +1,10 @@
 import {
-    SharedTables,
     logger,
     toChunks,
     subtractHours,
     formatPgDateString,
     identPath,
+    ChainTables,
 } from '../../../../shared'
 import config from '../../config'
 
@@ -40,7 +40,7 @@ async function cleanupOps() {
 
 async function getOpTrackingTables(): Promise<string[]> {
     try {
-        return ((await SharedTables.query(
+        return ((await ChainTables.query(null,
             `select distinct(table_path) from op_tracking`
         )) || []).map(r => r.table_path)
     } catch (err) {
@@ -50,8 +50,9 @@ async function getOpTrackingTables(): Promise<string[]> {
 }
 
 async function deleteOpsOlderThan(opsTablePath: string, timestamp: string) {
+    const schema = opsTablePath.split('.')[0]
     try {
-        await SharedTables.query(
+        await ChainTables.query(schema,
             `delete from ${identPath(opsTablePath)} where ts < $1`,
             [timestamp]
         )

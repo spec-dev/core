@@ -14,7 +14,7 @@ env=$1
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|eth-dev|goerli|polygon|mumbai"
+$shared_bin_dir/validate_arg "env" "$env" "eth|eth-dev|goerli|polygon|mumbai|base|op|arb|pgn|celo|linea"
 
 # ======== SET KEY VARS ======== #
 
@@ -41,7 +41,9 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_SORTER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
+# image_version=$( $shared_bin_dir/latest_sha )
+image_version="ce3a6ff"
+# image_version="d5c5bd5"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

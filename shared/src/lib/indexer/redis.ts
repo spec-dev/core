@@ -6,14 +6,36 @@ import { specEnvs } from '../utils/env'
 import chainIds from '../utils/chainIds'
 import { toDate } from '../utils/date'
 import { unique } from '../utils/formatters'
+import { sleep } from '../utils/time'
 
 const configureRedis = config.ENV === specEnvs.LOCAL || config.INDEXER_REDIS_HOST !== 'localhost'
 
-// Create redis client.
-export const redis = configureRedis ? createClient({ url: config.INDEXER_REDIS_URL }) : null
+export function newRedisClient(url: string) {
+    return createClient({ url })
+}
 
-// Log any redis client errors.
-redis?.on('error', (err) => logger.error(`Redis error: ${err}`))
+// Create redis client.
+export const redis = configureRedis ? newRedisClient(config.INDEXER_REDIS_URL) : null
+
+// Log any redis client errors and attempt reconnections.
+let reconnectAttempt = 0
+redis?.on('error', async (err) => {
+    console.error(err)
+    logger.error(`Indexer Redis error: ${err}`)
+
+    if (reconnectAttempt >= 3) return
+    reconnectAttempt++
+    logger.error(`Indexer Redis - attempting reconnect ${reconnectAttempt}`)
+
+    try {
+        await redis?.disconnect()
+        await sleep(1000)
+        await redis?.connect()
+    } catch (err) {
+        console.error(err)
+        logger.error(`Indexer Redis -- reconnect error: ${err}`)
+    }
+})
 
 export const keys = {
     UNCLED_BLOCKS: 'uncled-blocks',
@@ -24,6 +46,7 @@ export const keys = {
     MUMBAI_CONTRACTS_CACHE: 'mumbai-contract-cache',
     FREEZE_ABOVE_BLOCK_PREFIX: 'freeze-above-block',
     FREEZE_ABOVE_BLOCK_UPDATE: 'freeze-above-block-update',
+    FORCED_ROLLBACK: 'forced-rollback',
     PROCESS_NEW_HEADS_PREFIX: 'process-new-heads',
     PROCESS_INDEX_JOBS_PREFIX: 'process-index-jobs',
     PROCESS_EVENT_SORTER_JOBS_PREFIX: 'process-event-sorter',
@@ -127,14 +150,48 @@ export async function storePublishedEvent(specEvent: StringKeyMap): Promise<stri
     }
 }
 
-export async function getLastEventId(eventName: string): Promise<string | null> {
+export async function getLastXEvents(
+    eventName: string,
+    count: number
+): Promise<StringKeyMap[] | null> {
+    try {
+        return ((await redis?.xRevRange(eventName, '+', '-', { COUNT: count })) || [])
+            .map((entry) => entry?.message?.event)
+            .filter((event) => !!event)
+            .map((event) => JSON.parse(event))
+    } catch (err) {
+        logger.error(`Error getting last ${count} events for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
+export async function getLastEvent(eventName: string): Promise<StringKeyMap | null> {
     try {
         const lastEntry = ((await redis?.xRevRange(eventName, '+', '-', { COUNT: 1 })) || [])[0]
         const eventData = lastEntry?.message?.event
         if (!eventData) return null
-        return JSON.parse(eventData)?.id || null
+        return JSON.parse(eventData)
     } catch (err) {
-        logger.error(`Error getting last event id for ${eventName}: ${err}.`)
+        logger.error(`Error getting last event for ${eventName}: ${err}.`)
+        return null
+    }
+}
+
+export async function getLastEventId(eventName: string): Promise<string | null> {
+    return (await getLastEvent(eventName))?.id || null
+}
+
+// In this function, the "ids" are our "nonces".
+export async function getEventIdDirectlyBeforeId(
+    eventName: string,
+    targetId: string
+): Promise<string | null> {
+    try {
+        const prevEntry = ((await redis?.xRevRange(eventName, targetId, '-', { COUNT: 2 })) ||
+            [])[1]
+        return prevEntry?.id || null
+    } catch (err) {
+        logger.error(`Error getting event id directly before ${targetId} for ${eventName}: ${err}.`)
         return null
     }
 }
@@ -987,5 +1044,25 @@ export async function getAdditionalContractsToGenerateInputsFor(
             `Error getting additional contracts to generate inputs for (chainId=${chainId}, blockNumber=${blockNumber}): ${err}`
         )
         return null
+    }
+}
+
+export async function publishForcedRollback(
+    chainId: string,
+    blockNumber: number,
+    blockHash: string | null,
+    unixTimestamp: number
+) {
+    try {
+        await redis?.publish(
+            [keys.FORCED_ROLLBACK, chainId].join('-'),
+            JSON.stringify({
+                blockNumber: blockNumber === null ? null : Number(blockNumber),
+                blockHash: blockHash,
+                unixTimestamp,
+            })
+        )
+    } catch (err) {
+        throw `Error publishing forced rollback event (chainId=${chainId}, blockNumber=${blockNumber}, blockHash=${blockHash}): ${err}`
     }
 }

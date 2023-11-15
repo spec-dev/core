@@ -43,3 +43,7 @@ export const toDate = (val: any): Date | null => {
     const invalid = date.toString().toLowerCase() === 'invalid date'
     return invalid ? null : date
 }
+
+export const numSecondsBetween = (dateA: Date, dateB: Date): number => {
+    return Math.abs(Math.round((dateA.getTime() - dateB.getTime()) / 1000))
+}

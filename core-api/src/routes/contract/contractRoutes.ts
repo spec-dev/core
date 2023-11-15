@@ -8,11 +8,12 @@ import {
     createContractGroup, 
     getContractInstancesInGroup, 
     getContractEventsForGroup, 
-    getAllContractGroups, 
-    chainIdForContractNamespace 
+    getAllContractGroups,
+    getOldestContractInGroup,
+    chainIdForContractNamespace,
 } from '../../../../shared'
 import { StringKeyMap } from '../../types'
-import { contractGroupNameFromNamespace } from '../../utils/extract'
+import searchLiveObjects from '../../services/searchLiveObjects'
 
 /**
  * Create a new, empty contract group.
@@ -66,6 +67,69 @@ app.get(paths.CONTRACT_GROUP, async (req, res) => {
 })
 
 /**
+ * Get contract group page.
+ */
+ app.get(paths.CONTRACT_GROUP_PAGE, async (req, res) => {
+    const { payload, isValid, error } = parseContractGroupPayload(req.query)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+    const { group } = payload
+    const [nsp, contractName] = group.split('.')
+    const [namespace, oldestContractResults, instances, eventResp] = await Promise.all([
+        getNamespace(nsp),
+        getOldestContractInGroup(group),
+        getContractInstancesInGroup(group),
+        searchLiveObjects(null, group, {}, 0, 1000),
+    ])
+    if (!namespace) {
+        return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
+    }
+    if (!oldestContractResults?.length) {
+        return res.status(codes.NOT_FOUND).json({ error: errors.CONTRACT_GROUP_NOT_FOUND })
+    }
+    if (!instances) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+    if (eventResp.error) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: eventResp.error })
+    }
+    const createdAt = oldestContractResults[0].createdAt
+
+    let name = contractName
+    let numInstances = 0
+    let updatedAt = new Date(createdAt)
+    for (const chainId in instances) {
+        const chainSpecificInstances = instances[chainId]
+        for (const instance of chainSpecificInstances) {
+            numInstances++
+            name = instance.name
+            const instanceCreatedAt = new Date(instance.createdAt)
+            if (instanceCreatedAt > updatedAt) {
+                updatedAt = instanceCreatedAt
+            }
+        }
+    }
+
+    const events = (eventResp.data || []).filter(liveObject => {
+        const splitNsp = (liveObject.latestVersion?.nsp || '').split('.')
+        return splitNsp.length === 4 && splitNsp[2] === namespace.slug && splitNsp[3] === name
+    })
+
+    const contractGroup = {
+        name,
+        numInstances,
+        createdAt,
+        updatedAt,
+        namespace: await namespace.publicView(),
+        instances,
+        events,
+    }
+
+    return res.status(codes.SUCCESS).json(contractGroup)
+})
+
+/**
  * Get all contract groups.
  */
 app.post(paths.CONTRACT_GROUPS, async (req, res) => {
@@ -84,8 +148,10 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
     const groupedContracts = []
 
     contracts.forEach(contract => {
-        const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
-        if (!groupName) return
+        const groupName = [
+            contract.namespace.slug.split('.')[2],
+            contract.name,
+        ].join('.')
 
         const chainId = chainIdForContractNamespace(contract.namespace.slug)
         groups[groupName] = groups[groupName] || {chainIds: [], contractCount: 0}

@@ -6,8 +6,14 @@ import chainIds from './chainIds'
 const queueKeys = {
     [chainIds.ETHEREUM]: 'eth-hrq',
     [chainIds.GOERLI]: 'goerli-hrq',
-    [chainIds.POLYGON]: 'poly-hrq2',
+    [chainIds.POLYGON]: 'poly-hrq4',
     [chainIds.MUMBAI]: 'mumbai-hrq',
+    [chainIds.BASE]: 'base-hrq',
+    [chainIds.OPTIMISM]: 'op-hrq',
+    [chainIds.ARBITRUM]: 'arb-hrq',
+    [chainIds.PGN]: 'pgn-hrq',
+    [chainIds.CELO]: 'celo-hrq',
+    [chainIds.LINEA]: 'linea-hrq',
 }
 
 export async function enqueueBlock(

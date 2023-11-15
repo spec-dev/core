@@ -3,7 +3,6 @@ import {
     StringKeyMap,
     getAbis,
     schemaForChainId,
-    SharedTables,
     chainIds,
     enqueueDelayedJob,
     mapByKey,
@@ -21,13 +20,12 @@ import {
     bulkSaveTraces,
     bulkSaveLogs,
     decodeTransactions,
-    decodeTraces,
+    ChainTables,
     decodeLogs,
     decodeFunctionCalls,
 } from '../../../shared'
 import config from '../config'
 import { ident } from 'pg-format'
-import { Pool } from 'pg'
 import processTransactionTraces from '../services/processTransactionTraces'
 
 const SAVE_BATCH_SIZE = 2000
@@ -57,6 +55,7 @@ async function decodeContractInteractions(
     queryRangeSize: number,
     jobRangeSize: number,
     registrationJobUid?: string,
+    fullContractGroup?: string,
 ) {
     logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
     registrationJobUid && await updateContractRegistrationJobStatus(
@@ -74,7 +73,7 @@ async function decodeContractInteractions(
     // Format tables to query based on chain-specific schema.
     const tables = buildTableRefsForChainId(chainId)
 
-    const onDone = async () => {
+    const onDone = async (): Promise<boolean> => {
         await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
         await sleep(randomIntegerInRange(100, 500))
 
@@ -86,31 +85,30 @@ async function decodeContractInteractions(
                 registrationJobUid,
                 ContractRegistrationJobStatus.Complete,
             )
+            return true
         }
+
+        return false
     }
 
     // Determine the earliest block in which this contract was interacted with 
     // and use that as the "start" block if no start block was specified.
-    startBlock = startBlock === null ? await findStartBlock(tables, contractAddresses) : startBlock
+    const schema = schemaForChainId[chainId]
+    startBlock = startBlock === null ? await findStartBlock(schema, tables, contractAddresses) : startBlock
     if (startBlock === null) {
         logger.error(`No interactions detected for (${contractAddresses.join(', ')}). Stopping.`)
-        registrationJobUid && await onDone()
+        let shouldResetEventRecordCounts = true
+        if (registrationJobUid) {
+            shouldResetEventRecordCounts = await onDone()
+        }
+        if (shouldResetEventRecordCounts && fullContractGroup) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
     // Initial start block for the entire decoding of this contract.
     initialBlock = initialBlock === null ? startBlock : initialBlock
-
-    // Create connection pool.
-    const pool = new Pool({
-        host: config.SHARED_TABLES_DB_HOST,
-        port: config.SHARED_TABLES_DB_PORT,
-        user: config.SHARED_TABLES_DB_USERNAME,
-        password: config.SHARED_TABLES_DB_PASSWORD,
-        database: config.SHARED_TABLES_DB_NAME,
-        max: config.SHARED_TABLES_MAX_POOL_SIZE,
-    })
-    pool.on('error', err => logger.error('PG client error', err))
 
     // Decode all transactions, traces, and logs that 
     // involve any of these contracts in this block range.
@@ -125,15 +123,19 @@ async function decodeContractInteractions(
         jobRangeSize,
         initialBlock,
         finalEndBlock,
-        pool,
         registrationJobUid,
     )
-    await pool.end()
 
     // All contract interactions decoded *for this contract*.
     if (endCursor >= finalEndBlock) {
         logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
-        registrationJobUid && await onDone()
+        let shouldResetEventRecordCounts = true
+        if (registrationJobUid) {
+            shouldResetEventRecordCounts = await onDone()
+        }
+        if (shouldResetEventRecordCounts && fullContractGroup) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        }
         return
     }
 
@@ -146,6 +148,7 @@ async function decodeContractInteractions(
         queryRangeSize,
         jobRangeSize,
         registrationJobUid,
+        fullContractGroup,
     })
 }
 
@@ -159,11 +162,10 @@ async function decodePrimitivesUsingContracts(
     jobRangeSize: number,
     initialBlock: number,
     finalEndBlock: number,
-    pool: Pool,
     registrationJobUid: string,
 ): Promise<number> {
-    const onPolygon = [chainIds.POLYGON, chainIds.MUMBAI].includes(chainId)
     const stopAtBlock = Math.min(startBlock + jobRangeSize, finalEndBlock)
+    const chainSchema = schemaForChainId[chainId]
 
     let batchTransactions = []
     let batchTraces = []
@@ -184,21 +186,27 @@ async function decodePrimitivesUsingContracts(
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
     
-        let [transactions, traces, logs] = await Promise.all([
-            decodeTransactions(start, end, contractAddresses, abisMap, tables),
-            decodeTraces(start, end, contractAddresses, abisMap, tables),
-            decodeLogs(start, end, contractAddresses, abisMap, tables),
+        // let [transactions, traces, logs] = await Promise.all([
+        //     decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),
+        //     decodeTraces(chainSchema, start, end, contractAddresses, abisMap, tables),
+        //     decodeLogs(chainSchema, start, end, contractAddresses, abisMap, tables),
+        // ])
+        let traces = [] // turning off decoding (10.27.23)
+        let [transactions, logs] = await Promise.all([
+            decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),
+            decodeLogs(chainSchema, start, end, contractAddresses, abisMap, tables),
         ])
         transactions = transactions || []
         traces = traces || []
         logs = logs || []
 
+        // NOTE: Turning off for now (10.11.23 - @whittlbc)
         // If on Polygon, ensure all traces have been pulled for these transactions since 
         // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
-        if (onPolygon) {
-            const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
-            batchNewTraces.push(...newTraces)
-        }
+        // if (onPolygon) {
+        //     const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
+        //     batchNewTraces.push(...newTraces)
+        // }
 
         batchTransactions.push(...transactions)
         batchTraces.push(...traces)
@@ -213,7 +221,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveTransactions) {
             const txChunks = toChunks(batchTransactions, SAVE_BATCH_SIZE)
-            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chunk, tables.transactions, pool, true)))
+            savePromises.push(...txChunks.map(chunk => bulkSaveTransactions(chainSchema, chunk, tables.transactions, true)))
             batchTransactions = []
         }
         if (savePromises.length > MAX_PARALLEL_PROMISES) {
@@ -223,7 +231,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveTraces) {
             const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chunk, tables.traces, pool, true)))
+            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chainSchema, chunk, tables.traces, true)))
             batchTraces = []
         }
         if (savePromises.length > MAX_PARALLEL_PROMISES) {
@@ -233,7 +241,7 @@ async function decodePrimitivesUsingContracts(
 
         if (insertNewTraces) {
             const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chunk, tables.traces, pool)))
+            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chainSchema, chunk, tables.traces)))
             batchNewTraces = []
         }
         if (savePromises.length > MAX_PARALLEL_PROMISES) {
@@ -243,7 +251,7 @@ async function decodePrimitivesUsingContracts(
 
         if (saveLogs) {
             const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
-            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chunk, tables.logs, pool, true)))
+            savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chainSchema, chunk, tables.logs, true)))
             batchLogs = []
         }
         await Promise.all(savePromises)
@@ -252,10 +260,10 @@ async function decodePrimitivesUsingContracts(
     }
 
     const savePromises = []
-    batchTransactions.length && savePromises.push(bulkSaveTransactions(batchTransactions, tables.transactions, pool, true))
-    batchTraces.length && savePromises.push(bulkSaveTraces(batchTraces, tables.traces, pool, true))
-    batchNewTraces.length && savePromises.push(bulkInsertNewTraces(batchNewTraces, tables.traces, pool))
-    batchLogs.length && savePromises.push(bulkSaveLogs(batchLogs, tables.logs, pool, true))
+    batchTransactions.length && savePromises.push(bulkSaveTransactions(chainSchema, batchTransactions, tables.transactions, true))
+    batchTraces.length && savePromises.push(bulkSaveTraces(chainSchema, batchTraces, tables.traces, true))
+    batchNewTraces.length && savePromises.push(bulkInsertNewTraces(chainSchema, batchNewTraces, tables.traces))
+    batchLogs.length && savePromises.push(bulkSaveLogs(chainSchema, batchLogs, tables.logs, true))
     savePromises.length && await Promise.all(savePromises)
 
     return cursor
@@ -380,7 +388,7 @@ async function fetchTxTraces(txHash: string, chainId: string): Promise<StringKey
     }
 }
 
-export async function bulkInsertNewTraces(traces: StringKeyMap[], table: string, pool: Pool) {
+export async function bulkInsertNewTraces(schema: string, traces: StringKeyMap[], table: string) {
     logger.info(`Saving ${traces.length} new traces...`)
 
     const insertPlaceholders = []
@@ -458,7 +466,7 @@ export async function bulkInsertNewTraces(traces: StringKeyMap[], table: string,
 
     const insertQuery = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${insertPlaceholders.join(', ')} ON CONFLICT (id) DO NOTHING`
 
-    const client = await pool.connect()
+    const client = await ChainTables.getConnection(schema)
     try {
         await client.query('BEGIN')
         await client.query(insertQuery, insertBindings)
@@ -482,20 +490,20 @@ async function getAbisForContracts(contractAddresses: string[], chainId: string)
     return abisMap
 }
 
-async function findStartBlock(tables: StringKeyMap, contractAddresses: string[]): Promise<number | null> {
+async function findStartBlock(schema: string, tables: StringKeyMap, contractAddresses: string[]): Promise<number | null> {
     const blockNumbers = await Promise.all([
-        findEarliestInteraction(tables.transactions, 'to', contractAddresses),
-        findEarliestInteraction(tables.traces, 'to', contractAddresses),
-        findEarliestInteraction(tables.logs, 'address', contractAddresses),
+        findEarliestInteraction(schema, tables.transactions, 'to', contractAddresses),
+        findEarliestInteraction(schema, tables.traces, 'to', contractAddresses),
+        findEarliestInteraction(schema, tables.logs, 'address', contractAddresses),
     ])
     const notNullBlockNumbers = blockNumbers.filter(n => n !== null)
     return notNullBlockNumbers.length ? Math.min(...notNullBlockNumbers) : null
 }
 
-async function findEarliestInteraction(table: string, column: string, addresses: string[]): Promise<number | null> {
+async function findEarliestInteraction(schema: string, table: string, column: string, addresses: string[]): Promise<number | null> {
     const addressPlaceholders = addresses.map((_, i) => `$${i + 1}`).join(', ')
     try {
-        const results = (await SharedTables.query(
+        const results = (await ChainTables.query(schema,
             `select "block_number" from ${table} where ${ident(column)} in (${addressPlaceholders}) order by "block_number" asc limit 1`,
             addresses,
         )) || []
@@ -514,6 +522,7 @@ export default function job(params: StringKeyMap) {
     const queryRangeSize = params.queryRangeSize || config.QUERY_BLOCK_RANGE_SIZE
     const jobRangeSize = params.jobRangeSize || config.JOB_BLOCK_RANGE_SIZE
     const registrationJobUid = params.registrationJobUid
+    const fullContractGroup = params.fullContractGroup
 
     return {
         perform: async () => {
@@ -526,6 +535,7 @@ export default function job(params: StringKeyMap) {
                     queryRangeSize,
                     jobRangeSize,
                     registrationJobUid,
+                    fullContractGroup,
                 )
             } catch (err) {
                 logger.error(err)

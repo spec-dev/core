@@ -20,9 +20,12 @@ export const errors = {
     UNKNOWN_ERROR: 'Unknown error',
     JOB_SCHEDULING_FAILED: 'Failed to schedule job',
     NAMESPACE_NOT_FOUND: 'Namespace not found',
+    CONTRACT_GROUP_NOT_FOUND: 'Contract Group not found',
+    LIVE_OBJECT_NOT_FOUND: 'Live Object not found',
+    LIVE_OBJECT_VERSION_NOT_FOUND: 'Live Object Version not found',
     NAMESPACE_MISSING_CODE_URL:
         'Namespace does not have a remote git repository assigned to it yet.',
-    VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
+    VERSIONS_MUST_INCREASE: 'Version numbers must always increase',
     CONTRACT_INSTANCE_NOT_FOUND: 'Contract instance not found',
     INTERNAL_ERROR: 'Internal server error',
 }
@@ -37,8 +40,8 @@ export const codes = {
 }
 
 export async function authorizeRequestForNamespace(
-    req,
-    res,
+    req: any,
+    res: any,
     namespaceName: string,
     allowedScopes: string[]
 ): Promise<boolean> {
@@ -51,12 +54,14 @@ export async function authorizeRequestForNamespace(
     // user auth token authorization
     if (userAuthHeader) {
         const user = await authorizeRequest(req, res)
+
         // Check if user has permissions to access namespace.
         const { canAccess } = await userHasNamespacePermissions(user.id, namespaceName)
         if (!canAccess) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false
         }
+
         return true
     }
 
@@ -73,7 +78,7 @@ export async function authorizeRequestForNamespace(
         const hasPerms =
             namespaceAccessToken &&
             new Date(namespaceAccessToken.expiresAt) > new Date() &&
-            namespaceAccessToken.scopes.split(',').some((scope) => allowedScopes.includes(scope))
+            namespaceAccessToken.scopes?.split(',').some((scope) => allowedScopes.includes(scope))
         if (!hasPerms) {
             res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
             return false

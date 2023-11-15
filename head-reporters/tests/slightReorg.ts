@@ -1,5 +1,5 @@
 import config from '../src/config'
-import { CoreDB, IndexerDB, indexerRedis, SharedTables, range, randomIntegerInRange, sleep } from '../../shared'
+import { CoreDB, IndexerDB, indexerRedis, ChainTables, range, randomIntegerInRange, sleep } from '../../shared'
 import { EvmReporter } from '../src/reporters'
 import { BlockHeader } from 'web3-eth'
 
@@ -44,11 +44,11 @@ async function fakeNewHeads(reporter: EvmReporter) {
 async function listen() {
     await Promise.all([
         CoreDB.initialize(),
-        SharedTables.initialize(),
+        ChainTables.initialize(),
         IndexerDB.initialize(),
         indexerRedis.connect(),
     ])
-    const reporter = new EvmReporter(config.CHAIN_ID)
+    const reporter = new EvmReporter()
     await fakeNewHeads(reporter)
 }
 
