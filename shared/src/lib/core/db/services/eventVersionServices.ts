@@ -14,9 +14,12 @@ import {
     toNamespacedVersion,
     unique,
     splitOnLastOccurance,
+    camelizeKeys,
+    formatLiveObjectPageData,
 } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { getLastEvent } from '../../../indexer/redis'
+import { getCachedRecordCounts } from '../../redis'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -341,4 +344,43 @@ export async function resolveEventVersionCursors(givenName: string): Promise<Str
     }
 
     return { cursors, latestEvent }
+}
+
+export async function getEventVersionsByLiveObject(uid: string): Promise<string[] | null> {
+    let eventVersions
+    try {
+        eventVersions = await eventVersionsRepo().find({
+            relations: {
+                liveEventVersions: {
+                    liveObjectVersion: {
+                        liveObject: {
+                            namespace: true,
+                        },
+                    },
+                },
+            },
+            where: {
+                liveEventVersions: {
+                    liveObjectVersion: {
+                        liveObject: { uid },
+                    },
+                    isInput: true,
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error getting event versions by live object uid: ${err}`)
+        return null
+    }
+
+    // Camelize result keys.
+    eventVersions = camelizeKeys(eventVersions)
+
+    const liveObjectTablePaths = eventVersions.map((e) => e.versionConfig?.table).filter((v) => !!v)
+    const recordCountsData = liveObjectTablePaths.length
+        ? await getCachedRecordCounts(liveObjectTablePaths)
+        : []
+
+    // Return formatted event versions.
+    return eventVersions.map((r) => formatLiveObjectPageData(r, recordCountsData, true))
 }
