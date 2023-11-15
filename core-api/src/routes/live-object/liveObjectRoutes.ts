@@ -3,7 +3,7 @@ import paths from '../../utils/paths'
 import { codes, errors } from '../../utils/requests'
 import searchLiveObjects from '../../services/searchLiveObjects'
 import { parseLiveObjectPagePayload, parseSearchLiveObjectPayload } from './liveObjectPayloads'
-import { getEventVersionsByLiveObject, getLiveObject, getLiveObjectByUid, getLiveObjectPageData } from '../../../../shared'
+import { getEventVersionsByLiveObject, getLiveObjectPageData } from '../../../../shared'
 
 /**
  * Get the current version of all live objects.
