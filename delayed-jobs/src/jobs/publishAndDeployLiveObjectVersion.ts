@@ -45,6 +45,9 @@ export async function publishAndDeployLiveObjectVersion(
     folder: string,
     uid?: string | null,
 ) {
+    const namespacedVersion = toNamespacedVersion(nsp, name, version)
+    logger.info(`Starting publish job for ${namespacedVersion}...`)
+
     // Create new registration job to track progress.
     try {
         uid = uid || uuid4()
@@ -69,6 +72,7 @@ export async function publishAndDeployLiveObjectVersion(
     }
 
     // Clone the namespace's git repo.
+    logger.info(`[${namespacedVersion}] Cloning repo...`)
     const { 
         error: cloneRepoError, 
         manifest, 
@@ -82,6 +86,7 @@ export async function publishAndDeployLiveObjectVersion(
     }
 
     // Generate all the migrations for this new live object table.
+    logger.info(`[${namespacedVersion}] Generating migrations...`)
     const { error: migrationError, migrationTxs, liveObjectSpec } = await getMigrationTxs(
         manifest.name, 
         folder,
@@ -108,6 +113,7 @@ export async function publishAndDeployLiveObjectVersion(
     }
 
     // Run migrations.
+    logger.info(`[${namespacedVersion}] Running migrations...`)
     await updatePublishAndDeployLiveObjectVersionJobStatus(uid, PublishAndDeployLiveObjectVersionJobStatus.Migrating)
     try {
         await ChainTables.transaction(null, async (tx) => {
@@ -123,6 +129,7 @@ export async function publishAndDeployLiveObjectVersion(
 
     // Insert all CoreDB values into all tables:
     // live_objects, live_object_versions, events, event_versions, live_event_versions, live_call_handlers
+    logger.info(`[${namespacedVersion}] Publishing...`)
     await updatePublishAndDeployLiveObjectVersionJobStatus(uid, PublishAndDeployLiveObjectVersionJobStatus.Publishing)
     const liveObject = await getLiveObject(namespace.id, name)
     const wasPublished = await publishLiveObjectVersion(
@@ -179,7 +186,7 @@ export async function publishAndDeployLiveObjectVersion(
     // Deploy to Deno.
     let denoUrl
     try {
-        logger.info(`Deploying ${namespaceVersion}...`)
+        logger.info(`[${namespacedVersion}] Deploying...`)
         const stdout = execSync(
             `deployctl deploy --import-map=imports.json --project=event-generators ${path.join(folder, 'index.ts')}`,
             { cwd: pathToRepo }
