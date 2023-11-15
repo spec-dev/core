@@ -21,7 +21,8 @@ import {
     updatePublishAndDeployLiveObjectVersionJobStatus,
     PublishAndDeployLiveObjectVersionJobStatus,
     updatePublishAndDeployLiveObjectVersionJobCursor,
-    publishAndDeployLiveObjectVersionJobFailed
+    publishAndDeployLiveObjectVersionJobFailed,
+    updatePublishAndDeployLiveObjectVersionJobMetadata
 } from '../../../shared'
 import config from '../config'
 import { Pool } from 'pg'
@@ -44,6 +45,7 @@ export async function indexLiveObjectVersions(
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
     publishJobTableUid?: string,
+    liveObjectUid?: string,
     resetCountsForContractGroups: string[] = []
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
@@ -60,6 +62,7 @@ export async function indexLiveObjectVersions(
             inputIdsToLovIdsMap, 
             liveObjectVersions,
             indexingContractFactoryLov,
+            earliestStartCursor,
         } = (await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
 
@@ -76,6 +79,20 @@ export async function indexLiveObjectVersions(
                 lovIds, 
                 LiveObjectVersionStatus.Indexing,
             )
+
+            if (publishJobTableUid && liveObjectUid) {
+                await updatePublishAndDeployLiveObjectVersionJobMetadata(
+                    publishJobTableUid,
+                    { liveObjectUid, startCursor: earliestStartCursor.toISOString() }
+                )
+            }
+
+            if (publishJobTableUid){
+                await updatePublishAndDeployLiveObjectVersionJobStatus(
+                    publishJobTableUid, 
+                    PublishAndDeployLiveObjectVersionJobStatus.Indexing,
+                )
+            }
         }
 
         // Index live object versions.
@@ -541,6 +558,7 @@ export default function job(params: StringKeyMap) {
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
     const resetCountsForContractGroups = params.resetCountsForContractGroups || []
     const publishJobTableUid = params.publishJobTableUid
+    const liveObjectUid = params.liveObjectUid
     
     return {
         perform: async () => indexLiveObjectVersions(
@@ -556,6 +574,7 @@ export default function job(params: StringKeyMap) {
             setLovToIndexingBefore,
             setLovToLiveAfter,
             publishJobTableUid,
+            liveObjectUid,
             resetCountsForContractGroups,
         )
     }

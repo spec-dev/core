@@ -5,6 +5,7 @@ import {
     PublishAndDeployLiveObjectVersionJobStatus,
 } from '../entities/PublishAndDeployLiveObjectVersionJob'
 import uuid4 from 'uuid4'
+import { StringKeyMap } from '../../../types'
 
 const publishAndDeployLiveObjectVersionJobRepo = () =>
     CoreDB.getRepository(PublishAndDeployLiveObjectVersionJob)
@@ -76,6 +77,25 @@ export async function updatePublishAndDeployLiveObjectVersionJobCursor(
     } catch (err) {
         logger.error(
             `Error setting cursors to ${cursor} in PublishAndDeployLiveObjectVersionJob(uid=${uid}): ${err}`
+        )
+        return false
+    }
+    return true
+}
+
+export async function updatePublishAndDeployLiveObjectVersionJobMetadata(
+    uid: string,
+    metadata: StringKeyMap
+): Promise<boolean> {
+    try {
+        await publishAndDeployLiveObjectVersionJobRepo()
+            .createQueryBuilder()
+            .update({ metadata })
+            .where({ uid })
+            .execute()
+    } catch (err) {
+        logger.error(
+            `Error setting PublishAndDeployLiveObjectVersionJob(uid=${uid}) metadata: ${err}`
         )
         return false
     }

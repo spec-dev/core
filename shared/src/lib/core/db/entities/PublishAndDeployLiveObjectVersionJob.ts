@@ -50,6 +50,9 @@ export class PublishAndDeployLiveObjectVersionJob {
     })
     cursor: Date
 
+    @Column('json', { nullable: true })
+    metadata: StringKeyMap
+
     @Column({ default: false })
     failed: boolean
 
@@ -79,6 +82,7 @@ export class PublishAndDeployLiveObjectVersionJob {
             version: this.version,
             status: this.status,
             cursor: this.cursor?.toISOString(),
+            metadata: this.metadata || {},
             failed: this.failed,
             error: this.error,
             createdAt: this.createdAt.toISOString(),

@@ -298,6 +298,7 @@ export {
     getLiveObject,
     upsertLiveObject,
     getLiveObjectByUid,
+    getLiveObjectForLov,
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
@@ -336,6 +337,7 @@ export {
     updatePublishAndDeployLiveObjectVersionJobStatus,
     updatePublishAndDeployLiveObjectVersionJobCursor,
     publishAndDeployLiveObjectVersionJobFailed,
+    updatePublishAndDeployLiveObjectVersionJobMetadata,
 } from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 

@@ -21,6 +21,8 @@ import {
     parseUrls,
     fromNamespacedVersion,
     getContractGroupAbi,
+    getLiveObjectForLov,
+    updatePublishAndDeployLiveObjectVersionJobMetadata,
     getLiveObject,
 } from '../../../shared'
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
@@ -142,7 +144,14 @@ export async function publishAndDeployLiveObjectVersion(
         logger.error(`Failed to publish Live Object: ${liveObjectSpec.namespace} ${liveObjectSpec.name} ${liveObjectSpec.version}`)
         return
     }
-
+    const liveObjectUid = (await getLiveObjectForLov(namespacedVersion))?.uid
+    if (!liveObjectUid) {
+        await publishAndDeployLiveObjectVersionJobFailed(uid, errors.LIVE_OBJECT_PUBLISH_FAILED)
+        logger.error(`Failed to find Live Object for new lov ${namespacedVersion}.`)
+        return
+    }
+    await updatePublishAndDeployLiveObjectVersionJobMetadata(uid, { liveObjectUid })
+ 
     // Get live_object_versions entry.
     const namespaceVersion = toNamespacedVersion(liveObjectSpec.namespace, liveObjectSpec.name, liveObjectSpec.version)
     const lovs = await getLiveObjectVersionsByNamespacedVersions([namespaceVersion])
@@ -208,10 +217,10 @@ export async function publishAndDeployLiveObjectVersion(
     }
 
     // Kick off indexing for live object versions
-    await updatePublishAndDeployLiveObjectVersionJobStatus(uid, PublishAndDeployLiveObjectVersionJobStatus.Indexing)
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds: [lov.id],
         publishJobTableUid: uid,
+        liveObjectUid,
     })
 }
 

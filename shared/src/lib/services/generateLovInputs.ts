@@ -62,7 +62,13 @@ export async function getLovInputGenerator(
         indexingContractFactoryLov
     )
 
-    return { generator, inputIdsToLovIdsMap, liveObjectVersions, indexingContractFactoryLov }
+    return {
+        generator,
+        inputIdsToLovIdsMap,
+        liveObjectVersions,
+        indexingContractFactoryLov,
+        earliestStartCursor,
+    }
 }
 
 export async function generateLovInputsForEventsAndCalls(
