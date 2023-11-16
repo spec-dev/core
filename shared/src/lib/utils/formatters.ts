@@ -790,16 +790,11 @@ export const stripTrailingSlash = (val: string): string => {
     return val
 }
 
-export function formatLiveObjectPageData(
-    result: StringKeyMap,
-    recordCountsData: StringKeyMap,
-    isEvent: boolean
-) {
-    const lov = isEvent ? result.liveEventVersions[0].liveObjectVersion : result
-    const liveObject = lov.liveObject
-    const namespace = lov.liveObject.namespace
+export function formatLiveObjectPageData(result: StringKeyMap, recordCountsData: StringKeyMap) {
+    const liveObject = result.liveObject
+    const namespace = result.liveObject.namespace
     const isContractEvent = isContractNamespace(namespace.name)
-    const config = lov.config
+    const config = result.config
     const tablePath = config?.table || null
     const recordCountInfo = tablePath ? recordCountsData[tablePath] || {} : {}
     let numRecords = parseInt(recordCountInfo.count)
@@ -838,13 +833,13 @@ export function formatLiveObjectPageData(
         verified: namespace.verified,
         isContractEvent,
         latestVersion: {
-            nsp: lov.nsp,
-            name: lov.name,
-            version: lov.version,
-            properties: lov.properties,
-            example: lov.example,
+            nsp: result.nsp,
+            name: result.name,
+            version: result.version,
+            properties: result.properties,
+            example: result.example,
             config: config,
-            createdAt: lov.createdAt.toISOString(),
+            createdAt: result.createdAt.toISOString(),
         },
         records: numRecords,
         lastInteraction: recordCountInfo.updatedAt || null,

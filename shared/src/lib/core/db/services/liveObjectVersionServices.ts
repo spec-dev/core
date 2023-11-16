@@ -315,11 +315,11 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
     // Camelize result keys.
     liveObjectVersion = camelizeKeys(liveObjectVersion)
 
-    const liveObjectTablePath = liveObjectVersion.versionConfig?.table
+    const liveObjectTablePath = liveObjectVersion.config.table
     const recordCountsData = liveObjectTablePath
         ? await getCachedRecordCounts(liveObjectTablePath)
         : []
 
     // Return formatted live object version.
-    return formatLiveObjectPageData(liveObjectVersion, recordCountsData, false)
+    return formatLiveObjectPageData(liveObjectVersion, recordCountsData)
 }

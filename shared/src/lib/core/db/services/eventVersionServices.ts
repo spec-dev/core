@@ -15,11 +15,9 @@ import {
     unique,
     splitOnLastOccurance,
     camelizeKeys,
-    formatLiveObjectPageData,
 } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { getLastEvent } from '../../../indexer/redis'
-import { getCachedRecordCounts } from '../../redis'
 
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
@@ -350,15 +348,6 @@ export async function getEventVersionsByLiveObject(uid: string): Promise<StringK
     let eventVersions
     try {
         eventVersions = await eventVersionsRepo().find({
-            relations: {
-                liveEventVersions: {
-                    liveObjectVersion: {
-                        liveObject: {
-                            namespace: true,
-                        },
-                    },
-                },
-            },
             where: {
                 liveEventVersions: {
                     liveObjectVersion: {
@@ -375,12 +364,5 @@ export async function getEventVersionsByLiveObject(uid: string): Promise<StringK
 
     // Camelize result keys.
     eventVersions = camelizeKeys(eventVersions)
-
-    const liveObjectTablePaths = eventVersions.map((e) => e.versionConfig?.table).filter((v) => !!v)
-    const recordCountsData = liveObjectTablePaths.length
-        ? await getCachedRecordCounts(liveObjectTablePaths)
-        : []
-
-    // Return formatted event versions.
-    return eventVersions.map((r) => formatLiveObjectPageData(r, recordCountsData, true))
+    return eventVersions
 }
