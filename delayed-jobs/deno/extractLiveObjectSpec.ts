@@ -4,7 +4,7 @@ import {
     LiveTable,
     TableSpec,
     ColumnSpec,
-} from 'https://esm.sh/@spec.dev/core@0.0.135'
+} from 'https://esm.sh/@spec.dev/core@0.0.136'
 import {
     ident,
     literal,
