@@ -356,6 +356,10 @@ export async function getEventVersionsByLiveObject(uid: string): Promise<StringK
                     isInput: true,
                 },
             },
+            order: {
+                updatedAt: 'DESC',
+                name: 'ASC',
+            },
         })
     } catch (err) {
         logger.error(`Error getting event versions by live object uid: ${err}`)
