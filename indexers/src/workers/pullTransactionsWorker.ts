@@ -6,13 +6,23 @@ import {
     SharedTables,
     sleep,
     uniqueByKeys,
+    unique,
     normalizeEthAddress,
     normalizeByteData,
     toString,
     EvmTransaction,
+    EvmReceipt,
+    In,
+    schemaForChainId,
+    mapByKey,
+    toChunks,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
+import { ident } from 'pg-format'
+import { createWsProviderPool, getWsProviderPool } from '../wsProviderPool'
+
+const evmReceipts = () => SharedTables.getRepository(EvmReceipt)
 
 class PullTransactionsWorker {
     from: number
@@ -33,6 +43,7 @@ class PullTransactionsWorker {
         this.from = from
         this.to = to
         this.cursor = from
+        createWsProviderPool(true, 0)
     }
 
     async run() {
@@ -119,6 +130,41 @@ class PullTransactionsWorker {
 
     async _saveTransactions(transactions: StringKeyMap[]) {
         transactions = uniqueByKeys(transactions.map((l) => this._bigQueryModelToInternalModel(l)), ['hash'])
+
+        // Get block number and timestamp through blocks.
+        const uniqueBlockHashes = unique(transactions.map(t => t.blockHash))
+        const addedBlockData = await this._getAddedBlockData(uniqueBlockHashes)
+        for (const tx of transactions) {
+            const data = addedBlockData[tx.blockHash]
+            if (!data) throw `No added block data found for tx ${tx.hash}, ${tx.blockHash}`
+            const { number, timestamp } = data
+            tx.blockNumber = Number(number)
+            tx.blockTimestamp = new Date(timestamp).toISOString()
+        }
+
+        // Get all receipts for txs.
+        const uniqueTxHashes = unique(transactions.map(t => t.hash))
+        const receipts = await evmReceipts().find({ where: { transactionHash: In(uniqueTxHashes) }})
+        const receiptsByHash = mapByKey(receipts, 'transactionHash')
+        const missingReceiptTxHashes = transactions.filter(tx => !receiptsByHash[tx.hash]).map(tx => tx.hash)
+
+        // Go resolve all missing receipts.
+        const missingReceipts = await this._resolveReceipts(missingReceiptTxHashes)
+        for (const receipt of missingReceipts) {
+            if (!receipt) continue
+            receiptsByHash[receipt.transactionHash] = receipt
+        }
+        for (const tx of transactions) {
+            const receipt = receiptsByHash[tx.hash]
+            if (!receipt) throw `No receipt found for tx ${tx.hash}`
+            tx.contractAddress = receipt.contractAddress
+            tx.status = receipt.status
+            tx.root = receipt.root
+            tx.gasUsed = receipt.gasUsed
+            tx.cumulativeGasUsed = receipt.cumulativeGasUsed
+            tx.effectiveGasPrice = receipt.effectiveGasPrice
+        }
+
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
                 .insert()
@@ -127,6 +173,29 @@ class PullTransactionsWorker {
                 .orIgnore()
                 .execute()
         })
+    }
+
+    async _resolveReceipts(hashes: string[]) {
+        const chunks = toChunks(hashes, 40)
+        const receipts = []
+        for (const chunk of chunks) {
+            await sleep(120)
+            receipts.push(...(await Promise.all(chunk.map(hash => this._receiptForHash(hash)))))
+        }
+        return receipts
+    }
+
+    async _receiptForHash(hash: string) {
+        const receipt = await getWsProviderPool().getTxReceipt(hash)
+        if (!receipt) return null
+        return {
+            transactionHash: receipt.transactionHash,
+            contractAddress: receipt.contractAddress,
+            status: receipt.status ? 1 : 0,
+            gasUsed: toString(receipt.gasUsed),
+            cumulativeGasUsed: toString(receipt.cumulativeGasUsed),
+            effectiveGasPrice: toString(receipt.effectiveGasPrice),
+        }
     }
 
     _bigQueryModelToInternalModel(bqTx: StringKeyMap): StringKeyMap {
@@ -144,14 +213,12 @@ class PullTransactionsWorker {
             maxFeePerGas: toString(bqTx.max_fee_per_gas) || null,
             maxPriorityFeePerGas: toString(bqTx.max_priority_fee_per_gas) || null,
             blockHash: bqTx.block_hash,
-            blockNumber: Number(bqTx.block_number),
-            blockTimestamp: new Date(bqTx.block_timestamp).toISOString(),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/arbitrum-transactions/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/${schemaForChainId[config.CHAIN_ID]}-transactions/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
@@ -160,6 +227,25 @@ class PullTransactionsWorker {
             result = '0' + result
         }
         return result
+    }
+
+    async _getAddedBlockData(hashes: string[]): Promise<StringKeyMap> {
+        const schema = schemaForChainId[config.CHAIN_ID]
+        let i = 1
+        const placeholders = []
+        for (const hash of hashes) {
+            placeholders.push(`$${i}`)
+            i++
+        }
+        const results = await SharedTables.query(
+            `select number, timestamp, hash from ${ident(schema)}.blocks where hash in (${placeholders.join(', ')})`,
+            hashes,
+        )
+        const m = {}
+        for (const { number, timestamp, hash } of results) {
+            m[hash] = { number, timestamp }
+        }
+        return m
     }
 }
 
