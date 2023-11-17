@@ -9,10 +9,13 @@ import {
     normalizeEthAddress,
     normalizeByteData,
     sleep,
+    unique,
     decodeLogEvents,
+    schemaForChainId,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
+import { ident } from 'pg-format'
 
 class PullLogsWorker {
     
@@ -115,9 +118,17 @@ class PullLogsWorker {
 
     async _saveLogs(logs: StringKeyMap[]) {
         logs = decodeLogEvents(uniqueByKeys(
-            logs.map((l) => this._bigQueryLogToPolygonLog(l)),
+            logs.map((l) => this._bigQueryLogToEvmLog(l)),
             ['logIndex', 'transactionHash']
         ), {})
+
+        const uniqueBlockNumbers = unique(logs.map(l => l.blockNumber))
+        const blockTimestamps = await this._getCurrentBlockTimestamps(uniqueBlockNumbers)
+        for (const log of logs) {
+            const blockTimestamp = blockTimestamps[log.blockNumber.toString()]
+            if (!blockTimestamp) throw `No timestamp found for block ${log.blockNumber}`
+            log.blockTimestamp = new Date(blockTimestamp).toISOString()
+        }
 
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
@@ -131,7 +142,7 @@ class PullLogsWorker {
         await sleep(100)
     }
 
-    _bigQueryLogToPolygonLog(bqLog: StringKeyMap): StringKeyMap {
+    _bigQueryLogToEvmLog(bqLog: StringKeyMap): StringKeyMap {
         const topics = bqLog.topics || []
         const topic0 = topics[0] || null
         const topic1 = topics[1] || null
@@ -152,7 +163,6 @@ class PullLogsWorker {
             eventArgs: null,
             blockHash: bqLog.block_hash,
             blockNumber: Number(bqLog.block_number),
-            blockTimestamp: new Date(bqLog.block_timestamp).toISOString(),
         }
     }
 
@@ -167,6 +177,25 @@ class PullLogsWorker {
             result = '0' + result
         }
         return result
+    }
+
+    async _getCurrentBlockTimestamps(numbers: number[]): Promise<StringKeyMap> {
+        const schema = schemaForChainId[config.CHAIN_ID]
+        let i = 1
+        const placeholders = []
+        for (const number of numbers) {
+            placeholders.push(`$${i}`)
+            i++
+        }
+        const results = await SharedTables.query(
+            `select number, timestamp from ${ident(schema)}.blocks where number in (${placeholders.join(', ')})`,
+            numbers,
+        )
+        const m = {}
+        for (const { number, timestamp } of results) {
+            m[number.toString()] = timestamp
+        }
+        return m
     }
 }
 

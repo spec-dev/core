@@ -152,10 +152,12 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version="5ecb035"
 
 # Arbitrum everything
-image_version="6a3ae8c"
+# image_version="6a3ae8c"
 
+# OP receipts
+# image_version="a7800e9"
 
-
+image_version="a7800e9"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
