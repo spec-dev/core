@@ -3,18 +3,19 @@ import JSONStream from 'JSONStream'
 import {
     logger,
     StringKeyMap,
+    EvmReceipt,
     SharedTables,
-    sleep,
     uniqueByKeys,
     normalizeEthAddress,
-    normalizeByteData,
+    normalize32ByteHash,
     toString,
-    EvmTransaction,
+    sleep,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
 
-class PullTransactionsWorker {
+class PullReceiptsWorker {
+    
     from: number
 
     to: number
@@ -38,25 +39,25 @@ class PullTransactionsWorker {
     async run() {
         while (this.cursor <= this.to) {
             logger.info(`Slice ${this.cursor} / ${this.to}`)
-            await this._pullTransactionsForSlice(this.cursor)
+            await this._pullReceiptsForSlice(this.cursor)
+            await sleep(1000)
             this.cursor++
         }
         logger.info('DONE')
         exit(0)
     }
 
-    async _pullTransactionsForSlice(slice: number) {
+    async _pullReceiptsForSlice(slice: number) {
         const abortController = new AbortController()
         const initialRequestTimer = setTimeout(() => abortController.abort(), 20000)
         const resp = await this._makeSliceRequest(slice, abortController)
         clearTimeout(initialRequestTimer)
-        await this._streamTransactions(resp)
+        await this._streamReceipts(resp)
     }
 
-    async _streamTransactions(resp) {
+    async _streamReceipts(resp) {
         this.batch = []
         this.savePromises = []
-
         this._createJSONStream()
 
         const readData = () =>
@@ -74,7 +75,7 @@ class PullTransactionsWorker {
         }
 
         if (this.batch.length) {
-            this.savePromises.push(this._saveTransactions([...this.batch]))
+            this.savePromises.push(this._saveReceipts([...this.batch]))
         }
 
         await Promise.all(this.savePromises)
@@ -85,7 +86,7 @@ class PullTransactionsWorker {
         this.jsonStream.on('data', (data) => {
             this.batch.push(data as StringKeyMap)
             if (this.batch.length === this.saveBatchSize) {
-                this.savePromises.push(this._saveTransactions([...this.batch]))
+                this.savePromises.push(this._saveReceipts([...this.batch]))
                 this.batch = []
             }
         })
@@ -102,56 +103,49 @@ class PullTransactionsWorker {
                     resolve(resp)
                 })
                 .on('error', async (error) => {
-                    const err = JSON.stringify(error)
-                    if (!err.includes('ECONNRESET')) {
-                        logger.error(`Error fetching JSON slice ${slice}:`, error)
-                    }
-                    if (attempt <= 10) {
-                        if (!err.includes('ECONNRESET')) {
-                            logger.error(`Retrying with attempt ${attempt}...`)
-                        }
-                        await sleep(100)
+                    logger.error(`Error fetching JSON slice ${slice}:`, error)
+                    if (attempt <= 3) {
+                        logger.error(`Retrying with attempt ${attempt}...`)
+                        await sleep(50)
                         return this._makeSliceRequest(slice, abortController, attempt + 1)
                     }
                 })
         })
     }
 
-    async _saveTransactions(transactions: StringKeyMap[]) {
-        transactions = uniqueByKeys(transactions.map((l) => this._bigQueryModelToInternalModel(l)), ['hash'])
+    async _saveReceipts(receipts: StringKeyMap[]) {
+        receipts = uniqueByKeys(
+            receipts.map((l) => this._bigQueryReceiptToReceipt(l)),
+            ['transactionHash']
+        )
+
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
                 .insert()
-                .into(EvmTransaction)
-                .values(transactions)
+                .into(EvmReceipt)
+                .values(receipts)
                 .orIgnore()
                 .execute()
         })
+
+        await sleep(100)
     }
 
-    _bigQueryModelToInternalModel(bqTx: StringKeyMap): StringKeyMap {
+    _bigQueryReceiptToReceipt(r: StringKeyMap): StringKeyMap {
         return {
-            hash: bqTx.transaction_hash,
-            nonce: Number(bqTx.nonce),
-            transactionIndex: Number(bqTx.transaction_index),
-            from: bqTx.from_address ? normalizeEthAddress(bqTx.from_address, false) : null,
-            to: bqTx.to_address ? normalizeEthAddress(bqTx.to_address, false) : null,
-            value: bqTx.value?.string_value,
-            input: normalizeByteData(bqTx.input),
-            transactionType: bqTx.transaction_type ? Number(bqTx.transaction_type) : null,
-            gas: toString(bqTx.gas) || null,
-            gasPrice: toString(bqTx.gas_price?.string_value) || null,
-            maxFeePerGas: toString(bqTx.max_fee_per_gas) || null,
-            maxPriorityFeePerGas: toString(bqTx.max_priority_fee_per_gas) || null,
-            blockHash: bqTx.block_hash,
-            blockNumber: Number(bqTx.block_number),
-            blockTimestamp: new Date(bqTx.block_timestamp).toISOString(),
+            transactionHash: r.transaction_hash,
+            contractAddress: normalizeEthAddress(r.contract_address, false),
+            status: r === null ? null : Number(r.status),
+            root: normalize32ByteHash(r.root),
+            gasUsed: toString(r.gas_used),
+            cumulativeGasUsed: toString(r.cumulative_gas_used),
+            effectiveGasPrice: toString(r.effective_gas_price),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/arbitrum-transactions/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/arbitrum-receipts/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
@@ -163,6 +157,6 @@ class PullTransactionsWorker {
     }
 }
 
-export function getPullTransactionsWorker(): PullTransactionsWorker {
-    return new PullTransactionsWorker(config.FROM, config.TO)
+export function getPullReceiptsWorker(): PullReceiptsWorker {
+    return new PullReceiptsWorker(config.FROM, config.TO)
 }

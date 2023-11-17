@@ -93,7 +93,7 @@ spec:
         - name: MUMBAI_ALCHEMY_REST_URL
           value: {{MUMBAI_ALCHEMY_REST_URL}}
         - name: FLIP
-          value: tails
+          value: heads
         - name: FORCE_COLOR
           value: "1" 
         - name: BUGSNAG_API_KEY

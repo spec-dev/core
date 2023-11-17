@@ -14,6 +14,7 @@ export {
     fullEvmTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTransaction'
 export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
+export { EvmReceipt } from './lib/shared-tables/db/entities/EvmReceipt'
 export {
     EvmTrace,
     EvmCallType,

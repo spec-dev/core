@@ -9,6 +9,7 @@ import {
     normalizeEthAddress,
     normalizeByteData,
     sleep,
+    decodeLogEvents,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
@@ -21,7 +22,7 @@ class PullLogsWorker {
 
     cursor: number
 
-    saveBatchSize: number = 200
+    saveBatchSize: number = 2000
 
     jsonStream: JSONStream
 
@@ -113,10 +114,10 @@ class PullLogsWorker {
     }
 
     async _saveLogs(logs: StringKeyMap[]) {
-        logs = uniqueByKeys(
+        logs = decodeLogEvents(uniqueByKeys(
             logs.map((l) => this._bigQueryLogToPolygonLog(l)),
             ['logIndex', 'transactionHash']
-        )
+        ), {})
 
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
@@ -141,12 +142,14 @@ class PullLogsWorker {
             logIndex: Number(bqLog.log_index),
             transactionHash: bqLog.transaction_hash,
             transactionIndex: Number(bqLog.transaction_index),
-            address: normalizeEthAddress(bqLog.address),
+            address: normalizeEthAddress(bqLog.address, false),
             data: normalizeByteData(bqLog.data),
             topic0,
             topic1,
             topic2,
             topic3,
+            eventName: null,
+            eventArgs: null,
             blockHash: bqLog.block_hash,
             blockNumber: Number(bqLog.block_number),
             blockTimestamp: new Date(bqLog.block_timestamp).toISOString(),
@@ -155,7 +158,7 @@ class PullLogsWorker {
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/polygon-logs/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/arbitrum-logs/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {

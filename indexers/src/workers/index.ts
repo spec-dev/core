@@ -30,6 +30,7 @@ import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwn
 import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
 import { getSeedNativeErc20BalancesWithOwnersWorker } from './seedNativeErc20BalancesWithOwnersWorker'
 import { getTrimAbisWorker } from './trimAbisWorker'
+import { getPullReceiptsWorker } from './pullReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -40,6 +41,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'pull-transactions') {
         return getPullTransactionsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-receipts') {
+        return getPullReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-logs') {
         return getPullLogsWorker()
