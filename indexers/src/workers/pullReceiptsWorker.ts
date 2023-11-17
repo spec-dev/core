@@ -145,7 +145,7 @@ class PullReceiptsWorker {
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/arbitrum-receipts/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/optimism-receipts/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
