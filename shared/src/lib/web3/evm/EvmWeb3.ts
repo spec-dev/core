@@ -3,7 +3,7 @@ import logger from '../../logger'
 import config from '../../config'
 import { StringKeyMap } from '../../types'
 import { sleep } from '../../utils/time'
-import { numberToHex } from '../../utils/formatters'
+import { numberToHex, toChunks } from '../../utils/formatters'
 import { EvmBlock } from '../../shared-tables/db/entities/EvmBlock'
 import { EvmTransaction } from '../../shared-tables/db/entities/EvmTransaction'
 import { EvmLog } from '../../shared-tables/db/entities/EvmLog'
@@ -65,6 +65,14 @@ class EvmWeb3 {
 
     get isWebsockets(): boolean {
         return this.url.startsWith('ws://') || this.url.startsWith('wss://')
+    }
+
+    get isQN(): boolean {
+        return this.url.includes('quiknode')
+    }
+
+    get isAlchemy(): boolean {
+        return this.url.includes('alchemy')
     }
 
     constructor(url: string, options?: EvmWeb3Options) {
@@ -170,11 +178,9 @@ class EvmWeb3 {
     async getBlockReceipts(
         blockHash?: string,
         blockNumber?: number,
+        txHashes?: string[],
         chainId?: string
     ): Promise<ExternalEvmReceipt[]> {
-        if (!this.canGetBlockReceipts) {
-            throw `[${chainId}] Getting block receipts is unsupported for this provider`
-        }
         if (this.isWebsockets) {
             throw `[${chainId}] Can only resolve block receipts over HTTP at the moment`
         }
@@ -190,6 +196,7 @@ class EvmWeb3 {
                 ;[receipts, hittingGatewayErrors] = await this._getBlockReceipts(
                     blockHash,
                     blockNumber,
+                    txHashes,
                     chainId
                 )
                 if (receipts === null) {
@@ -226,17 +233,33 @@ class EvmWeb3 {
     async _getBlockReceipts(
         blockHash?: string,
         blockNumber?: number,
+        txHashes?: string[],
         chainId?: string
     ): Promise<[ExternalEvmReceipt[] | null, boolean]> {
-        const isAlchemy = this.url.includes('alchemy')
-
         let method, params
-        if (isAlchemy) {
+        if (this.isAlchemy) {
             method = 'alchemy_getTransactionReceipts'
             params = blockHash ? [{ blockHash }] : [{ blockNumber: numberToHex(blockNumber) }]
-        } else {
+        } else if (this.canGetBlockReceipts) {
             method = 'eth_getBlockReceipts'
             params = [numberToHex(blockNumber)]
+        } else if (this.isQN) {
+            method = 'qn_getReceipts'
+            params = [numberToHex(blockNumber)]
+        } else {
+            const chunks = toChunks(txHashes, 30)
+            const receipts = []
+            for (const chunk of chunks) {
+                await sleep(80)
+                receipts.push(
+                    ...(await Promise.all(
+                        chunk.map((hash) =>
+                            this._getTxReceipt(blockHash, blockNumber, hash, chainId)
+                        )
+                    ))
+                )
+            }
+            return [receipts.filter((v) => !!v), false]
         }
 
         const abortController = new AbortController()
@@ -305,7 +328,82 @@ class EvmWeb3 {
         }
         if (!data?.result || data.result.error) return [null, false]
 
-        return [isAlchemy ? data.result.receipts : data.result, false]
+        return [this.isAlchemy ? data.result.receipts : data.result, false]
+    }
+
+    async _getTxReceipt(
+        blockHash?: string,
+        blockNumber?: number,
+        txHash?: string,
+        chainId?: string
+    ): Promise<[ExternalEvmReceipt | null, boolean]> {
+        const abortController = new AbortController()
+        const timer = setTimeout(() => abortController.abort(), this.httpRequestTimeout)
+        let resp, error
+        try {
+            resp = await fetch(this.url, {
+                method: 'POST',
+                body: JSON.stringify({
+                    method: 'eth_getTransactionReceipt',
+                    params: [txHash],
+                    id: 1,
+                    jsonrpc: '2.0',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+                signal: abortController.signal,
+            })
+        } catch (err) {
+            error = err
+        }
+        clearTimeout(timer)
+
+        if (error) {
+            const message = error.message || error.toString() || ''
+            const wasAborted = message.toLowerCase().includes('aborted')
+            wasAborted ||
+                logger.error(
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error fetching tx reciept: ${error}. Will retry.`
+                )
+            return null
+        }
+
+        if (resp.status === 503) {
+            logger.error(
+                `[${chainId}:${
+                    blockNumber || blockHash
+                }] 503 Gateway Error — while fetching tx receipt`
+            )
+            return null
+        }
+
+        let data: StringKeyMap = {}
+        try {
+            data = await resp.json()
+        } catch (err) {
+            this.isRangeMode ||
+                logger.error(
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Error parsing json response while fetching tx receipt: ${err}`
+                )
+            return null
+        }
+
+        if (data?.error) {
+            this.isRangeMode ||
+                this.ignoreLogsOnErrorCodes.includes(data.error?.code) ||
+                logger.error(
+                    `[${chainId}:${blockNumber || blockHash}] Error fetching tx receipt: ${
+                        data.error?.code
+                    } - ${data.error?.message}. Will retry.`
+                )
+            return null
+        }
+        if (!data?.result || data.result.error) return null
+
+        return data.result
     }
 
     // == Logs ====================
@@ -615,6 +713,8 @@ class EvmWeb3 {
         return [data.result, false]
     }
 
+    // == Provider-specific ==================
+
     // == Subscriptions ===================
 
     subscribeToNewHeads(callback: (error: Error, blockHeader: any) => void) {
@@ -656,7 +756,7 @@ export function newEthereumWeb3(
     wsRpcTimeout?: number
 ): EvmWeb3 {
     return new EvmWeb3(url, {
-        canGetBlockReceipts: false, // purposefully turned off. Block receipts CAN be fetched.
+        canGetBlockReceipts: true,
         canGetParityTraces: true,
         finalityScanOffsetLeft: 400,
         finalityScanOffsetRight: 5,
@@ -668,7 +768,7 @@ export function newEthereumWeb3(
 
 export function newPolygonWeb3(url: string, isRangeMode?: boolean, wsRpcTimeout?: number): EvmWeb3 {
     return new EvmWeb3(url, {
-        canGetBlockReceipts: false, // purposefully turned off. Block receipts CAN be fetched.
+        canGetBlockReceipts: true,
         canGetParityTraces: url.includes('quiknode'),
         supportsFinalizedTag: false,
         confirmationsUntilFinalized: 1800,

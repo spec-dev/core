@@ -226,10 +226,7 @@ class EvmIndexer {
         
         // Fetch chain primitives.
         let { block, transactions } = await this._getBlockWithTransactions()
-        let [{ logs, receipts }, traces] = await Promise.all([
-            this._getLogsOrBlockReceipts(!!transactions.length),
-            this._getTraces(),
-        ])
+        let [receipts, traces] = await Promise.all([this._getReceipts(transactions), this._getTraces()])
 
         // Quick re-org check #1.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
@@ -238,12 +235,8 @@ class EvmIndexer {
         }
 
         // Use block receipts to get logs & add extra data to txs (if supported).
-        if (receipts !== null) {
-            logs = this._initLogsWithReceipts(receipts, block)
-            this._enrichTransactionsWithReceipts(transactions, receipts)
-        } else {
-            this._enrichLogsWithBlock(logs, block)
-        }
+        let logs = this._initLogsWithReceipts(receipts, block)
+        this._enrichTransactionsWithReceipts(transactions, receipts)
 
         // Use the "removed" property of logs to detect whether this block was reorg'd.
         if (!!logs.find(log => log.removed)) {
@@ -882,51 +875,58 @@ class EvmIndexer {
         return { block, transactions }
     }
 
-    async _getLogsOrBlockReceipts(hasTxs: boolean): Promise<{
-        logs?: EvmLog[] | null,
-        receipts?: ExternalEvmReceipt[] | null,
-    }> {
-        // Just get logs directly if you can't get block receipts.
-        if (!this.canGetBlockReceipts) {
-            const logs = await getWeb3().getLogs(
-                this.resolvedBlockHash,
-                this.blockNumber,
-                this.chainId    
-            )
-            return { receipts: null, logs }
-        } 
+    async _getReceipts(transactions: EvmTransaction[]): Promise<ExternalEvmReceipt[]> {
+        const hasTxs = !!transactions.length
+        const txHashes = transactions.map(tx => tx.hash)
 
-        let receipts = await this._getBlockReceipts()
+        // let logs, receipts
+
+        // quicknode or no
+        // block receipts or no
+
+        // // Just get logs directly if you can't get block receipts.
+        // if (!this.canGetBlockReceipts) {
+        //     const logs = await getWeb3().getLogs(
+        //         this.resolvedBlockHash,
+        //         this.blockNumber,
+        //         this.chainId,
+        //     )
+        //     return { receipts: null, logs }
+        // } 
+
+        let receipts = await this._getBlockReceipts(txHashes)
 
         // Iterate until receipts can be fetched if at least 1 transaction exists.
         if (hasTxs && !receipts.length) {
             this._warn(`Transactions exist but no receipts were found -- retrying`)
-            receipts = await this._waitAndRefetchReceipts(hasTxs)
+            receipts = await this._waitAndRefetchReceipts(txHashes)
             if (!receipts.length) throw `Failed to fetch receipts when transactions clearly exist.`
         }
 
         // Must've just been no transactions.
         if (!receipts.length) {
-            return { receipts, logs: null }
+            return receipts
         }
 
         // Switch back to fetching ONLY logs if multiple block hashes exist within the receipts call.
-        const numBlockHashes = new Set(receipts.map(r => r.blockHash))
-        if (numBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
-            const logs = await getWeb3().getLogs(
-                this.resolvedBlockHash,
-                this.blockNumber,
-                this.chainId    
-            )
-            return { receipts: null, logs }
+        const uniqueBlockHashes = new Set(receipts.map(r => r.blockHash))
+        if (uniqueBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
+            throw `Different block hashes detected within block receipts - ${uniqueBlockHashes} - ${this.resolvedBlockHash}.`
+            // const logs = await getWeb3().getLogs(
+            //     this.resolvedBlockHash,
+            //     this.blockNumber,
+            //     this.chainId    
+            // )
+            // return { receipts: null, logs }
         }
 
-        return { receipts, logs: null }
+        return receipts
     }
 
-    async _waitAndRefetchReceipts(hasTxs: boolean): Promise<ExternalEvmReceipt[] | null> {
+    async _waitAndRefetchReceipts(txHashes: string[]): Promise<ExternalEvmReceipt[] | null> {
+        const hasTxs = !!txHashes.length
         const getReceipts = async () => {
-            const receipts = await this._getBlockReceipts()
+            const receipts = await this._getBlockReceipts(txHashes)
 
             // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== this.resolvedBlockHash) {
@@ -956,10 +956,11 @@ class EvmIndexer {
         return receipts || []
     }
 
-    async _getBlockReceipts(): Promise<ExternalEvmReceipt[]> {
+    async _getBlockReceipts(txHashes: string[]): Promise<ExternalEvmReceipt[]> {
         return getWeb3().getBlockReceipts(
             this.resolvedBlockHash,
             this.blockNumber,
+            txHashes,
             this.chainId,
         )
     }
