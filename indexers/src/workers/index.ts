@@ -32,10 +32,14 @@ import { getSeedNativeErc20BalancesWithOwnersWorker } from './seedNativeErc20Bal
 import { getTrimAbisWorker } from './trimAbisWorker'
 import { getPullReceiptsWorker } from './pullReceiptsWorker'
 import { getBlockFillWorker } from './blockFillWorker'
+import { getEvmRangeWorker } from './evmRangeWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'evm-range') {
+        return getEvmRangeWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-blocks') {
         return getPullBlocksWorker()
