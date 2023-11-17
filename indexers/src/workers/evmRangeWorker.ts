@@ -52,8 +52,8 @@ class EvmRangeWorker {
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}
-        createWeb3Provider()
-        createWsProviderPool()
+        createWeb3Provider(true)
+        createWsProviderPool(true)
     }
 
     async run() {
