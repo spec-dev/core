@@ -798,7 +798,6 @@ class EthRangeWorker {
                     await this._upsertLatestInteractions(latestInteractions, attempt + 1)
                 }
             }
-    
         }
     }
 

@@ -1,17 +1,19 @@
 import { exit } from 'process'
-import { abiRedis, getContractGroupAbi, saveContractGroupAbi } from '..'
+import { indexerRedis } from '..'
+import { Queue } from 'bullmq'
+import config from '../lib/config'
 
 async function perform() {
-    await abiRedis.connect()
+    await indexerRedis.connect()
 
-    const merkle = await getContractGroupAbi('allov2.MerkleDistribution')
-    await saveContractGroupAbi('allov2.MerkleDistributionStrategy', merkle)
+    const queue = new Queue('arb-hrq', {
+        connection: {
+            host: config.INDEXER_REDIS_HOST,
+            port: config.INDEXER_REDIS_PORT,
+        },
+    })
 
-    const rfpSimple = await getContractGroupAbi('allov2.RFPSimple')
-    await saveContractGroupAbi('allov2.RFPSimpleStrategy', rfpSimple)
-
-    const QVSimple = await getContractGroupAbi('allov2.QVSimple')
-    await saveContractGroupAbi('allov2.QVSimpleStrategy', QVSimple)
+    await queue.obliterate()
 
     exit(0)
 }
