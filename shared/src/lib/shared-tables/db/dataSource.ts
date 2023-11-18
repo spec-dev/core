@@ -30,7 +30,7 @@ if (config.SHARED_TABLES_OPTIONS) {
 }
 
 const entities: any = [EvmBlock, EvmTransaction, EvmLog]
-if ([chainIds.OPTIMISM].includes(config.CHAIN_ID)) {
+if ([chainIds.OPTIMISM, chainIds.ARBITRUM].includes(config.CHAIN_ID)) {
     entities.push(EvmReceipt)
 }
 
