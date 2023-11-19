@@ -48,7 +48,7 @@ class EvmRangeWorker {
     constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
-        this.cursor = from
+        this.cursor = to
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}
@@ -57,12 +57,12 @@ class EvmRangeWorker {
     }
 
     async run() {
-        while (this.cursor <= this.to) {
-            const start = this.cursor
-            const end = Math.min(this.cursor + this.groupSize - 1, this.to)
+        while (this.cursor >= this.from) {
+            const start = Math.max(this.cursor - this.groupSize + 1, this.from)
+            const end = this.cursor
             const groupBlockNumbers = range(start, end)
             await this._indexBlockGroup(groupBlockNumbers)
-            this.cursor = this.cursor + this.groupSize
+            this.cursor = this.cursor - this.groupSize
         }
         if (this.batchResults.length) {
             try {
