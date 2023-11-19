@@ -126,9 +126,10 @@ class PullLogsWorker {
         const blockTimestamps = await this._getCurrentBlockTimestamps(uniqueBlockNumbers)
         for (const log of logs) {
             const blockTimestamp = blockTimestamps[log.blockNumber.toString()]
-            if (!blockTimestamp) throw `No timestamp found for block ${log.blockNumber}`
+            if (!blockTimestamp) continue
             log.blockTimestamp = new Date(blockTimestamp).toISOString()
         }
+        logs = logs.filter(log => !!log.blockTimestamp)
 
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()

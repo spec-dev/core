@@ -149,18 +149,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-# image_version="5ecb035"
-
-# Arbitrum everything
-# image_version="6a3ae8c"
-
-# OP receipts
-# image_version="a7800e9"
-
-# image_version="9226e23"
-# image_version="edb2348"
-# image_version="1904641"
-image_version="062adce"
+image_version="77a30a0"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
