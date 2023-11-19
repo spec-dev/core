@@ -136,11 +136,12 @@ class PullTransactionsWorker {
         const addedBlockData = await this._getAddedBlockData(uniqueBlockHashes)
         for (const tx of transactions) {
             const data = addedBlockData[tx.blockHash]
-            if (!data) throw `No added block data found for tx ${tx.hash}, ${tx.blockHash}`
+            if (!data) continue
             const { number, timestamp } = data
             tx.blockNumber = Number(number)
             tx.blockTimestamp = new Date(timestamp).toISOString()
         }
+        transactions = transactions.filter(tx => !!tx.blockTimestamp)
 
         // Get all receipts for txs.
         const uniqueTxHashes = unique(transactions.map(t => t.hash))
