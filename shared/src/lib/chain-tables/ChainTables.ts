@@ -16,11 +16,13 @@ const urls = {
     [chainSpecificSchemas.PGN]: config.PGN_DB_URL,
     [chainSpecificSchemas.CELO]: config.CELO_DB_URL,
     [chainSpecificSchemas.LINEA]: config.LINEA_DB_URL,
+    [chainSpecificSchemas.SEPOLIA]: config.SEPOLIA_DB_URL,
 }
 
 const chainSchemasInSharedTables = new Set([
     chainSpecificSchemas.ETHEREUM,
     chainSpecificSchemas.GOERLI,
+    chainSpecificSchemas.SEPOLIA,
     chainSpecificSchemas.POLYGON,
     chainSpecificSchemas.MUMBAI,
 ])

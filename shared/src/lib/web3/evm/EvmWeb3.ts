@@ -877,6 +877,7 @@ export function newEvmWeb3ForChainId(
     switch (chainId) {
         case chainIds.ETHEREUM:
         case chainIds.GOERLI:
+        case chainIds.SEPOLIA:
             return newEthereumWeb3(url, isRangeMode, wsRpcTimeout)
         case chainIds.POLYGON:
         case chainIds.MUMBAI:

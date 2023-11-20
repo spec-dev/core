@@ -52,6 +52,8 @@ export const abiRedisKeys = {
     CELO_FUNCTION_SIGNATURES: 'celo-function-signatures',
     LINEA_CONTRACTS: 'linea-contracts',
     LINEA_FUNCTION_SIGNATURES: 'linea-function-signatures',
+    SEPOLIA_CONTRACTS: 'sepolia-contracts',
+    SEPOLIA_FUNCTION_SIGNATURES: 'sepolia-function-signatures',
     CONTRACT_GROUPS: 'contract-groups',
 }
 
@@ -77,6 +79,8 @@ const contractsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.CELO_CONTRACTS
         case chainIds.LINEA:
             return abiRedisKeys.LINEA_CONTRACTS
+        case chainIds.SEPOLIA:
+            return abiRedisKeys.SEPOLIA_CONTRACTS
         default:
             return null
     }
@@ -104,6 +108,8 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.CELO_FUNCTION_SIGNATURES
         case chainIds.LINEA:
             return abiRedisKeys.LINEA_FUNCTION_SIGNATURES
+        case chainIds.SEPOLIA:
+            return abiRedisKeys.SEPOLIA_FUNCTION_SIGNATURES
         default:
             return null
     }

@@ -32,6 +32,7 @@ class MultiChainRpcPool {
             [chainIds.PGN]: getEndpointsList(config.PGN_RPC_POOL_ENDPOINTS),
             [chainIds.CELO]: getEndpointsList(config.CELO_RPC_POOL_ENDPOINTS),
             [chainIds.LINEA]: getEndpointsList(config.LINEA_RPC_POOL_ENDPOINTS),
+            [chainIds.SEPOLIA]: getEndpointsList(config.SEPOLIA_RPC_POOL_ENDPOINTS),
         }
         this._buildPool()
         this.connectionIndexes = {}

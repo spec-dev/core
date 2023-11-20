@@ -14,7 +14,7 @@ env=$1
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev|base|op|arb|pgn|celo|linea"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev|base|op|arb|pgn|celo|linea|sepolia"
 
 # ======== SET KEY VARS ======== #
 
@@ -65,6 +65,7 @@ arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -104,6 +105,7 @@ $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # Chain Tables
 $shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
@@ -168,6 +170,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" )
 
 echo "Creating head reporter job resources..."

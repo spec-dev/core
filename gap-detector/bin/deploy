@@ -35,6 +35,7 @@ arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # Indexer Redis
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
@@ -58,6 +59,7 @@ arbitrum_head_reporter_queue_key=$( $shared_bin_dir/env_reader "arb" "HEAD_REPOR
 pgn_head_reporter_queue_key=$( $shared_bin_dir/env_reader "pgn" "HEAD_REPORTER_QUEUE_KEY" )
 celo_head_reporter_queue_key=$( $shared_bin_dir/env_reader "celo" "HEAD_REPORTER_QUEUE_KEY" )
 linea_head_reporter_queue_key=$( $shared_bin_dir/env_reader "linea" "HEAD_REPORTER_QUEUE_KEY" )
+sepolia_head_reporter_queue_key=$( $shared_bin_dir/env_reader "sepolia" "HEAD_REPORTER_QUEUE_KEY" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -80,6 +82,8 @@ $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
@@ -127,6 +131,7 @@ template=$( cat "$template_path" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_password|g" | \
     sed "s|{{INDEXER_DB_NAME}}|$indexer_db_name|g" | \
@@ -144,6 +149,7 @@ template=$( cat "$template_path" | \
     sed "s|{{PGN_HEAD_REPORTER_QUEUE_KEY}}|$pgn_head_reporter_queue_key|g" | \
     sed "s|{{CELO_HEAD_REPORTER_QUEUE_KEY}}|$celo_head_reporter_queue_key|g" | \
     sed "s|{{LINEA_HEAD_REPORTER_QUEUE_KEY}}|$linea_head_reporter_queue_key|g" | \
+    sed "s|{{SEPOLIA_HEAD_REPORTER_QUEUE_KEY}}|$sepolia_head_reporter_queue_key|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" )
 
 echo "Creating gap-detector job resources..."

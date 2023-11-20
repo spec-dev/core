@@ -6,11 +6,19 @@ import {
     SharedTables,
     toChunks,
     schemaForChainId,
-    sleep,
-} from '../../../shared/dist/main'
+    NewReportedHead,
+    EvmLog,
+    EvmTransaction,
+    fullEvmBlockUpsertConfig,
+    fullEvmLogUpsertConfig,
+    fullEvmTransactionUpsertConfig,
+    uniqueByKeys,
+    snakeToCamel,
+} from '../../../shared'
 import { exit } from 'process'
-import { createWsProviderPool, getWsProviderPool } from '../wsProviderPool'
-import chalk from 'chalk'
+import { createWsProviderPool } from '../wsProviderPool'
+import { getIndexer } from '../indexers'
+import { createWeb3Provider } from '../httpProviderPool'
 
 class TransactionFillWorker {
 
@@ -22,12 +30,25 @@ class TransactionFillWorker {
 
     cursor: number
 
-    constructor(from: number, to?: number | null, groupSize?: number) {
+    saveBatchMultiple: number
+
+    upsertConstraints: StringKeyMap
+
+    batchResults: any[] = []
+
+    chunkSize: number = 2000
+
+    saveBatchIndex: number = 0
+
+    constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
-        this.cursor = from
+        this.cursor = to
         this.groupSize = groupSize || 1
-        createWsProviderPool(true, 0)
+        this.saveBatchMultiple = saveBatchMultiple || 1
+        this.upsertConstraints = {}
+        createWeb3Provider(true)
+        createWsProviderPool(true)
     }
 
     async run() {
@@ -43,43 +64,158 @@ class TransactionFillWorker {
     }
 
     async _fillRange(start: number, end: number) {
-        const missing = (await SharedTables.query(
-            `SELECT s.id AS missing FROM generate_series(${start}, ${end}) s(id) WHERE NOT EXISTS (SELECT 1 FROM ${schemaForChainId[config.CHAIN_ID]}.blocks WHERE number = s.id)`
+        const missingSomePrimitive = (await SharedTables.query(
+            `SELECT s.id AS missing FROM generate_series(${start}, ${end}) s(id) WHERE NOT EXISTS (SELECT 1 FROM ${schemaForChainId[config.CHAIN_ID]}.transactions WHERE block_number = s.id LIMIT 1) OR NOT EXISTS (SELECT 1 FROM ${schemaForChainId[config.CHAIN_ID]}.logs WHERE block_number = s.id LIMIT 1)`
         )).map(r => parseInt(r.missing))
-        if (!missing.length) return
-
-        // Resolve blocks in range in batches and save them.
-        const blocks = await this._getBlocks(missing)
-        if (blocks.length !== missing.length) throw `Wasnt able to get all blocks missing in (${start}, ${end})`
-        await this._saveBlocks(blocks)
+        if (!missingSomePrimitive.length) return
+        await this._indexBlockGroup(missingSomePrimitive)
     }
 
-    async _getBlocks(numbers: number[]) {
-        const chunks = toChunks(numbers, 40)
-        const blocks = []
-        for (const chunk of chunks) {
-            await sleep(120)
-            blocks.push(...(await Promise.all(chunk.map(n => this._blockForNumber(n)))))
+    async _indexBlockGroup(blockNumbers: number[]) {
+        const indexResultPromises = []
+        for (const blockNumber of blockNumbers) {
+            indexResultPromises.push(this._indexBlock(blockNumber))
         }
-        return blocks
+
+        logger.info(`Indexing ${blockNumbers[0]} --> ${blockNumbers[blockNumbers.length - 1]}...`)
+
+        const indexResults = await Promise.all(indexResultPromises)
+        this.batchResults.push(...indexResults)
+        this.saveBatchIndex++
+
+        if (this.saveBatchIndex === this.saveBatchMultiple) {
+            this.saveBatchIndex = 0
+            const batchResults = [...this.batchResults]
+            try {
+                await this._saveBatchResults(batchResults)
+            } catch (err) {
+                logger.error(`Error saving batch: ${err}`)
+                return
+            }
+            this.batchResults = []
+        }
     }
 
-    async _blockForNumber(number: number) {
-        const { block } = await getWsProviderPool().getBlock(null, number, false)
-        return block
+    async _indexBlock(blockNumber: number): Promise<StringKeyMap | null> {
+        let result
+        try {
+            result = await getIndexer(this._atNumber(blockNumber)).perform()
+        } catch (err) {
+            logger.error(`Error indexing block ${blockNumber}:`, err)
+            return null
+        }
+        if (!result) return null
+
+        return result as StringKeyMap
     }
 
-    async _saveBlocks(blocks: StringKeyMap[]) {
-        logger.info(chalk.cyanBright(`Filling ${blocks.length} missing blocks...`))
+    _atNumber(blockNumber: number): NewReportedHead {
+        return {
+            id: 0,
+            chainId: config.CHAIN_ID,
+            blockNumber,
+            blockHash: null,
+            replace: false,
+            force: true,
+        }
+    }
+
+    async _saveBatches(batchResults: any[]) {
+        try {
+            await this._saveBatchResults(batchResults)
+        } catch (err) {
+            logger.error(`Error saving batch: ${err}`)
+        }
+    }
+
+    async _saveBatchResults(results: any[]) {
+        let transactions = []
+        let logs = []
+
+        for (const result of results) {
+            if (!result) continue
+            transactions.push(
+                ...result.transactions.map((t) => ({
+                    ...t,
+                    blockTimestamp: () => result.pgBlockTimestamp,
+                }))
+            )
+            logs.push(
+                ...result.logs.map((l) => ({ 
+                    ...l, 
+                    blockTimestamp: () => result.pgBlockTimestamp 
+                }))
+            )
+        }
+
+        if (!this.upsertConstraints.transaction && transactions.length) {
+            this.upsertConstraints.transaction = fullEvmTransactionUpsertConfig(transactions[0])
+        }
+        if (!this.upsertConstraints.log && logs.length) {
+            this.upsertConstraints.log = fullEvmLogUpsertConfig(logs[0])
+        }
+
+        transactions = this.upsertConstraints.transaction
+            ? uniqueByKeys(transactions, this.upsertConstraints.transaction[1])
+            : transactions
+
+        logs = this.upsertConstraints.log 
+            ? uniqueByKeys(logs, this.upsertConstraints.log[1].map(snakeToCamel)) : logs
 
         await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder()
-                .insert()
-                .into(EvmBlock)
-                .values(blocks)
-                .orIgnore()
-                .execute()
+            await Promise.all([
+                this._upsertTransactions(transactions, tx),
+                this._upsertLogs(logs, tx),
+            ])
         })
+    }
+
+    async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
+        if (!blocks.length) return
+        logger.info(`Saving ${blocks.length} blocks...`)
+        const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
+        await tx
+            .createQueryBuilder()
+            .insert()
+            .into(EvmBlock)
+            .values(blocks)
+            .orUpdate(updateBlockCols, conflictBlockCols)
+            .execute()
+    }
+
+    async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
+        if (!transactions.length) return
+        logger.info(`Saving ${transactions.length} transactions...`)
+        const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
+        await Promise.all(
+            toChunks(transactions, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EvmTransaction)
+                    .values(chunk)
+                    .orUpdate(updateTransactionCols, conflictTransactionCols)
+                    .execute()
+            })
+        )
+    }
+
+    async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
+        if (!logs.length) return []
+        logger.info(`Saving ${logs.length} logs...`)
+        const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
+        await Promise.all(
+            toChunks(logs, this.chunkSize).map((chunk) => {
+                return tx
+                    .createQueryBuilder()
+                    .insert()
+                    .into(EvmLog)
+                    .values(chunk)
+                    .orUpdate(updateLogCols, conflictLogCols)
+                    .returning('*')
+                    .execute()
+            })
+        )
     }
 }
 

@@ -4,7 +4,7 @@ import {
     LiveTable,
     TableSpec,
     ColumnSpec,
-} from 'https://esm.sh/@spec.dev/core@0.0.136'
+} from 'https://esm.sh/@spec.dev/core@0.0.138'
 import {
     ident,
     literal,
@@ -28,6 +28,7 @@ const chainIds = {
     PGN: '424',
     CELO: '42220',
     LINEA: '59144',
+    SEPOLIA: '11155111',
 }
 
 const chainNamespaces = {
@@ -41,6 +42,7 @@ const chainNamespaces = {
     PGN: 'pgn',
     CELO: 'celo',
     LINEA: 'linea',
+    SEPOLIA: 'sepolia',
 }
 
 const CONTRACTS_EVENT_NSP = 'contracts'
@@ -56,6 +58,7 @@ const nspForChainId = {
     [chainIds.PGN]: chainNamespaces.PGN,
     [chainIds.CELO]: chainNamespaces.CELO,
     [chainIds.LINEA]: chainNamespaces.LINEA,
+    [chainIds.SEPOLIA]: chainNamespaces.SEPOLIA,
 }
 
 const logError = error => console.error(JSON.stringify({ error }))

@@ -93,6 +93,8 @@ spec:
           value: {{CELO_DB_URL}}
         - name: LINEA_DB_URL
           value: {{LINEA_DB_URL}}
+        - name: SEPOLIA_DB_URL
+          value: {{SEPOLIA_DB_URL}}
         - name: FLIP
           value: tails
         - name: FORCE_COLOR

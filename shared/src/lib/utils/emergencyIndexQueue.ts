@@ -10,10 +10,11 @@ const queueKeys = {
     [chainIds.MUMBAI]: 'mumbai-hrq',
     [chainIds.BASE]: 'base-hrq',
     [chainIds.OPTIMISM]: 'op-hrq',
-    [chainIds.ARBITRUM]: 'arb-hrq',
+    [chainIds.ARBITRUM]: 'arb-hrq2',
     [chainIds.PGN]: 'pgn-hrq',
     [chainIds.CELO]: 'celo-hrq',
     [chainIds.LINEA]: 'linea-hrq',
+    [chainIds.SEPOLIA]: 'sepolia-hrq',
 }
 
 export async function enqueueBlock(
