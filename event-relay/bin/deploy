@@ -10,7 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 event_relay_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env=$1
+env="eth"
 
 # ======== VALIDATE ARGS ======== #
 
@@ -121,7 +121,7 @@ image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
 # image_version="2df4cbf"
-image_version="1c80b35"
+image_version="6b204fb"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
