@@ -95,7 +95,7 @@ class ResolveReceiptsWorker {
 
     async _getTxsHashesWithoutReceiptsInRange(start, end) {
         const results = await SharedTables.query(
-            `select hash, block_number from ${schemaForChainId[config.CHAIN_ID]}.transactions where block_number >= $1 and block_number < $2 and status is null`,
+            `select hash, block_number from ${schemaForChainId[config.CHAIN_ID]}.transactions where block_number >= $1 and block_number <= $2 and status is null`,
             [start, end]
         )
         const txHashes = []
