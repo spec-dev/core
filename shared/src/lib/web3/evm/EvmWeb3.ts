@@ -181,9 +181,6 @@ class EvmWeb3 {
         txHashes?: string[],
         chainId?: string
     ): Promise<ExternalEvmReceipt[]> {
-        if (this.isWebsockets) {
-            throw `[${chainId}] Can only resolve block receipts over HTTP at the moment`
-        }
         if (!blockHash && !isNumber(blockNumber)) {
             throw `[${chainId}] Block hash or number required`
         }

@@ -33,10 +33,14 @@ import { getTrimAbisWorker } from './trimAbisWorker'
 import { getPullReceiptsWorker } from './pullReceiptsWorker'
 import { getBlockFillWorker } from './blockFillWorker'
 import { getEvmRangeWorker } from './evmRangeWorker'
+import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'resolve-receipts') {
+        return getResolveReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'evm-range') {
         return getEvmRangeWorker()
