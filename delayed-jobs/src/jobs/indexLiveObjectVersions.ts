@@ -18,6 +18,11 @@ import {
     isValidAddress,
     contractNamespaceForChainId,
     supportedChainIds,
+    updatePublishAndDeployLiveObjectVersionJobStatus,
+    PublishAndDeployLiveObjectVersionJobStatus,
+    updatePublishAndDeployLiveObjectVersionJobCursor,
+    publishAndDeployLiveObjectVersionJobFailed,
+    updatePublishAndDeployLiveObjectVersionJobMetadata
 } from '../../../shared'
 import config from '../config'
 import { Pool } from 'pg'
@@ -39,6 +44,8 @@ export async function indexLiveObjectVersions(
     updateOpTrackingFloor: boolean,
     setLovToIndexingBefore: boolean,
     setLovToLiveAfter: boolean,
+    publishJobTableUid?: string,
+    liveObjectUid?: string,
     resetCountsForContractGroups: string[] = []
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
@@ -55,6 +62,7 @@ export async function indexLiveObjectVersions(
             inputIdsToLovIdsMap, 
             liveObjectVersions,
             indexingContractFactoryLov,
+            earliestStartCursor,
         } = (await getLovInputGenerator(lovIds, startTimestamp, targetBatchSize)) || {}
         if (!generateFrom) throw `Failed to get LOV input generator`
 
@@ -71,6 +79,20 @@ export async function indexLiveObjectVersions(
                 lovIds, 
                 LiveObjectVersionStatus.Indexing,
             )
+
+            if (publishJobTableUid && liveObjectUid) {
+                await updatePublishAndDeployLiveObjectVersionJobMetadata(
+                    publishJobTableUid,
+                    { liveObjectUid, startCursor: earliestStartCursor.toISOString() }
+                )
+            }
+
+            if (publishJobTableUid){
+                await updatePublishAndDeployLiveObjectVersionJobStatus(
+                    publishJobTableUid, 
+                    PublishAndDeployLiveObjectVersionJobStatus.Indexing,
+                )
+            }
         }
 
         // Index live object versions.
@@ -140,6 +162,15 @@ export async function indexLiveObjectVersions(
 
             contractRegistrationSequenceCount = 0
             cursor = results.nextStartDate
+
+            // if job is called by publishAndDeployLiveObjectVersionJob, update it's cursor
+            if (publishJobTableUid && cursor) {
+                await updatePublishAndDeployLiveObjectVersionJobCursor(
+                    publishJobTableUid,
+                    cursor
+                )
+            }
+
             if (!cursor || timer === null) break
         }
         generateFrom = null
@@ -151,6 +182,10 @@ export async function indexLiveObjectVersions(
             await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
         }
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
+
+        if (publishJobTableUid) {
+            await publishAndDeployLiveObjectVersionJobFailed(publishJobTableUid, err)
+        }
         return
     }
 
@@ -158,6 +193,18 @@ export async function indexLiveObjectVersions(
 
     // All done -> set to "live".
     if (!cursor) {
+        // if job is called by publishAndDeployLiveObjectVersionJob, update it's statis to complete
+        if (publishJobTableUid) {
+            await updatePublishAndDeployLiveObjectVersionJobStatus(
+                publishJobTableUid,
+                PublishAndDeployLiveObjectVersionJobStatus.Complete
+            )
+            await updatePublishAndDeployLiveObjectVersionJobCursor(
+                publishJobTableUid,
+                (new Date())
+            )
+        }
+
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
         for (const fullContractGroup of resetCountsForContractGroups) {
@@ -190,6 +237,7 @@ export async function indexLiveObjectVersions(
         updateOpTrackingFloor,
         setLovToIndexingBefore,
         setLovToLiveAfter,
+        publishJobTableUid,
         resetCountsForContractGroups,
     })
 }
@@ -509,7 +557,9 @@ export default function job(params: StringKeyMap) {
     const setLovToIndexingBefore = params.setLovToIndexingBefore === true
     const setLovToLiveAfter = params.setLovToLiveAfter !== false
     const resetCountsForContractGroups = params.resetCountsForContractGroups || []
-
+    const publishJobTableUid = params.publishJobTableUid
+    const liveObjectUid = params.liveObjectUid
+    
     return {
         perform: async () => indexLiveObjectVersions(
             lovIds,
@@ -523,6 +573,8 @@ export default function job(params: StringKeyMap) {
             updateOpTrackingFloor,
             setLovToIndexingBefore,
             setLovToLiveAfter,
+            publishJobTableUid,
+            liveObjectUid,
             resetCountsForContractGroups,
         )
     }

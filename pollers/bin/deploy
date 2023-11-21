@@ -46,6 +46,7 @@ arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
@@ -90,6 +91,7 @@ $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # Core Redis
 $shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
@@ -141,6 +143,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" )
 
 echo "Creating $job_name pollers job..."

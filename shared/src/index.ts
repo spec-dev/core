@@ -14,6 +14,7 @@ export {
     fullEvmTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTransaction'
 export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
+export { EvmReceipt } from './lib/shared-tables/db/entities/EvmReceipt'
 export {
     EvmTrace,
     EvmCallType,
@@ -217,6 +218,10 @@ export {
     ContractRegistrationJob,
     ContractRegistrationJobStatus,
 } from './lib/core/db/entities/ContractRegistrationJob'
+export {
+    PublishAndDeployLiveObjectVersionJob,
+    PublishAndDeployLiveObjectVersionJobStatus,
+} from './lib/core/db/entities/PublishAndDeployLiveObjectVersionJob'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -294,6 +299,7 @@ export {
     getLiveObject,
     upsertLiveObject,
     getLiveObjectByUid,
+    getLiveObjectForLov,
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
@@ -301,6 +307,7 @@ export {
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
+    updateLiveObjectVersionUrl,
     updateLiveObjectVersionConfig,
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
@@ -325,6 +332,14 @@ export {
     updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
 } from './lib/core/db/services/contractRegistrationJobServices'
+export {
+    createPublishAndDeployLiveObjectVersionJob,
+    getPublishAndDeployLiveObjectVersionJob,
+    updatePublishAndDeployLiveObjectVersionJobStatus,
+    updatePublishAndDeployLiveObjectVersionJobCursor,
+    publishAndDeployLiveObjectVersionJobFailed,
+    updatePublishAndDeployLiveObjectVersionJobMetadata,
+} from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
 export { In, Not, IsNull, Brackets } from 'typeorm'
 
 export {

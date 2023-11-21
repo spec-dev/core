@@ -22,6 +22,7 @@ const chainIds: { [key: string]: string } = {
     PGN: '424',
     CELO: '42220',
     LINEA: '59144',
+    SEPOLIA: '11155111',
 }
 
 export const supportedChainIds = new Set(Object.values(chainIds))
@@ -37,6 +38,7 @@ export const chainSpecificSchemas = {
     PGN: 'pgn',
     CELO: 'celo',
     LINEA: 'linea',
+    SEPOLIA: 'sepolia',
 }
 
 export const chainSpecificNamespaces = {
@@ -50,6 +52,7 @@ export const chainSpecificNamespaces = {
     PGN: 'pgn',
     CELO: 'celo',
     LINEA: 'linea',
+    SEPOLIA: 'sepolia',
 }
 
 export const nameForChainId = {
@@ -63,6 +66,7 @@ export const nameForChainId = {
     [chainIds.PGN]: 'PGN',
     [chainIds.CELO]: 'Celo',
     [chainIds.LINEA]: 'Linea',
+    [chainIds.SEPOLIA]: 'Sepolia',
 }
 
 export const fullNameForChainId = {
@@ -76,6 +80,7 @@ export const fullNameForChainId = {
     [chainIds.PGN]: 'PGN',
     [chainIds.CELO]: 'Celo',
     [chainIds.LINEA]: 'Linea',
+    [chainIds.SEPOLIA]: 'Sepolia',
 }
 
 export const nativeTokenSymbolForChainId = {
@@ -89,6 +94,7 @@ export const nativeTokenSymbolForChainId = {
     [chainIds.PGN]: 'ETH',
     [chainIds.CELO]: 'CELO',
     [chainIds.LINEA]: 'ETH',
+    [chainIds.SEPOLIA]: 'ETH',
 }
 
 export const chainIdForSchema = {
@@ -102,6 +108,7 @@ export const chainIdForSchema = {
     [chainSpecificSchemas.PGN]: chainIds.PGN,
     [chainSpecificSchemas.CELO]: chainIds.CELO,
     [chainSpecificSchemas.LINEA]: chainIds.LINEA,
+    [chainSpecificSchemas.SEPOLIA]: chainIds.SEPOLIA,
 }
 
 export const schemaForChainId = invert(chainIdForSchema)
@@ -117,6 +124,7 @@ export const namespaceForChainId = {
     [chainIds.PGN]: chainSpecificNamespaces.PGN,
     [chainIds.CELO]: chainSpecificNamespaces.CELO,
     [chainIds.LINEA]: chainSpecificNamespaces.LINEA,
+    [chainIds.SEPOLIA]: chainSpecificNamespaces.SEPOLIA,
 }
 const chainIdForNamespace = invert(namespaceForChainId)
 
@@ -131,6 +139,7 @@ export const chainIdLiveObjectVersionPropertyOptions = [
     chainIds.PGN,
     chainIds.CELO,
     chainIds.LINEA,
+    chainIds.SEPOLIA,
 ].map((chainId) => ({
     name: nameForChainId[chainId],
     value: chainId,
@@ -148,6 +157,7 @@ export const avgBlockTimesForChainId = {
     [chainIds.PGN]: 2,
     [chainIds.CELO]: 5,
     [chainIds.LINEA]: 12,
+    [chainIds.SEPOLIA]: 12,
 }
 
 const basePrimitives = [
@@ -234,6 +244,13 @@ export const primitivesForChainId = {
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.LINEA], p.table].join('.'),
+        })),
+        ...tokenPrimitives,
+    ],
+    [chainIds.SEPOLIA]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.SEPOLIA], p.table].join('.'),
         })),
         ...tokenPrimitives,
     ],

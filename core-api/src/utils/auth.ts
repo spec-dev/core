@@ -53,7 +53,7 @@ export async function userHasNamespacePermissions(
         })
     } catch (err) {
         logger.error(`Error finding NamespaceUser by userId=${userId}, nsp=${nsp}: ${err}`)
-        return null
+        return { canAccess: false }
     }
 
     let canAccess = false

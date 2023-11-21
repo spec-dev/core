@@ -16,7 +16,7 @@ import {
 /**
  * Publish a new live object version.
  */
-app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
+app.post(paths.ADMIN_PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
@@ -42,7 +42,7 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     const liveObject = await getLiveObject(namespace.id, payload.name)
     const latestLiveObjectVersion = liveObject && (await getLatestLiveObjectVersion(liveObject.id))
     if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
-        return res.status(codes.NOT_FOUND).json({ error: errors.VERSION_ALREADY_PUBLISHED })
+        return res.status(codes.NOT_FOUND).json({ error: errors.VERSIONS_MUST_INCREASE })
     }
 
     // Kick off delayed job to publish live object version.

@@ -2,6 +2,13 @@ import { ValidatedPayload, StringKeyMap, GenerateTestInputsPayload } from '../..
 import { supportedChainIds, toNumber, toDate } from '../../../../shared'
 import coreApiConfig from '../../config'
 
+export interface PublishLiveObjectVersionPayload {
+    nsp: string
+    name: string
+    version: string
+    folder: string
+}
+
 export interface ParseLatestLovRecordsPayload {
     id: string
     cursor: string | null
@@ -13,6 +20,45 @@ export interface GetLiveObjectVersionPayload {
 
 export interface LovRecordCountsPayload {
     ids: string[]
+}
+
+export function parsePublishLiveObjectVersionPayload(
+    data: StringKeyMap
+): ValidatedPayload<PublishLiveObjectVersionPayload> {
+    const nsp = data?.nsp
+    const name = data?.name
+    const version = data?.version
+    let folder = data?.folder
+
+    if (!nsp) {
+        return { isValid: false, error: 'No "nsp" given' }
+    }
+    if (!name) {
+        return { isValid: false, error: 'No "name" given' }
+    }
+    if (!version) {
+        return { isValid: false, error: 'No "version" given' }
+    }
+    if (!folder) {
+        return { isValid: false, error: 'No "folder" given' }
+    }
+
+    while (folder.startsWith('.') || folder.startsWith('/')) {
+        folder = folder.slice(1)
+    }
+    if (!folder) {
+        return { isValid: false, error: 'Invalid "folder" given' }
+    }
+
+    return {
+        isValid: true,
+        payload: {
+            nsp,
+            name,
+            version,
+            folder,
+        }
+    }
 }
 
 export function parseGenerateTestInputsPayload(

@@ -9,9 +9,13 @@ import {
     normalizeEthAddress,
     normalizeByteData,
     sleep,
+    unique,
+    decodeLogEvents,
+    schemaForChainId,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
+import { ident } from 'pg-format'
 
 class PullLogsWorker {
     
@@ -21,7 +25,7 @@ class PullLogsWorker {
 
     cursor: number
 
-    saveBatchSize: number = 200
+    saveBatchSize: number = 2000
 
     jsonStream: JSONStream
 
@@ -113,10 +117,19 @@ class PullLogsWorker {
     }
 
     async _saveLogs(logs: StringKeyMap[]) {
-        logs = uniqueByKeys(
-            logs.map((l) => this._bigQueryLogToPolygonLog(l)),
+        logs = decodeLogEvents(uniqueByKeys(
+            logs.map((l) => this._bigQueryLogToEvmLog(l)),
             ['logIndex', 'transactionHash']
-        )
+        ), {})
+
+        const uniqueBlockNumbers = unique(logs.map(l => l.blockNumber))
+        const blockTimestamps = await this._getCurrentBlockTimestamps(uniqueBlockNumbers)
+        for (const log of logs) {
+            const blockTimestamp = blockTimestamps[log.blockNumber.toString()]
+            if (!blockTimestamp) continue
+            log.blockTimestamp = new Date(blockTimestamp).toISOString()
+        }
+        logs = logs.filter(log => !!log.blockTimestamp)
 
         await SharedTables.manager.transaction(async (tx) => {
             await tx.createQueryBuilder()
@@ -130,7 +143,7 @@ class PullLogsWorker {
         await sleep(100)
     }
 
-    _bigQueryLogToPolygonLog(bqLog: StringKeyMap): StringKeyMap {
+    _bigQueryLogToEvmLog(bqLog: StringKeyMap): StringKeyMap {
         const topics = bqLog.topics || []
         const topic0 = topics[0] || null
         const topic1 = topics[1] || null
@@ -141,21 +154,22 @@ class PullLogsWorker {
             logIndex: Number(bqLog.log_index),
             transactionHash: bqLog.transaction_hash,
             transactionIndex: Number(bqLog.transaction_index),
-            address: normalizeEthAddress(bqLog.address),
+            address: normalizeEthAddress(bqLog.address, false),
             data: normalizeByteData(bqLog.data),
             topic0,
             topic1,
             topic2,
             topic3,
+            eventName: null,
+            eventArgs: null,
             blockHash: bqLog.block_hash,
             blockNumber: Number(bqLog.block_number),
-            blockTimestamp: new Date(bqLog.block_timestamp).toISOString(),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/polygon-logs/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/${schemaForChainId[config.CHAIN_ID]}-logs/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
@@ -164,6 +178,25 @@ class PullLogsWorker {
             result = '0' + result
         }
         return result
+    }
+
+    async _getCurrentBlockTimestamps(numbers: number[]): Promise<StringKeyMap> {
+        const schema = schemaForChainId[config.CHAIN_ID]
+        let i = 1
+        const placeholders = []
+        for (const number of numbers) {
+            placeholders.push(`$${i}`)
+            i++
+        }
+        const results = await SharedTables.query(
+            `select number, timestamp from ${ident(schema)}.blocks where number in (${placeholders.join(', ')})`,
+            numbers,
+        )
+        const m = {}
+        for (const { number, timestamp } of results) {
+            m[number.toString()] = timestamp
+        }
+        return m
     }
 }
 

@@ -30,16 +30,32 @@ import { getSeedErc20BalancesWithOwnersWorker } from './seedErc20BalancesWithOwn
 import { getAssignErc20BalancesWorker } from './assignErc20BalancesWorker'
 import { getSeedNativeErc20BalancesWithOwnersWorker } from './seedNativeErc20BalancesWithOwnersWorker'
 import { getTrimAbisWorker } from './trimAbisWorker'
+import { getPullReceiptsWorker } from './pullReceiptsWorker'
+import { getBlockFillWorker } from './blockFillWorker'
+import { getEvmRangeWorker } from './evmRangeWorker'
+import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'resolve-receipts') {
+        return getResolveReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'evm-range') {
+        return getEvmRangeWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-blocks') {
         return getPullBlocksWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-transactions') {
         return getPullTransactionsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-receipts') {
+        return getPullReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'fill-blocks') {
+        return getBlockFillWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'pull-logs') {
         return getPullLogsWorker()

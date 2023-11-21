@@ -14,7 +14,7 @@ env=$1
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev|base|op|arb|pgn|celo|linea"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|eth-dev|base|op|arb|pgn|celo|linea|sepolia"
 
 # ======== SET KEY VARS ======== #
 
@@ -65,6 +65,7 @@ arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # ======== VALIDATE REQUIRED VARS ======== #
 
@@ -99,11 +100,6 @@ $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
-$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
-$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
-$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
-$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
-$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
 
 # Chain Tables
 $shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
@@ -111,6 +107,12 @@ $shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
 $shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
 $shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
 $shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # ======== GET LATEST IMAGE ======== #
 
@@ -122,7 +124,7 @@ image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
 # image_version="14865fb"
-image_version="1c80b35"
+image_version="5a287db"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -168,6 +170,7 @@ template=$( cat "$template_path" | \
     sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" )
 
 echo "Creating head reporter job resources..."

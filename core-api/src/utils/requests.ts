@@ -25,7 +25,7 @@ export const errors = {
     LIVE_OBJECT_VERSION_NOT_FOUND: 'Live Object Version not found',
     NAMESPACE_MISSING_CODE_URL:
         'Namespace does not have a remote git repository assigned to it yet.',
-    VERSION_ALREADY_PUBLISHED: 'Version numbers must always increase',
+    VERSIONS_MUST_INCREASE: 'Version numbers must always increase',
     CONTRACT_INSTANCE_NOT_FOUND: 'Contract instance not found',
     INTERNAL_ERROR: 'Internal server error',
 }

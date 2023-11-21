@@ -24,11 +24,11 @@ class Logger {
     }
 
     warn(...args) {
-        console.warn(this._prefix(), ...args)
+        console.warn(this._prefix(), chalk.yellow(...args))
     }
 
     error(...args) {
-        console.error(this._prefix(), ...args)
+        console.error(this._prefix(), chalk.red(...args))
         useBS && Bugsnag.notify(args.join(' '))
     }
 

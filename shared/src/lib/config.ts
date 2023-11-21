@@ -123,6 +123,7 @@ const config: StringKeyMap = {
     PGN_DB_URL: ev('PGN_DB_URL'),
     CELO_DB_URL: ev('CELO_DB_URL'),
     LINEA_DB_URL: ev('LINEA_DB_URL'),
+    SEPOLIA_DB_URL: ev('SEPOLIA_DB_URL'),
 }
 
 config.INDEXER_REDIS_URL = `redis://${config.INDEXER_REDIS_HOST}:${config.INDEXER_REDIS_PORT}`

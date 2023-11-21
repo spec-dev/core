@@ -2,6 +2,7 @@ import { DelayedJobSpec } from '../../../shared'
 import decodeContractInteractions from './decodeContractInteractions'
 import indexLiveObjectVersions from './indexLiveObjectVersions'
 import publishLiveObjectVersion from './publishLiveObjectVersion'
+import publishAndDeployLiveObjectVersion from './publishAndDeployLiveObjectVersion'
 import registerContractInstances from './registerContractInstances'
 import resetContractGroupEventRecordCounts from './resetContractGroupEventRecordCounts'
 import upsertAbis from './upsertAbis'
@@ -11,6 +12,7 @@ const jobs = {
     indexLiveObjectVersions,
     publishLiveObjectVersion,
     registerContractInstances,
+    publishAndDeployLiveObjectVersion,
     resetContractGroupEventRecordCounts,
     upsertAbis,
 }

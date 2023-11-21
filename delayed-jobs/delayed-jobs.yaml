@@ -60,6 +60,8 @@ spec:
           value: {{CELO_DB_URL}}
         - name: LINEA_DB_URL
           value: {{LINEA_DB_URL}}
+        - name: SEPOLIA_DB_URL
+          value: {{SEPOLIA_DB_URL}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
@@ -93,7 +95,7 @@ spec:
         - name: MUMBAI_ALCHEMY_REST_URL
           value: {{MUMBAI_ALCHEMY_REST_URL}}
         - name: FLIP
-          value: tails
+          value: heads
         - name: FORCE_COLOR
           value: "1" 
         - name: BUGSNAG_API_KEY

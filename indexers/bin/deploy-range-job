@@ -17,7 +17,7 @@ range_worker_type="${4:-range}"
 
 # ======== VALIDATE ARGS ======== #
 
-$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|base|op|arb|pgn|celo|linea"
+$shared_bin_dir/validate_arg "env" "$env" "eth|goerli|polygon|mumbai|base|op|arb|pgn|celo|linea|sepolia"
 $shared_bin_dir/validate_arg "FROM" "$FROM"
 $shared_bin_dir/validate_arg "TO" "$TO"
 
@@ -78,6 +78,7 @@ arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # ABI Redis
 abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
@@ -135,6 +136,7 @@ $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # ABI Redis
 $shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
@@ -149,7 +151,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="68a771d"
+image_version="74b171c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -207,6 +209,7 @@ template=$( cat "$template_path" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{ABI_REDIS_HOST}}|$abi_redis_host|g" | \
     sed "s|{{ABI_REDIS_PORT}}|$abi_redis_port|g" )
 

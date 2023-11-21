@@ -12,4 +12,5 @@ export const queueNameForChainId = {
     [chainIds.PGN]: config.PGN_HEAD_REPORTER_QUEUE_KEY,
     [chainIds.CELO]: config.CELO_HEAD_REPORTER_QUEUE_KEY,
     [chainIds.LINEA]: config.LINEA_HEAD_REPORTER_QUEUE_KEY,
+    [chainIds.SEPOLIA]: config.SEPOLIA_HEAD_REPORTER_QUEUE_KEY,
 }

@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm'
 import { EvmBlock } from './entities/EvmBlock'
 import { EvmTransaction } from './entities/EvmTransaction'
 import { EvmLog } from './entities/EvmLog'
+import { EvmReceipt } from './entities/EvmReceipt'
 
 const urls = {
     [chainIds.ETHEREUM]: config.ETHEREUM_DB_URL,
@@ -17,6 +18,7 @@ const urls = {
     [chainIds.PGN]: config.PGN_DB_URL,
     [chainIds.CELO]: config.CELO_DB_URL,
     [chainIds.LINEA]: config.LINEA_DB_URL,
+    [chainIds.SEPOLIA]: config.SEPOLIA_DB_URL,
 }
 const url = urls[config.CHAIN_ID] || config.SHARED_TABLES_DB_URL
 
@@ -28,12 +30,25 @@ if (config.SHARED_TABLES_OPTIONS) {
     extra.options = config.SHARED_TABLES_OPTIONS
 }
 
+const entities: any = [EvmBlock, EvmTransaction, EvmLog]
+if (
+    [
+        chainIds.ETHEREUM,
+        chainIds.POLYGON,
+        chainIds.PGN,
+        chainIds.OPTIMISM,
+        chainIds.ARBITRUM,
+    ].includes(config.CHAIN_ID)
+) {
+    entities.push(EvmReceipt)
+}
+
 export const SharedTables = new DataSource({
     type: 'postgres',
     url,
     synchronize: false,
     logging: false,
-    entities: [EvmBlock, EvmTransaction, EvmLog],
+    entities,
     migrations: [],
     subscribers: [],
     extra,

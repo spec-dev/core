@@ -71,6 +71,8 @@ spec:
           value: {{CELO_DB_URL}}
         - name: LINEA_DB_URL
           value: {{LINEA_DB_URL}}
+        - name: SEPOLIA_DB_URL
+          value: {{SEPOLIA_DB_URL}}
         - name: INDEXER_REDIS_HOST
           value: {{INDEXER_REDIS_HOST}}
         - name: INDEXER_REDIS_PORT
@@ -80,7 +82,7 @@ spec:
         - name: JWT_SECRET
           value: {{JWT_SECRET}}
         - name: ROLES
-          value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader"
+          value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader,test"
         - name: FLIP
           value: tails
         - name: FORCE_COLOR
@@ -171,6 +173,8 @@ spec:
           value: {{CELO_DB_URL}}
         - name: LINEA_DB_URL
           value: {{LINEA_DB_URL}}
+        - name: SEPOLIA_DB_URL
+          value: {{SEPOLIA_DB_URL}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
         - name: JWT_SECRET

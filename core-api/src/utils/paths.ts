@@ -7,6 +7,7 @@ const prefix = {
     LIVE_OBJECT_VERSION: '/live-object-version',
     CONTRACT_INSTANCE: '/contract-instance',
     CONTRACT_REGISTRATION_JOB: '/contract-registration-job',
+    PUBLISH_LIVE_OBJECT_VERSION_JOB: '/publish-live-object-version-job',
     EVENT_VERSION: '/event-version',
     CALL_VERSION: '/call-version',
     PIPELINE: '/pipeline',
@@ -40,9 +41,10 @@ const paths = {
     LIVE_OBJECTS_SEARCH: prefix.LIVE_OBJECT + 's' + '/search',
 
     // Live Object Version paths.
-    PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
+    ADMIN_PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
     INDEX_LIVE_OBJECT_VERSIONS: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + 's' + '/index',
     GENERATE_LOV_TEST_INPUT_DATA: prefix.LIVE_OBJECT_VERSION + '/generate-test-inputs',
+    PUBLISH_LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION + '/publish',
     LATEST_LOV_RECORDS: prefix.LIVE_OBJECT_VERSION + '/latest-records',
     LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION,
     LOV_RECORD_COUNTS: prefix.LIVE_OBJECT_VERSION + 's' + '/record-counts',
@@ -63,6 +65,9 @@ const paths = {
 
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
+
+    // Live Object Version Job paths.
+    PUBLISH_LIVE_OBJECT_VERSION_JOB: prefix.PUBLISH_LIVE_OBJECT_VERSION_JOB,
 
     // Event Version paths.
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',

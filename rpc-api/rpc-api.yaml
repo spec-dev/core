@@ -45,6 +45,8 @@ spec:
           value: {{CELO_RPC_POOL_ENDPOINTS}}
         - name: LINEA_RPC_POOL_ENDPOINTS
           value: {{LINEA_RPC_POOL_ENDPOINTS}}
+        - name: SEPOLIA_RPC_POOL_ENDPOINTS
+          value: {{SEPOLIA_RPC_POOL_ENDPOINTS}}
         - name: PINATA_GATEWAY_ORIGIN
           value: {{PINATA_GATEWAY_ORIGIN}}
         - name: PINATA_GATEWAY_TOKEN

@@ -1,10 +1,13 @@
 import { LiveObject } from '../entities/LiveObject'
+import { LiveObjectVersion } from '../entities/LiveObjectVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { StringKeyMap } from '../../../types'
+import { fromNamespacedVersion } from '../../../utils/formatters'
 
 const liveObjects = () => CoreDB.getRepository(LiveObject)
+const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
 export async function createLiveObject(
     namespaceId: number,
@@ -73,4 +76,19 @@ export async function getLiveObjectByUid(uid: string): Promise<LiveObject | null
         return null
     }
     return liveObject
+}
+
+export async function getLiveObjectForLov(namespacedVersion: string): Promise<LiveObject | null> {
+    const { nsp, name, version } = fromNamespacedVersion(namespacedVersion)
+    let lovs
+    try {
+        lovs = await liveObjectVersions().find({
+            relations: { liveObject: true },
+            where: { nsp, name, version },
+        })
+    } catch (err) {
+        logger.error(`Error getting LiveObject for lov=${namespacedVersion}: ${err}`)
+        return null
+    }
+    return lovs[0]?.liveObject
 }

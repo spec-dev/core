@@ -82,6 +82,16 @@ export async function updateLiveObjectVersionProperties(id: number, properties: 
     return true
 }
 
+export async function updateLiveObjectVersionUrl(id: number, url: string) {
+    try {
+        await liveObjectVersions().createQueryBuilder().update({ url }).where({ id }).execute()
+    } catch (err) {
+        logger.error(`Error setting LiveObjectVersion(id=${id}) url to ${url}: ${err}`)
+        return false
+    }
+    return true
+}
+
 export async function updateLiveObjectVersionExample(id: number, example: StringKeyMap) {
     try {
         await liveObjectVersions().createQueryBuilder().update({ example }).where({ id }).execute()
