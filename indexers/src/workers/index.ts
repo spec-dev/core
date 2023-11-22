@@ -34,6 +34,7 @@ import { getPullReceiptsWorker } from './pullReceiptsWorker'
 import { getBlockFillWorker } from './blockFillWorker'
 import { getEvmRangeWorker } from './evmRangeWorker'
 import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
+import { getPullLegacyReceiptsWorker } from './pullLegacyReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -53,6 +54,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'pull-receipts') {
         return getPullReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-legacy-receipts') {
+        return getPullLegacyReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'fill-blocks') {
         return getBlockFillWorker()
