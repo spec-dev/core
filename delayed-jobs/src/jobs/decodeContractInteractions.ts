@@ -493,7 +493,7 @@ async function getAbisForContracts(contractAddresses: string[], chainId: string)
 async function findStartBlock(schema: string, tables: StringKeyMap, contractAddresses: string[]): Promise<number | null> {
     const blockNumbers = await Promise.all([
         findEarliestInteraction(schema, tables.transactions, 'to', contractAddresses),
-        findEarliestInteraction(schema, tables.traces, 'to', contractAddresses),
+        // findEarliestInteraction(schema, tables.traces, 'to', contractAddresses),
         findEarliestInteraction(schema, tables.logs, 'address', contractAddresses),
     ])
     const notNullBlockNumbers = blockNumbers.filter(n => n !== null)
