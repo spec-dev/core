@@ -332,6 +332,15 @@ async function cloneNamespaceRepo(
                 objectFolderPath: null
             }
         }
+
+        const dotSpecPath = path.join(pathToRepo, '.spec')
+        const abisPath = path.join(pathToRepo, 'abis')
+        const pathsToDelete = [dotSpecPath, abisPath]
+        for (const dir of pathsToDelete) {
+            if (fs.existsSync(dir)) {
+                fs.rmSync(dir, { recursive: true, force: true })
+            }
+        }
     } catch (error) {
         return {
             error: new Error(`Error parsing manifest from repo ${codeUrl}: ${error}`),
