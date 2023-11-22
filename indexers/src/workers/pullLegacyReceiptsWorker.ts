@@ -23,7 +23,7 @@ class PullLegacyReceiptsWorker {
 
     cursor: number
 
-    saveBatchSize: number = 2000
+    saveBatchSize: number = 2500
 
     jsonStream: JSONStream
 
@@ -115,10 +115,12 @@ class PullLegacyReceiptsWorker {
     }
 
     async _saveReceipts(receipts: StringKeyMap[]) {
-        receipts = uniqueByKeys(
+        receipts = (uniqueByKeys(
             receipts.map((l) => this._bigQueryReceiptToReceipt(l)),
             ['transactionHash']
-        )
+        )).filter(r => r.status !== null)
+        if (!receipts.length) return
+
         await SharedTables.createQueryBuilder()
             .insert()
             .into(EvmReceipt)
