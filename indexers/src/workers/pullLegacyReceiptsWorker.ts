@@ -128,10 +128,13 @@ class PullLegacyReceiptsWorker {
     }
 
     _bigQueryReceiptToReceipt(r: StringKeyMap): StringKeyMap {
+        let status = parseInt(r.receipt_status)
+        status = Number.isNaN(status) ? null : status
+        
         return {
             transactionHash: r.hash,
             contractAddress: normalizeEthAddress(r.receipt_contract_address, false),
-            status: r.receipt_status === null ? null : Number(r.receipt_status),
+            status,
             root: normalize32ByteHash(r.receipt_root),
             gasUsed: toString(r.receipt_gas_used),
             cumulativeGasUsed: toString(r.receipt_cumulative_gas_used),
