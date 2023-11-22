@@ -135,7 +135,7 @@ class PullReceiptsWorker {
         return {
             transactionHash: r.transaction_hash,
             contractAddress: normalizeEthAddress(r.contract_address, false),
-            status: r === null ? null : Number(r.status),
+            status: r.status === null ? null : Number(r.status),
             root: normalize32ByteHash(r.root),
             gasUsed: toString(r.gas_used),
             cumulativeGasUsed: toString(r.cumulative_gas_used),

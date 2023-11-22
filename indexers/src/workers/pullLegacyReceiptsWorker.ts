@@ -131,7 +131,7 @@ class PullLegacyReceiptsWorker {
         return {
             transactionHash: r.hash,
             contractAddress: normalizeEthAddress(r.receipt_contract_address, false),
-            status: r === null ? null : Number(r.receipt_status),
+            status: r.receipt_status === null ? null : Number(r.receipt_status),
             root: normalize32ByteHash(r.receipt_root),
             gasUsed: toString(r.receipt_gas_used),
             cumulativeGasUsed: toString(r.receipt_cumulative_gas_used),
