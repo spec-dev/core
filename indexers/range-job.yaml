@@ -117,8 +117,6 @@ spec:
           value: {{LINEA_DB_URL}}
         - name: SEPOLIA_DB_URL
           value: {{SEPOLIA_DB_URL}}
-        - name: SINGLE_CHAIN_TABLE
-          value: "true"
         - name: ABI_REDIS_HOST
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT

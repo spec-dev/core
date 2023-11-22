@@ -17,6 +17,7 @@ const urls = {
     [chainSpecificSchemas.CELO]: config.CELO_DB_URL,
     [chainSpecificSchemas.LINEA]: config.LINEA_DB_URL,
     [chainSpecificSchemas.SEPOLIA]: config.SEPOLIA_DB_URL,
+    receipts: process.env.RECEIPTS_DB_URL,
 }
 
 const chainSchemasInSharedTables = new Set([
