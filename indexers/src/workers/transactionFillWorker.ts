@@ -162,19 +162,17 @@ class TransactionFillWorker {
         logs = this.upsertConstraints.log 
             ? uniqueByKeys(logs, this.upsertConstraints.log[1].map(snakeToCamel)) : logs
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-            ])
-        })
+        await Promise.all([
+            this._upsertTransactions(transactions),
+            this._upsertLogs(logs),
+        ])
     }
 
-    async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
+    async _upsertBlocks(blocks: StringKeyMap[]) {
         if (!blocks.length) return
         logger.info(`Saving ${blocks.length} blocks...`)
         const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
-        await tx
+        await SharedTables
             .createQueryBuilder()
             .insert()
             .into(EvmBlock)
@@ -183,13 +181,13 @@ class TransactionFillWorker {
             .execute()
     }
 
-    async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
+    async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         logger.info(`Saving ${transactions.length} transactions...`)
         const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EvmTransaction)
@@ -200,13 +198,13 @@ class TransactionFillWorker {
         )
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
+    async _upsertLogs(logs: StringKeyMap[]): Promise<StringKeyMap[]> {
         if (!logs.length) return []
         logger.info(`Saving ${logs.length} logs...`)
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         await Promise.all(
             toChunks(logs, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EvmLog)
