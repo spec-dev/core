@@ -36,6 +36,7 @@ import { getEvmRangeWorker } from './evmRangeWorker'
 import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
 import { getPullLegacyReceiptsWorker } from './pullLegacyReceiptsWorker'
 import { getTransactionFillWorker } from './transactionFillWorker'
+import { getResolveLegacyReceiptsWorker } from './resolveLegacyReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
@@ -46,6 +47,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'resolve-receipts') {
         return getResolveReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'resolve-legacy-receipts') {
+        return getResolveLegacyReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'evm-range') {
         return getEvmRangeWorker()

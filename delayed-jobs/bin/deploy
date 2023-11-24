@@ -110,14 +110,8 @@ image_org=$( $shared_bin_dir/env_reader "$env" "DOCKER_IMAGE_ORG" )
 image_name=$( $shared_bin_dir/env_reader "$env" "DELAYED_JOBS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
-image_version=$( $shared_bin_dir/latest_sha )
-
-# turn off contract decoding job
-# image_version="57bbc05"
-
-# image_version="6fd6bcc"
-# image_version="1c80b35"
-image_version="6b204fb"
+# image_version=$( $shared_bin_dir/latest_sha )
+image_version="b641e8b"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

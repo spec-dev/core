@@ -43,7 +43,7 @@ class TransactionFillWorker {
     constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
-        this.cursor = to
+        this.cursor = from
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}

@@ -456,3 +456,5 @@ export { resolveMetadata } from './lib/services/resolveMetadata'
 export { contractGroupNameFromNamespace } from './lib/utils/extract'
 import ChainTables from './lib/chain-tables/ChainTables'
 export { ChainTables }
+import parseDbUrl from 'parse-database-url'
+export { parseDbUrl }

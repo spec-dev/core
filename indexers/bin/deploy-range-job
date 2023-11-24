@@ -155,7 +155,7 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # arb logs
 # image_version="74b171c"
 
-image_version="963936a"
+image_version="24dd544"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
