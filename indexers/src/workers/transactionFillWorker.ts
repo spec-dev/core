@@ -168,19 +168,6 @@ class TransactionFillWorker {
         ])
     }
 
-    async _upsertBlocks(blocks: StringKeyMap[]) {
-        if (!blocks.length) return
-        logger.info(`Saving ${blocks.length} blocks...`)
-        const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
-        await SharedTables
-            .createQueryBuilder()
-            .insert()
-            .into(EvmBlock)
-            .values(blocks)
-            .orUpdate(updateBlockCols, conflictBlockCols)
-            .execute()
-    }
-
     async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         logger.info(`Saving ${transactions.length} transactions...`)
