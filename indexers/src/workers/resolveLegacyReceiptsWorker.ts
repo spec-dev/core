@@ -65,7 +65,7 @@ class ResolveLegacyReceiptsWorker {
         }
         if (this.batchResults.length) {
             const batchResults = [...this.batchResults]
-            await this._saveBatchResults(batchResults)
+            await Promise.all(toChunks(batchResults, 2000).map(chunk => this._saveBatchResults(chunk)))
             this.batchResults = []
         }
         logger.info('DONE')
@@ -103,7 +103,7 @@ class ResolveLegacyReceiptsWorker {
         this.batchResults.push(...Object.values(receiptsMap))
         if (this.batchResults.length >= 2000) {
             const batchResults = [...this.batchResults]
-            await this._saveBatchResults(batchResults)
+            await Promise.all(toChunks(batchResults, 2000).map(chunk => this._saveBatchResults(chunk)))
             this.batchResults = []
         }
     }
