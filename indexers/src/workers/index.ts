@@ -35,10 +35,14 @@ import { getBlockFillWorker } from './blockFillWorker'
 import { getEvmRangeWorker } from './evmRangeWorker'
 import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
 import { getPullLegacyReceiptsWorker } from './pullLegacyReceiptsWorker'
+import { getTransactionFillWorker } from './transactionFillWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'fill-txs') {
+        return getTransactionFillWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'resolve-receipts') {
         return getResolveReceiptsWorker()
