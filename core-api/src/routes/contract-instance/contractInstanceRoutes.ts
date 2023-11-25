@@ -2,7 +2,7 @@ import { app } from '../express'
 import paths from '../../utils/paths'
 import { parseContractRegistrationPayload } from './contractInstancePayloads'
 import { codes, errors, authorizeRequestForNamespace } from '../../utils/requests'
-import { enqueueDelayedJob, getNamespace, NamespaceAccessTokenScope, contractNamespaceForChainId, addContractInstancesToGroup, logger } from '../../../../shared'
+import { enqueueDelayedJob, getNamespace, NamespaceAccessTokenScope, contractNamespaceForChainId, addContractInstancesToGroup, logger, createContractRegistrationJob } from '../../../../shared'
 import uuid4 from 'uuid4'
 
 /**
@@ -16,7 +16,8 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
     }
 
     // Find namespace by slug.
-    const namespace = await getNamespace(payload.nsp)
+    const nsp = payload.nsp
+    const namespace = await getNamespace(nsp)
     if (!namespace) {
         return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
@@ -28,20 +29,28 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
     ]
     if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
-    // Create a uid ahead of time that will be used as the uid for a new ContractRegistrationJob
-    // that will get created inside of the registerContractInstances delayed job. We're creating
-    // this uid now so that we can return it to the caller and they can poll for the job status.
-    const uid = uuid4()
-
-    // Kick off delayed job to register contract instances.
-    const scheduled = await enqueueDelayedJob('registerContractInstances', { ...payload, uid })
-    if (!scheduled) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
+    const job = await createContractRegistrationJob(payload)
+    if (!job) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+    }
+    
+    // Kick off delayed jobs to register contract instances.
+    for (let i = 0; i < payload.groups.length; i++) {
+        const group = payload.groups[i]
+        const scheduled = await enqueueDelayedJob('registerContractInstances', { 
+            nsp,
+            groupIndex: i,
+            uid: job.uid,
+            ...group,
+        })
+        if (!scheduled) {
+            return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
+        }
     }
 
-    return res.status(codes.SUCCESS).json({ ok: true, uid })
+    return res.status(codes.SUCCESS).json({ ok: true, uid: job.uid })
 })
-    
+
 /**
  * [SYNC] Add new contract instances to an existing group.
  */

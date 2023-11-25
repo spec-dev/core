@@ -37,67 +37,29 @@ const errors = {
 }
 
 async function registerContractInstances(
-    chainId: string,
     nsp: string,
-    contractName: string,
-    contractDesc: string,
+    groupIndex: number,
+    uid: string,
+    name: string,
     instances: NewContractInstancePayload[],
     abi?: Abi,
-    uid?: string,
 ) {
-    // Unique-ify the instances by address.
-    const seenAddresses = new Set<string>()
-    const uniqueInstances = []
-    for (const instance of instances) {
-        instance.address = instance.address.toLowerCase()
-        if (seenAddresses.has(instance.address)) continue
-        seenAddresses.add(instance.address)
-        uniqueInstances.push(instance)
-    }
-
-    const contractAddresses = Array.from(seenAddresses)
-    logger.info(`[${chainId}:${nsp}.${contractName}]: Registering ${contractAddresses.length} contract instances: ${contractAddresses.join(', ')}`)
+    const group = [nsp, name].join('.')
+    logger.info(`[${group}]: Adding ${instances.length} contract instances...`)
     
-    // Create new registration job to track progress.
-    try {
-        uid = uid || uuid4()
-        await createContractRegistrationJob(
-            nsp,
-            contractName,
-            contractAddresses,
-            chainId,
-            uid,
-        )
-    } catch (err) {
-        logger.error(err)
-        return
-    }
-
-    // Get chain-specific contract nsp ("eth.contracts", "polygon.contracts", etc.)
-    const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
-    if (!chainSpecificContractNsp) {
-        await contractRegistrationJobFailed(uid, errors.GENERAL)
-        logger.error(`[${chainId}:${nsp}.${contractName}]: No contract namespace for chain id: ${chainId}`)
-        return
-    }
-
-    // Ex: "eth.contracts.gitcoin.GovernorAlpha"
-    const contractGroup = [nsp, contractName].join('.')
-    const fullNsp = [chainSpecificContractNsp, contractGroup].join('.')
-
-    // Find other existing contract instances in this group (contract-specific namespace).
-    const existingContractInstances = await getContractInstancesInNamespace(fullNsp)
+    // Find all existing contract instances in this group.
+    const existingContractInstances = await getContractInstancesInNamespace(group)
     if (existingContractInstances === null) {
         await contractRegistrationJobFailed(uid, errors.GENERAL)
         return
     }
-    const allInstancePayloads = uniqueByKeys([
+    const allInstances = uniqueByKeys([
         ...instances,
-        ...existingContractInstances.map(({ address, name, desc }) => ({ address, name, desc })),
-    ], ['address']) as NewContractInstancePayload[]
+        ...existingContractInstances.map(({ address, chainId }) => ({ address, chainId })),
+    ], ['address', 'chainId']) as NewContractInstancePayload[]
 
     // Resolve and merge ABIs for all contract instances in this group.
-    const { groupAbi, error } = await resolveAbis(chainId, contractGroup, allInstancePayloads, abi)
+    const { groupAbi, error } = await resolveAbis(group, allInstances, abi)
     if (error) {
         await contractRegistrationJobFailed(uid, error)
         return
@@ -112,10 +74,7 @@ async function registerContractInstances(
 
     // Upsert namespace, contract, contract instances, events, and event versions.
     const eventSpecs = await saveDataModels(
-        chainId,
-        fullNsp,
-        contractName,
-        contractDesc,
+        group,
         instances,
         existingContractInstances,
         eventAbiItems, 
@@ -125,48 +84,78 @@ async function registerContractInstances(
         return
     }
     if (!eventSpecs.length) {
-        logger.warn(`[${fullNsp}] No contract events to create live objects for.`)
+        logger.warn(`[${group}] No contract events to create live objects for.`)
     }
 
     // Package what's needed to turn these contract events into views and live objects.
     const dataModelSpecs = eventSpecs.map(eventSpec => (
-        designDataModelsFromEventSpec(eventSpec, nsp, chainId)
+        designDataModelsFromEventSpec(eventSpec, nsp)
     ))
 
     // Upsert views and live object versions for each contract event.
-    for (const { viewSpec, lovSpec } of dataModelSpecs) {
-        let success = await upsertContractEventView(viewSpec, chainId, true)
-        success = success ? await publishContractEventLiveObject(viewSpec.namespace, lovSpec) : false
-        if (!success) {
+    for (const { lovSpec, viewSpecs } of dataModelSpecs) {
+        for (const viewSpec of viewSpecs) {
+            if (!(await upsertContractEventView(viewSpec, true))) {
+                await contractRegistrationJobFailed(uid, errors.LIVE_OBJECTS)
+                return     
+            }
+        }
+        if (!(await publishContractEventLiveObject(viewSpecs[0].namespace, lovSpec))) {
             await contractRegistrationJobFailed(uid, errors.LIVE_OBJECTS)
-            return
+            return     
         }
     }
+
+    /*
+    TODO:
+    -----
+    Find and cache some structure that holds:
+        - the earliest start block for this group (for each chain)
+        - the earliest start block for each event for each chain
+    This is the same structure that will be fetched in pre-flight when backfilling an event table.
     
-    // Kick-off job to back-decode all contract interactions.
+    For the below logic, split each address into X number of parallel sub-jobs to speed up decoding.
+    */
+    
+    // Kick off job to back-decode all contract interactions.
     // Enqueue jobs 1 contract at a time for database lookup reasons (may adjust in future).
-    for (const contractAddress of contractAddresses) {
+    for (const { chainId, address } of instances) {
         await enqueueDelayedJob('decodeContractInteractions', {
-            chainId, 
+            group,
+            chainId,
+            contractAddresses: [address],
             registrationJobUid: uid,
-            contractAddresses: [contractAddress],
-            fullContractGroup: fullNsp,
+            groupIndex,
         })
     }
 }
 
 async function resolveAbis(
-    chainId: string,
-    contractGroup: string,
+    group: string,
     instances: NewContractInstancePayload[],
     givenAbi?: Abi,
 ): Promise<StringKeyMap> {
-    const addresses = instances.map(i => i.address)
-    let [crossGroupAbisMap, existingGroupAbi] = await Promise.all([
-        getAbis(addresses, chainId),
-        getContractGroupAbi(contractGroup)
-    ])
-    if (crossGroupAbisMap === null || existingGroupAbi === null) {
+    const addressesByChainId = {}
+    for (const { chainId, address } of instances) {
+        addressesByChainId[chainId] = addressesByChainId[chainId] || []
+        addressesByChainId[chainId].push(address)
+    }
+
+    let crossGroupAbisMap = {}
+    for (const [chainId, addresses] of Object.entries(addressesByChainId)) {
+        const chainGroupAbis = await getAbis(addresses as string[], chainId)
+        if (chainGroupAbis === null) {
+            return { error: errors.ABI_RESOLUTION_FAILED }
+        }
+        for (const address in chainGroupAbis) {
+            const abi = chainGroupAbis[address]
+            const key = [chainId, address].join(':')
+            crossGroupAbisMap[key] = abi
+        }
+    }
+
+    let existingGroupAbi = await getContractGroupAbi(group)
+    if (existingGroupAbi === null) {
         return { error: errors.ABI_RESOLUTION_FAILED }
     }
 
@@ -176,8 +165,9 @@ async function resolveAbis(
         givenAbi.forEach(item => {
             delete item.signature // delete to prevent spoofing during polishing.
         })
-        addresses.forEach(address => {
-            abisMap[address] = givenAbi
+        instances.forEach(({ chainId, address }) => {
+            const key = [chainId, address].join(':')
+            abisMap[key] = givenAbi
         })
     }
     // Error out if no ABI is given and no group ABI exists yet.
@@ -186,8 +176,9 @@ async function resolveAbis(
     }
     // Assign current group abi to given addresses.
     else {
-        addresses.forEach(address => {
-            abisMap[address] = existingGroupAbi
+        instances.forEach(({ chainId, address }) => {
+            const key = [chainId, address].join(':')
+            abisMap[key] = existingGroupAbi
         })
     }
 
@@ -196,14 +187,17 @@ async function resolveAbis(
     const [polishedCrossGroupAbisMap, __] = polishAbis(crossGroupAbisMap)
 
     const crossGroupAbiSignatures = {}
-    const crossGroupAddresses = unique([...addresses, ...Object.keys(polishedCrossGroupAbisMap)])
-    for (const address of crossGroupAddresses) {
+    const crossGroupKeys = unique([
+        ...instances.map(i => [i.chainId, i.address].join(':')), 
+        ...Object.keys(polishedCrossGroupAbisMap)
+    ])
+    for (const key of crossGroupKeys) {
         const itemsBySig = {}
-        const items = polishedCrossGroupAbisMap[address] || []
+        const items = polishedCrossGroupAbisMap[key] || []
         items.forEach(item => {
             itemsBySig[item.signature] = item
         })
-        crossGroupAbiSignatures[address] = itemsBySig
+        crossGroupAbiSignatures[key] = itemsBySig
     }
 
     // Merge ABI items for the group.
@@ -211,8 +205,8 @@ async function resolveAbis(
     existingGroupAbi.forEach(item => {
         mergedAbiItemsBySignature[item.signature] = item
     })
-    for (const address in polishedAbisMap) {
-        for (const item of polishedAbisMap[address]) {
+    for (const key in polishedAbisMap) {
+        for (const item of polishedAbisMap[key]) {
             if (!mergedAbiItemsBySignature.hasOwnProperty(item.signature)) {
                 mergedAbiItemsBySignature[item.signature] = item
             }
@@ -222,34 +216,32 @@ async function resolveAbis(
     // Apply the new group items to each individual cross-group ABI.
     for (const signature in mergedAbiItemsBySignature) {
         const item = mergedAbiItemsBySignature[signature]
-        for (const address in crossGroupAbiSignatures) {
-            if (!crossGroupAbiSignatures[address].hasOwnProperty(signature)) {
-                crossGroupAbiSignatures[address][signature] = item
+        for (const key in crossGroupAbiSignatures) {
+            if (!crossGroupAbiSignatures[key].hasOwnProperty(signature)) {
+                crossGroupAbiSignatures[key][signature] = item
             }
         }
-    }
-    const newCrossGroupAbisMap = {}
-    for (const address in crossGroupAbiSignatures) {
-        newCrossGroupAbisMap[address] = Object.values(crossGroupAbiSignatures[address])
     }
 
     // Flatten back to list of items (classic ABI type structure).
     const newGroupAbi = Object.values(mergedAbiItemsBySignature) as Abi
+    await saveContractGroupAbi(group, newGroupAbi)
 
-    // Save ABIs for the individual addresses (cross group) as well as the new group ABI.
-    await Promise.all([
-        saveAbisMap(newCrossGroupAbisMap, chainId),
-        saveContractGroupAbi(contractGroup, newGroupAbi)
-    ])
+    const newCrossGroupAbisMap = {}
+    for (const key in crossGroupAbiSignatures) {
+        const [chainId, address] = key.split(':')
+        newCrossGroupAbisMap[chainId] = newCrossGroupAbisMap[chainId] || {}
+        newCrossGroupAbisMap[chainId][address] = Object.values(crossGroupAbiSignatures[key])
+    }
+    for (const [chainId, chainAbisMap] of Object.entries(newCrossGroupAbisMap)) {
+        await saveAbisMap(chainAbisMap, chainId)
+    }
 
     return { groupAbi: newGroupAbi }
 }
 
 async function saveDataModels(
-    chainId: string,
-    fullNsp: string,
-    contractName: string,
-    contractDesc: string,
+    group: string,
     contractInstancePayloads: NewContractInstancePayload[],
     existingContractInstances: ContractInstance[],
     eventAbiItems: AbiItem[],
@@ -259,26 +251,33 @@ async function saveDataModels(
         await CoreDB.manager.transaction(async (tx) => {
             // Upsert contract and namespace.
             const contract = existingContractInstances[0]?.contract || await upsertContractAndNamespace(
-                fullNsp,
-                contractName,
-                contractDesc,
-                chainId,
+                group,
                 tx,
             )
 
             // Upsert contract instances.
-            const contractInstances = await upsertContractInstances(contract.id, contractInstancePayloads, chainId, tx)
+            const contractInstances = await upsertContractInstances(
+                contract.id, 
+                contract.name,
+                contractInstancePayloads, 
+                tx,
+            )
             const allGroupContractInstances = uniqueByKeys([
                 ...contractInstances,
                 ...existingContractInstances,
-            ], ['address']) as ContractInstance[]
+            ], ['chainId', 'address']) as ContractInstance[]
 
             // Upsert events with versions for each event abi item.
-            eventSpecs = await upsertContractEvents(contract, allGroupContractInstances, eventAbiItems, chainId, tx)
+            eventSpecs = await upsertContractEvents(
+                contract, 
+                allGroupContractInstances, 
+                eventAbiItems, 
+                tx,
+            )
         })
     } catch (err) {
         logger.error(
-            `Failed to save data models while registering contracts under ${fullNsp}: ${err}`
+            `Failed to save data models while registering contracts under ${group}: ${err}`
         )
         return null
     }
@@ -287,40 +286,38 @@ async function saveDataModels(
 
 async function upsertContractInstances(
     contractId: number,
+    contractName: string,
     contractInstancePayloads: NewContractInstancePayload[],
-    chainId: string,
     tx: any,
 ): Promise<ContractInstance[]> {
     const contractInstancesData = contractInstancePayloads.map(instance => ({
-        chainId,
+        chainId: instance.chainId,
         address: instance.address,
-        name: instance.name,
-        desc: instance.desc,
+        name: contractName,
+        desc: '',
         contractId,
     }))
     return await upsertContractInstancesWithTx(contractInstancesData, tx)
 }
 
 export default function job(params: StringKeyMap) {
-    const chainId = params.chainId
     const nsp = params.nsp
-    const contractName = params.name
-    const contractDesc = params.desc || ''
+    const groupIndex = params.groupIndex
+    const uid = params.uid
+    const name = params.name
     const instances = params.instances || []
     const abi = params.abi
-    const uid = params.uid
 
     return {
         perform: async () => {
             try {
                 await registerContractInstances(
-                    chainId, 
-                    nsp, 
-                    contractName,
-                    contractDesc,
+                    nsp,
+                    groupIndex,
+                    uid,
+                    name,
                     instances,
                     abi,
-                    uid,
                 )    
             } catch (err) {
                 logger.error(err)

@@ -32,18 +32,19 @@ export interface DelayedJobSpec {
 }
 
 export interface ContractRegistrationPayload {
-    chainId: string
     nsp: string
+    groups: NewContractGroupPayload[]
+}
+
+export interface NewContractGroupPayload {
     name: string
-    desc: string
     instances: NewContractInstancePayload[]
     abi?: Abi
 }
 
 export interface NewContractInstancePayload {
     address: string
-    name: string
-    desc?: string
+    chainId: string
 }
 
 export interface PublishLiveObjectVersionPayload {
@@ -60,11 +61,11 @@ export interface PublishLiveObjectVersionPayload {
 }
 
 export interface ContractEventViewSpec {
-    schema: string
+    chainId: string
     name: string
     columnNames: string[]
     numEventArgs: number
-    contractInstances: ContractInstance[]
+    addresses: string[]
     contractName: string
     namespace: Namespace
     eventName: string
@@ -78,5 +79,4 @@ export interface ContractEventSpec {
     namespace: Namespace
     abiItem: AbiItem
     namespacedVersion: string
-    chainId: string
 }

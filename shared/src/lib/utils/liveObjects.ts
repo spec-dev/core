@@ -94,9 +94,8 @@ export function buildContractEventAsLiveObjectVersionPayload(
     contractName: string,
     eventName: string,
     namespacedEventVersion: string,
-    chainId: string,
     eventParams: AbiItemInput[],
-    viewPath: string
+    viewName: string
 ): PublishLiveObjectVersionPayload {
     // Format event abi inputs as live object version properties.
     const eventParamProperties = eventParams.map(formatEventParamAsProperty)
@@ -119,7 +118,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
         name: eventName,
         version: fullNspComps.version,
         displayName: eventName,
-        description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
+        description: `${nsp}.${contractName}.${eventName} contract event.`,
         properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
         config: {
             folder: [fullNspComps.nsp, fullNspComps.name].join('.').replace(/\./gi, '/'),
@@ -130,7 +129,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
                     fixedEventViewProperties.LOG_INDEX.name,
                 ],
             ],
-            table: viewPath,
+            table: ['spec', viewName].join('.'),
         },
         inputEvents: [],
         inputCalls: [],

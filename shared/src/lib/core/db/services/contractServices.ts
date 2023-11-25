@@ -59,10 +59,9 @@ export async function upsertContracts(
 export async function upsertContractWithTx(
     namespaceId: number,
     name: string,
-    desc: string,
     tx: any
 ): Promise<Contract | null> {
-    const data = { namespaceId, name, desc, uid: uuid4() }
+    const data = { namespaceId, name, desc: '', uid: uuid4() }
     return (
         (
             await tx

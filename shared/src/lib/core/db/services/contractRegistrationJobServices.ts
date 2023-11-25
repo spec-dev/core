@@ -5,30 +5,38 @@ import {
     ContractRegistrationJobStatus,
 } from '../entities/ContractRegistrationJob'
 import uuid4 from 'uuid4'
-import { StringKeyMap } from '../../../types'
+import { ContractRegistrationPayload } from '../../../types'
 
 const contractRegistrationJobsRepo = () => CoreDB.getRepository(ContractRegistrationJob)
 
 export async function createContractRegistrationJob(
-    nsp: string,
-    contractName: string,
-    addresses: string[],
-    chainId: string,
-    uid?: string | null
+    data: ContractRegistrationPayload
 ): Promise<ContractRegistrationJob> {
     const contractRegistrationJob = new ContractRegistrationJob()
-    contractRegistrationJob.uid = uid || uuid4()
-    contractRegistrationJob.nsp = nsp
-    contractRegistrationJob.contractName = contractName
-    contractRegistrationJob.addresses = addresses || []
-    contractRegistrationJob.chainId = chainId
+    contractRegistrationJob.uid = uuid4()
+    contractRegistrationJob.nsp = data.nsp
     contractRegistrationJob.status = ContractRegistrationJobStatus.Created
-    contractRegistrationJob.cursors = {}
+
+    const groups = []
+    const cursors = []
+    for (const group of data.groups) {
+        const { name, instances } = group
+        groups.push({ name, instances })
+        const cursor = {}
+        for (const instance of instances) {
+            const key = [instance.chainId, instance.address].join(':')
+            cursor[key] = 0
+        }
+        cursors.push(cursor)
+    }
+    contractRegistrationJob.groups = groups
+    contractRegistrationJob.cursors = cursors
 
     try {
         await contractRegistrationJobsRepo().save(contractRegistrationJob)
     } catch (err) {
-        throw `Error creating ContractRegistrationJob(uid=${uid}): ${err}`
+        logger.error(`Error creating ContractRegistrationJob: ${err}`)
+        return null
     }
 
     return contractRegistrationJob

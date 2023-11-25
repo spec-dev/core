@@ -30,19 +30,13 @@ export class ContractRegistrationJob {
     @Column()
     nsp: string
 
-    @Column({ name: 'contract_name' })
-    contractName: string
-
     @Column('json')
-    addresses: string[]
-
-    @Column({ name: 'chain_id' })
-    chainId: string
+    groups: StringKeyMap[]
 
     @Column('varchar')
     status: ContractRegistrationJobStatus
 
-    @Column('jsonb', { nullable: true, default: '{}' })
+    @Column('jsonb', { nullable: true, default: '[]' })
     cursors: StringKeyMap
 
     @Column({ default: false })
