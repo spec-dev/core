@@ -32,7 +32,7 @@ class PolygonIndexer extends EvmIndexer {
         emitTransactions: boolean
     }) {
         super(head, options)
-        this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`
+        this.ivySmartWalletInitializerWalletCreated = `ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`
     }
 
     async _curateInputsToSendDownstream() {

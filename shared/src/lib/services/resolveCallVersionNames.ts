@@ -20,7 +20,6 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
         if (!chainId) continue
 
         const contractGroup = nsp.split('.').slice(2).join('.')
-
         inputComps.push({
             nsp,
             name,

@@ -30,14 +30,11 @@ export class ContractRegistrationJob {
     @Column()
     nsp: string
 
-    @Column('json')
+    @Column('json', { nullable: true })
     groups: StringKeyMap[]
 
     @Column('varchar')
     status: ContractRegistrationJobStatus
-
-    @Column('jsonb', { nullable: true, default: '[]' })
-    cursors: StringKeyMap
 
     @Column({ default: false })
     failed: boolean
@@ -64,11 +61,8 @@ export class ContractRegistrationJob {
         return {
             uid: this.uid,
             nsp: this.nsp,
-            contractName: this.contractName,
-            addresses: this.addresses,
-            chainId: this.chainId,
+            groups: this.groups,
             status: this.status,
-            cursors: this.cursors,
             failed: this.failed,
             error: this.error,
             createdAt: this.createdAt.toISOString(),

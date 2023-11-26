@@ -16,7 +16,6 @@ import {
     getGeneratedEventsCursors,
     addContractInstancesToGroup,
     isValidAddress,
-    contractNamespaceForChainId,
     supportedChainIds,
     updatePublishAndDeployLiveObjectVersionJobStatus,
     PublishAndDeployLiveObjectVersionJobStatus,
@@ -128,16 +127,13 @@ export async function indexLiveObjectVersions(
                     await Promise.all(groupContractInstancesToRegister.map(({ group, addresses, chainId, blockNumber }) => {
                         logger.info(`[${chainId}] Registering ${addresses.length} contracts to "${group}"...`)
 
-                        const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
-                        const fullContractGroup = [chainSpecificContractNsp, group].join('.')  
-                        resetCountsForContractGroups = resetCountsForContractGroups.concat(fullContractGroup)
+                        resetCountsForContractGroups = resetCountsForContractGroups.concat(group)
+                        const instances = addresses.map(address => ({ chainId, address }))
 
                         return addContractInstancesToGroup(
-                            addresses,
-                            chainId,
+                            instances,
                             group,
-                            null,
-                            blockNumber,
+                            { chainId, blockNumber },
                         )
                     }))
                 } catch (err) {

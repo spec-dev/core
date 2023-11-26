@@ -39,6 +39,7 @@ export interface ContractRegistrationPayload {
 export interface NewContractGroupPayload {
     name: string
     instances: NewContractInstancePayload[]
+    isFactoryGroup: boolean
     abi?: Abi
 }
 

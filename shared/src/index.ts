@@ -148,6 +148,8 @@ export {
     getAdditionalContractsToGenerateInputsFor,
     publishForcedRollback,
     getEventIdDirectlyBeforeId,
+    setEventStartBlocks,
+    getEventStartBlocks,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -257,6 +259,11 @@ export {
     updateNamespaceRecordCountsCache,
     getCachedRecordCounts,
     getCachedNamespaceRecordCounts,
+    getDecodeJobRangeCount,
+    setDecodeJobRangeCount,
+    getDecodeJobProgress,
+    setDecodeJobProgress,
+    deleteCoreRedisKeys,
 } from './lib/core/redis'
 export {
     createContract,
@@ -329,7 +336,6 @@ export {
     createContractRegistrationJob,
     getContractRegistrationJob,
     updateContractRegistrationJobStatus,
-    updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
 } from './lib/core/db/services/contractRegistrationJobServices'
 export {
@@ -458,3 +464,7 @@ import ChainTables from './lib/chain-tables/ChainTables'
 export { ChainTables }
 import parseDbUrl from 'parse-database-url'
 export { parseDbUrl }
+export {
+    findStartBlockForAddresses,
+    findStartBlocksForEvent,
+} from './lib/services/contractInteractionServices'

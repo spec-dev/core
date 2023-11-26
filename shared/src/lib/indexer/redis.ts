@@ -67,6 +67,7 @@ export const keys = {
     LIVE_OBJECT_VERSION_FAILURES: 'lov-failures',
     GENERATED_EVENTS_CURSOR: 'generated-events-cursor',
     ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX: 'additional-contract-inputs',
+    EVENT_START_BLOCKS: 'event-start-blocks',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -1064,5 +1065,40 @@ export async function publishForcedRollback(
         )
     } catch (err) {
         throw `Error publishing forced rollback event (chainId=${chainId}, blockNumber=${blockNumber}, blockHash=${blockHash}): ${err}`
+    }
+}
+
+export async function setEventStartBlocks(data: StringKeyMap): Promise<boolean> {
+    if (!Object.keys(data).length) return true
+    try {
+        const stringified = {}
+        for (const event in data) {
+            stringified[event] = JSON.stringify(data[event] || {})
+        }
+        await redis?.hSet(keys.EVENT_START_BLOCKS, stringified)
+    } catch (err) {
+        logger.error(`Error saving event start blocks: ${err}.`, data)
+        return false
+    }
+    return true
+}
+
+export async function getEventStartBlocks(
+    eventNamespaceVersions: string[]
+): Promise<StringKeyMap | null> {
+    if (!eventNamespaceVersions?.length) return {}
+    try {
+        const results = (await redis?.hmGet(keys.EVENT_START_BLOCKS, eventNamespaceVersions)) || []
+        const startBlocksByEvent = {}
+        for (let i = 0; i < eventNamespaceVersions.length; i++) {
+            const eventNamespaceVersion = eventNamespaceVersions[i]
+            const data = results[i]
+            if (!data) continue
+            startBlocksByEvent[eventNamespaceVersion] = JSON.parse(data)
+        }
+        return startBlocksByEvent
+    } catch (err) {
+        logger.error(`Error getting start blocks for ${eventNamespaceVersions.join(', ')}: ${err}.`)
+        return null
     }
 }

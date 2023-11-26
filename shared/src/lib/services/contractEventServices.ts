@@ -17,9 +17,18 @@ import { PublishLiveObjectVersionPayload } from '../types'
 import ChainTables from '../chain-tables/ChainTables'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
 
-export async function upsertContractAndNamespace(group: string, tx: any): Promise<Contract> {
+export async function upsertContractAndNamespace(
+    tx: any,
+    group: string,
+    isFactoryGroup?: boolean
+): Promise<Contract> {
     const namespace = await upsertNamespaceWithTx(group, tx)
-    const contract = await upsertContractWithTx(namespace.id, group.split('.').pop(), tx)
+    const contract = await upsertContractWithTx(
+        tx,
+        namespace.id,
+        group.split('.').pop(),
+        isFactoryGroup
+    )
     contract.namespace = namespace
     return contract
 }

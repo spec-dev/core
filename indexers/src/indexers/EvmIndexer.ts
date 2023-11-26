@@ -107,8 +107,6 @@ class EvmIndexer {
 
     blockUnixTimestamp: number | null
 
-    contractEventNsp: string
-
     pool: Pool
 
     block: EvmBlock
@@ -202,7 +200,6 @@ class EvmIndexer {
         
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
-        this.contractEventNsp = contractNamespaceForChainId(this.chainId)
         // this.pool = new Pool({
         //     host: config.SHARED_TABLES_DB_HOST,
         //     port: config.SHARED_TABLES_DB_PORT,
@@ -456,10 +453,7 @@ class EvmIndexer {
         const callContractInstances = []
         const uniqueContractGroups = new Set<string>()
         for (const contractInstance of referencedContractInstances) {
-            const nsp = contractInstance.contract?.namespace?.name
-            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
-            
-            const contractGroup = nsp.split('.').slice(2).join('.')
+            const contractGroup = contractInstance.contract?.namespace?.name
             if (!contractGroup) continue
             uniqueContractGroups.add(contractGroup)
 
@@ -474,26 +468,19 @@ class EvmIndexer {
         const contractGroupAbis = await getContractGroupAbis(
             Array.from(uniqueContractGroups),
         )
-        const namespacedContractGroupAbis = {}
-        for (const contractGroup in contractGroupAbis) {
-            const abi = contractGroupAbis[contractGroup]
-            const key = [this.contractEventNsp, contractGroup].join('.')
-            namespacedContractGroupAbis[key] = abi
-        }
-
         const txMap = mapByKey(this.transactions || [], 'hash')
 
         const [eventInputs, callInputs] = await Promise.all([
             this._curateContractEventInputs(
                 decodedLogs,
                 eventContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap
             ),
             this._curateContractCallInputs(
                 decodedTraceCalls,
                 callContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap,
             ),
         ])
@@ -1081,14 +1068,14 @@ class EvmIndexer {
     async _curateContractEventInputs(
         decodedLogs: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
@@ -1129,14 +1116,14 @@ class EvmIndexer {
     async _curateContractCallInputs(
         decodedTraceCalls: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []

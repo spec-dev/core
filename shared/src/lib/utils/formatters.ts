@@ -659,9 +659,9 @@ export function formatEventVersionViewNameFromEventSpec(
 
 export function formatEventVersionViewName(eventVersion: EventVersion): string | null {
     const splitNsp = eventVersion.nsp.split('.')
-    if (splitNsp.length < 4) return null
-    const nsp = splitNsp[2]
-    const contractName = splitNsp[3]
+    if (splitNsp.length < 2) return null
+    const nsp = splitNsp[0]
+    const contractName = splitNsp[1]
     const eventName = eventVersion.name
     const shortSig = eventVersion.version.slice(0, 10)
     const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
@@ -788,4 +788,19 @@ export const stripTrailingSlash = (val: string): string => {
         val = val.slice(0, val.length - 1)
     }
     return val
+}
+
+export const getAbiSignature = (abi: Abi): string | null => {
+    try {
+        return hash(
+            abi
+                .map((item) => item.signature)
+                .filter((v) => !!v)
+                .sort()
+                .join(':')
+        )
+    } catch (err) {
+        logger.error(`Error generating ABI signature for ${abi}: ${err}`)
+        return null
+    }
 }

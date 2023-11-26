@@ -33,6 +33,9 @@ export class Contract {
     @Column()
     desc: string
 
+    @Column({ name: 'is_factory_group', nullable: true })
+    isFactoryGroup: boolean
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',

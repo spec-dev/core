@@ -39,6 +39,8 @@ import {
     ChainTables,
     EventVersion,
     formatEventVersionViewName,
+    getEventStartBlocks,
+    setEventStartBlocks,
 } from '../../shared'
 
 async function perform(data: StringKeyMap) {
@@ -250,7 +252,10 @@ async function perform(data: StringKeyMap) {
         return
     }    
 
-    await updateRecordCountsWithEvents(blockEvents, blockNumber)
+    await Promise.all([
+        updateRecordCountsWithEvents(existingBlockEvents, blockNumber),
+        maybeUpdateStartBlocksForEvents(existingBlockEvents, blockNumber),
+    ])
 
     await Promise.all([
         deleteBlockCalls(config.CHAIN_ID, blockNumber),
@@ -266,15 +271,14 @@ async function generateBlockInputsForNewlyRegisteredContracts(
 ): Promise<StringKeyMap> {
     const newBlockEvents = []
     const newBlockCalls = []
+    const chainId = config.CHAIN_ID
 
     for (const { group, addresses } of groupContractInstancesToRegister) {
         try {
             const { newEventSpecs, newCallSpecs } = await addContractInstancesToGroup(
-                addresses,
-                config.CHAIN_ID,
+                addresses.map(address => ({ chainId, address })),
                 group,
-                null,
-                blockNumber,
+                { chainId, blockNumber },
                 existingBlockEvents,
                 existingBlockCalls,
             )
@@ -984,6 +988,30 @@ async function getLiveObjectVersionResults(
     return usableResults
 }
 
+async function maybeUpdateStartBlocksForEvents(events: StringKeyMap[], blockNumber: number) {
+    if (!events.length) return
+    const chainId = config.CHAIN_ID
+
+    const fullEventNames = unique(events.map(e => e.name))
+    const existingStartBlocks = await getEventStartBlocks(fullEventNames)
+    const updates = {}
+    for (const name of fullEventNames) {
+        const eventStartBlocks = existingStartBlocks[name] || {}
+        let chainStartBlock = Number(eventStartBlocks[chainId] || 0)
+        chainStartBlock = Number.isNaN(chainStartBlock) ? 0 : chainStartBlock
+
+        const isFirstEvent = !eventStartBlocks.hasOwnProperty(chainId)
+        const isLessThanExistingNumber = blockNumber < chainStartBlock
+        if (isFirstEvent || isLessThanExistingNumber) {
+            eventStartBlocks[chainId] = blockNumber
+            updates[name] = eventStartBlocks
+        }
+    }
+    if (!Object.keys(updates).length) return
+    
+    await setEventStartBlocks(updates)
+}
+
 async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber: number) {
     if (!events.length) return
     const chainId = config.CHAIN_ID
@@ -993,7 +1021,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
     const eventCounts = {}
     for (const event of events) {
         const { nsp, name, version } = fromNamespacedVersion(event.name)
-        if (!nsp || nsp.split('.').length < 4) continue
+        if (!nsp || nsp.split('.').length < 2) continue
         
         const viewName = formatEventVersionViewName({ nsp, name, version } as EventVersion)
         if (!viewName) {

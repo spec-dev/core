@@ -57,11 +57,17 @@ export async function upsertContracts(
 }
 
 export async function upsertContractWithTx(
+    tx: any,
     namespaceId: number,
     name: string,
-    tx: any
+    isFactoryGroup?: boolean
 ): Promise<Contract | null> {
-    const data = { namespaceId, name, desc: '', uid: uuid4() }
+    const data: any = { namespaceId, name, desc: '', uid: uuid4() }
+    const updateColNames = ['desc']
+    if (typeof isFactoryGroup === 'boolean') {
+        data.isFactoryGroup = isFactoryGroup
+        updateColNames.push('is_factory_group')
+    }
     return (
         (
             await tx
@@ -69,7 +75,7 @@ export async function upsertContractWithTx(
                 .insert()
                 .into(Contract)
                 .values(data)
-                .orUpdate(['desc'], ['namespace_id', 'name'])
+                .orUpdate(updateColNames, ['namespace_id', 'name'])
                 .returning('*')
                 .execute()
         ).generatedMaps[0] || null

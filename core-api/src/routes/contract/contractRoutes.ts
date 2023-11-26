@@ -24,7 +24,7 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
-    const { chainIds, nsp, name, abi } = payload
+    const { nsp, name, isFactoryGroup, abi } = payload
 
     // Find namespace by slug.
     const namespace = await getNamespace(nsp)
@@ -41,7 +41,7 @@ app.post(paths.CONTRACT_GROUP, async (req, res) => {
 
     // Try to create the new group.
     try {
-        await createContractGroup(nsp, name, chainIds, abi)
+        await createContractGroup(nsp, name, abi, isFactoryGroup)
     } catch (error) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error })
     }
