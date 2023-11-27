@@ -6,7 +6,7 @@ import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
 import { specEnvs, logger, ClaimRole, CoreDB, indexerRedis, ChainTables, IndexerDB } from '../../shared'
-import { resolveLiveObjectVersions, getEventsAfterCursors, getMostRecentBlockNumbers, isReorgValid, RPC } from './rpcs'
+import { resolveLiveObjectVersions, getLiveObjectChainIds, getEventsAfterCursors, getMostRecentBlockNumbers, isReorgValid, RPC } from './rpcs'
 import { authConnection } from './utils/auth'
 
 const coreDBPromise = CoreDB.initialize()
@@ -91,6 +91,12 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
             // RPC - Resolve the given live objects.
             for await (let request of socket.procedure(RPC.ResolveLiveObjects)) {
                 resolveLiveObjectVersions(request)
+            }
+        })()
+        ;(async () => {
+            // RPC - Get the chain ids associated with a live object.
+            for await (let request of socket.procedure(RPC.GetLiveObjectChainIds)) {
+                getLiveObjectChainIds(request)
             }
         })()
         ;(async () => {

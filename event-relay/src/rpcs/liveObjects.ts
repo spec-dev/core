@@ -58,3 +58,17 @@ export async function resolveLiveObjectVersions(request: any) {
     }
     request.end(resp)
 }
+
+export async function getLiveObjectChainIds(request: any) {
+    const data = request.data as ResolveLiveObjectVersionsPayload
+    const lovs = await getLiveObjectVersionsByNamespacedVersions(data.ids)
+
+    const lovChainIds = {}
+    for (const lov of lovs) {
+        const chainIds = Object.keys(lov.config?.chains || {})
+        const id = toNamespacedVersion(lov.nsp, lov.name, lov.version)
+        lovChainIds[id] = chainIds
+    }
+
+    request.end(lovChainIds)
+}
