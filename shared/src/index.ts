@@ -323,7 +323,8 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
-    addChainSupportToLiveObjectVersions,
+    addChainSupportToLovs,
+    addChainSupportToLovsDependentOn,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

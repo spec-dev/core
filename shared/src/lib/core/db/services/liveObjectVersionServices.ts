@@ -1,4 +1,5 @@
 import { LiveObjectVersion, LiveObjectVersionStatus } from '../entities/LiveObjectVersion'
+import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
@@ -8,6 +9,7 @@ import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
+const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
 
 export async function createLiveObjectVersion(
     nsp: string,
@@ -292,10 +294,7 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
     }
 }
 
-export async function addChainSupportToLiveObjectVersions(
-    namespacedVersions: string[],
-    chainId: string
-) {
+export async function addChainSupportToLovs(namespacedVersions: string[], newChainIds: string[]) {
     const lovs = await getLiveObjectVersionsByNamespacedVersions(namespacedVersions)
     try {
         await CoreDB.manager.transaction(async (tx) => {
@@ -303,7 +302,9 @@ export async function addChainSupportToLiveObjectVersions(
             for (const lov of lovs) {
                 const config = { ...lov.config }
                 config.chains = config.chains || {}
-                config.chains[chainId] = {}
+                newChainIds.forEach((chainId) => {
+                    config.chains[chainId] = {}
+                })
                 updates.push(
                     tx
                         .createQueryBuilder()
@@ -318,6 +319,66 @@ export async function addChainSupportToLiveObjectVersions(
     } catch (err) {
         logger.error(
             `Failed to add chain support to LOVs (${namespacedVersions.join(', ')}): ${err}`
+        )
+        return false
+    }
+    return true
+}
+
+export async function addChainSupportToLovsDependentOn(
+    namespacedEventVersions: string[],
+    newChainIds: string[]
+) {
+    let lovs = []
+    try {
+        const eventVersions = await eventVersionsRepo().find({
+            relations: {
+                liveEventVersions: {
+                    liveObjectVersion: true,
+                },
+            },
+            where: namespacedEventVersions.map(fromNamespacedVersion),
+        })
+        const lovsMap = {}
+        for (const eventVersion of eventVersions) {
+            for (const liveEventVersion of eventVersion.liveEventVersions || []) {
+                const lov = liveEventVersion.liveObjectVersion
+                if (!liveEventVersion.isInput || !lov) continue
+                lovsMap[lov.id] = lov
+            }
+        }
+        lovs = Object.values(lovsMap)
+    } catch (err) {
+        logger.error(
+            `Failed to add find LOVs dependent on (${namespacedEventVersions.join(', ')}): ${err}`
+        )
+        return false
+    }
+    if (!lovs.length) return true
+
+    try {
+        await CoreDB.manager.transaction(async (tx) => {
+            const updates = []
+            for (const lov of lovs) {
+                const config = { ...lov.config }
+                config.chains = config.chains || {}
+                newChainIds.forEach((chainId) => {
+                    config.chains[chainId] = {}
+                })
+                updates.push(
+                    tx
+                        .createQueryBuilder()
+                        .update(LiveObjectVersion)
+                        .set({ config })
+                        .where('id = :id', { id: lov.id })
+                        .execute()
+                )
+            }
+            await Promise.all(updates)
+        })
+    } catch (err) {
+        logger.error(
+            `Failed to add chain support to LOVs (${lovs.map((lov) => lov.id).join(', ')}): ${err}`
         )
         return false
     }

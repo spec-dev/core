@@ -30,7 +30,10 @@ import {
 } from './decodeServices'
 import { upsertContractWithTx } from '../core/db/services/contractServices'
 import { getNamespace } from '../core/db/services/namespaceServices'
-import { addChainSupportToLiveObjectVersions } from '../core/db/services/liveObjectVersionServices'
+import {
+    addChainSupportToLovs,
+    addChainSupportToLovsDependentOn,
+} from '../core/db/services/liveObjectVersionServices'
 import { camelizeKeys } from 'humps'
 import ChainTables from '../chain-tables/ChainTables'
 import { findStartBlocksForEvent } from './contractInteractionServices'
@@ -211,11 +214,12 @@ export async function addContractInstancesToGroup(
         }
     }
 
+    // Ensure chain support scales/is-registered automatically.
     if (newGroupChainIds.length) {
-        // Update all event LOVs in this group to include these new chain ids.
-        for (const chainId of newGroupChainIds) {
-            await addChainSupportToLiveObjectVersions(eventNamespaceVersions, chainId)
-        }
+        await Promise.all([
+            addChainSupportToLovs(eventNamespaceVersions, newGroupChainIds),
+            addChainSupportToLovsDependentOn(eventNamespaceVersions, newGroupChainIds),
+        ])
     }
 
     if (!atBlock) {

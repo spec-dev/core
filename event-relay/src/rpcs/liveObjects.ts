@@ -65,9 +65,8 @@ export async function getLiveObjectChainIds(request: any) {
 
     const lovChainIds = {}
     for (const lov of lovs) {
-        const chainIds = Object.keys(lov.config?.chains || {})
         const id = toNamespacedVersion(lov.nsp, lov.name, lov.version)
-        lovChainIds[id] = chainIds
+        lovChainIds[id] = Object.keys(lov.config?.chains || {})
     }
 
     request.end(lovChainIds)

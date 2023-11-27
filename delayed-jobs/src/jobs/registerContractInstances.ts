@@ -30,6 +30,7 @@ import {
     fromNamespacedVersion,
     findStartBlocksForEvent,
     setEventStartBlocks,
+    addChainSupportToLovsDependentOn,
     getBlockEventsSeriesNumber,
     getNamespace,
 } from '../../../shared'
@@ -64,16 +65,22 @@ async function registerContractInstances(
         await contractRegistrationJobFailed(uid, errors.GENERAL)
         return
     }
+    const existingGroupChainIds = new Set(existingContractInstances.map((ci) => ci.chainId))
     const allInstances = uniqueByKeys([
         ...instances,
         ...existingContractInstances.map(({ address, chainId }) => ({ address, chainId })),
     ], ['chainId', 'address']) as NewContractInstancePayload[]
 
     const addressesByChainId = {}
+    const newGroupChainIdsSet = new Set<string>()
     for (const { chainId, address } of allInstances) {
+        if (!existingGroupChainIds.has(chainId)) {
+            newGroupChainIdsSet.add(chainId)
+        }
         addressesByChainId[chainId] = addressesByChainId[chainId] || []
         addressesByChainId[chainId].push(address)
     }
+    const newGroupChainIds = Array.from(newGroupChainIdsSet)
 
     // Resolve and merge ABIs for all contract instances in this group.
     const { groupAbi, error } = await resolveAbis(group, allInstances, addressesByChainId, abi)
@@ -127,7 +134,7 @@ async function registerContractInstances(
         ))
         if (!(await publishContractEventLiveObject(namespace, lovSpec))) {
             await contractRegistrationJobFailed(uid, errors.LIVE_OBJECTS)
-            return     
+            return
         }
         for (const viewSpec of viewSpecs) {
             if (!(await upsertContractEventView(viewSpec, true))) {
@@ -135,6 +142,12 @@ async function registerContractInstances(
                 return
             }
         }
+    }
+
+    if (newGroupChainIds.length) {
+        // NOTE: The call to publishContractEventLiveObject will apply 
+        // any new chain support to the event LOVs themselves.
+        await addChainSupportToLovsDependentOn(eventNamespaceVersions, newGroupChainIds)
     }
 
     // Update start blocks for each event.
