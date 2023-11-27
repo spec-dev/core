@@ -174,8 +174,8 @@ export async function indexLiveObjectVersions(
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
         resetCountsForContractGroups = unique(resetCountsForContractGroups)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        for (const group of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
 
@@ -203,8 +203,8 @@ export async function indexLiveObjectVersions(
 
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        for (const group of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
@@ -212,8 +212,8 @@ export async function indexLiveObjectVersions(
     // Only used if an interations cap is enforced.
     if (maxIterations && iteration >= maxIterations) {
         logger.info(`[${lovIds.join(', ')}] Completed max ${maxIterations} iterations.`)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        for (const group of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
@@ -536,8 +536,8 @@ function uniqueInputKey(input: StringKeyMap): string {
     const origin = input.origin
     const isContractCall = input.hasOwnProperty('inputs')
     return isContractCall
-        ? [origin._id, input.name].join(':')
-        : [origin.transactionHash, origin.logIndex, input.name].join(':')
+        ? [origin.chainId, origin._id, input.name].join(':')
+        : [origin.chainId, origin.transactionHash, origin.logIndex, input.name].join(':')
 }
 
 export default function job(params: StringKeyMap) {

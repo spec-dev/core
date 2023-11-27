@@ -174,7 +174,6 @@ export {
     chainSpecificSchemas,
     supportedChainIds,
     chainIdForSchema,
-    contractNamespaceForChainId,
     schemaForChainId,
     chainSpecificNamespaces,
     isContractNamespace,
@@ -277,6 +276,7 @@ export {
     upsertContractInstancesWithTx,
     getContractInstancesInNamespace,
     getContractInstancesInGroup,
+    getChainIdsForContractGroups,
 } from './lib/core/db/services/contractInstanceServices'
 export {
     createEvent,
@@ -323,6 +323,7 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
+    addChainSupportToLiveObjectVersions,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

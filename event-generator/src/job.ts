@@ -1015,7 +1015,6 @@ async function maybeUpdateStartBlocksForEvents(events: StringKeyMap[], blockNumb
 async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber: number) {
     if (!events.length) return
     const chainId = config.CHAIN_ID
-    const chainSchema = schemaForChainId[chainId]
 
     // Get the full paths of the Postgres views associated with each of these event types.
     const eventCounts = {}
@@ -1029,7 +1028,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
             continue
         }
 
-        const viewPath = [chainSchema, viewName].join('.')
+        const viewPath = ['spec', viewName].join('.')
         eventCounts[viewPath] = eventCounts[viewPath] || 0
         eventCounts[viewPath] += 1
     }

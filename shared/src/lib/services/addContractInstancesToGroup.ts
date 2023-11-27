@@ -30,6 +30,7 @@ import {
 } from './decodeServices'
 import { upsertContractWithTx } from '../core/db/services/contractServices'
 import { getNamespace } from '../core/db/services/namespaceServices'
+import { addChainSupportToLiveObjectVersions } from '../core/db/services/liveObjectVersionServices'
 import { camelizeKeys } from 'humps'
 import ChainTables from '../chain-tables/ChainTables'
 import { findStartBlocksForEvent } from './contractInteractionServices'
@@ -68,6 +69,7 @@ export async function addContractInstancesToGroup(
     const existingContractInstanceKeys = new Set(
         existingContractInstances.map(({ chainId, address }) => [chainId, address].join(':'))
     )
+    const existingGroupChainIds = new Set(existingContractInstances.map((ci) => ci.chainId))
     const newInstances = []
     for (const { chainId, address } of instances) {
         const lowerAddress = address.toLowerCase()
@@ -78,6 +80,10 @@ export async function addContractInstancesToGroup(
     if (!newInstances.length) {
         return { newEventSpecs: [], newCallSpecs: [], newInstances }
     }
+    const newInstanceChainIds = newInstances.map((ci) => ci.chainId)
+    const newGroupChainIds = newInstanceChainIds.filter(
+        (chainId) => !existingGroupChainIds.has(chainId)
+    )
 
     const newAddressesByChainId = {}
     for (const { chainId, address } of newInstances) {
@@ -202,6 +208,13 @@ export async function addContractInstancesToGroup(
             if (!(await upsertContractEventView(viewSpec))) {
                 throw `[${viewSpec.chainId}] Failed to update view for event: ${viewSpec.name}`
             }
+        }
+    }
+
+    if (newGroupChainIds.length) {
+        // Update all event LOVs in this group to include these new chain ids.
+        for (const chainId of newGroupChainIds) {
+            await addChainSupportToLiveObjectVersions(eventNamespaceVersions, chainId)
         }
     }
 

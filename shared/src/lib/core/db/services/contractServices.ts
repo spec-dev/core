@@ -4,6 +4,7 @@ import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { StringKeyMap } from '../../../types'
 import { ILike, MoreThanOrEqual } from 'typeorm'
+import { toNamespaceSlug } from '../../../utils/formatters'
 
 const contractsRepo = () => CoreDB.getRepository(Contract)
 
@@ -93,6 +94,7 @@ export async function getAllContractGroups(
                 id: true,
                 uid: true,
                 name: true,
+                isFactoryGroup: true,
                 createdAt: true,
                 namespace: {
                     name: true,
@@ -107,7 +109,7 @@ export async function getAllContractGroups(
             },
             where: {
                 namespace: {
-                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                    slug: ILike(filters.namespace ? `${filters.namespace}.%` : '%'),
                 },
                 updatedAt: MoreThanOrEqual(new Date(timeSynced)),
             },
@@ -129,7 +131,7 @@ export async function getOldestContractInGroup(group: string): Promise<Contract[
             },
             where: {
                 namespace: {
-                    slug: ILike(`%.contracts.${group}`),
+                    slug: toNamespaceSlug(group),
                 },
             },
             order: { createdAt: 'ASC' },

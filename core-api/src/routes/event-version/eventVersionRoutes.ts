@@ -9,7 +9,6 @@ from './eventVersionPayloads'
 import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
 import { 
     buildIconUrl, 
-    chainIdForContractNamespace, 
     getEventVersions, 
     isContractNamespace, 
     resolveEventVersionNames,
@@ -56,13 +55,13 @@ app.post(paths.EVENT_VERSIONS, async (req, res) => {
     const formattedEventVersions = []
 
     eventVersions.forEach(version => {
-        const chainIds = [chainIdForContractNamespace(version.event.namespace.slug)]
+        const chainIds = []
         const isContractEvent = isContractNamespace(version.event.namespace.name)
         const icon = (isContractEvent 
-            ? buildIconUrl(version.event.namespace.name.split('.')[2])
+            ? buildIconUrl(version.event.namespace.name.split('.')[0])
             : buildIconUrl(version.event.namespace.name)) 
             || null   
-        formattedEventVersions.push({...version, chainIds: chainIds, icon: icon})
+        formattedEventVersions.push({ ...version, chainIds: chainIds, icon: icon })
     })
 
     return res.status(codes.SUCCESS).json(formattedEventVersions)

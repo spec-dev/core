@@ -103,7 +103,7 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
     } else if (result.namespaceHasIcon) {
         icon = buildIconUrl(result.namespaceName)
     } else if (isContractEvent) {
-        icon = buildIconUrl(result.namespaceName.split('.')[2])
+        icon = buildIconUrl(result.namespaceName.split('.')[0])
     } else {
         icon = '' // TODO: Need fallback
     }

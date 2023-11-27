@@ -3,7 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
 import { In, MoreThanOrEqual, Raw } from 'typeorm'
-import { chainIdForContractNamespace } from '../../../utils/chainIds'
+import { getChainIdsForContractGroups } from './contractInstanceServices'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
 
@@ -60,13 +60,10 @@ export async function getNamespaces(
     }
 }
 
-export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
-    const numComps = nsp.split('.').length
-
+export async function getChainIdsForNamespace(nsp: string): Promise<string[] | null> {
     // If given a contract namespace, just return the chain referenced by it.
-    if (numComps > 1) {
-        const chainId = chainIdForContractNamespace(nsp)
-        return chainId ? [chainId] : null
+    if (nsp.split('.').length > 1) {
+        return getChainIdsForContractGroups([nsp])
     }
 
     // Get all *distinct* chain ids from the "config.chains{}" json column map

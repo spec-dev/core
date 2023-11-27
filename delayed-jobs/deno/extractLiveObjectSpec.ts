@@ -17,50 +17,6 @@ const liveObjectFileNames = {
     MANIFEST: 'manifest.json',
 }
 
-const chainIds = {
-    ETHEREUM: '1',
-    GOERLI: '5',
-    POLYGON: '137',
-    MUMBAI: '80001',
-    BASE: '8453',
-    OPTIMISM: '10',
-    ARBITRUM: '42161',
-    PGN: '424',
-    CELO: '42220',
-    LINEA: '59144',
-    SEPOLIA: '11155111',
-}
-
-const chainNamespaces = {
-    ETHEREUM: 'eth',
-    GOERLI: 'goerli',
-    POLYGON: 'polygon',
-    MUMBAI: 'mumbai',
-    BASE: 'base',
-    OPTIMISM: 'optimism',
-    ARBITRUM: 'arbitrum',
-    PGN: 'pgn',
-    CELO: 'celo',
-    LINEA: 'linea',
-    SEPOLIA: 'sepolia',
-}
-
-const CONTRACTS_EVENT_NSP = 'contracts'
-
-const nspForChainId = {
-    [chainIds.ETHEREUM]: chainNamespaces.ETHEREUM,
-    [chainIds.GOERLI]: chainNamespaces.GOERLI,
-    [chainIds.POLYGON]: chainNamespaces.POLYGON,
-    [chainIds.MUMBAI]: chainNamespaces.MUMBAI,
-    [chainIds.BASE]: chainNamespaces.BASE,
-    [chainIds.OPTIMISM]: chainNamespaces.OPTIMISM,
-    [chainIds.ARBITRUM]: chainNamespaces.ARBITRUM,
-    [chainIds.PGN]: chainNamespaces.PGN,
-    [chainIds.CELO]: chainNamespaces.CELO,
-    [chainIds.LINEA]: chainNamespaces.LINEA,
-    [chainIds.SEPOLIA]: chainNamespaces.SEPOLIA,
-}
-
 const logError = error => console.error(JSON.stringify({ error }))
 
 const typeIdent = (type: string): string => {
@@ -88,14 +44,6 @@ function parseOptions(): StringKeyMap {
     return options
 }
 
-function parse(value: any, fallback: any = {}): any {
-    try {
-        return JSON.parse(value)
-    } catch (err) {
-        return fallback
-    }
-}
-
 async function getLiveObjectSpecPath(objectFolderPath: string): Promise<string | null> {
     const files = []
     for await (const entry of Deno.readDir(objectFolderPath)) {
@@ -117,11 +65,7 @@ async function resolveLiveObject(
 ): Promise<StringKeyMap | null> {
     const LiveObjectClass = await importLiveObject(specFilePath)
     const liveObjectInstance = new LiveObjectClass()
-    const chainNsps = await getLiveObjectChainNamespaces(specFilePath)
-    const inputEventNames = await resolveInputsForLiveObject(
-        liveObjectInstance._eventHandlers,
-        chainNsps
-    )
+    const inputEventNames = Object.keys(liveObjectInstance._eventHandlers)
     return {
         LiveObjectClass,
         liveObjectInstance,
@@ -136,60 +80,10 @@ async function importLiveObject(specFilePath: string) {
         const module = await import(specFilePath)
         return module?.default || null
     } catch (err) {
-        logError(`Failed to import Live Object at path ${specFilePath}`, err)
+        logError(`Failed to import Live Object at path ${specFilePath}: ${err}`)
         throw err
     }
 }
-
-async function getLiveObjectChainNamespaces(specFilePath: string): Promise<string[]> {
-    const { chains } = (await readManifest(specFilePath)) || {}
-    return chains.map((id: any) => nspForChainId[id]).filter((v: any) => !!v)
-}
-
-async function readTextFile(path: string): Promise<string> {
-    const decoder = new TextDecoder('utf-8')
-    const data = await Deno.readFile(path)
-    return decoder.decode(data)
-}
-
-async function readJsonFile(path: string): Promise<StringKeyMap | StringKeyMap[]> {
-    return parse(await readTextFile(path))
-}
-
-async function readManifest(liveObjectSpecPath: string): Promise<StringKeyMap> {
-    let splitSpecConfigDirPath = liveObjectSpecPath.split('/')
-    splitSpecConfigDirPath.pop()
-    return await readJsonFile(`${splitSpecConfigDirPath.join('/')}/${liveObjectFileNames.MANIFEST}`)
-}
-
-async function resolveInputsForLiveObject(
-    registeredHandlers: StringKeyMap,
-    chainNsps: string[],
-): Promise<string[] | null> {
-    const inputNames = []
-    for (const givenName in registeredHandlers) {
-        let fullName = givenName
-
-        // Add a missing "contracts." prefix if missing.
-        if (givenName.split('.').length === 3) {
-            fullName = `${CONTRACTS_EVENT_NSP}.${fullName}`
-        }
-
-        // Subscribe to inputs on all chains the live object
-        // is associated with if chain is not specified.
-        if (fullName.startsWith(`${CONTRACTS_EVENT_NSP}.`)) {
-            for (const nsp of chainNsps) {
-                inputNames.push([nsp, fullName].join('.'))
-            }
-        } else {
-            inputNames.push(fullName)
-        }
-    }
-    if (!inputNames.length) return []
-
-    return inputNames
-}
-
 
 function buildColumnSql(column: ColumnSpec): string {
     // Serial
@@ -325,7 +219,7 @@ async function getSqlForLiveObjectSharedTable(liveObject: LiveTable): Promise<St
 async function run() {
     const options = parseOptions()
 
-    if (!isValidPath(options.objectFolderPath)) { // this could be better, also makes it less usable
+    if (!isValidPath(options.objectFolderPath)) {
         logError(`Invalid object folder path: ${options.objectFolderPath}`)
         Deno.exit()
         return

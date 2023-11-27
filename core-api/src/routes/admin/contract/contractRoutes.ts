@@ -19,9 +19,7 @@ app.post(paths.RESET_CONTRACT_GROUP_RECORD_COUNTS, async (req, res) => {
     }
 
     // Kick off delayed job to reset record counts.
-    const scheduled = await enqueueDelayedJob('resetContractGroupEventRecordCounts', { 
-        fullContractGroup: payload.group 
-    })
+    const scheduled = await enqueueDelayedJob('resetContractGroupEventRecordCounts', payload)
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }

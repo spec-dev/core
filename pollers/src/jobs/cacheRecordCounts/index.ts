@@ -116,8 +116,7 @@ async function calculateAndCacheAggregateNamespaceRecordCounts(recordCounts: Str
 // HACK/TODO: Will hit errors here if a nsp has an underscore in it....
 function parseCustomerNspFromTablePath(tablePath: string): string {
     const [schema, table] = tablePath.split('.')
-    const isCustomerSchema = !chainSchemas.has(schema)
-    return isCustomerSchema ? schema : table.split('_')[0]
+    return schema === 'spec' || chainSchemas.has(schema) ? table.split('_')[0] : schema
 } 
 
 export default cacheRecordCounts

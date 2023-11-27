@@ -6,7 +6,6 @@ import { fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
-import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -261,16 +260,6 @@ export async function resolveLovWithPartialId(someId: string): Promise<StringKey
     }
 
     const matches = [queryParams]
-
-    // Try all contract namespaces if this is an event lov.
-    if (queryParams.nsp.split('.').length === 2) {
-        for (const chainId of Array.from(supportedChainIds)) {
-            const contractsNspPrefix = contractNamespaceForChainId(chainId)
-            const fullNsp = [contractsNspPrefix, queryParams.nsp].join('.')
-            matches.push({ ...queryParams, nsp: fullNsp })
-        }
-    }
-
     try {
         const results = await liveObjectVersions().find({
             where: matches,
@@ -301,4 +290,36 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
         logger.error(`Error getting table paths for live object versions: ${err}`)
         return null
     }
+}
+
+export async function addChainSupportToLiveObjectVersions(
+    namespacedVersions: string[],
+    chainId: string
+) {
+    const lovs = await getLiveObjectVersionsByNamespacedVersions(namespacedVersions)
+    try {
+        await CoreDB.manager.transaction(async (tx) => {
+            const updates = []
+            for (const lov of lovs) {
+                const config = { ...lov.config }
+                config.chains = config.chains || {}
+                config.chains[chainId] = {}
+                updates.push(
+                    tx
+                        .createQueryBuilder()
+                        .update(LiveObjectVersion)
+                        .set({ config })
+                        .where('id = :id', { id: lov.id })
+                        .execute()
+                )
+            }
+            await Promise.all(updates)
+        })
+    } catch (err) {
+        logger.error(
+            `Failed to add chain support to LOVs (${namespacedVersions.join(', ')}): ${err}`
+        )
+        return false
+    }
+    return true
 }

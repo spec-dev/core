@@ -27,7 +27,6 @@ async function generateInputRangeData(payload: GenerateTestInputsPayload): Promi
     }
 
     const cachedInputGen = streamId ? await getCachedInputGenForStreamId(streamId) : null
-
     if (cachedInputGen) {
         for (const chainId in cachedInputGen.queryCursors || {}) {
             cachedInputGen.queryCursors[chainId].inputEventIds = new Set(

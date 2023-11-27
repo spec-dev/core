@@ -7,7 +7,6 @@ import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
 import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
-import { Pool } from 'pg'
 import { Abi } from '../abi/types'
 import { schemaForChainId, isContractNamespace } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
@@ -359,7 +358,7 @@ Example return structure:
                 "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
             "inputEventIds": Set(
-                "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
+                "lens.LensHubProxy.PostCreated@<topic>"
             )
             "inputFunctionsQueryComps": [],
             "inputFunctionIds": Set<[]>
@@ -371,7 +370,7 @@ Example return structure:
         "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
             {
                 "name": "LensHubProxy",
-                "nsp": "polygon.contracts.lens.LensHubProxy",
+                "nsp": "lens.LensHubProxy",
                 "abi": [...contractGroupAbi...]
             },
             ...
@@ -417,8 +416,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
     for (const contractInstance of contractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -642,8 +640,7 @@ export async function getLovInputGeneratorQueries(
     for (const contractInstance of eventContractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -669,11 +666,11 @@ export async function getLovInputGeneratorQueries(
 
     const chainInputs = {}
     for (const eventVersion of inputContractEventVersions) {
-        const eventContractInstance =
+        const eventContractInstances =
             eventContractInstancesByNamespaceId[eventVersion.event.namespaceId] || []
-        if (!eventContractInstance.length) continue
+        if (!eventContractInstances.length) continue
 
-        eventContractInstance.forEach(({ chainId, contractAddress }) => {
+        eventContractInstances.forEach(({ chainId, contractAddress }) => {
             chainInputs[chainId] = chainInputs[chainId] || {}
             chainInputs[chainId].inputEventData = chainInputs[chainId].inputEventData || {}
 
@@ -707,8 +704,7 @@ export async function getLovInputGeneratorQueries(
         const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
         const { nsp } = fromNamespacedVersion(callId)
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.

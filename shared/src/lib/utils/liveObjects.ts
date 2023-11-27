@@ -127,6 +127,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
                 [
                     fixedEventViewProperties.TRANSACTION_HASH.name,
                     fixedEventViewProperties.LOG_INDEX.name,
+                    fixedEventViewProperties.CHAIN_ID.name,
                 ],
             ],
             table: ['spec', viewName].join('.'),

@@ -92,7 +92,7 @@ async function decodeContractInteractions(
             )
         }
         if (shouldResetEventRecordCounts && group) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
@@ -130,7 +130,7 @@ async function decodeContractInteractions(
             )
         }
         if (shouldResetEventRecordCounts && group) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }

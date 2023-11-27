@@ -10,9 +10,8 @@ import {
     getContractEventsForGroup, 
     getAllContractGroups,
     getOldestContractInGroup,
-    chainIdForContractNamespace,
+    unique,
 } from '../../../../shared'
-import { StringKeyMap } from '../../types'
 import searchLiveObjects from '../../services/searchLiveObjects'
 
 /**
@@ -111,11 +110,7 @@ app.get(paths.CONTRACT_GROUP, async (req, res) => {
         }
     }
 
-    const events = (eventResp.data || []).filter(liveObject => {
-        const splitNsp = (liveObject.latestVersion?.nsp || '').split('.')
-        return splitNsp.length === 4 && splitNsp[2] === namespace.slug && splitNsp[3] === name
-    })
-
+    const events = (eventResp.data || []).filter(liveObject => liveObject.latestVersion?.nsp === group)
     const contractGroup = {
         name,
         numInstances,
@@ -144,28 +139,12 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
 
-    const groups:StringKeyMap = {}
-    const groupedContracts = []
+    const contractGroups = contracts.map(contract => ({
+        contractCount: (contract.contractInstances || []).length,
+        chainIds: unique((contract.contractInstances || []).map(ci => ci.chainId)),
+    }))
 
-    contracts.forEach(contract => {
-        const groupName = [
-            contract.namespace.slug.split('.')[2],
-            contract.name,
-        ].join('.')
-
-        const chainId = chainIdForContractNamespace(contract.namespace.slug)
-        groups[groupName] = groups[groupName] || {chainIds: [], contractCount: 0}
-        groups[groupName].chainIds.push(chainId)
-        groups[groupName].contractCount += contract.contractInstances.length
-    })
-
-    Object.entries(groups).forEach(([groupName, values]) => 
-        groupedContracts.push({ 
-            groupName, 
-            ...values 
-        })
-    )
-    return res.status(codes.SUCCESS).json(groupedContracts)
+    return res.status(codes.SUCCESS).json(contractGroups)
 })
 
 /**
@@ -173,13 +152,11 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
  */
 app.get(paths.CONTRACT_GROUP_EVENTS, async (req, res) => {
     const { payload, isValid, error } = parseContractGroupPayload(req.query)
-
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
 
     const events = await getContractEventsForGroup(payload.group)
-
     if (!events) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }

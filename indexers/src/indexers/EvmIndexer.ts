@@ -3,7 +3,6 @@ import {
     logger,
     SharedTables,
     StringKeyMap,
-    contractNamespaceForChainId,
     saveBlockEvents,
     saveBlockCalls,
     EvmBlock,
