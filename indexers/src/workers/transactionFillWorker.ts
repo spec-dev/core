@@ -15,6 +15,7 @@ import {
     uniqueByKeys,
     snakeToCamel,
 } from '../../../shared'
+import { ident } from 'pg-format'
 import { exit } from 'process'
 import { createWsProviderPool } from '../wsProviderPool'
 import { getIndexer } from '../indexers'
@@ -171,7 +172,11 @@ class TransactionFillWorker {
     async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         logger.info(`Saving ${transactions.length} transactions...`)
-        const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
+        const [updateCols, conflictCols] = this.upsertConstraints.transaction
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"${schemaForChainId[config.CHAIN_ID]}"."transactions"."status" IS NULL`
+
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
                 return SharedTables
@@ -179,7 +184,9 @@ class TransactionFillWorker {
                     .insert()
                     .into(EvmTransaction)
                     .values(chunk)
-                    .orUpdate(updateTransactionCols, conflictTransactionCols)
+                    .onConflict(
+                        `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                    )
                     .execute()
             })
         )
