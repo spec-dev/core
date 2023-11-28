@@ -864,22 +864,6 @@ class EvmIndexer {
     async _getReceipts(transactions: EvmTransaction[]): Promise<ExternalEvmReceipt[]> {
         const hasTxs = !!transactions.length
         const txHashes = transactions.map(tx => tx.hash)
-
-        // let logs, receipts
-
-        // quicknode or no
-        // block receipts or no
-
-        // // Just get logs directly if you can't get block receipts.
-        // if (!this.canGetBlockReceipts) {
-        //     const logs = await getWeb3().getLogs(
-        //         this.resolvedBlockHash,
-        //         this.blockNumber,
-        //         this.chainId,
-        //     )
-        //     return { receipts: null, logs }
-        // } 
-
         let receipts = await this._getBlockReceipts(txHashes)
 
         // Iterate until receipts can be fetched if at least 1 transaction exists.
@@ -897,13 +881,10 @@ class EvmIndexer {
         // Switch back to fetching ONLY logs if multiple block hashes exist within the receipts call.
         const uniqueBlockHashes = new Set(receipts.map(r => r.blockHash))
         if (uniqueBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
-            throw `Different block hashes detected within block receipts - ${uniqueBlockHashes} - ${this.resolvedBlockHash}.`
-            // const logs = await getWeb3().getLogs(
-            //     this.resolvedBlockHash,
-            //     this.blockNumber,
-            //     this.chainId    
-            // )
-            // return { receipts: null, logs }
+            if (!config.IS_RANGE_MODE) {
+                throw `[${this.blockNumber}] Different block hashes detected within block receipts - ${Array.from(uniqueBlockHashes).join(', ')} - ${this.resolvedBlockHash}.`
+            }
+            receipts = receipts.filter(r => r.blockHash === this.resolvedBlockHash)
         }
 
         return receipts
@@ -1020,12 +1001,12 @@ class EvmIndexer {
     }
 
     _logNewHead() {
-        console.log('')
-        config.IS_RANGE_MODE ||
+        if (!config.IS_RANGE_MODE) {
+            console.log('')
             logger.info(
                 `${this.logPrefix} Indexing block ${this.blockNumber} (${this.givenBlockHash?.slice(0, 10) || null})...`
             )
-
+        }
         if (this.head.replace) {
             this._info(
                 chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash?.slice(0, 10)})...`)
