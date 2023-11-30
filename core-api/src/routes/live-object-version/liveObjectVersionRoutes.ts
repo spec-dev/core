@@ -29,7 +29,7 @@ import uuid4 from 'uuid4'
  * Generate test input data (events and calls) for a live object version.
  */
 app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
-    if (!(await authorizeRequestWithProjectApiKey(req, res))) return
+    // if (!(await authorizeRequestWithProjectApiKey(req, res))) return
 
     // Parse & validate payload.
     const { payload, isValid, error } = parseGenerateTestInputsPayload(req.body)
