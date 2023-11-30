@@ -233,12 +233,12 @@ async function decodePrimitivesUsingContracts(
 
 export async function checkIfJobDone(
     registrationJobUid: string,
-    group: string,
+    currentGroupName: string,
     chainId?: string,
     contractAddresses?: string[],
     cursorIndex?: number,
 ): Promise<boolean> {
-    const contractName = group.split('.').pop()
+    const contractName = currentGroupName.split('.').pop()
     contractAddresses = contractAddresses || []
     const progressKeys = contractAddresses.map(address => (
         [registrationJobUid, contractName, chainId, address, cursorIndex].join(':')
@@ -247,28 +247,30 @@ export async function checkIfJobDone(
     await sleep(randomIntegerInRange(100, 500))
 
     let done = true
-    const groups = (await getContractRegistrationJob(registrationJobUid))?.groups || []
+    const allGroupsInJob = (await getContractRegistrationJob(registrationJobUid))?.groups || []
+
     const jobKeys = []
-    for (const group of groups) {
+    for (const group of allGroupsInJob) {
         const instances = (group.instances || []).map(key => {
-            const [chainId, address] = key.split(':')
-            return { chainId, address }
+            const split = key.split(':')
+            return { chainId: split[0], address: split[1] }
         })
         if (!instances.length) continue
 
-        for (const { chainId, address } of instances) {
-            const decodeJobKey = [registrationJobUid, contractName, chainId, address, 'num-range-jobs'].join(':')
+        for (const instance of instances) {
+            const decodeJobKey = [registrationJobUid, group.name, instance.chainId, instance.address, 'num-range-jobs'].join(':')
             jobKeys.push(decodeJobKey)
             const numRangeJobs = await getDecodeJobRangeCount(decodeJobKey)
             if (!numRangeJobs) {
                 done = false
                 break
             }
+
             for (let i = 0; i < numRangeJobs; i++) {
-                const progressKey = [registrationJobUid, contractName, chainId, address, i].join(':')
+                const progressKey = [registrationJobUid, group.name, instance.chainId, instance.address, i].join(':')
                 jobKeys.push(progressKey)
                 const progress = await getDecodeJobProgress(progressKey)
-                if (progress != 0) {
+                if (progress != 1) {
                     done = false
                     break
                 }

@@ -12,14 +12,16 @@ import {
     logger,
     createContractRegistrationJob, 
     getContractGroupAbi,
-    getAbiSignature,
     getContractInstancesInNamespace,
+    polishAbis,
+    Abi,
+    AbiItemType,
 } from '../../../../shared'
 
 /**
  * [ASYNC] Register new contract instances with Spec.
  */
-app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
+app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {    
     // Parse & validate payload.
     const { payload, isValid, error } = parseContractRegistrationPayload(req.body)
     if (!isValid) {
@@ -33,12 +35,12 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
 
-    // Authorize request for given namespace using either user auth header or namespace auth header.
-    const allowedScopes = [
-        NamespaceAccessTokenScope.RegisterContracts,
-        NamespaceAccessTokenScope.Internal,
-    ]
-    if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
+    // // Authorize request for given namespace using either user auth header or namespace auth header.
+    // const allowedScopes = [
+    //     NamespaceAccessTokenScope.RegisterContracts,
+    //     NamespaceAccessTokenScope.Internal,
+    // ]
+    // if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // TODO: Parallelize this with Promise.all(). Also need to handle massive group case.
     const delayedJobPayloads = []
@@ -64,24 +66,31 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
             ...newInstances,
         ], ['chainId', 'address'])
 
-        const groupAbi = await getContractGroupAbi(groupName)
-        if (groupAbi === null) {
+        let currentGroupAbi = await getContractGroupAbi(groupName)
+        if (currentGroupAbi === null) {
             return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
         }
+        currentGroupAbi = polishAbis({ key: group.abi })[0].key as Abi
+        const currentGroupAbiSigs = new Set(currentGroupAbi.filter(item => 
+            item.signature && [AbiItemType.Function, AbiItemType.Event].includes(item.type)
+        ).map(item => item.signature))
 
-        const existingAbiSig = groupAbi.length ? getAbiSignature(groupAbi) : ''
-        if (existingAbiSig === null) {
-            return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
+        let givenAbi = group.abi || []
+        givenAbi = givenAbi.length ? polishAbis({ key: givenAbi })[0].key as Abi : []
+        const givenAbiSigs = givenAbi.filter(item => 
+            item.signature && [AbiItemType.Function, AbiItemType.Event].includes(item.type)
+        ).map(item => item.signature)
+
+        let abiChanged = false
+        for (const sig of givenAbiSigs) {
+            if (!currentGroupAbiSigs.has(sig)) {
+                abiChanged = true
+                break
+            }
         }
 
-        const givenAbiSig = group.abi && group.abi.length ? getAbiSignature(group.abi) : ''
-        if (givenAbiSig === null) {
-            return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
-        }
-
-        const abiChanged = givenAbiSig !== existingAbiSig
         if (!newInstances.length && !abiChanged) continue
-    
+
         const instancesToDecode = abiChanged ? allInstances : newInstances
         const instanceKeys = []
         for (const { chainId, address } of instancesToDecode) {
@@ -97,7 +106,7 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
             nsp,
             name: group.name,
             instances: newInstances,
-            abi: group.abi,
+            abi: givenAbi,
             isFactoryGroup: group.isFactoryGroup,
             abiChanged,
         })
@@ -107,7 +116,7 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
     if (!job) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
-    
+
     // Kick off delayed jobs to register contract instances.
     for (const payload of delayedJobPayloads) {
         const scheduled = await enqueueDelayedJob('registerContractInstances', { uid: job.uid, ...payload })
@@ -116,7 +125,7 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         }
     }
 
-    return res.status(codes.SUCCESS).json({ ok: true, uid: job.uid })
+    return res.status(codes.SUCCESS).json({ ok: true, uid: 'job.uid' })
 })
 
 /**

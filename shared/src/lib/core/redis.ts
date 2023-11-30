@@ -304,6 +304,7 @@ export async function setDecodeJobProgress(key: string, value: number) {
 }
 
 export async function deleteCoreRedisKeys(keys: string[]) {
+    if (!keys.length) return true
     try {
         await redis?.del(keys)
         return true

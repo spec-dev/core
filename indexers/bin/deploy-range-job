@@ -157,7 +157,7 @@ registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 
 # image_version="d81feb0"
 
-image_version="7d6374c"
+image_version="2b6663c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

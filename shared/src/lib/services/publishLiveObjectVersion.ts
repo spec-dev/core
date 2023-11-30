@@ -99,6 +99,7 @@ async function pullExampleFromTable(
     tablePath: string,
     properties: LiveObjectVersionProperty[]
 ): Promise<StringKeyMap> {
+    return { example: null }
     const [schema, table] = tablePath.split('.')
 
     let record

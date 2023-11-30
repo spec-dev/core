@@ -61,7 +61,7 @@ export async function createContractGroup(
 
     // Package what's needed to turn these contract events into views and live objects.
     const dataModelSpecs = eventSpecs.map((eventSpec) =>
-        designDataModelsFromEventSpec(eventSpec, nsp)
+        designDataModelsFromEventSpec(eventSpec, nsp, true)
     )
 
     // Upsert views and live object versions for each contract event.
@@ -70,7 +70,7 @@ export async function createContractGroup(
             throw 'Error publishing contract event live object'
         }
         for (const viewSpec of viewSpecs) {
-            if (!(await upsertContractEventView(viewSpec))) {
+            if (!(await upsertContractEventView(viewSpec, true))) {
                 throw 'Internal error'
             }
         }

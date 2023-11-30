@@ -62,7 +62,7 @@ export function parseAddContractsPayload(
 export function parseContractRegistrationPayload(
     data: StringKeyMap
 ): ValidatedPayload<ContractRegistrationPayload> {
-    const nsp = data?.nsp
+    const nsp = data?.nsp || data?.namespace
     if (!nsp) {
         return { isValid: false, error: '"nsp" required' }
     }
@@ -79,7 +79,7 @@ export function parseContractRegistrationPayload(
             return { isValid: false, error: `Malformed group name: ${fullGroupName}` }
         }
 
-        const instances = group.instances || []
+        const instances = group.contracts || group.instances || []
         const seenChainAddresses = new Set<string>()
         const uniqueInstances = []
         for (const instance of instances) {
@@ -99,12 +99,11 @@ export function parseContractRegistrationPayload(
             seenChainAddresses.add(key)
             uniqueInstances.push({ address, chainId })
         }
-
         if (group.abi && !Array.isArray(group.abi)) {
             return { isValid: false, error: 'Invalid "abi" -- Expecting array.' }
         }
 
-        groups.push({
+        finalGroups.push({
             name,
             instances: uniqueInstances,
             isFactoryGroup: !!group.isFactoryGroup,

@@ -180,7 +180,12 @@ async function registerContractInstances(
 
         const startBlock = startBlocks[i]
         if (!startBlock && startBlock !== 0) {
-            await enqueueDelayedJob('decodeContractInteractions', decodeParams)
+            const decodeJobKey = [uid, name, chainId, address, 'num-range-jobs'].join(':')
+            await setDecodeJobRangeCount(decodeJobKey, 1)
+            await enqueueDelayedJob('decodeContractInteractions', {
+                ...decodeParams,
+                cursorIndex: 0,
+            })
             continue
         }
 
@@ -202,6 +207,8 @@ async function registerContractInstances(
             cursor += rangeSize
             if (isLastBatch) break
         }
+
+        logger.info(`[${group}] Will decode in ${ranges.length} ranges:\n${ranges.map(([start, end]) => `- ${start} -> ${end}`).join('\n')}`)
 
         const decodeJobKey = [uid, name, chainId, address, 'num-range-jobs'].join(':')
         await setDecodeJobRangeCount(decodeJobKey, ranges.length)

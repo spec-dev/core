@@ -17,6 +17,7 @@ if (config.SOCKETCLUSTER_OPTIONS) {
 export const httpServer = eetase(http.createServer())
 export const agServer = socketClusterServer.attach(httpServer, agOptions)
 
+
 export async function messageSpecInstance(channel: string, data: StringKeyMap) {
     try {
         await agServer.exchange.invokePublish(channel, data)
