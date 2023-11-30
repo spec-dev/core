@@ -108,7 +108,7 @@ const config: StringKeyMap = {
 
     // Exponential backoff config for HTTP request retries.
     EXPO_BACKOFF_DELAY: 200,
-    EXPO_BACKOFF_MAX_ATTEMPTS: 10,
+    EXPO_BACKOFF_MAX_ATTEMPTS: Number(ev('EXPO_BACKOFF_MAX_ATTEMPTS', 10)),
     EXPO_BACKOFF_FACTOR: 1.5,
 
     // Chain Tables
