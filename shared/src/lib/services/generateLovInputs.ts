@@ -158,12 +158,6 @@ function buildGenerator(
                   )
                 : []
 
-            console.log(
-                eventInputsQuery,
-                formatPgDateString(startBlockDate, false),
-                formatPgDateString(endBlockDate, false)
-            )
-
             const callInputsQuery = inputFunctionsQueryComps.length
                 ? ChainTables.query(
                       schema,
@@ -193,8 +187,6 @@ function buildGenerator(
                 txHash && uniqueTxHashes[chainId].add(txHash)
             }
         }
-
-        console.log(chainInputs)
 
         const successfulTxHashes = {}
         const chainTxsByHash = {}

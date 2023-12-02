@@ -4,10 +4,18 @@ import {
     EventVersion, 
     toNamespacedVersion, 
     logger,
+    getEventStartBlocks,
+    getCachedRecordCounts,
+    getGeneratedEventsCursors,
 } from '../../../shared'
 
 interface ResolveLiveObjectVersionsPayload {
     ids: string[]
+}
+
+interface GetSeedPreflightInfoPayload {
+    liveObjectId: string
+    tablePath: string
 }
 
 export async function resolveLiveObjectVersions(request: any) {
@@ -70,4 +78,34 @@ export async function getLiveObjectChainIds(request: any) {
     }
 
     request.end(lovChainIds)
+}
+
+export async function getSeedPreflightInfo(request: any) {
+    const { liveObjectId, tablePath } = (request.data || {} as GetSeedPreflightInfoPayload)
+    if (!liveObjectId || !tablePath) {
+        request.end({})
+        return
+    }
+
+    let [eventStartBlocks, recordCounts] = await Promise.all([
+        getEventStartBlocks([liveObjectId]),
+        getCachedRecordCounts([tablePath])
+    ])
+
+    eventStartBlocks = (eventStartBlocks || {})[liveObjectId] || {}
+
+    recordCounts = recordCounts || {}
+    let count = parseInt((recordCounts[tablePath] || {}).count)
+    count = Number.isNaN(count) ? null : count
+
+    const heads = await getGeneratedEventsCursors()
+    for (const chainId in eventStartBlocks) {
+        heads[chainId] = Number(heads[chainId] || 0)
+    }
+
+    request.end({
+        startBlocks: eventStartBlocks[liveObjectId] || {},
+        recordCount: count,
+        heads,
+    })
 }

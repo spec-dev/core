@@ -80,11 +80,7 @@ CREATE TABLE "arbitrum"."logs" (
 );
 CREATE INDEX "idx_arbitrum_logs_by_block_number" ON "arbitrum"."logs"("block_number");
 CREATE INDEX "idx_arbitrum_logs_address_block_number" ON "arbitrum"."logs"("address", "block_number");
-CREATE INDEX "idx_arbitrum_logs_address_event_name" ON "arbitrum"."logs"("address", "event_name");
-CREATE INDEX "idx_arbitrum_logs_event_name" ON "arbitrum"."logs"("event_name");
 CREATE INDEX "idx_arbitrum_logs_order" ON "arbitrum"."logs"("block_number", "log_index");
-CREATE INDEX "idx_arbitrum_logs_view_order" ON "arbitrum"."logs"("address", "event_name", "block_number", "log_index");
-CREATE INDEX "idx_arbitrum_indexer_order" ON "arbitrum"."logs"("address", "event_name", "block_timestamp");
 CREATE INDEX "idx_arbitrum_indexer_order_topic" ON "arbitrum"."logs"("address", "topic0", "block_timestamp");
 CREATE INDEX "idx_arbitrum_logs_address_topic" ON "arbitrum"."logs"("address", "topic0");
 CREATE INDEX "idx_arbitrum_logs_view_order_topic" ON "arbitrum"."logs"("address", "topic0", "block_number", "log_index");

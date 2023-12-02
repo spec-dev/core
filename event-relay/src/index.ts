@@ -6,8 +6,16 @@ import socketClusterServer from 'socketcluster-server'
 import sccBrokerClient from 'scc-broker-client'
 import config from './config'
 import { specEnvs, logger, ClaimRole, CoreDB, indexerRedis, ChainTables, IndexerDB } from '../../shared'
-import { resolveLiveObjectVersions, getLiveObjectChainIds, getEventsAfterCursors, getMostRecentBlockNumbers, isReorgValid, RPC } from './rpcs'
 import { authConnection } from './utils/auth'
+import { 
+    resolveLiveObjectVersions, 
+    getLiveObjectChainIds, 
+    getSeedPreflightInfo,
+    getEventsAfterCursors, 
+    getMostRecentBlockNumbers, 
+    isReorgValid,
+    RPC,
+} from './rpcs'
 
 const coreDBPromise = CoreDB.initialize()
 const chainTablesPromise = ChainTables.initialize()
@@ -97,6 +105,12 @@ const pub = async (channel, data) => await agServer.exchange.invokePublish(chann
             // RPC - Get the chain ids associated with a live object.
             for await (let request of socket.procedure(RPC.GetLiveObjectChainIds)) {
                 getLiveObjectChainIds(request)
+            }
+        })()
+        ;(async () => {
+            // RPC - Get preflight info for a table seed.
+            for await (let request of socket.procedure(RPC.GetSeedPreflightInfo)) {
+                getSeedPreflightInfo(request)
             }
         })()
         ;(async () => {

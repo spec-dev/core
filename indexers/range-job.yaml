@@ -129,6 +129,8 @@ spec:
           value: "50"
         - name: SAVE_BATCH_MULTIPLE
           value: "1"
+        - name: EXPO_BACKOFF_MAX_ATTEMPTS
+          value: "2"
         - name: FORCE_COLOR
           value: "1" 
       restartPolicy: Never
