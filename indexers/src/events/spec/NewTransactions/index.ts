@@ -1,4 +1,4 @@
-import { EthTransaction, StringKeyMap, namespaceForChainId } from '../../../../../shared'
+import { EthTransaction, StringKeyMap } from '../../../../../shared'
 
 function NewTransactions(txs: EthTransaction[], eventOrigin: StringKeyMap): StringKeyMap {
     const eventData = txs.map((tx) => ({
@@ -9,7 +9,7 @@ function NewTransactions(txs: EthTransaction[], eventOrigin: StringKeyMap): Stri
     }))
 
     return {
-        name: `${namespaceForChainId[eventOrigin.chainId]}.NewTransactions@0.0.1`,
+        name: `spec.NewTransactions@0.0.1`,
         data: eventData,
         origin: eventOrigin,
     }

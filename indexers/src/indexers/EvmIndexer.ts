@@ -410,29 +410,12 @@ class EvmIndexer {
             blockTimestamp: this.block.timestamp.toISOString(),
         }
 
-        // <chain>.NewBlock
-        const originEventInputs = [
-            originEvents.chain.NewBlock(this.block, eventOrigin),
-        ]
+        const originEventInputs = []
 
         // <chain>.NewTransactions
         this.transactions?.length && this.emitTransactions && originEventInputs.push(
             ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
-                originEvents.chain.NewTransactions(txs, eventOrigin)
-            ))
-        )
-
-        // tokens.NewTokenTransfers
-        this.tokenTransfers?.length && originEventInputs.push(
-            ...(toChunks(this.tokenTransfers, config.MAX_EVENTS_LENGTH).map(transfers => 
-                originEvents.tokens.NewTokenTransfers(transfers, eventOrigin)
-            ))
-        )
-
-        // tokens.NewErc20Balances
-        this.erc20Balances?.length && originEventInputs.push(
-            ...(toChunks(this.erc20Balances, config.MAX_EVENTS_LENGTH).map(balances => 
-                originEvents.tokens.NewErc20Balances(balances, eventOrigin)
+                originEvents.spec.NewTransactions(txs, eventOrigin)
             ))
         )
 
