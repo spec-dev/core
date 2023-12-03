@@ -64,6 +64,7 @@ import {
     specialErc20BalanceAffectingAbis,
     getContractGroupAbis,
     publishForcedRollback,
+    schemaForChainId,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -411,13 +412,17 @@ class EvmIndexer {
         }
 
         const originEventInputs = []
+        const chainSchema = schemaForChainId[this.chainId]
 
-        // <chain>.NewTransactions
-        this.transactions?.length && this.emitTransactions && originEventInputs.push(
-            ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+        // spec.NewTransactions and <chain>.NewTransactions
+        if (this.transactions?.length && this.emitTransactions) {
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
                 originEvents.spec.NewTransactions(txs, eventOrigin)
-            ))
-        )
+            )))
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.spec.NewTransactions(txs, eventOrigin, chainSchema)
+            )))
+        }
 
         const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
         const decodedTraceCalls = this.successfulTraces.filter(t => (
@@ -437,6 +442,10 @@ class EvmIndexer {
         for (const contractInstance of referencedContractInstances) {
             const contractGroup = contractInstance.contract?.namespace?.name
             if (!contractGroup) continue
+
+            // TODO: Remove after migration
+            if (contractGroup.split('.').length > 2) continue
+
             uniqueContractGroups.add(contractGroup)
 
             if (logContractAddresses.has(contractInstance.address)) {

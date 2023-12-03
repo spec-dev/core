@@ -462,7 +462,7 @@ async function generateLiveObjectEvents(
         [config.TABLES_AUTH_HEADER_NAME]: tablesApiToken,
     }
 
-    // Forced timeout at 60s.
+    // Forced timeout at 20s.
     const abortController = new AbortController()
     const timer = setTimeout(() => abortController.abort(), config.EVENT_GEN_RESPONSE_TIMEOUT)
 
