@@ -35,12 +35,12 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         return res.status(codes.NOT_FOUND).json({ error: errors.NAMESPACE_NOT_FOUND })
     }
 
-    // // Authorize request for given namespace using either user auth header or namespace auth header.
-    // const allowedScopes = [
-    //     NamespaceAccessTokenScope.RegisterContracts,
-    //     NamespaceAccessTokenScope.Internal,
-    // ]
-    // if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
+    // Authorize request for given namespace using either user auth header or namespace auth header.
+    const allowedScopes = [
+        NamespaceAccessTokenScope.RegisterContracts,
+        NamespaceAccessTokenScope.Internal,
+    ]
+    if (!(await authorizeRequestForNamespace(req, res, namespace.name, allowedScopes))) return
 
     // TODO: Parallelize this with Promise.all(). Also need to handle massive group case.
     const delayedJobPayloads = []
@@ -125,7 +125,8 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         }
     }
 
-    return res.status(codes.SUCCESS).json({ ok: true, uid: 'job.uid' })
+    const data = await job.view()
+    return res.status(codes.SUCCESS).json(data)
 })
 
 /**

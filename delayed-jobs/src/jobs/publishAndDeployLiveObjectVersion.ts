@@ -162,8 +162,7 @@ export async function publishAndDeployLiveObjectVersion(
     const uniqueContractGroups = new Set<string>()
     for (const inputEvent of liveObjectSpec.inputEvents) {
         const { nsp } = fromNamespacedVersion(inputEvent)
-        const group = nsp.split('.').slice(2).join('.')
-        uniqueContractGroups.add(group)
+        uniqueContractGroups.add(nsp)
     }
     const contractGroupNames: string[] = Array.from(uniqueContractGroups)
     const groupAbis = {}

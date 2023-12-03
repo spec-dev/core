@@ -72,7 +72,7 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[] | n
         const results =
             (await CoreDB.query(
                 `select distinct(json_object_keys(config -> 'chains')::text) as chain_id from live_object_versions where nsp = $1 or nsp ilike $2`,
-                [nsp, `%.contracts.${nsp}.%`]
+                [nsp, `${nsp}.%`]
             )) || []
 
         return results

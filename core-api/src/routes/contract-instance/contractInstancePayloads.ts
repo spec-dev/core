@@ -106,7 +106,7 @@ export function parseContractRegistrationPayload(
         finalGroups.push({
             name,
             instances: uniqueInstances,
-            isFactoryGroup: !!group.isFactoryGroup,
+            isFactoryGroup: group.isFactoryGroup,
             abi: group.abi,
         })
     }

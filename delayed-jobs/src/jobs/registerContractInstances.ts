@@ -346,7 +346,7 @@ async function saveDataModels(
         await CoreDB.manager.transaction(async (tx) => {
             // Upsert contract and namespace.
             let contract = existingContractInstances[0]?.contract
-            if (!contract || contract.isFactoryGroup !== isFactoryGroup) {
+            if (!contract || (typeof isFactoryGroup === 'boolean' && contract.isFactoryGroup !== isFactoryGroup)) {
                 contract = await upsertContractAndNamespace(
                     tx,
                     group,

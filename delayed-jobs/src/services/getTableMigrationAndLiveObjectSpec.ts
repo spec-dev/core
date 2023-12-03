@@ -77,48 +77,6 @@ async function resolveEventVersions(inputEventNames: string[]): Promise<StringKe
     return { error: null, inputEvents: resolvedInputNames }
 }
 
-async function resolveCallVersions({ inputCalls, chains }): Promise<StringKeyMap> {
-    const inputFullNames = resolveVersionNames(inputCalls, chains)
-
-    // resolve event versions for given inputs
-    const { data: resolvedCallInputs, error } = await resolveCallVersionNames(inputFullNames)
-    if (error) return { error, inputCalls: null }
-
-    // check if any ambigious event or call versions were returned
-    const resolvedInputNames = Object.values(resolvedCallInputs)
-    if (resolvedInputNames.findIndex((v: string) => v.includes('Ambigious')) > -1) {
-        return { error: new Error(`Ambigious event version found in: ${resolvedInputNames}`), inputCalls: null }
-    }
-
-    return { error: null, inputCalls: resolvedInputNames }
-}
-
-function resolveVersionNames(givenInputNames: string[], chains: string[]): string[] {
-    const CONTRACTS_EVENT_NSP = 'contracts'
-
-    // The chainIds here should be coming from the Spec right? might need to change
-    const chainNsps = chains.map(id => namespaceForChainId[id])
-
-    // format given inputs into full namespaces
-    const inputNames = []
-    for (const givenName of givenInputNames) {
-        let fullName = givenName
-
-        if (givenName.split('.').length === 3) {
-            fullName = `${CONTRACTS_EVENT_NSP}.${fullName}`
-        }
-
-        if (fullName.startsWith(`${CONTRACTS_EVENT_NSP}.`)) {
-            for (const nsp of chainNsps) {
-                inputNames.push([nsp, fullName].join('.'))
-            }
-        } else {
-            inputNames.push(fullName)
-        }
-    }
-    return inputNames
-}
-
 async function getTableMigrationAndSpecFromDeno(
     objectFolderPath: string,
     pathToRepo: string,

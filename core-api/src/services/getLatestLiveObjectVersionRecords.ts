@@ -1,5 +1,4 @@
-import { ChainTables, StringKeyMap, LiveObjectVersion, logger, camelToSnake, identPath, camelizeKeys, toNamespacedVersion, getLastXEvents } from '../../../shared'
-import { ident, literal } from 'pg-format'
+import { StringKeyMap, LiveObjectVersion, logger, toNamespacedVersion, getLastXEvents } from '../../../shared'
 
 const limit = 10
 
@@ -15,8 +14,6 @@ async function getLatestLiveObjectVersionRecords(
         return { data: { records: [], cursor } }
     }
     uniqueBy = uniqueBy.sort()
-
-    const timestampColumn = camelToSnake(primaryTimestampProperty)
 
     // Get the latest *limited* records.
     let records: StringKeyMap[] = []
@@ -45,11 +42,6 @@ async function getLatestLiveObjectVersionRecords(
 
                 records.push(record)
             }
-        } else {
-            const schema = table.split('.')[0]
-            records = camelizeKeys((await ChainTables.query(schema,
-                `select * from ${identPath(table)} order by ${ident(timestampColumn)} desc limit ${literal(limit)}`
-            ))) as StringKeyMap[]    
         }
     } catch (err) {
         logger.error(`Error getting latest records from ${table}: ${err}`)

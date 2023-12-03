@@ -136,13 +136,14 @@ export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<b
 }
 
 export async function storePublishedEvent(specEvent: StringKeyMap): Promise<string | null> {
+    const threshold = specEvent.name === 'spec.NewTransactions@0.0.1' ? 3000 : 500
     try {
         return await redis?.xAdd(
             specEvent.name,
             '*',
             { event: JSON.stringify(specEvent) },
             {
-                TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 500 },
+                TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold },
             }
         )
     } catch (err) {

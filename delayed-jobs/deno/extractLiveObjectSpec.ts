@@ -17,6 +17,14 @@ const liveObjectFileNames = {
     MANIFEST: 'manifest.json',
 }
 
+const BLOCK_TIMESTAMP = 'block_timestamp'
+const BLOCK_NUMBER = 'block_number'
+const CHAIN_ID = 'chain_id'
+const DEFAULT_INDEXES = [
+    [BLOCK_NUMBER, CHAIN_ID],
+    [BLOCK_TIMESTAMP],
+]
+
 const logError = error => console.error(JSON.stringify({ error }))
 
 const typeIdent = (type: string): string => {
@@ -149,9 +157,18 @@ async function createTableFromSpec(tableSpec: TableSpec) {
     const { schemaName, tableName } = tableSpec
     const columns = tableSpec.columns || []
     const uniqueBy = tableSpec.uniqueBy || []
-    const indexBy = tableSpec.indexBy || []
     const hasIdColumn = columns.find((c) => c.name === 'id')
     const pkColumnName = hasIdColumn ? '_id' : 'id'
+    
+    // By default, add indexes to the live table on:
+    // - (block_number, chain_id)
+    // - (block_timestamp)
+    const indexBy = tableSpec.indexBy || []
+    const indexByKeys = new Set(indexBy.map(cols => cols.sort().join(':')))
+    for (const defaultIndex of DEFAULT_INDEXES) {
+        if (indexByKeys.has(defaultIndex.sort().join(':'))) continue
+        indexBy.push(defaultIndex)
+    }
 
     // Force-set the primary unique constraint columns to not-null.
     const primaryUniqueColGroup = uniqueBy[0] || []

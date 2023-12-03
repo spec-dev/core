@@ -8,8 +8,8 @@ import { getContractRegistrationJob } from '../../../../shared'
  * Get a contract registration job by uid.
  */
 app.get(paths.CONTRACT_REGISTRATION_JOB, async (req, res) => {
-    const user = await authorizeRequest(req, res)
-    if (!user) return
+    // const user = await authorizeRequest(req, res)
+    // if (!user) return
 
     // Parse & validate payload.
     const { payload, isValid } = parseGetContractRegistrationJobPayload(req.query)
@@ -19,6 +19,6 @@ app.get(paths.CONTRACT_REGISTRATION_JOB, async (req, res) => {
 
     // Find & return contract registration job by uid.
     const contractRegistrationJob = await getContractRegistrationJob(payload.uid)
-    const data = contractRegistrationJob ? contractRegistrationJob.view() : {}
+    const data = contractRegistrationJob ? await contractRegistrationJob.view() : {}
     return res.status(codes.SUCCESS).json(data)
 })

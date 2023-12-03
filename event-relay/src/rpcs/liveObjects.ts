@@ -104,7 +104,7 @@ export async function getSeedPreflightInfo(request: any) {
     }
 
     request.end({
-        startBlocks: eventStartBlocks[liveObjectId] || {},
+        startBlocks: eventStartBlocks,
         recordCount: count,
         heads,
     })
