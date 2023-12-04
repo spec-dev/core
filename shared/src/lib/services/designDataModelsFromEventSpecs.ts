@@ -6,7 +6,6 @@ import chainIds from '../utils/chainIds'
 export function designDataModelsFromEventSpec(
     eventSpec: ContractEventSpec,
     nsp: string,
-    empty?: boolean
 ): {
     lovSpec: PublishLiveObjectVersionPayload
     viewSpecs: ContractEventViewSpec[]
@@ -25,10 +24,6 @@ export function designDataModelsFromEventSpec(
     )
 
     const instances = eventSpec.contractInstances || []
-    if (!instances.length && empty) {
-        instances.push({ chainId: chainIds.ETHEREUM, address: '0x' } as any)
-    }
-
     const addressesByChainId: { [key: string]: string[] } = {}
     for (const { chainId, address } of instances) {
         addressesByChainId[chainId] = addressesByChainId[chainId] || []

@@ -562,7 +562,12 @@ class EvmReporter {
         }
 
         // Sort the block numbers least-to-greatest.
-        const blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
+        let blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
+        const maxRange = 5000
+        if (blockNumbers.length > maxRange) {
+            blockNumbers = blockNumbers.slice(blockNumbers.length - maxRange)
+        }
+
         const largestNumber = blockNumbers[blockNumbers.length - 1]
         this.lastFinalityScanCeiling = largestNumber
 
@@ -588,7 +593,7 @@ class EvmReporter {
 
         if (hasHitMaxCalls()) {
             teardownWsProviderPool()
-            await sleep(50)
+            await sleep(100)
             createWsProviderPool(true)
         }
 
@@ -771,7 +776,7 @@ class EvmReporter {
         provider?.removeAllListeners && provider.removeAllListeners()
         provider?.disconnect && provider.disconnect()
         this.web3 = null
-        await sleep(10)
+        await sleep(300)
 
         if (this.connectionIndex < this.endpoints.length - 1) {
             this.connectionIndex++
@@ -784,6 +789,7 @@ class EvmReporter {
         )
         
         this._createWeb3Provider()
+        await sleep(300)
         this._subscribeToNewHeads()
     }
 
@@ -800,8 +806,9 @@ class EvmReporter {
         provider?.disconnect && provider.disconnect()
         this.web3 = null
 
-        await sleep(10)
+        await sleep(300)
         this._createWeb3Provider()
+        await sleep(300)
         this._subscribeToNewHeads()
     }
 }
