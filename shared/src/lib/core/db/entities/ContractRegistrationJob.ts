@@ -8,7 +8,7 @@ import {
 } from 'typeorm'
 import { StringKeyMap } from '../../../types'
 import { range, average } from '../../../utils/math'
-import { getDecodeJobProgress, getDecodeJobRangeCount } from '../../redis'
+import { getDecodeJobProgress, getDecodeJobRangeCount } from '../../../indexer/redis'
 
 export enum ContractRegistrationJobStatus {
     Created = 'created',

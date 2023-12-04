@@ -5,7 +5,7 @@ import chainIds from '../utils/chainIds'
 
 export function designDataModelsFromEventSpec(
     eventSpec: ContractEventSpec,
-    nsp: string,
+    nsp: string
 ): {
     lovSpec: PublishLiveObjectVersionPayload
     viewSpecs: ContractEventViewSpec[]

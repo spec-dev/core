@@ -54,6 +54,10 @@ indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 abi_redis_host=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_HOST" )
 abi_redis_port=$( $shared_bin_dir/env_reader "$env" "ABI_REDIS_PORT" )
 
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+
 # Core DB
 core_db_name=$( $shared_bin_dir/env_reader "$env" "CORE_DB_NAME" )
 core_db_host=$( $shared_bin_dir/env_reader "$env" "CORE_DB_HOST" )
@@ -95,6 +99,10 @@ $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 $shared_bin_dir/assert_env "ABI_REDIS_HOST" "$abi_redis_host"
 $shared_bin_dir/assert_env "ABI_REDIS_PORT" "$abi_redis_port"
 
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
+
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
 $shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
@@ -111,7 +119,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "DELAYED_JOBS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="b641e8b"
+# image_version="b641e8b"
+image_version="1243d0c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -146,6 +155,8 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
     sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
     sed "s|{{ETHEREUM_DB_URL}}|$ethereum_db_url|g" | \
     sed "s|{{GOERLI_DB_URL}}|$goerli_db_url|g" | \
     sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \

@@ -107,7 +107,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "POLLERS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="f776098"
+# image_version="151f3e8"
+image_version="1243d0c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
