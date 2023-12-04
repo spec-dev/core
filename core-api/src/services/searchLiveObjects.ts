@@ -66,7 +66,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 ELSE TRUE
             END
             AND ($4::text IS NULL OR live_object_uid = $4)
-            AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT('%.', $5, '.%'))
+            AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT($5, '.%'))
             AND namespace_name not ilike '%.test.%'
             AND namespace_name != 'test'
             ORDER BY is_custom DESC, version_created_at DESC
