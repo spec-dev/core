@@ -70,7 +70,7 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
         if (currentGroupAbi === null) {
             return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
         }
-        currentGroupAbi = polishAbis({ key: group.abi })[0].key as Abi
+        currentGroupAbi = polishAbis({ key: currentGroupAbi })[0].key as Abi
         const currentGroupAbiSigs = new Set(currentGroupAbi.filter(item => 
             item.signature && [AbiItemType.Function, AbiItemType.Event].includes(item.type)
         ).map(item => item.signature))
@@ -88,6 +88,8 @@ app.post(paths.REGISTER_CONTRACT_INSTANCES, async (req, res) => {
                 break
             }
         }
+
+        console.log(group.name, newInstances.length, abiChanged)
 
         if (!newInstances.length && !abiChanged) continue
 
