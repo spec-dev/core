@@ -41,6 +41,7 @@ import {
     formatEventVersionViewName,
     getEventStartBlocks,
     setEventStartBlocks,
+    enqueueDelayedJob,
 } from '../../shared'
 
 async function perform(data: StringKeyMap) {
@@ -244,6 +245,17 @@ async function perform(data: StringKeyMap) {
             range(blockNumber, ceiling),
             config.CHAIN_ID,
         )
+        for (const { group, addresses } of newContractRegistrations) {
+            await enqueueDelayedJob('resetEventStartBlocks', { group })
+            
+            for (const address of addresses) {
+                await enqueueDelayedJob('decodeContractInteractions', {
+                    group,
+                    chainId: config.CHAIN_ID,
+                    contractAddresses: [address],
+                })
+            }
+        }
     }
 
     // One last check before deleting calls/events from cache.

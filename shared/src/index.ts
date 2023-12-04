@@ -348,7 +348,7 @@ export {
     publishAndDeployLiveObjectVersionJobFailed,
     updatePublishAndDeployLiveObjectVersionJobMetadata,
 } from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
-export { In, Not, IsNull, Brackets } from 'typeorm'
+export { In, Not, IsNull, MoreThan, Brackets } from 'typeorm'
 
 export {
     redis as abiRedis,

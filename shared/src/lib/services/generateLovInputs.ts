@@ -244,12 +244,10 @@ function buildGenerator(
             successfulInputs.push(camelizeKeys(input))
         }
 
-        if (indexingContractFactoryLov) {
-            successfulInputs = await decodeInputsIfNotAlready(
-                [...successfulInputs],
-                contractInstanceData
-            )
-        }
+        successfulInputs = await decodeInputsIfNotAlready(
+            [...successfulInputs],
+            contractInstanceData
+        )
 
         const sortedInputs = successfulInputs.sort(
             (a, b) =>
@@ -839,7 +837,7 @@ async function decodeInputsIfNotAlready(
         const chainId = input.chainId
         const isEvent = input.inputType === 'event'
         const isDecoded = isEvent ? !!input.eventName : !!input.functionName
-        if (isDecoded) {
+        if (isDecoded || !isEvent) {
             decodedInputs.push(input)
             continue
         }

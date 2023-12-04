@@ -11,6 +11,7 @@ import {
     getLiveObject,
     getLatestLiveObjectVersion,
     isVersionGt,
+    nowAsUTCDateString,
 } from '../../../../../shared'
 
 /**
@@ -75,7 +76,10 @@ app.post(paths.INDEX_LIVE_OBJECT_VERSIONS, async (req, res) => {
     }
 
     // Kick off delayed job to index live object versions.
-    const scheduled = await enqueueDelayedJob('indexLiveObjectVersions', payload)
+    const scheduled = await enqueueDelayedJob('indexLiveObjectVersions', { 
+        ...payload,
+        initialJobAddedAt: nowAsUTCDateString(),
+    })
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }

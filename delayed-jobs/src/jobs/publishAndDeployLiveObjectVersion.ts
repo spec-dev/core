@@ -24,6 +24,7 @@ import {
     getLiveObjectForLov,
     updatePublishAndDeployLiveObjectVersionJobMetadata,
     getLiveObject,
+    nowAsUTCDateString,
 } from '../../../shared'
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
 import { getTriggersMigration } from '../services/getTriggersMigration'
@@ -215,11 +216,12 @@ export async function publishAndDeployLiveObjectVersion(
         return
     }
 
-    // Kick off indexing for live object versions
+    // Kick off indexing for live object versions.
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds: [lov.id],
         publishJobTableUid: uid,
         liveObjectUid,
+        initialJobAddedAt: nowAsUTCDateString(),
     })
 }
 

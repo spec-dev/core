@@ -383,7 +383,7 @@ async function saveDataModels(
     return eventSpecs
 }
 
-async function findAndCacheStartBlocksForEvents(
+export async function findAndCacheStartBlocksForEvents(
     eventNamespaceVersions: string[], 
     addressesByChainId: StringKeyMap,
 ): Promise<boolean> {
