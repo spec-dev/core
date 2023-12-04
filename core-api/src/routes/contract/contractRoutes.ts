@@ -140,6 +140,7 @@ app.post(paths.CONTRACT_GROUPS, async (req, res) => {
     }
 
     const contractGroups = contracts.map(contract => ({
+        groupName: contract.namespace.name,
         contractCount: (contract.contractInstances || []).length,
         chainIds: unique((contract.contractInstances || []).map(ci => ci.chainId)),
     }))

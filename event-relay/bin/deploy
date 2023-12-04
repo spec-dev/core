@@ -36,6 +36,10 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
 shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
@@ -82,6 +86,10 @@ $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 # Indexer Redis
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
 $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
+
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
 
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
@@ -137,6 +145,8 @@ template=$( cat "$template_path" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
