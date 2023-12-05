@@ -115,7 +115,7 @@ async function getLatestEventLovRecordsForChainId(
     const schema = schemaForChainId[chainId]
     const viewName = givenViewPath.split('.').pop()
     const viewPath = [schema, viewName].join('.')
-    const minBlock = head ? Math.max(literal(head - 1000000), 0) : 0
+    const minBlock = head ? Math.max(head - 1000000, 0) : 0
     const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
 
     return camelizeKeys((await ChainTables.query(schema,
