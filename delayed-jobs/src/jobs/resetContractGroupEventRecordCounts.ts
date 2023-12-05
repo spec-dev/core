@@ -10,10 +10,13 @@ import {
     sleep,
     ChainTables,
     getChainIdsForContractGroups,
+    chainIds,
+    camelizeKeys
 } from '../../../shared'
 import { Pool } from 'pg'
 import config from '../config'
 import chalk from 'chalk'
+import { literal } from 'pg-format'
 
 async function resetContractGroupEventRecordCounts(group: string) {
     const t0 = performance.now()
@@ -71,9 +74,11 @@ async function resetContractGroupEventRecordCounts(group: string) {
         }
     }
 
+    const heads = {}
     for (const chainId of chainIds) {
         const initialBlockNumber = initialBlockNumbers[chainId]
         const latestBlockNumber = await getBlockEventsSeriesNumber(chainId)
+        heads[chainId] = latestBlockNumber
 
         // If there was a reorg backwards, just start the job over...
         if (latestBlockNumber < initialBlockNumber) {
@@ -109,7 +114,7 @@ async function resetContractGroupEventRecordCounts(group: string) {
     shortPool.on('error', err => logger.error('PG client error', err))
 
     // Update record counts with new values and unpause.
-    await upsertAndUnpauseRecordCounts(shortPool, viewPaths, recordCounts)
+    await upsertAndUnpauseRecordCounts(shortPool, viewPaths, recordCounts, heads)
     await shortPool.end()
 
     const seconds = Number(((performance.now() - t0) / 1000).toFixed(2))
@@ -150,27 +155,26 @@ async function upsertAndUnpauseRecordCounts(
     pool: Pool, 
     viewPaths: string[],
     recordCounts: number[],
+    heads: StringKeyMap,
 ): Promise<boolean> {
     const placeholders = []
     const bindings = []
     let i = 1
-    // const timestamps = await Promise.all(
-    //     viewPaths.map(viewPath => getLatestBlockTimestampForView(schema, viewPath))
-    // )
+
+    const timestamps = await Promise.all(
+        viewPaths.map(viewPath => getLatestBlockTimestampForView(viewPath, heads))
+    )
     const now = nowAsUTCDateString()
     for (let j = 0; j < viewPaths.length; j++) {
         const viewPath = viewPaths[j]
         const recordCount = recordCounts[j]
-        const timestamp = now
+        const timestamp = timestamps[j] || now
         placeholders.push(`($${i}, $${i + 1}, $${i + 2}, $${i + 3})`)
         bindings.push(...[viewPath, recordCount, false, timestamp])
         i += 4
     }
 
     let success = true
-
-    // NOTE: Leave as pool.connect - don't replace with ChainTables.
-    // -> using custom statement timeout.
     const client = await pool.connect()
     try {
         await client.query('BEGIN')
@@ -285,25 +289,39 @@ async function deleteRecordCountDeltasBelowBlockNumber(
     return success
 }
 
-async function getLatestBlockTimestampForView(schema: string, viewPath: string): Promise<string | null> {
-    const client = await ChainTables.getConnection(schema)
-    let result
-    try {
-        result = await client.query(
-            `SELECT block_timestamp FROM ${identPath(viewPath)} order by block_number desc limit 1`,
-            [],
-        )
-    } catch (err) {
-        logger.warn(
-            `Getting latest block_timestamp for ${viewPath} -- most likely timed out: ${err}`
-        )
-    } finally {
-        client.release()
-    }
-    if (!result) return null
+async function getLatestBlockTimestampForView(viewPath: string, heads: StringKeyMap): Promise<string | null> {
+    const chainIds = Object.keys(heads || {})
 
-    const blockTimestamp = (result.rows || [])[0]?.block_timestamp || null
-    return blockTimestamp ? new Date(blockTimestamp).toISOString() : null
+    const recordsByChain = await Promise.all(chainIds.map(chainId => (
+        getLatestEventLovRecordForChainId(viewPath, chainId, Number(heads[chainId]))
+    )))
+
+    const recent = recordsByChain.filter(v => !!v).sort((a, b) => (
+        new Date(b.blockTimestamp).getTime() - new Date(a.blockTimestamp).getTime()
+    )) as StringKeyMap[]
+
+    const latest = recent[0] || null
+
+    return latest ? new Date(latest.blockTimestamp).toISOString() : null
+}
+
+async function getLatestEventLovRecordForChainId(
+    givenViewPath: string, 
+    chainId: string, 
+    head: number | null,
+): Promise<StringKeyMap | null> {
+    const schema = schemaForChainId[chainId]
+    const viewName = givenViewPath.split('.').pop()
+    const viewPath = [schema, viewName].join('.')
+    const historicalRange = chainId === chainIds.ARBITRUM ? 10000000 : 1000000
+    const minBlock = head ? Math.max(head - historicalRange, 0) : 0
+    const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
+
+    const rows = camelizeKeys((await ChainTables.query(schema,
+        `select * from ${identPath(viewPath)}${minBlockClause} order by block_number desc limit 1`
+    ))) as StringKeyMap[]
+
+    return rows[0] || null
 }
 
 export default function job(params: StringKeyMap) {
