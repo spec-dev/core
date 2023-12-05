@@ -151,6 +151,7 @@ export async function addContractInstancesToGroup(
     try {
         await CoreDB.manager.transaction(async (tx) => {
             const contract = await upsertContractWithTx(tx, namespace.id, contractName)
+
             newContractInstances = await upsertContractInstancesWithTx(
                 newInstances.map(({ chainId, address }) => ({
                     chainId,

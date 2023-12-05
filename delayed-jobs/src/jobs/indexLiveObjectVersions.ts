@@ -386,10 +386,15 @@ async function processInputs(
             registerContractInstancesByGroup[key].push(address)
         }
 
-        const groupContractInstancesToRegister = []
+        const uniqueContractInstancesByGroup = {}
         for (const key in registerContractInstancesByGroup) {
+            uniqueContractInstancesByGroup[key] = unique(registerContractInstancesByGroup[key])
+        }
+
+        const groupContractInstancesToRegister = []
+        for (const key in uniqueContractInstancesByGroup) {
             const [group, chainId, blockNumber] = key.split(':')
-            const addresses = registerContractInstancesByGroup[key]
+            const addresses = uniqueContractInstancesByGroup[key]
             groupContractInstancesToRegister.push({
                 group,
                 chainId,
