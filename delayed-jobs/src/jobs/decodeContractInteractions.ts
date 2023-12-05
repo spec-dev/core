@@ -28,6 +28,7 @@ import {
     deleteCoreRedisKeys,
 } from '../../../shared'
 import config from '../config'
+import chalk from 'chalk'
 import { ident } from 'pg-format'
 import processTransactionTraces from '../services/processTransactionTraces'
 
@@ -171,13 +172,14 @@ async function decodePrimitivesUsingContracts(
     let batchTransactions = []
     let batchLogs = []
 
-    logger.info(`[${chainId}:${group}] Decoding ${startBlock} --> ${stopAtBlock}:\n${
-        contractAddresses.map(address => `   - ${address}`).join('\n')
-    }\n`)
+    // logger.info(`[${chainId}:${group}] Decoding ${startBlock} --> ${stopAtBlock}:\n${
+    //     contractAddresses.map(address => `   - ${address}`).join('\n')
+    // }\n`)
     
     let cursor = startBlock
     const range = endBlock - initialBlock
     while (cursor <= stopAtBlock) {
+        logger.info(chalk.magentaBright(`${startBlock} -> ${endBlock}`))
         let completed = cursor - initialBlock
         let progress = completed / range
 

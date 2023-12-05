@@ -5,7 +5,7 @@ metadata:
   labels:
     app: delayed-jobs
 spec:
-  replicas: 5
+  replicas: 1
   selector:
     matchLabels:
       app: delayed-jobs
@@ -102,5 +102,7 @@ spec:
           value: heads
         - name: FORCE_COLOR
           value: "1" 
+        - name: DELAYED_JOB_CONCURRENCY_LIMIT
+          value: "1"  
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
