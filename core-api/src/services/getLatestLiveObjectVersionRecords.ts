@@ -10,6 +10,7 @@ import {
     camelToSnake,
     schemaForChainId,
     getGeneratedEventsCursors,
+    chainIds,
 } from '../../../shared'
 import { ident, literal } from 'pg-format'
 
@@ -115,7 +116,8 @@ async function getLatestEventLovRecordsForChainId(
     const schema = schemaForChainId[chainId]
     const viewName = givenViewPath.split('.').pop()
     const viewPath = [schema, viewName].join('.')
-    const minBlock = head ? Math.max(head - 1000000, 0) : 0
+    const historicalRange = chainId === chainIds.ARBITRUM ? 10000000 : 1000000
+    const minBlock = head ? Math.max(head - historicalRange, 0) : 0
     const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
 
     return camelizeKeys((await ChainTables.query(schema,
