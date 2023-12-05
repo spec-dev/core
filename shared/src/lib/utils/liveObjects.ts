@@ -82,7 +82,7 @@ export const fixedEventViewPropertyNames = new Set(
 const formatEventParamAsProperty = (eventParam: StringKeyMap): LiveObjectVersionProperty => ({
     name: removeAcronymFromCamel(snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name))),
     type: guessPropertyTypeFromSolidityType(eventParam.type),
-    desc: `The "${eventParam.name}" contract event argument.`,
+    desc: `The "${eventParam.name}" contract event parameter.`,
 })
 
 export const CONTRACT_NAME_COL = camelToSnake(fixedEventViewProperties.CONTRACT_NAME.name)
