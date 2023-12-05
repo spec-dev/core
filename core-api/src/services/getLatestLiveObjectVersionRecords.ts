@@ -102,7 +102,7 @@ async function getLatestRecordsFromEventLov(lov: LiveObjectVersion): Promise<Str
     )))).flat()
 
     const sorted = recordsByChain.sort((a, b) => (
-        new Date(a.blockTimestamp).getTime() - new Date(b.blockTimestamp).getTime()
+        new Date(b.blockTimestamp).getTime() - new Date(a.blockTimestamp).getTime()
     ))
     return sorted.slice(0, LIMIT)
 }
