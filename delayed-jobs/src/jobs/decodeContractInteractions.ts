@@ -172,9 +172,7 @@ async function decodePrimitivesUsingContracts(
     let batchTransactions = []
     let batchLogs = []
 
-    // logger.info(`[${chainId}:${group}] Decoding ${startBlock} --> ${stopAtBlock}:\n${
-    //     contractAddresses.map(address => `   - ${address}`).join('\n')
-    // }\n`)
+    logger.info(`[${chainId}:${group}:${contractAddresses[0]}] Decoding ${startBlock} --> ${stopAtBlock}\n`)
     
     let cursor = startBlock
     const range = endBlock - initialBlock
@@ -189,7 +187,6 @@ async function decodePrimitivesUsingContracts(
 
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
-        logger.info(chalk.magentaBright(`${start} -> ${end}`))
 
         let [transactions, logs] = await Promise.all([
             decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),

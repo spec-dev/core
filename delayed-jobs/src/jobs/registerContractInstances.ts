@@ -198,16 +198,15 @@ async function registerContractInstances(
             rangeSize = Math.ceil((currentBlock - startBlock) / config.MAX_DECODE_PARALLELIZATION)
         }
 
-        const ranges = [[startBlock, null]]
-        // const ranges = []
-        // let cursor = startBlock
-        // while (true) {
-        //     let end = cursor + rangeSize - 1
-        //     const isLastBatch = end > currentBlock
-        //     ranges.push([cursor, isLastBatch ? null : end])
-        //     cursor += rangeSize
-        //     if (isLastBatch) break
-        // }
+        const ranges = []
+        let cursor = startBlock
+        while (true) {
+            let end = cursor + rangeSize - 1
+            const isLastBatch = end > currentBlock
+            ranges.push([cursor, isLastBatch ? null : end])
+            cursor += rangeSize
+            if (isLastBatch) break
+        }
 
         logger.info(`[${group}] Will decode in ${ranges.length} ranges:\n${ranges.map(([start, end]) => `- ${start} -> ${end}`).join('\n')}`)
 
