@@ -222,6 +222,8 @@ async function decodePrimitivesUsingContracts(
         }
         await Promise.all(savePromises)
 
+        if (cursor === stopAtBlock) break
+
         cursor += queryRangeSize
     }
 
