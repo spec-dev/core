@@ -179,7 +179,6 @@ async function decodePrimitivesUsingContracts(
     let cursor = startBlock
     const range = endBlock - initialBlock
     while (cursor <= stopAtBlock) {
-        logger.info(chalk.magentaBright(`${startBlock} -> ${endBlock}`))
         let completed = cursor - initialBlock
         let progress = completed / range
 
@@ -190,7 +189,8 @@ async function decodePrimitivesUsingContracts(
 
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
-    
+        logger.info(chalk.magentaBright(`${start} -> ${end}`))
+
         let [transactions, logs] = await Promise.all([
             decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),
             decodeLogs(chainSchema, start, end, contractAddresses, abisMap, tables),
