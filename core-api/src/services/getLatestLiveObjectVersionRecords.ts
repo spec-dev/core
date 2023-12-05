@@ -20,6 +20,8 @@ async function getLatestLiveObjectVersionRecords(
 
     const { nsp, name, version } = liveObjectVersion
     const namespacedVersion = toNamespacedVersion(nsp, name, version)
+    const isContractEvent = liveObjectVersion.nsp.includes('.')
+    const streamKey = isContractEvent ? namespacedVersion : `${nsp}.${name}Changed@${version}`
     const propertyNames = liveObjectVersion.properties.map(p => p.name)
 
     const uniqueRecordId = (record: StringKeyMap) => {
@@ -27,7 +29,7 @@ async function getLatestLiveObjectVersionRecords(
     }
 
     try {
-        const recordEvents = await getLastXEvents(namespacedVersion, limit)
+        const recordEvents = await getLastXEvents(streamKey, limit)
         if (recordEvents.length) {
             const seen = new Set()
             for (const event of recordEvents) {
@@ -58,7 +60,6 @@ async function getLatestLiveObjectVersionRecords(
         records = recordsAfterCursor
     }
 
-    const isContractEvent = liveObjectVersion.nsp.includes('.')
     if (!isContractEvent) {
         records = records.map(r => {
             const record = { ...r }
