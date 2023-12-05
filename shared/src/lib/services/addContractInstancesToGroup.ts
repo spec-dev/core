@@ -84,6 +84,7 @@ export async function addContractInstancesToGroup(
         return { newEventSpecs: [], newCallSpecs: [], newInstances }
     }
     const newInstanceChainIds = newInstances.map((ci) => ci.chainId)
+    const newInstanceChainIdsSet = new Set(newInstanceChainIds)
     const newGroupChainIds = newInstanceChainIds.filter(
         (chainId) => !existingGroupChainIds.has(chainId)
     )
@@ -208,7 +209,10 @@ export async function addContractInstancesToGroup(
         eventNamespaceVersions.push(
             toNamespacedVersion(lovSpec.namespace, lovSpec.name, lovSpec.version)
         )
-        for (const viewSpec of viewSpecs) {
+        const viewSpecsForNewChains = viewSpecs.filter((viewSpec) =>
+            newInstanceChainIdsSet.has(viewSpec.chainId)
+        )
+        for (const viewSpec of viewSpecsForNewChains) {
             if (!(await upsertContractEventView(viewSpec))) {
                 throw `[${viewSpec.chainId}] Failed to update view for event: ${viewSpec.name}`
             }
