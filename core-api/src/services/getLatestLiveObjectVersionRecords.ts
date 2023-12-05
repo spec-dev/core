@@ -9,6 +9,7 @@ import {
     identPath,
     camelToSnake,
     schemaForChainId,
+    getGeneratedEventsCursors,
 } from '../../../shared'
 import { ident, literal } from 'pg-format'
 
@@ -90,13 +91,14 @@ async function getLatestLiveObjectVersionRecords(
     }
 }   
 
-async function getLatestRecordsFromEventLov(lov: LiveObjectVersion) {
-    const { table, chains } = lov.config
+async function getLatestRecordsFromEventLov(lov: LiveObjectVersion): Promise<StringKeyMap[]> {
+    const { table, chains } = lov.config || {}
     const chainIds = Object.keys(chains || {})
     if (!chainIds.length || !table) return []
 
+    const heads = await getGeneratedEventsCursors()
     const recordsByChain = (await Promise.all(chainIds.map(chainId => (
-        getLatestEventLovRecordsForChainId(table, chainId)
+        getLatestEventLovRecordsForChainId(table, chainId, Number(heads[chainId]))
     )))).flat()
 
     // @ts-ignore
@@ -104,13 +106,19 @@ async function getLatestRecordsFromEventLov(lov: LiveObjectVersion) {
     return sorted.slice(0, LIMIT)
 }
 
-async function getLatestEventLovRecordsForChainId(givenViewPath: string, chainId: string): Promise<StringKeyMap[]> {
+async function getLatestEventLovRecordsForChainId(
+    givenViewPath: string, 
+    chainId: string, 
+    head: number | null,
+): Promise<StringKeyMap[]> {
     const schema = schemaForChainId[chainId]
     const viewName = givenViewPath.split('.').pop()
     const viewPath = [schema, viewName].join('.')
+    const minBlock = head ? Math.max(literal(head - 1000000), 0) : 0
+    const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
 
     return camelizeKeys((await ChainTables.query(schema,
-        `select * from ${identPath(viewPath)} order by block_number desc limit ${literal(LIMIT)}`
+        `select * from ${identPath(viewPath)}${minBlockClause} order by block_number desc limit ${literal(LIMIT)}`
     ))) as StringKeyMap[]
 }
 
