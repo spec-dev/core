@@ -40,16 +40,18 @@ app.post(paths.NEW_CONTRACT_INSTANCES, async (req, res) => {
 app.post(paths.DECODE_CONTRACT_INTERACTIONS, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
-    // Parse & validate payload.
-    const { payload, isValid, error } = parseDecodeContractInteractionsPayload(req.body)
-    if (!isValid) {
-        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    const { group, instances = [] } = req.body
+    if (!group || !instances?.length) {
+        return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
     }
 
     // Kick off delayed job to decode contract interactions.
-    const scheduled = await enqueueDelayedJob('decodeContractInteractions', payload)
-    if (!scheduled) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
+    for (const { chainId, address } of instances) {
+        await enqueueDelayedJob('decodeContractInteractions', {
+            group,
+            chainId,
+            contractAddresses: [address],
+        })
     }
 
     return res.status(codes.SUCCESS).json({ ok: true })

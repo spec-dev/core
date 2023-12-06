@@ -21,7 +21,7 @@ spec:
         - name: NODE_ENV
           value: production
         - name: JWT_SECRET
-          value: {{JWT_SECRET}}
+          value: {{JWT_SECRET}} 
         - name: EVENT_GENERATORS_JWT
           value: {{EVENT_GENERATORS_JWT}}
         - name: SHARED_TABLES_DB_NAME
