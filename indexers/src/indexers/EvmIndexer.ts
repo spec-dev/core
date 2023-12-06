@@ -930,7 +930,7 @@ class EvmIndexer {
             this.resolvedBlockHash,
             this.blockNumber,
             this.chainId
-        )    
+        )
     }
 
     _initLogsWithReceipts(receipts: ExternalEvmReceipt[], block: EvmBlock): EvmLog[] {

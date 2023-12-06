@@ -139,6 +139,12 @@ function buildGenerator(
             }
         }
 
+        logger.info(queryCursors)
+        logger.info(
+            formatPgDateString(startBlockDate, false),
+            formatPgDateString(endBlockDate, false)
+        )
+
         const chainInputPromises = []
         for (const chainId of chainsToQuery) {
             const schema = schemaForChainId[chainId]
@@ -172,7 +178,12 @@ function buildGenerator(
 
             chainInputPromises.push(...[eventInputsQuery, callInputsQuery])
         }
+
+        logger.info('ONE')
+
         let chainInputs = await Promise.all(chainInputPromises)
+
+        logger.info('TWO')
 
         const uniqueTxHashes = {}
         for (let i = 0; i < chainInputs.length; i++) {
@@ -223,6 +234,8 @@ function buildGenerator(
         }
         await Promise.all(promises)
         promises = null
+
+        console.log('THREE')
 
         const inputs = chainInputs.flat()
         let successfulInputs = []
