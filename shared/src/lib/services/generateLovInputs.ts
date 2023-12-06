@@ -179,11 +179,7 @@ function buildGenerator(
             chainInputPromises.push(...[eventInputsQuery, callInputsQuery])
         }
 
-        logger.info('ONE')
-
         let chainInputs = await Promise.all(chainInputPromises)
-
-        logger.info('TWO')
 
         const uniqueTxHashes = {}
         for (let i = 0; i < chainInputs.length; i++) {
@@ -234,8 +230,6 @@ function buildGenerator(
         }
         await Promise.all(promises)
         promises = null
-
-        console.log('THREE')
 
         const inputs = chainInputs.flat()
         let successfulInputs = []
