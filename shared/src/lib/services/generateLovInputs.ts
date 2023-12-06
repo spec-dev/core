@@ -117,7 +117,7 @@ function getSmallestStartCursorAndBlockTime(queryCursors: StringKeyMap): [Date, 
             shortestBlockTime = chainBlockTime
         }
     }
-    return [earliestStartCursor, shortestBlockTime]
+    return [earliestStartCursor, 10]
 }
 
 function buildGenerator(
