@@ -25,6 +25,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 live_object_display_name, 
                 live_object_desc, 
                 live_object_has_icon, 
+                version_uid,
                 version_nsp,
                 version_name, 
                 version_version,
@@ -67,7 +68,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 ELSE TRUE
             END
             AND namespace_searchable is true
-            AND ($4::text IS NULL OR live_object_uid = $4)
+            AND ($4::text IS NULL OR version_uid = $4)
             AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT($5, '.%'))
             ORDER BY is_custom DESC, version_created_at DESC
             OFFSET $6 LIMIT $7;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, filters.namespace, offset, limit]

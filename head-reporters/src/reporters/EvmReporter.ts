@@ -319,7 +319,7 @@ class EvmReporter {
                 return    
             }
         }
-
+ 
         // Map the above by block number.
         const mappedBlocksNotUncledYet = {}
         for (const indexedBlock of blocksInRangeNotUncledYet) {
