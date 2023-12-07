@@ -50,7 +50,7 @@ class ResolveReceiptsWorker {
         }
         if (this.batchResults.length) {
             const batchResults = [...this.batchResults]
-            await this._saveBatchResults(batchResults)
+            await Promise.all(toChunks(batchResults, 2000).map(chunk => this._saveBatchResults(chunk)))
             this.batchResults = []
         }
         logger.info('DONE')
@@ -66,10 +66,10 @@ class ResolveReceiptsWorker {
             receiptsMap[hash] = null
         })
 
-        const receiptsFromTable = await evmReceipts().find({ where: { transactionHash: In(txHashes) }})
-        receiptsFromTable.forEach(receipt => {
-            receiptsMap[receipt.transactionHash] = receipt
-        })
+        // const receiptsFromTable = await evmReceipts().find({ where: { transactionHash: In(txHashes) }})
+        // receiptsFromTable.forEach(receipt => {
+        //     receiptsMap[receipt.transactionHash] = receipt
+        // })
 
         const remainingHashesToResolve = []
         for (const [hash, receipt] of Object.entries(receiptsMap)) {
@@ -88,7 +88,7 @@ class ResolveReceiptsWorker {
         this.batchResults.push(...Object.values(receiptsMap))
         if (this.batchResults.length >= 2000) {
             const batchResults = [...this.batchResults]
-            await this._saveBatchResults(batchResults)
+            await Promise.all(toChunks(batchResults, 2000).map(chunk => this._saveBatchResults(chunk)))
             this.batchResults = []
         }
     }
