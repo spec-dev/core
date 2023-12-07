@@ -40,6 +40,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_verified, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
+                namespace_searchable,
                 group_name
             FROM searchable_live_object_view
             WHERE
@@ -65,10 +66,9 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                     json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
                 ELSE TRUE
             END
+            AND namespace_searchable is true
             AND ($4::text IS NULL OR live_object_uid = $4)
             AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT($5, '.%'))
-            AND namespace_name not ilike '%.test.%'
-            AND namespace_name != 'test'
             ORDER BY is_custom DESC, version_created_at DESC
             OFFSET $6 LIMIT $7;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, filters.namespace, offset, limit]
         )
@@ -77,15 +77,25 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
         return { error: err?.message || err }
     }
 
-    // Camelize result keys.
+    // Camelize keys and for *custom* LOVs, only take the most recent version.
     results = camelizeKeys(results)
+    const distinctResults = []
+    const seenLovNames = new Set()
+    for (const result of results) {
+        if (result.isCustom) {
+            const fullName = [result.versionNsp, result.versionName].join('.')
+            if (seenLovNames.has(fullName)) continue
+            seenLovNames.add(fullName)
+        }
+        distinctResults.push(result)
+    }
 
-    const liveObjectTablePaths = results.map(r => r.versionConfig?.table).filter(v => !!v)
+    const liveObjectTablePaths = distinctResults.map(r => r.versionConfig?.table).filter(v => !!v)
     const recordCountsData = liveObjectTablePaths.length ? await getCachedRecordCounts(liveObjectTablePaths) : []
 
     // Return formatted results.
     return {
-        data: results.map(r => formatAsLatestLiveObject(r, recordCountsData)),
+        data: distinctResults.map(r => formatAsLatestLiveObject(r, recordCountsData)),
     }
 }
 

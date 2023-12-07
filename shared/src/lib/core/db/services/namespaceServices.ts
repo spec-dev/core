@@ -87,7 +87,7 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[] | n
 
 export async function upsertNamespaceWithTx(name: string, tx: any): Promise<Namespace | null> {
     const slug = toNamespaceSlug(name)
-    const data = { name, slug }
+    const data = { name, slug, searchable: true }
     return (
         (
             await tx
@@ -95,7 +95,7 @@ export async function upsertNamespaceWithTx(name: string, tx: any): Promise<Name
                 .insert()
                 .into(Namespace)
                 .values(data)
-                .orUpdate(['name'], ['slug'])
+                .orUpdate(['name', 'searchable'], ['slug'])
                 .returning('*')
                 .execute()
         ).generatedMaps[0] || null

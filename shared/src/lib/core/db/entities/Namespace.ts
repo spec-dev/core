@@ -62,6 +62,9 @@ export class Namespace {
     @Column({ nullable: true })
     blurhash: string
 
+    @Column({ nullable: true })
+    searchable: boolean
+
     @CreateDateColumn({
         type: 'timestamptz',
         name: 'created_at',

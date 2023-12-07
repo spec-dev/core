@@ -12,7 +12,7 @@ SELECT
     lv.nsp AS version_nsp, 
     lv.name AS version_name,
     lv.version AS version_version, 
-    lv.url AS version_url, 
+    lv.url AS version_url,
     lv.status AS version_status, 
     lv.properties AS version_properties, 
     lv.example AS version_example, 
