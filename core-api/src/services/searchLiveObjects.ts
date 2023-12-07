@@ -136,6 +136,7 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
         verified: result.namespaceVerified,
         isContractEvent,
         latestVersion: {
+            id: result.versionUid,
             nsp: result.versionNsp,
             name: result.versionName,
             version: result.versionVersion,
