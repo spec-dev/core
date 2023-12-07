@@ -3,7 +3,6 @@ import {
     logger,
     SharedTables,
     StringKeyMap,
-    contractNamespaceForChainId,
     saveBlockEvents,
     saveBlockCalls,
     EvmBlock,
@@ -65,6 +64,7 @@ import {
     specialErc20BalanceAffectingAbis,
     getContractGroupAbis,
     publishForcedRollback,
+    schemaForChainId,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -106,8 +106,6 @@ class EvmIndexer {
     resolvedBlockHash: string | null
 
     blockUnixTimestamp: number | null
-
-    contractEventNsp: string
 
     pool: Pool
 
@@ -202,7 +200,6 @@ class EvmIndexer {
         
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
-        this.contractEventNsp = contractNamespaceForChainId(this.chainId)
         // this.pool = new Pool({
         //     host: config.SHARED_TABLES_DB_HOST,
         //     port: config.SHARED_TABLES_DB_PORT,
@@ -414,31 +411,18 @@ class EvmIndexer {
             blockTimestamp: this.block.timestamp.toISOString(),
         }
 
-        // <chain>.NewBlock
-        const originEventInputs = [
-            originEvents.chain.NewBlock(this.block, eventOrigin),
-        ]
+        const originEventInputs = []
+        const chainSchema = schemaForChainId[this.chainId]
 
-        // <chain>.NewTransactions
-        this.transactions?.length && this.emitTransactions && originEventInputs.push(
-            ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
-                originEvents.chain.NewTransactions(txs, eventOrigin)
-            ))
-        )
-
-        // tokens.NewTokenTransfers
-        this.tokenTransfers?.length && originEventInputs.push(
-            ...(toChunks(this.tokenTransfers, config.MAX_EVENTS_LENGTH).map(transfers => 
-                originEvents.tokens.NewTokenTransfers(transfers, eventOrigin)
-            ))
-        )
-
-        // tokens.NewErc20Balances
-        this.erc20Balances?.length && originEventInputs.push(
-            ...(toChunks(this.erc20Balances, config.MAX_EVENTS_LENGTH).map(balances => 
-                originEvents.tokens.NewErc20Balances(balances, eventOrigin)
-            ))
-        )
+        // spec.NewTransactions and <chain>.NewTransactions
+        if (this.transactions?.length && this.emitTransactions) {
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.spec.NewTransactions(txs, eventOrigin)
+            )))
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.spec.NewTransactions(txs, eventOrigin, chainSchema)
+            )))
+        }
 
         const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
         const decodedTraceCalls = this.successfulTraces.filter(t => (
@@ -456,11 +440,12 @@ class EvmIndexer {
         const callContractInstances = []
         const uniqueContractGroups = new Set<string>()
         for (const contractInstance of referencedContractInstances) {
-            const nsp = contractInstance.contract?.namespace?.name
-            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
-            
-            const contractGroup = nsp.split('.').slice(2).join('.')
+            const contractGroup = contractInstance.contract?.namespace?.name
             if (!contractGroup) continue
+
+            // TODO: Remove after migration
+            if (contractGroup.split('.').length > 2) continue
+
             uniqueContractGroups.add(contractGroup)
 
             if (logContractAddresses.has(contractInstance.address)) {
@@ -474,26 +459,19 @@ class EvmIndexer {
         const contractGroupAbis = await getContractGroupAbis(
             Array.from(uniqueContractGroups),
         )
-        const namespacedContractGroupAbis = {}
-        for (const contractGroup in contractGroupAbis) {
-            const abi = contractGroupAbis[contractGroup]
-            const key = [this.contractEventNsp, contractGroup].join('.')
-            namespacedContractGroupAbis[key] = abi
-        }
-
         const txMap = mapByKey(this.transactions || [], 'hash')
 
         const [eventInputs, callInputs] = await Promise.all([
             this._curateContractEventInputs(
                 decodedLogs,
                 eventContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap
             ),
             this._curateContractCallInputs(
                 decodedTraceCalls,
                 callContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap,
             ),
         ])
@@ -878,22 +856,6 @@ class EvmIndexer {
     async _getReceipts(transactions: EvmTransaction[]): Promise<ExternalEvmReceipt[]> {
         const hasTxs = !!transactions.length
         const txHashes = transactions.map(tx => tx.hash)
-
-        // let logs, receipts
-
-        // quicknode or no
-        // block receipts or no
-
-        // // Just get logs directly if you can't get block receipts.
-        // if (!this.canGetBlockReceipts) {
-        //     const logs = await getWeb3().getLogs(
-        //         this.resolvedBlockHash,
-        //         this.blockNumber,
-        //         this.chainId,
-        //     )
-        //     return { receipts: null, logs }
-        // } 
-
         let receipts = await this._getBlockReceipts(txHashes)
 
         // Iterate until receipts can be fetched if at least 1 transaction exists.
@@ -911,13 +873,10 @@ class EvmIndexer {
         // Switch back to fetching ONLY logs if multiple block hashes exist within the receipts call.
         const uniqueBlockHashes = new Set(receipts.map(r => r.blockHash))
         if (uniqueBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
-            throw `Different block hashes detected within block receipts - ${uniqueBlockHashes} - ${this.resolvedBlockHash}.`
-            // const logs = await getWeb3().getLogs(
-            //     this.resolvedBlockHash,
-            //     this.blockNumber,
-            //     this.chainId    
-            // )
-            // return { receipts: null, logs }
+            if (!config.IS_RANGE_MODE) {
+                throw `[${this.blockNumber}] Different block hashes detected within block receipts - ${Array.from(uniqueBlockHashes).join(', ')} - ${this.resolvedBlockHash}.`
+            }
+            receipts = receipts.filter(r => r.blockHash === this.resolvedBlockHash)
         }
 
         return receipts
@@ -971,7 +930,7 @@ class EvmIndexer {
             this.resolvedBlockHash,
             this.blockNumber,
             this.chainId
-        )    
+        )
     }
 
     _initLogsWithReceipts(receipts: ExternalEvmReceipt[], block: EvmBlock): EvmLog[] {
@@ -1034,12 +993,12 @@ class EvmIndexer {
     }
 
     _logNewHead() {
-        console.log('')
-        config.IS_RANGE_MODE ||
+        if (!config.IS_RANGE_MODE) {
+            console.log('')
             logger.info(
                 `${this.logPrefix} Indexing block ${this.blockNumber} (${this.givenBlockHash?.slice(0, 10) || null})...`
             )
-
+        }
         if (this.head.replace) {
             this._info(
                 chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash?.slice(0, 10)})...`)
@@ -1081,14 +1040,14 @@ class EvmIndexer {
     async _curateContractEventInputs(
         decodedLogs: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
@@ -1129,14 +1088,14 @@ class EvmIndexer {
     async _curateContractCallInputs(
         decodedTraceCalls: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []

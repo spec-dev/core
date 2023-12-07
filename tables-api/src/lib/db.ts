@@ -15,7 +15,6 @@ function resolveRole(role?: string): string {
 async function getPoolConnection(
     query: QueryPayload | QueryPayload[],
     schema: string,
-    usePrimaryDb: boolean
 ) {
     let conn
     try {
@@ -30,12 +29,11 @@ async function getPoolConnection(
 
 export async function performQuery(
     query: QueryPayload, 
-    schema: string,
     role: string,
     attempt: number = 1,
 ): Promise<StringKeyMap[]> {
-    const { sql, bindings } = query
-    const conn = await getPoolConnection(query, schema, true)
+    const { sql, bindings, schemaName } = query
+    const conn = await getPoolConnection(query, schemaName)
     role = resolveRole(role)
 
     // Perform the query.
@@ -59,7 +57,7 @@ export async function performQuery(
         if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
             logger.error(`Got deadlock, trying again... (${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
             await sleep(randomIntegerInRange(50, 500))
-            return await performQuery(query, schema, role, attempt + 1)
+            return await performQuery(query, role, attempt + 1)
         }
 
         logger.error(errors.QUERY_FAILED, JSON.stringify(query), err)
@@ -81,7 +79,7 @@ export async function performTx(
     role: string,
     attempt: number = 1,
 ): Promise<StringKeyMap[][]> {
-    const conn = await getPoolConnection(queries, schema, true)
+    const conn = await getPoolConnection(queries, schema)
     role = resolveRole(role)
 
     let results = []
@@ -124,9 +122,9 @@ export async function performTx(
     return responses
 }
 
-export async function createQueryStream(query: QueryPayload, schema: string, usePrimaryDb: boolean) {
+export async function createQueryStream(query: QueryPayload, schema: string) {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query, schema, usePrimaryDb)
+    const conn = await getPoolConnection(query, schema)
 
     // Build and return the stream.
     try {

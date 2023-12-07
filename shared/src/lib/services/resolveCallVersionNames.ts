@@ -1,7 +1,7 @@
 import { getContractGroupAbi } from '../abi/redis'
 import { AbiItemType } from '../abi/types'
 import { StringKeyMap } from '../types'
-import { chainIdForContractNamespace, contractNamespaceForChainId } from '../utils/chainIds'
+import { chainIdForContractNamespace } from '../utils/chainIds'
 import { unique, fromNamespacedVersion, toNamespacedVersion } from '../utils/formatters'
 
 export async function resolveCallVersionNames(inputs: string[]): Promise<StringKeyMap> {
@@ -20,7 +20,6 @@ export async function resolveCallVersionNames(inputs: string[]): Promise<StringK
         if (!chainId) continue
 
         const contractGroup = nsp.split('.').slice(2).join('.')
-
         inputComps.push({
             nsp,
             name,

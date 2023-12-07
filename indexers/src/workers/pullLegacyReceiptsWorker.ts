@@ -10,11 +10,12 @@ import {
     normalize32ByteHash,
     toString,
     sleep,
+    schemaForChainId,
 } from '../../../shared'
 import { exit } from 'process'
 import https from 'https'
 
-class PullReceiptsWorker {
+class PullLegacyReceiptsWorker {
     
     from: number
 
@@ -22,7 +23,7 @@ class PullReceiptsWorker {
 
     cursor: number
 
-    saveBatchSize: number = 2000
+    saveBatchSize: number = 2500
 
     jsonStream: JSONStream
 
@@ -114,38 +115,38 @@ class PullReceiptsWorker {
     }
 
     async _saveReceipts(receipts: StringKeyMap[]) {
-        receipts = uniqueByKeys(
+        receipts = (uniqueByKeys(
             receipts.map((l) => this._bigQueryReceiptToReceipt(l)),
             ['transactionHash']
-        )
+        )).filter(r => r.status !== null)
+        if (!receipts.length) return
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await tx.createQueryBuilder()
-                .insert()
-                .into(EvmReceipt)
-                .values(receipts)
-                .orIgnore()
-                .execute()
-        })
-
-        await sleep(100)
+        await SharedTables.createQueryBuilder()
+            .insert()
+            .into(EvmReceipt)
+            .values(receipts)
+            .orIgnore()
+            .execute()
     }
 
     _bigQueryReceiptToReceipt(r: StringKeyMap): StringKeyMap {
+        let status = parseInt(r.receipt_status)
+        status = Number.isNaN(status) ? null : status
+        
         return {
-            transactionHash: r.transaction_hash,
-            contractAddress: normalizeEthAddress(r.contract_address, false),
-            status: r.status === null ? null : Number(r.status),
-            root: normalize32ByteHash(r.root),
-            gasUsed: toString(r.gas_used),
-            cumulativeGasUsed: toString(r.cumulative_gas_used),
-            effectiveGasPrice: toString(r.effective_gas_price),
+            transactionHash: r.hash,
+            contractAddress: normalizeEthAddress(r.receipt_contract_address, false),
+            status,
+            root: normalize32ByteHash(r.receipt_root),
+            gasUsed: toString(r.receipt_gas_used),
+            cumulativeGasUsed: toString(r.receipt_cumulative_gas_used),
+            effectiveGasPrice: toString(r.receipt_effective_gas_price),
         }
     }
 
     _sliceToUrl(slice: number): string {
         const paddedSlice = this._padNumberWithLeadingZeroes(slice, 12)
-        return `https://storage.googleapis.com/spec_eth/optimism-receipts/records-${paddedSlice}.json`
+        return `https://storage.googleapis.com/spec_eth/${schemaForChainId[config.CHAIN_ID]}-receipts/records-${paddedSlice}.json`
     }
 
     _padNumberWithLeadingZeroes(val: number, length: number): string {
@@ -157,6 +158,6 @@ class PullReceiptsWorker {
     }
 }
 
-export function getPullReceiptsWorker(): PullReceiptsWorker {
-    return new PullReceiptsWorker(config.FROM, config.TO)
+export function getPullLegacyReceiptsWorker(): PullLegacyReceiptsWorker {
+    return new PullLegacyReceiptsWorker(config.FROM, config.TO)
 }

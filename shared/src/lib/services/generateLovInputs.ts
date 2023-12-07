@@ -7,7 +7,6 @@ import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
 import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
-import { Pool } from 'pg'
 import { Abi } from '../abi/types'
 import { schemaForChainId, isContractNamespace } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
@@ -118,7 +117,7 @@ function getSmallestStartCursorAndBlockTime(queryCursors: StringKeyMap): [Date, 
             shortestBlockTime = chainBlockTime
         }
     }
-    return [earliestStartCursor, shortestBlockTime]
+    return [earliestStartCursor, 10]
 }
 
 function buildGenerator(
@@ -139,6 +138,12 @@ function buildGenerator(
                 chainsToQuery.push(chainId)
             }
         }
+
+        logger.info(queryCursors)
+        logger.info(
+            formatPgDateString(startBlockDate, false),
+            formatPgDateString(endBlockDate, false)
+        )
 
         const chainInputPromises = []
         for (const chainId of chainsToQuery) {
@@ -173,6 +178,7 @@ function buildGenerator(
 
             chainInputPromises.push(...[eventInputsQuery, callInputsQuery])
         }
+
         let chainInputs = await Promise.all(chainInputPromises)
 
         const uniqueTxHashes = {}
@@ -245,12 +251,10 @@ function buildGenerator(
             successfulInputs.push(camelizeKeys(input))
         }
 
-        if (indexingContractFactoryLov) {
-            successfulInputs = await decodeInputsIfNotAlready(
-                [...successfulInputs],
-                contractInstanceData
-            )
-        }
+        successfulInputs = await decodeInputsIfNotAlready(
+            [...successfulInputs],
+            contractInstanceData
+        )
 
         const sortedInputs = successfulInputs.sort(
             (a, b) =>
@@ -359,7 +363,7 @@ Example return structure:
                 "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
             "inputEventIds": Set(
-                "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
+                "lens.LensHubProxy.PostCreated@<topic>"
             )
             "inputFunctionsQueryComps": [],
             "inputFunctionIds": Set<[]>
@@ -371,7 +375,7 @@ Example return structure:
         "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
             {
                 "name": "LensHubProxy",
-                "nsp": "polygon.contracts.lens.LensHubProxy",
+                "nsp": "lens.LensHubProxy",
                 "abi": [...contractGroupAbi...]
             },
             ...
@@ -417,8 +421,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
     for (const contractInstance of contractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -642,8 +645,7 @@ export async function getLovInputGeneratorQueries(
     for (const contractInstance of eventContractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -669,11 +671,11 @@ export async function getLovInputGeneratorQueries(
 
     const chainInputs = {}
     for (const eventVersion of inputContractEventVersions) {
-        const eventContractInstance =
+        const eventContractInstances =
             eventContractInstancesByNamespaceId[eventVersion.event.namespaceId] || []
-        if (!eventContractInstance.length) continue
+        if (!eventContractInstances.length) continue
 
-        eventContractInstance.forEach(({ chainId, contractAddress }) => {
+        eventContractInstances.forEach(({ chainId, contractAddress }) => {
             chainInputs[chainId] = chainInputs[chainId] || {}
             chainInputs[chainId].inputEventData = chainInputs[chainId].inputEventData || {}
 
@@ -707,8 +709,7 @@ export async function getLovInputGeneratorQueries(
         const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
         const { nsp } = fromNamespacedVersion(callId)
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -843,7 +844,7 @@ async function decodeInputsIfNotAlready(
         const chainId = input.chainId
         const isEvent = input.inputType === 'event'
         const isDecoded = isEvent ? !!input.eventName : !!input.functionName
-        if (isDecoded) {
+        if (isDecoded || !isEvent) {
             decodedInputs.push(input)
             continue
         }

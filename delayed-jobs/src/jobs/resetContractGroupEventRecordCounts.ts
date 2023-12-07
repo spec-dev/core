@@ -2,7 +2,6 @@ import {
     logger,
     StringKeyMap,
     getEventVersionsInNsp,
-    chainIdForContractNamespace,
     schemaForChainId,
     formatEventVersionViewName,
     getBlockEventsSeriesNumber,
@@ -10,58 +9,64 @@ import {
     nowAsUTCDateString,
     sleep,
     ChainTables,
+    getChainIdsForContractGroups,
+    chainIds,
+    camelizeKeys
 } from '../../../shared'
 import { Pool } from 'pg'
 import config from '../config'
 import chalk from 'chalk'
+import { literal } from 'pg-format'
 
-async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
+async function resetContractGroupEventRecordCounts(group: string) {
     const t0 = performance.now()
-    logger.info(chalk.cyanBright(`Starting resetContractGroupEventRecordCounts (${fullContractGroup})...`))
-
-    // Get the chain id and schema associated with the contract group's namespace.
-    const chainId = chainIdForContractNamespace(fullContractGroup)
-    if (!chainId) {
-        logger.error(chalk.redBright(`No chain id associated with namespace ${fullContractGroup}...`))
-        return
-    }
-    const chainSchema = schemaForChainId[chainId]
+    logger.info(chalk.cyanBright(`Starting resetContractGroupEventRecordCounts (${group})...`))
 
     // Get all event versions in this contract group's namespace.
-    const eventVersions = await getEventVersionsInNsp(fullContractGroup)
+    const eventVersions = await getEventVersionsInNsp(group)
     if (!eventVersions?.length) {
-        logger.warn(chalk.yellow(`No event versions found in namespace ${fullContractGroup}. Stopping.`))
+        logger.warn(chalk.yellow(`No event versions found in namespace ${group}. Stopping.`))
         return
     }
+
+    // Group chains.
+    let chainIds = await getChainIdsForContractGroups([group])
+    chainIds = (chainIds || []).sort()
+    if (!chainIds.length) return
 
     // Get the full paths of the Postgres views associated with these event versions.
     const viewPaths = eventVersions.map(ev => {
         if (!ev.version.startsWith('0x')) return null // ignore deprecated contract events with 0.0.1 versions
         const viewName = formatEventVersionViewName(ev)
         if (!viewName) {
-            logger.error(chalk.redBright(`[${fullContractGroup}] No view name could be created from EventVersion(id=${ev.id})`))
+            logger.error(chalk.redBright(`[${group}] No view name could be created from EventVersion(id=${ev.id})`))
             return null
         }
-        return [chainSchema, viewName].join('.')
+        return ['spec', viewName].join('.')
     }).filter(v => !!v)
     if (!viewPaths.length) return
     
     // Upsert & pause each view entry in the record counts table.
     if (!(await upsertAndPauseRecordCounts(viewPaths))) return 
+    
+    const initialBlockNumbers = {}
+    for (const chainId of chainIds) {
+        // Get the current block number using the event sorter series #.
+        const initialBlockNumber = await getBlockEventsSeriesNumber(chainId)
+        if (!initialBlockNumber) {
+            logger.error(chalk.redBright(`[${group}] No series number found for chainId=${chainId}...`))
+            return
+        }
 
-    // Get the current block number using the event sorter series #.
-    const initialBlockNumber = await getBlockEventsSeriesNumber(chainId)
-    if (!initialBlockNumber) {
-        logger.error(chalk.redBright(`[${fullContractGroup}] No series number found for chainId=${chainId}...`))
-        return
+        initialBlockNumbers[chainId] = initialBlockNumber
+
+        // Delete record count deltas for these views below this block number.
+        if (!(await deleteRecordCountDeltasBelowBlockNumber(viewPaths, initialBlockNumber, chainId))) return
     }
-
-    // Delete record count deltas for these views below this block number.
-    if (!(await deleteRecordCountDeltasBelowBlockNumber(viewPaths, initialBlockNumber, chainId))) return
 
     // Get the exact record counts for each view below the current block number.
     const recordCounts = await Promise.all(viewPaths.map(
-        viewPath => calculateRecordCountBelowBlockNumber(chainSchema, viewPath, initialBlockNumber)
+        viewPath => calculateRecordCountBelowBlockNumbers(viewPath, chainIds, initialBlockNumbers)
     ))
     for (const count of recordCounts) {
         if (count === null) {
@@ -69,27 +74,31 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
         }
     }
 
-    // Get current block number again in case it changed.
-    const latestBlockNumber = await getBlockEventsSeriesNumber(chainId)
+    const heads = {}
+    for (const chainId of chainIds) {
+        const initialBlockNumber = initialBlockNumbers[chainId]
+        const latestBlockNumber = await getBlockEventsSeriesNumber(chainId)
+        heads[chainId] = latestBlockNumber
 
-    // If there was a reorg backwards, just start the job over...
-    if (latestBlockNumber < initialBlockNumber) {
-        logger.warn(chalk.yellow(`[${fullContractGroup}] Reorg detected mid record-count job. Restarting...`))
-        await sleep(10000)
-        return resetContractGroupEventRecordCounts(fullContractGroup)
-    }
+        // If there was a reorg backwards, just start the job over...
+        if (latestBlockNumber < initialBlockNumber) {
+            logger.warn(chalk.yellow(`[${group}] Reorg detected mid record-count job. Restarting...`))
+            await sleep(10000)
+            return resetContractGroupEventRecordCounts(group)
+        }
 
-    // Fill in the count gaps due to the time it took to run the first calculation.
-    if (latestBlockNumber > initialBlockNumber) {
-        const gapCounts = await Promise.all(viewPaths.map(
-            viewPath => calculateRecordCountBetweenBlockNumbers(chainSchema, viewPath, initialBlockNumber, latestBlockNumber)
-        ))
-        for (let i = 0; i < gapCounts.length; i++) {
-            const gapCount = gapCounts[i]
-            if (gapCount === null) {
-                return
+        // Fill in the count gaps due to the time it took to run the first calculation.
+        if (latestBlockNumber > initialBlockNumber) {
+            const gapCounts = await Promise.all(viewPaths.map(
+                viewPath => calculateRecordCountBetweenBlockNumbers(chainId, viewPath, initialBlockNumber, latestBlockNumber)
+            ))
+            for (let i = 0; i < gapCounts.length; i++) {
+                const gapCount = gapCounts[i]
+                if (gapCount === null) {
+                    return
+                }
+                recordCounts[i] += gapCount
             }
-            recordCounts[i] += gapCount
         }
     }
 
@@ -105,11 +114,11 @@ async function resetContractGroupEventRecordCounts(fullContractGroup: string) {
     shortPool.on('error', err => logger.error('PG client error', err))
 
     // Update record counts with new values and unpause.
-    await upsertAndUnpauseRecordCounts(chainSchema, shortPool, viewPaths, recordCounts)
+    await upsertAndUnpauseRecordCounts(shortPool, viewPaths, recordCounts, heads)
     await shortPool.end()
 
     const seconds = Number(((performance.now() - t0) / 1000).toFixed(2))
-    logger.info(chalk.cyanBright(`DONE (${fullContractGroup}) in ${seconds}s`))
+    logger.info(chalk.cyanBright(`DONE (${group}) in ${seconds}s`))
 }
 
 async function upsertAndPauseRecordCounts(viewPaths: string[]): Promise<boolean> {
@@ -143,16 +152,17 @@ async function upsertAndPauseRecordCounts(viewPaths: string[]): Promise<boolean>
 }
 
 async function upsertAndUnpauseRecordCounts(
-    schema: string,
     pool: Pool, 
     viewPaths: string[],
     recordCounts: number[],
+    heads: StringKeyMap,
 ): Promise<boolean> {
     const placeholders = []
     const bindings = []
     let i = 1
+
     const timestamps = await Promise.all(
-        viewPaths.map(viewPath => getLatestBlockTimestampForView(schema, viewPath))
+        viewPaths.map(viewPath => getLatestBlockTimestampForView(viewPath, heads))
     )
     const now = nowAsUTCDateString()
     for (let j = 0; j < viewPaths.length; j++) {
@@ -165,9 +175,6 @@ async function upsertAndUnpauseRecordCounts(
     }
 
     let success = true
-
-    // NOTE: Leave as pool.connect - don't replace with ChainTables.
-    // -> using custom statement timeout.
     const client = await pool.connect()
     try {
         await client.query('BEGIN')
@@ -186,47 +193,58 @@ async function upsertAndUnpauseRecordCounts(
 
     return success
 }
-
-async function calculateRecordCountBelowBlockNumber(
-    schema: string,
+async function calculateRecordCountBelowBlockNumbers(
     viewPath: string, 
-    blockNumber: number,
+    chainIds: string[],
+    blockNumbers: StringKeyMap,
 ): Promise<number | null> {
-    const client = await ChainTables.getConnection(schema)
-    let result
-    try {
-        result = await client.query(
-            `SELECT count(*) FROM ${identPath(viewPath)} WHERE block_number <= $1`,
-            [blockNumber],
-        )
-    } catch (err) {
-        logger.error(
-            `Failed to select count(*) from ${viewPath} where block_number <= ${blockNumber}: ${err}`
-        )
-    } finally {
-        client.release()
-    }
-    if (!result) return null
+    let count = 0
+    const viewName = viewPath.split('.').pop()
+    for (const chainId of chainIds) {
+        const schema = schemaForChainId[chainId]
+        const blockNumber = blockNumbers[chainId]
+        const chainViewPath = [schema, viewName].join('.')
 
-    return Number((result.rows || [])[0]?.count || 0)
+        const client = await ChainTables.getConnection(schema)
+        let result
+        try {
+            result = await client.query(
+                `SELECT count(*) FROM ${identPath(chainViewPath)} WHERE block_number <= $1`,
+                [blockNumber],
+            )
+        } catch (err) {
+            logger.error(
+                `Failed to select count(*) from ${chainViewPath} where block_number <= ${blockNumber}: ${err}`
+            )
+        } finally {
+            client.release()
+        }
+        if (!result) return null
+        count += Number((result.rows || [])[0]?.count || 0)
+    }
+    return count
 }
 
 async function calculateRecordCountBetweenBlockNumbers(
-    schema: string,
+    chainId: string,
     viewPath: string, 
     fromBlockNumber: number,
     toBlockNumber: number,
 ): Promise<number | null> {
+    const schema = schemaForChainId[chainId]
+    const viewName = viewPath.split('.').pop()
+    const chainViewPath = [schema, viewName].join('.')
+
     const client = await ChainTables.getConnection(schema)
     let result
     try {
         result = await client.query(
-            `SELECT count(*) FROM ${identPath(viewPath)} WHERE block_number > $1 and block_number <= $2`,
+            `SELECT count(*) FROM ${identPath(chainViewPath)} WHERE block_number > $1 and block_number <= $2`,
             [fromBlockNumber, toBlockNumber],
         )
     } catch (err) {
         logger.error(
-            `Failed to select count(*) from ${viewPath} where block_number (${fromBlockNumber} -> ${toBlockNumber}): ${err}`
+            `Failed to select count(*) from ${chainViewPath} where block_number (${fromBlockNumber} -> ${toBlockNumber}): ${err}`
         )
     } finally {
         client.release()
@@ -271,29 +289,43 @@ async function deleteRecordCountDeltasBelowBlockNumber(
     return success
 }
 
-async function getLatestBlockTimestampForView(schema: string, viewPath: string): Promise<string | null> {
-    const client = await ChainTables.getConnection(schema)
-    let result
-    try {
-        result = await client.query(
-            `SELECT block_timestamp FROM ${identPath(viewPath)} order by block_number desc limit 1`,
-            [],
-        )
-    } catch (err) {
-        logger.warn(
-            `Getting latest block_timestamp for ${viewPath} -- most likely timed out: ${err}`
-        )
-    } finally {
-        client.release()
-    }
-    if (!result) return null
+async function getLatestBlockTimestampForView(viewPath: string, heads: StringKeyMap): Promise<string | null> {
+    const chainIds = Object.keys(heads || {})
 
-    const blockTimestamp = (result.rows || [])[0]?.block_timestamp || null
-    return blockTimestamp ? new Date(blockTimestamp).toISOString() : null
+    const recordsByChain = await Promise.all(chainIds.map(chainId => (
+        getLatestEventLovRecordForChainId(viewPath, chainId, Number(heads[chainId]))
+    )))
+
+    const recent = recordsByChain.filter(v => !!v).sort((a, b) => (
+        new Date(b.blockTimestamp).getTime() - new Date(a.blockTimestamp).getTime()
+    )) as StringKeyMap[]
+
+    const latest = recent[0] || null
+
+    return latest ? new Date(latest.blockTimestamp).toISOString() : null
+}
+
+async function getLatestEventLovRecordForChainId(
+    givenViewPath: string, 
+    chainId: string, 
+    head: number | null,
+): Promise<StringKeyMap | null> {
+    const schema = schemaForChainId[chainId]
+    const viewName = givenViewPath.split('.').pop()
+    const viewPath = [schema, viewName].join('.')
+    const historicalRange = chainId === chainIds.ARBITRUM ? 10000000 : 1000000
+    const minBlock = head ? Math.max(head - historicalRange, 0) : 0
+    const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
+
+    const rows = camelizeKeys((await ChainTables.query(schema,
+        `select * from ${identPath(viewPath)}${minBlockClause} order by block_number desc limit 1`
+    ))) as StringKeyMap[]
+
+    return rows[0] || null
 }
 
 export default function job(params: StringKeyMap) {
     return {
-        perform: async () => resetContractGroupEventRecordCounts(params.fullContractGroup)
+        perform: async () => resetContractGroupEventRecordCounts(params.group)
     }
 }

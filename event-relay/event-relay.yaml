@@ -99,6 +99,10 @@ spec:
           value: {{SEPOLIA_DB_URL}}
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: CORE_REDIS_HOST
+          value: {{CORE_REDIS_HOST}}
+        - name: CORE_REDIS_PORT
+          value: "{{CORE_REDIS_PORT}}"
         - name: FORCE_COLOR
           value: "1" 
         readinessProbe:

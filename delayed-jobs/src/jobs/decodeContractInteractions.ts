@@ -13,18 +13,22 @@ import {
     getBlockEventsSeriesNumber,
     updateContractRegistrationJobStatus,
     ContractRegistrationJobStatus,
-    updateContractRegistrationJobCursors,
     getContractRegistrationJob,
     randomIntegerInRange,
     bulkSaveTransactions,
-    bulkSaveTraces,
     bulkSaveLogs,
     decodeTransactions,
     ChainTables,
     decodeLogs,
     decodeFunctionCalls,
+    setDecodeJobProgress,
+    identPath,
+    getDecodeJobRangeCount,
+    getDecodeJobProgress,
+    deleteCoreRedisKeys,
 } from '../../../shared'
 import config from '../config'
+import chalk from 'chalk'
 import { ident } from 'pg-format'
 import processTransactionTraces from '../services/processTransactionTraces'
 
@@ -48,16 +52,18 @@ const buildTableRefsForChainId = (chainId: string): StringKeyMap => {
 }
 
 async function decodeContractInteractions(
+    group: string,
     chainId: string, 
     contractAddresses: string[],
     initialBlock: number | null,
     startBlock: number | null,
+    endBlock: number | null,
     queryRangeSize: number,
     jobRangeSize: number,
+    cursorIndex: number,
     registrationJobUid?: string,
-    fullContractGroup?: string,
 ) {
-    logger.info(`[${chainId}:${startBlock}] Decoding interactions for (${contractAddresses.join(', ')})...`)
+    logger.info(`[${chainId}:${startBlock}] Decoding ${contractAddresses.join(', ')}...`)
     registrationJobUid && await updateContractRegistrationJobStatus(
         registrationJobUid, 
         ContractRegistrationJobStatus.Decoding,
@@ -70,151 +76,129 @@ async function decodeContractInteractions(
         return
     }
     
-    // Format tables to query based on chain-specific schema.
-    const tables = buildTableRefsForChainId(chainId)
-
-    const onDone = async (): Promise<boolean> => {
-        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, 1)
-        await sleep(randomIntegerInRange(100, 500))
-
-        const cursors = (await getContractRegistrationJob(registrationJobUid))?.cursors || {}
-        const decodedAllContractsInRegistrationJob = Object.values(cursors).every(v => v === 1)
-
-        if (decodedAllContractsInRegistrationJob) {
-            await updateContractRegistrationJobStatus(
-                registrationJobUid,
-                ContractRegistrationJobStatus.Complete,
-            )
-            return true
-        }
-
-        return false
-    }
-
     // Determine the earliest block in which this contract was interacted with 
     // and use that as the "start" block if no start block was specified.
     const schema = schemaForChainId[chainId]
-    startBlock = startBlock === null ? await findStartBlock(schema, tables, contractAddresses) : startBlock
+    startBlock = startBlock === null ? await findStartBlock(schema, contractAddresses) : startBlock
     if (startBlock === null) {
-        logger.error(`No interactions detected for (${contractAddresses.join(', ')}). Stopping.`)
+        logger.warn(`No interactions detected yet for ${contractAddresses.join(', ')}.`)
         let shouldResetEventRecordCounts = true
         if (registrationJobUid) {
-            shouldResetEventRecordCounts = await onDone()
+            shouldResetEventRecordCounts = await checkIfJobDone(
+                registrationJobUid,
+                group,
+                chainId,
+                contractAddresses,
+                cursorIndex,
+            )
         }
-        if (shouldResetEventRecordCounts && fullContractGroup) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        if (shouldResetEventRecordCounts && group) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
 
-    // Initial start block for the entire decoding of this contract.
     initialBlock = initialBlock === null ? startBlock : initialBlock
+    endBlock = endBlock || await getBlockEventsSeriesNumber(chainId)
+    const tables = buildTableRefsForChainId(chainId)
 
-    // Decode all transactions, traces, and logs that 
-    // involve any of these contracts in this block range.
-    const finalEndBlock = await getBlockEventsSeriesNumber(chainId)
     const endCursor = await decodePrimitivesUsingContracts(
+        group,
         chainId,
         contractAddresses,
         abisMap,
         tables,
         startBlock,
+        endBlock,
         queryRangeSize,
         jobRangeSize,
         initialBlock,
-        finalEndBlock,
+        cursorIndex,
         registrationJobUid,
     )
 
     // All contract interactions decoded *for this contract*.
-    if (endCursor >= finalEndBlock) {
+    if (endCursor >= endBlock) {
         logger.info(`Fully decoded contract interactions for (${contractAddresses.join(', ')})`)
         let shouldResetEventRecordCounts = true
         if (registrationJobUid) {
-            shouldResetEventRecordCounts = await onDone()
+            shouldResetEventRecordCounts = await checkIfJobDone(
+                registrationJobUid,
+                group,
+                chainId,
+                contractAddresses,
+                cursorIndex,
+            )
         }
-        if (shouldResetEventRecordCounts && fullContractGroup) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        if (shouldResetEventRecordCounts && group) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
 
     // Enqueue next job in series.
     await enqueueDelayedJob('decodeContractInteractions', {
-        chainId, 
+        group,
+        chainId,
         contractAddresses,
         initialBlock,
         startBlock: endCursor,
+        endBlock,
         queryRangeSize,
         jobRangeSize,
+        cursorIndex,
         registrationJobUid,
-        fullContractGroup,
     })
 }
 
 async function decodePrimitivesUsingContracts(
+    group: string,
     chainId: string, 
     contractAddresses: string[],
     abisMap: StringKeyMap,
     tables: StringKeyMap,
     startBlock: number,
+    endBlock: number,
     queryRangeSize: number,
     jobRangeSize: number,
     initialBlock: number,
-    finalEndBlock: number,
+    cursorIndex: number,
     registrationJobUid: string,
 ): Promise<number> {
-    const stopAtBlock = Math.min(startBlock + jobRangeSize, finalEndBlock)
+    const contractName = group.split('.').pop()
+    const stopAtBlock = Math.min(startBlock + jobRangeSize, endBlock)
     const chainSchema = schemaForChainId[chainId]
 
     let batchTransactions = []
-    let batchTraces = []
-    let batchNewTraces = []
     let batchLogs = []
+
+    logger.info(`[${chainId}:${group}:${contractAddresses[0]}] Decoding ${startBlock} --> ${stopAtBlock}\n`)
+    
     let cursor = startBlock
+    const range = endBlock - initialBlock
+    while (cursor <= stopAtBlock) {
+        let completed = cursor - initialBlock
+        let progress = completed / range
 
-    const completed = startBlock - initialBlock
-    const range = finalEndBlock - initialBlock
-    let progress = completed / range
+        const progressKeys = contractAddresses.map(address => (
+            [registrationJobUid, contractName, chainId, address, cursorIndex].join(':')
+        ))
+        registrationJobUid && await Promise.all(progressKeys.map(key => setDecodeJobProgress(key, progress)))
 
-    logger.info(`[${chainId}] Decoding ${startBlock} --> ${stopAtBlock}:\n${
-        contractAddresses.map(address => `   - ${address}`).join('\n')
-    }\n`)
-
-    while (cursor < stopAtBlock) {
-        await updateContractRegistrationJobCursors(registrationJobUid, contractAddresses, progress)
         const start = cursor
         const end = Math.min(cursor + queryRangeSize - 1, stopAtBlock)
-    
-        // let [transactions, traces, logs] = await Promise.all([
-        //     decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),
-        //     decodeTraces(chainSchema, start, end, contractAddresses, abisMap, tables),
-        //     decodeLogs(chainSchema, start, end, contractAddresses, abisMap, tables),
-        // ])
-        let traces = [] // turning off decoding (10.27.23)
+
         let [transactions, logs] = await Promise.all([
             decodeTransactions(chainSchema, start, end, contractAddresses, abisMap, tables),
             decodeLogs(chainSchema, start, end, contractAddresses, abisMap, tables),
         ])
         transactions = transactions || []
-        traces = traces || []
         logs = logs || []
 
-        // NOTE: Turning off for now (10.11.23 - @whittlbc)
-        // If on Polygon, ensure all traces have been pulled for these transactions since 
-        // we're lazy-loading traces on Polygon due to the lack of a `trace_block` RPC endpoint.
-        // if (onPolygon) {
-        //     const newTraces = await ensureTracesExistForEachTransaction(transactions, traces, abisMap, chainId)
-        //     batchNewTraces.push(...newTraces)
-        // }
-
         batchTransactions.push(...transactions)
-        batchTraces.push(...traces)
         batchLogs.push(...logs)
         
         const saveTransactions = batchTransactions.length > SAVE_BATCH_SIZE
-        const saveTraces = batchTraces.length > SAVE_BATCH_SIZE
-        const insertNewTraces = batchNewTraces.length > SAVE_BATCH_SIZE
         const saveLogs = batchLogs.length > SAVE_BATCH_SIZE
 
         let savePromises = []
@@ -228,27 +212,6 @@ async function decodePrimitivesUsingContracts(
             await Promise.all(savePromises)
             savePromises = []
         }
-
-        if (saveTraces) {
-            const traceChunks = toChunks(batchTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...traceChunks.map(chunk => bulkSaveTraces(chainSchema, chunk, tables.traces, true)))
-            batchTraces = []
-        }
-        if (savePromises.length > MAX_PARALLEL_PROMISES) {
-            await Promise.all(savePromises)
-            savePromises = []
-        }
-
-        if (insertNewTraces) {
-            const newTraceChunks = toChunks(batchNewTraces, SAVE_BATCH_SIZE)
-            savePromises.push(...newTraceChunks.map(chunk => bulkInsertNewTraces(chainSchema, chunk, tables.traces)))
-            batchNewTraces = []
-        }
-        if (savePromises.length > MAX_PARALLEL_PROMISES) {
-            await Promise.all(savePromises)
-            savePromises = []
-        }
-
         if (saveLogs) {
             const logChunks = toChunks(batchLogs, SAVE_BATCH_SIZE)
             savePromises.push(...logChunks.map(chunk => bulkSaveLogs(chainSchema, chunk, tables.logs, true)))
@@ -256,17 +219,74 @@ async function decodePrimitivesUsingContracts(
         }
         await Promise.all(savePromises)
 
-        cursor = cursor + queryRangeSize
+        if (cursor === stopAtBlock) break
+
+        cursor += queryRangeSize
     }
 
     const savePromises = []
     batchTransactions.length && savePromises.push(bulkSaveTransactions(chainSchema, batchTransactions, tables.transactions, true))
-    batchTraces.length && savePromises.push(bulkSaveTraces(chainSchema, batchTraces, tables.traces, true))
-    batchNewTraces.length && savePromises.push(bulkInsertNewTraces(chainSchema, batchNewTraces, tables.traces))
     batchLogs.length && savePromises.push(bulkSaveLogs(chainSchema, batchLogs, tables.logs, true))
     savePromises.length && await Promise.all(savePromises)
 
     return cursor
+}
+
+export async function checkIfJobDone(
+    registrationJobUid: string,
+    currentGroupName: string,
+    chainId?: string,
+    contractAddresses?: string[],
+    cursorIndex?: number,
+): Promise<boolean> {
+    const contractName = currentGroupName.split('.').pop()
+    contractAddresses = contractAddresses || []
+    const progressKeys = contractAddresses.map(address => (
+        [registrationJobUid, contractName, chainId, address, cursorIndex].join(':')
+    ))
+    await Promise.all(progressKeys.map(key => setDecodeJobProgress(key, 1)))
+    await sleep(randomIntegerInRange(100, 500))
+
+    let done = true
+    const allGroupsInJob = (await getContractRegistrationJob(registrationJobUid))?.groups || []
+
+    const jobKeys = []
+    for (const group of allGroupsInJob) {
+        const instances = (group.instances || []).map(key => {
+            const split = key.split(':')
+            return { chainId: split[0], address: split[1] }
+        })
+        if (!instances.length) continue
+
+        for (const instance of instances) {
+            const decodeJobKey = [registrationJobUid, group.name, instance.chainId, instance.address, 'num-range-jobs'].join(':')
+            jobKeys.push(decodeJobKey)
+            const numRangeJobs = await getDecodeJobRangeCount(decodeJobKey)
+            if (!numRangeJobs) {
+                done = false
+                break
+            }
+
+            for (let i = 0; i < numRangeJobs; i++) {
+                const progressKey = [registrationJobUid, group.name, instance.chainId, instance.address, i].join(':')
+                jobKeys.push(progressKey)
+                const progress = await getDecodeJobProgress(progressKey)
+                if (progress != 1) {
+                    done = false
+                    break
+                }
+            }
+        }
+        if (!done) break
+    }
+    if (!done) return false
+
+    await Promise.all([
+        updateContractRegistrationJobStatus(registrationJobUid, ContractRegistrationJobStatus.Complete),
+        deleteCoreRedisKeys(jobKeys),
+    ])
+
+    return true
 }
 
 export async function ensureTracesExistForEachTransaction(
@@ -490,11 +510,10 @@ async function getAbisForContracts(contractAddresses: string[], chainId: string)
     return abisMap
 }
 
-async function findStartBlock(schema: string, tables: StringKeyMap, contractAddresses: string[]): Promise<number | null> {
+export async function findStartBlock(schema: string, contractAddresses: string[]): Promise<number | null> {
     const blockNumbers = await Promise.all([
-        findEarliestInteraction(schema, tables.transactions, 'to', contractAddresses),
-        findEarliestInteraction(schema, tables.traces, 'to', contractAddresses),
-        findEarliestInteraction(schema, tables.logs, 'address', contractAddresses),
+        findEarliestInteraction(schema, 'transactions', 'to', contractAddresses),
+        findEarliestInteraction(schema, 'logs', 'address', contractAddresses),
     ])
     const notNullBlockNumbers = blockNumbers.filter(n => n !== null)
     return notNullBlockNumbers.length ? Math.min(...notNullBlockNumbers) : null
@@ -504,7 +523,7 @@ async function findEarliestInteraction(schema: string, table: string, column: st
     const addressPlaceholders = addresses.map((_, i) => `$${i + 1}`).join(', ')
     try {
         const results = (await ChainTables.query(schema,
-            `select "block_number" from ${table} where ${ident(column)} in (${addressPlaceholders}) order by "block_number" asc limit 1`,
+            `select "block_number" from ${identPath([schema, table].join('.'))} where ${ident(column)} in (${addressPlaceholders}) order by "block_number" asc limit 1`,
             addresses,
         )) || []
         const number = Number((results[0] || {}).block_number)
@@ -515,27 +534,31 @@ async function findEarliestInteraction(schema: string, table: string, column: st
 }
 
 export default function job(params: StringKeyMap) {
+    const group = params.group
     const chainId = params.chainId
     const contractAddresses = params.contractAddresses || []
     const initialBlock = params.hasOwnProperty('initialBlock') ? params.initialBlock : null
     const startBlock = params.hasOwnProperty('startBlock') ? params.startBlock : null
+    const endBlock = params.hasOwnProperty('endBlock') ? params.endBlock : null
     const queryRangeSize = params.queryRangeSize || config.QUERY_BLOCK_RANGE_SIZE
     const jobRangeSize = params.jobRangeSize || config.JOB_BLOCK_RANGE_SIZE
+    const cursorIndex = params.cursorIndex || 0
     const registrationJobUid = params.registrationJobUid
-    const fullContractGroup = params.fullContractGroup
 
     return {
         perform: async () => {
             try {
                 await decodeContractInteractions(
+                    group,
                     chainId, 
                     contractAddresses, 
                     initialBlock,
                     startBlock,
+                    endBlock,
                     queryRangeSize,
                     jobRangeSize,
+                    cursorIndex,
                     registrationJobUid,
-                    fullContractGroup,
                 )
             } catch (err) {
                 logger.error(err)

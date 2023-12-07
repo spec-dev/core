@@ -118,7 +118,7 @@ app.post(paths.QUERY, async (req, res) => {
         return res.status(codes.SUCCESS).json([])
     }
 
-    const schema = req.body.table.split('.')[0]
+    const schema = query.schemaName || req.body.table.split('.')[0]
 
     // Run query and return JSON array of results.
     let records = []
@@ -192,16 +192,14 @@ app.post(paths.STREAM_QUERY, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: errors.INVALID_PAYLOAD })
     }
 
-    const schema = req.body.table.split('.')[0]
-
+    const schema = query.schemaName || req.body.table.split('.')[0]
+    
     // Create a query stream and stream the response.
-    const usePrimaryDb = req.body?.nearHead === true
     let stream, conn, keepAliveTimer
     try {
         ;([stream, conn] = await createQueryStream(
             query as QueryPayload,
             schema,
-            usePrimaryDb,
         ))
         keepAliveTimer = streamQuery(stream, conn, res)
     } catch (error) {

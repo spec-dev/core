@@ -256,19 +256,8 @@ export const primitivesForChainId = {
     ],
 }
 
-export const contractNamespaceForChainId = (chainId: string): string | null => {
-    const nsp = namespaceForChainId[chainId]
-    if (!nsp) return null
-    return [nsp, 'contracts'].join('.')
-}
-
 export const isContractNamespace = (nsp: string): boolean => {
-    for (const chainSpecificNsp of Object.values(chainSpecificNamespaces)) {
-        if (nsp.startsWith(`${chainSpecificNsp}.contracts.`)) {
-            return true
-        }
-    }
-    return false
+    return nsp.includes('.')
 }
 
 export const chainIdForContractNamespace = (nsp: string): string | null => {

@@ -11,18 +11,19 @@ import {
     CoreDB,
     LiveObjectVersion,
     In,
+    MoreThan,
     unique,
     ChainTables,
     getGeneratedEventsCursors,
     addContractInstancesToGroup,
     isValidAddress,
-    contractNamespaceForChainId,
     supportedChainIds,
     updatePublishAndDeployLiveObjectVersionJobStatus,
     PublishAndDeployLiveObjectVersionJobStatus,
     updatePublishAndDeployLiveObjectVersionJobCursor,
     publishAndDeployLiveObjectVersionJobFailed,
-    updatePublishAndDeployLiveObjectVersionJobMetadata
+    updatePublishAndDeployLiveObjectVersionJobMetadata,
+    ContractInstance,
 } from '../../../shared'
 import config from '../config'
 import { Pool } from 'pg'
@@ -31,6 +32,7 @@ import fetch from 'cross-fetch'
 const DEFAULT_MAX_JOB_TIME = 60000
 
 const lovsRepo = () => CoreDB.getRepository(LiveObjectVersion)
+const contractInstancesRepo = () => CoreDB.getRepository(ContractInstance)
 
 export async function indexLiveObjectVersions(
     lovIds: number[],
@@ -46,6 +48,7 @@ export async function indexLiveObjectVersions(
     setLovToLiveAfter: boolean,
     publishJobTableUid?: string,
     liveObjectUid?: string,
+    initialJobAddedAt?: string,
     resetCountsForContractGroups: string[] = []
 ) {
     logger.info(`Indexing (${lovIds.join(', ')}) from ${startTimestamp || 'origin'}...`)
@@ -57,7 +60,7 @@ export async function indexLiveObjectVersions(
     let cursor = null
     try {
         // Create input generator.
-        let { 
+        let {
             generator: generateFrom, 
             inputIdsToLovIdsMap, 
             liveObjectVersions,
@@ -128,16 +131,13 @@ export async function indexLiveObjectVersions(
                     await Promise.all(groupContractInstancesToRegister.map(({ group, addresses, chainId, blockNumber }) => {
                         logger.info(`[${chainId}] Registering ${addresses.length} contracts to "${group}"...`)
 
-                        const chainSpecificContractNsp = contractNamespaceForChainId(chainId)
-                        const fullContractGroup = [chainSpecificContractNsp, group].join('.')  
-                        resetCountsForContractGroups = resetCountsForContractGroups.concat(fullContractGroup)
+                        resetCountsForContractGroups = resetCountsForContractGroups.concat(group)
+                        const instances = addresses.map(address => ({ chainId, address }))
 
                         return addContractInstancesToGroup(
-                            addresses,
-                            chainId,
+                            instances,
                             group,
-                            null,
-                            blockNumber,
+                            { chainId, blockNumber },
                         )
                     }))
                 } catch (err) {
@@ -177,12 +177,7 @@ export async function indexLiveObjectVersions(
     } catch (err) {
         clearTimeout(timer)
         logger.error(`Indexing live object versions (id=${lovIds.join(',')}) failed:`, err)
-        resetCountsForContractGroups = unique(resetCountsForContractGroups)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
-        }
         await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Failing)
-
         if (publishJobTableUid) {
             await publishAndDeployLiveObjectVersionJobFailed(publishJobTableUid, err)
         }
@@ -193,31 +188,39 @@ export async function indexLiveObjectVersions(
 
     // All done -> set to "live".
     if (!cursor) {
-        // if job is called by publishAndDeployLiveObjectVersionJob, update it's statis to complete
-        if (publishJobTableUid) {
-            await updatePublishAndDeployLiveObjectVersionJobStatus(
+        publishJobTableUid && await Promise.all([
+            updatePublishAndDeployLiveObjectVersionJobStatus(
                 publishJobTableUid,
                 PublishAndDeployLiveObjectVersionJobStatus.Complete
-            )
-            await updatePublishAndDeployLiveObjectVersionJobCursor(
+            ),
+            updatePublishAndDeployLiveObjectVersionJobCursor(
                 publishJobTableUid,
                 (new Date())
             )
-        }
+        ])
 
         logger.info(`Done indexing live object versions (${lovIds.join(', ')}). Setting to "live".`)
         setLovToLiveAfter && await updateLiveObjectVersionStatus(lovIds, LiveObjectVersionStatus.Live)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+
+        for (const group of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
+            await enqueueDelayedJob('resetEventStartBlocks', { group })
+        }
+
+        if (resetCountsForContractGroups.length && initialJobAddedAt) {
+            await decodeNewContractInstancesAddedDynamically(
+                resetCountsForContractGroups,
+                initialJobAddedAt,
+            )
         }
         return
     }
 
-    // Only used if an interations cap is enforced.
+    // Only used if an iterations cap is enforced.
     if (maxIterations && iteration >= maxIterations) {
         logger.info(`[${lovIds.join(', ')}] Completed max ${maxIterations} iterations.`)
-        for (const fullContractGroup of resetCountsForContractGroups) {
-            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { fullContractGroup })
+        for (const group of resetCountsForContractGroups) {
+            await enqueueDelayedJob('resetContractGroupEventRecordCounts', { group })
         }
         return
     }
@@ -238,8 +241,52 @@ export async function indexLiveObjectVersions(
         setLovToIndexingBefore,
         setLovToLiveAfter,
         publishJobTableUid,
+        initialJobAddedAt,
         resetCountsForContractGroups,
     })
+}
+
+async function decodeNewContractInstancesAddedDynamically(
+    groups: string[],
+    initialJobAddedAt: string,
+) {
+    // Get all new contract instances added AFTER this index job was created.
+    // This should pick up all new contracts added to groups dynamically.
+    let contractInstances = []
+    try {
+        contractInstances = await contractInstancesRepo().find({
+            relations: {
+                contract: {
+                    namespace: true,
+                }
+            },
+            where: {
+                createdAt: MoreThan(new Date(initialJobAddedAt)),
+                contract: {
+                    namespace: {
+                        name: In(groups),
+                    }
+                }
+            }
+        })
+    } catch (err) {
+        logger.error(
+            `Failed to find new contract instances after ${initialJobAddedAt} for ${groups.join(', ')}: ${err}`,
+        )
+        return
+    }
+    if (!contractInstances.length) return
+
+    // Fully decode these.
+    for (const contractInstance of contractInstances) {
+        const { address, chainId } = contractInstance
+        const group = contractInstance.contract.namespace.name
+        await enqueueDelayedJob('decodeContractInteractions', {
+            group,
+            chainId,
+            contractAddresses: [address],
+        })
+    }
 }
 
 async function getTablesForLovs(lovIds: number[]): Promise<string[]> {
@@ -339,10 +386,15 @@ async function processInputs(
             registerContractInstancesByGroup[key].push(address)
         }
 
-        const groupContractInstancesToRegister = []
+        const uniqueContractInstancesByGroup = {}
         for (const key in registerContractInstancesByGroup) {
+            uniqueContractInstancesByGroup[key] = unique(registerContractInstancesByGroup[key])
+        }
+
+        const groupContractInstancesToRegister = []
+        for (const key in uniqueContractInstancesByGroup) {
             const [group, chainId, blockNumber] = key.split(':')
-            const addresses = registerContractInstancesByGroup[key]
+            const addresses = uniqueContractInstancesByGroup[key]
             groupContractInstancesToRegister.push({
                 group,
                 chainId,
@@ -540,8 +592,8 @@ function uniqueInputKey(input: StringKeyMap): string {
     const origin = input.origin
     const isContractCall = input.hasOwnProperty('inputs')
     return isContractCall
-        ? [origin._id, input.name].join(':')
-        : [origin.transactionHash, origin.logIndex, input.name].join(':')
+        ? [origin.chainId, origin._id, input.name].join(':')
+        : [origin.chainId, origin.transactionHash, origin.logIndex, input.name].join(':')
 }
 
 export default function job(params: StringKeyMap) {
@@ -559,7 +611,8 @@ export default function job(params: StringKeyMap) {
     const resetCountsForContractGroups = params.resetCountsForContractGroups || []
     const publishJobTableUid = params.publishJobTableUid
     const liveObjectUid = params.liveObjectUid
-    
+    const initialJobAddedAt = params.initialJobAddedAt
+
     return {
         perform: async () => indexLiveObjectVersions(
             lovIds,
@@ -575,6 +628,7 @@ export default function job(params: StringKeyMap) {
             setLovToLiveAfter,
             publishJobTableUid,
             liveObjectUid,
+            initialJobAddedAt,
             resetCountsForContractGroups,
         )
     }

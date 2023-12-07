@@ -15,6 +15,7 @@ import {
     uniqueByKeys,
     snakeToCamel,
 } from '../../../shared'
+import { ident } from 'pg-format'
 import { exit } from 'process'
 import { createWsProviderPool } from '../wsProviderPool'
 import { getIndexer } from '../indexers'
@@ -43,7 +44,7 @@ class TransactionFillWorker {
     constructor(from: number, to?: number | null, groupSize?: number, saveBatchMultiple?: number) {
         this.from = from
         this.to = to
-        this.cursor = to
+        this.cursor = from
         this.groupSize = groupSize || 1
         this.saveBatchMultiple = saveBatchMultiple || 1
         this.upsertConstraints = {}
@@ -162,51 +163,42 @@ class TransactionFillWorker {
         logs = this.upsertConstraints.log 
             ? uniqueByKeys(logs, this.upsertConstraints.log[1].map(snakeToCamel)) : logs
 
-        await SharedTables.manager.transaction(async (tx) => {
-            await Promise.all([
-                this._upsertTransactions(transactions, tx),
-                this._upsertLogs(logs, tx),
-            ])
-        })
+        await Promise.all([
+            this._upsertTransactions(transactions),
+            this._upsertLogs(logs),
+        ])
     }
 
-    async _upsertBlocks(blocks: StringKeyMap[], tx: any) {
-        if (!blocks.length) return
-        logger.info(`Saving ${blocks.length} blocks...`)
-        const [updateBlockCols, conflictBlockCols] = this.upsertConstraints.block
-        await tx
-            .createQueryBuilder()
-            .insert()
-            .into(EvmBlock)
-            .values(blocks)
-            .orUpdate(updateBlockCols, conflictBlockCols)
-            .execute()
-    }
-
-    async _upsertTransactions(transactions: StringKeyMap[], tx: any) {
+    async _upsertTransactions(transactions: StringKeyMap[]) {
         if (!transactions.length) return
         logger.info(`Saving ${transactions.length} transactions...`)
-        const [updateTransactionCols, conflictTransactionCols] = this.upsertConstraints.transaction
+        const [updateCols, conflictCols] = this.upsertConstraints.transaction
+        const conflictColStatement = conflictCols.map(ident).join(', ')
+        const updateColsStatement = updateCols.map(colName => `${ident(colName)} = excluded.${colName}`).join(', ')
+        const whereClause = `"${schemaForChainId[config.CHAIN_ID]}"."transactions"."status" IS NULL`
+
         await Promise.all(
             toChunks(transactions, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EvmTransaction)
                     .values(chunk)
-                    .orUpdate(updateTransactionCols, conflictTransactionCols)
+                    .onConflict(
+                        `(${conflictColStatement}) DO UPDATE SET ${updateColsStatement} WHERE ${whereClause}`,
+                    )
                     .execute()
             })
         )
     }
 
-    async _upsertLogs(logs: StringKeyMap[], tx: any): Promise<StringKeyMap[]> {
+    async _upsertLogs(logs: StringKeyMap[]): Promise<StringKeyMap[]> {
         if (!logs.length) return []
         logger.info(`Saving ${logs.length} logs...`)
         const [updateLogCols, conflictLogCols] = this.upsertConstraints.log
         await Promise.all(
             toChunks(logs, this.chunkSize).map((chunk) => {
-                return tx
+                return SharedTables
                     .createQueryBuilder()
                     .insert()
                     .into(EvmLog)

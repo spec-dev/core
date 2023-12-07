@@ -84,6 +84,8 @@ class EvmReporter {
 
     lastFinalityScanCeiling: number | null = null
 
+    isRotating: boolean = false
+
     constructor() {
         this.chainId = config.CHAIN_ID
         this.subRedis = newIndexerRedisClient(config.INDEXER_REDIS_URL)
@@ -120,7 +122,7 @@ class EvmReporter {
             if (error) {
                 console.log(error)
                 logger.error(chalk.red(`RPC subscription error: ${error}`))
-                this._rotateWeb3Providers()
+                this.isRotating || this._rotateWeb3Providers()
                 return
             }
             this._onNewBlockHeader(data as BlockHeader)
@@ -317,7 +319,7 @@ class EvmReporter {
                 return    
             }
         }
-
+ 
         // Map the above by block number.
         const mappedBlocksNotUncledYet = {}
         for (const indexedBlock of blocksInRangeNotUncledYet) {
@@ -562,7 +564,12 @@ class EvmReporter {
         }
 
         // Sort the block numbers least-to-greatest.
-        const blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
+        let blockNumbers = Object.keys(savedBlocks).map(n => Number(n)).sort((a, b) => a - b)
+        const maxRange = 5000
+        if (blockNumbers.length > maxRange) {
+            blockNumbers = blockNumbers.slice(blockNumbers.length - maxRange)
+        }
+
         const largestNumber = blockNumbers[blockNumbers.length - 1]
         this.lastFinalityScanCeiling = largestNumber
 
@@ -588,7 +595,7 @@ class EvmReporter {
 
         if (hasHitMaxCalls()) {
             teardownWsProviderPool()
-            await sleep(50)
+            await sleep(100)
             createWsProviderPool(true)
         }
 
@@ -766,12 +773,17 @@ class EvmReporter {
     }
 
     async _rotateWeb3Providers() {
+        this.isRotating = true
         await sleep(10)
-        const provider = this.web3?.web3?.currentProvider as any
+        let provider = this.web3?.web3?.currentProvider as any
         provider?.removeAllListeners && provider.removeAllListeners()
         provider?.disconnect && provider.disconnect()
+        provider = null
+        if (this.web3?.web3) {
+            this.web3.web3 = null
+        }
         this.web3 = null
-        await sleep(10)
+        await sleep(300)
 
         if (this.connectionIndex < this.endpoints.length - 1) {
             this.connectionIndex++
@@ -784,7 +796,9 @@ class EvmReporter {
         )
         
         this._createWeb3Provider()
+        await sleep(300)
         this._subscribeToNewHeads()
+        this.isRotating = false
     }
 
     async _checkForDroppedConnection() {
@@ -793,16 +807,23 @@ class EvmReporter {
         const minSinceLastHead = numSecondsBetween(new Date(), this.lastHeadSeenAt)
         if (minSinceLastHead <= config.MAX_TIME_GAP_UNTIL_AUTO_RECONNECT) return
         logger.warn(`Max time gap between heads reached -- attempting auto-reconnect...`)
+        this.isRotating = true
         this.lastHeadSeenAt = null
         
-        const provider = this.web3?.web3?.currentProvider as any
+        let provider = this.web3?.web3?.currentProvider as any
         provider?.removeAllListeners && provider.removeAllListeners()
         provider?.disconnect && provider.disconnect()
+        provider = null
+        if (this.web3?.web3) {
+            this.web3.web3 = null
+        }
         this.web3 = null
 
-        await sleep(10)
+        await sleep(300)
         this._createWeb3Provider()
+        await sleep(300)
         this._subscribeToNewHeads()
+        this.isRotating = false
     }
 }
 

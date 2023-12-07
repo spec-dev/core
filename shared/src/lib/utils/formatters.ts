@@ -5,15 +5,14 @@ import humps from 'humps'
 import Web3 from 'web3'
 import { ident } from 'pg-format'
 import { toDate } from './date'
-import path from 'path'
-import { chainIdForContractNamespace, isContractNamespace } from './chainIds'
+import { isContractNamespace } from './chainIds'
 import logger from '../logger'
 import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
 import { hash } from '../utils/hash'
 import { MAX_TABLE_NAME_LENGTH } from '../utils/pgMeta'
 import { EventVersion } from '../core/db/entities/EventVersion'
 import { getChainIdsForNamespace } from '../core/db/services/namespaceServices'
-import { contractGroupNameFromNamespace, customerNspFromContractNsp } from './extract'
+import { customerNspFromContractNsp } from './extract'
 
 export const NULL_ADDRESS = '0x0000000000000000000000000000000000000000'
 export const NULL_32_BYTE_HASH =
@@ -659,9 +658,9 @@ export function formatEventVersionViewNameFromEventSpec(
 
 export function formatEventVersionViewName(eventVersion: EventVersion): string | null {
     const splitNsp = eventVersion.nsp.split('.')
-    if (splitNsp.length < 4) return null
-    const nsp = splitNsp[2]
-    const contractName = splitNsp[3]
+    if (splitNsp.length < 2) return null
+    const nsp = splitNsp[0]
+    const contractName = splitNsp[1]
     const eventName = eventVersion.name
     const shortSig = eventVersion.version.slice(0, 10)
     const viewName = [nsp, contractName, eventName, shortSig].join('_').toLowerCase()
@@ -745,10 +744,7 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
         const groupedContracts = []
 
         contracts.forEach((contract) => {
-            const groupName = contractGroupNameFromNamespace(contract.namespace.slug)
-            if (!groupName) return
-
-            const chainId = chainIdForContractNamespace(contract.namespace.name)
+            const groupName = contract.namespace.name
             const icon = buildIconUrl(groupName.split('.')[0]) || null
             const customerNsp = customerNspFromContractNsp(contract.namespace.name)
             const searchAttribute = splitOnUppercase(contract.name)
@@ -766,7 +762,7 @@ export function formatAlgoliaContracts(contracts: StringKeyMap[]) {
                     chainIds: [],
                 },
             }
-            groups[groupName].namespace.chainIds.push(chainId)
+            // groups[groupName].namespace.chainIds.push(chainId)
             groups[groupName].numInstances += contract.contractInstances.length
         })
 
@@ -788,4 +784,19 @@ export const stripTrailingSlash = (val: string): string => {
         val = val.slice(0, val.length - 1)
     }
     return val
+}
+
+export const getAbiSignature = (abi: Abi): string | null => {
+    try {
+        return hash(
+            abi
+                .map((item) => item.signature)
+                .filter((v) => !!v)
+                .sort()
+                .join(':')
+        )
+    } catch (err) {
+        logger.error(`Error generating ABI signature for ${abi}: ${err}`)
+        return null
+    }
 }

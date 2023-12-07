@@ -25,6 +25,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 live_object_display_name, 
                 live_object_desc, 
                 live_object_has_icon, 
+                version_uid,
                 version_nsp,
                 version_name, 
                 version_version,
@@ -40,6 +41,7 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                 namespace_verified, 
                 namespace_created_at,
                 namespace_name NOT LIKE '%.%' AS is_custom,
+                namespace_searchable,
                 group_name
             FROM searchable_live_object_view
             WHERE
@@ -65,27 +67,37 @@ async function searchLiveObjects(uid: string, query: string, filters: StringKeyM
                     json_to_tsvector('english', version_config::json, '["all"]') @@ to_tsquery($3::text)
                 ELSE TRUE
             END
-            AND ($4::text IS NULL OR live_object_uid = $4)
-            AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT('%.', $5, '.%'))
-            AND namespace_name not ilike '%.test.%'
-            AND namespace_name != 'test'
+            AND (namespace_searchable is true OR $5::text is not null)
+            AND ($4::text IS NULL OR version_uid = $4)
+            AND ($5::text is null or version_nsp = $5::text or version_nsp ilike CONCAT($5, '.%'))
             ORDER BY is_custom DESC, version_created_at DESC
-            OFFSET $6 LIMIT $7;`, [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, filters.namespace, offset, limit]
+            OFFSET $6 LIMIT $7;`,
+            [tsvectorQueryAndChainFilter, tsvectorQuery, tsvectorChainFilter, uid, filters.namespace || null, offset, limit]
         )
     } catch (err) {
         logger.error(`Error searching live objects: ${err}`)
         return { error: err?.message || err }
     }
 
-    // Camelize result keys.
+    // Camelize keys and for *custom* LOVs, only take the most recent version.
     results = camelizeKeys(results)
+    const distinctResults = []
+    const seenLovNames = new Set()
+    for (const result of results) {
+        if (result.isCustom) {
+            const fullName = [result.versionNsp, result.versionName].join('.')
+            if (seenLovNames.has(fullName)) continue
+            seenLovNames.add(fullName)
+        }
+        distinctResults.push(result)
+    }
 
-    const liveObjectTablePaths = results.map(r => r.versionConfig?.table).filter(v => !!v)
+    const liveObjectTablePaths = distinctResults.map(r => r.versionConfig?.table).filter(v => !!v)
     const recordCountsData = liveObjectTablePaths.length ? await getCachedRecordCounts(liveObjectTablePaths) : []
 
     // Return formatted results.
     return {
-        data: results.map(r => formatAsLatestLiveObject(r, recordCountsData)),
+        data: distinctResults.map(r => formatAsLatestLiveObject(r, recordCountsData)),
     }
 }
 
@@ -103,7 +115,7 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
     } else if (result.namespaceHasIcon) {
         icon = buildIconUrl(result.namespaceName)
     } else if (isContractEvent) {
-        icon = buildIconUrl(result.namespaceName.split('.')[2])
+        icon = buildIconUrl(result.namespaceName.split('.')[0])
     } else {
         icon = '' // TODO: Need fallback
     }
@@ -124,6 +136,7 @@ function formatAsLatestLiveObject(result: StringKeyMap, recordCountsData: String
         verified: result.namespaceVerified,
         isContractEvent,
         latestVersion: {
+            id: result.versionUid,
             nsp: result.versionNsp,
             name: result.versionName,
             version: result.versionVersion,

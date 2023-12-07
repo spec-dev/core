@@ -37,7 +37,7 @@ COPY --from=builder /usr/app/dist ./dist
 # Download Deno
 WORKDIR /
 RUN mkdir -p /root/.deno/bin
-RUN curl --fail --location --output /root/.deno/bin/deno.zip https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip
+RUN curl --fail --location --output /root/.deno/bin/deno.zip https://github.com/denoland/deno/releases/download/v1.38.3/deno-x86_64-unknown-linux-gnu.zip
 
 # Install Deno and add to path
 RUN unzip -d /root/.deno/bin -o /root/.deno/bin/deno.zip
@@ -46,7 +46,7 @@ RUN rm /root/.deno/bin/deno.zip
 ENV PATH="${PATH}:/root/.deno/bin"
 
 # Install deployctl
-RUN deno install --allow-read --allow-write --allow-env --allow-net --allow-run --no-check -r -f "https://deno.land/x/deploy/deployctl.ts"
+RUN deno install --allow-read --allow-write --allow-env --allow-net --allow-run --no-check -r -f "https://deno.land/x/deploy@1.8.2/deployctl.ts"
 
 WORKDIR /usr/app
 

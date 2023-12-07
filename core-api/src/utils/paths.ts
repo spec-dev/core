@@ -61,6 +61,7 @@ const paths = {
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
     CONTRACT_GROUP_PAGE: prefix.CONTRACT + '/group/page',
     RESET_CONTRACT_GROUP_RECORD_COUNTS: prefix.ADMIN + prefix.CONTRACT + '/group/recount-records',
+    RESET_CONTRACT_GROUP_EVENT_START_BLOCKS: prefix.ADMIN + prefix.CONTRACT + '/group/reset-event-start-blocks',
     ADD_CONTRACTS_TO_GROUP: prefix.CONTRACT + '/group/add',
 
     // Contract Registration Job paths.

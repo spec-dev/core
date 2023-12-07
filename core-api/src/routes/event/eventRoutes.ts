@@ -1,4 +1,4 @@
-import { StringKeyMap, buildIconUrl, chainIdForContractNamespace, getEvents, isContractNamespace } from '../../../../shared'
+import { StringKeyMap, buildIconUrl, getEvents, isContractNamespace } from '../../../../shared'
 import paths from '../../utils/paths'
 import { codes, errors } from '../../utils/requests'
 import { app } from '../express'
@@ -24,10 +24,9 @@ app.post(paths.EVENTS, async (req, res) => {
 
     events.forEach(event => {
         const name = event.name
-        const chainId = chainIdForContractNamespace(event.namespace.slug)
         const isContractEvent = isContractNamespace(event.namespace.name)
         const icon = (isContractEvent 
-            ? buildIconUrl(event.namespace.name.split('.')[2])
+            ? buildIconUrl(event.namespace.name.split('.')[0])
             : buildIconUrl(event.namespace.name)) 
             || null   
         groups[name] = groups[name] || 
@@ -38,9 +37,6 @@ app.post(paths.EVENTS, async (req, res) => {
                 version: 0,
                 icon: icon,
             }
-        if (!groups[name].chainIds.includes(chainId)) {
-            groups[name].chainIds.push(chainId)
-        }
         const latestVersion = event.eventVersions.reduce((a,b) => a.version > b.version ? a : b)
         groups[name].createdAt = latestVersion.createdAt
         groups[name].version = latestVersion.version

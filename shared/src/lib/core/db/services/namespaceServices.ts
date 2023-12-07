@@ -3,7 +3,7 @@ import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import { toNamespaceSlug } from '../../../utils/formatters'
 import { In, MoreThanOrEqual, Raw } from 'typeorm'
-import { chainIdForContractNamespace } from '../../../utils/chainIds'
+import { getChainIdsForContractGroups } from './contractInstanceServices'
 
 const namespaces = () => CoreDB.getRepository(Namespace)
 
@@ -60,13 +60,10 @@ export async function getNamespaces(
     }
 }
 
-export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
-    const numComps = nsp.split('.').length
-
+export async function getChainIdsForNamespace(nsp: string): Promise<string[] | null> {
     // If given a contract namespace, just return the chain referenced by it.
-    if (numComps > 1) {
-        const chainId = chainIdForContractNamespace(nsp)
-        return chainId ? [chainId] : null
+    if (nsp.split('.').length > 1) {
+        return getChainIdsForContractGroups([nsp])
     }
 
     // Get all *distinct* chain ids from the "config.chains{}" json column map
@@ -75,7 +72,7 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
         const results =
             (await CoreDB.query(
                 `select distinct(json_object_keys(config -> 'chains')::text) as chain_id from live_object_versions where nsp = $1 or nsp ilike $2`,
-                [nsp, `%.contracts.${nsp}.%`]
+                [nsp, `${nsp}.%`]
             )) || []
 
         return results
@@ -88,13 +85,9 @@ export async function getChainIdsForNamespace(nsp: string): Promise<string[]> {
     }
 }
 
-export async function upsertNamespaceWithTx(
-    name: string,
-    codeUrl: string,
-    tx: any
-): Promise<Namespace | null> {
+export async function upsertNamespaceWithTx(name: string, tx: any): Promise<Namespace | null> {
     const slug = toNamespaceSlug(name)
-    const data = { name, slug, codeUrl }
+    const data = { name, slug, searchable: true }
     return (
         (
             await tx
@@ -102,7 +95,7 @@ export async function upsertNamespaceWithTx(
                 .insert()
                 .into(Namespace)
                 .values(data)
-                .orUpdate(['code_url'], ['name'])
+                .orUpdate(['name', 'searchable'], ['slug'])
                 .returning('*')
                 .execute()
         ).generatedMaps[0] || null

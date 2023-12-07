@@ -1,4 +1,5 @@
 import logger from '../logger'
+import ChainTables from '../chain-tables/ChainTables'
 import { StringKeyMap, PublishLiveObjectVersionPayload } from '../types'
 import { getLatestLiveObjectVersion } from '../core/db/services/liveObjectVersionServices'
 import { isVersionGt } from '../utils/validators'
@@ -9,10 +10,7 @@ import { createLiveEventVersionsWithTx } from '../core/db/services/liveEventVers
 import { toNamespacedVersion, camelToSnake, unique } from '../utils/formatters'
 import { getEventVersionsByNamespacedVersions } from '../core/db/services/eventVersionServices'
 import { EventVersion } from '../core/db/entities/EventVersion'
-import { doesSharedTableExist, doesSharedViewExist } from '../utils/pgMeta'
 import { LiveObjectVersionProperty } from '../core/db/entities/LiveObjectVersion'
-import { chainIdForSchema, supportedChainIds } from '../utils/chainIds'
-import ChainTables from '../chain-tables/ChainTables'
 import { INT8 } from '../utils/colTypes'
 import { guessColTypeFromPropertyType } from '../utils/propertyTypes'
 import { upsertEventsWithTx } from '../core/db/services/eventServices'
@@ -20,6 +18,7 @@ import { attemptToParseNumber } from '../utils/formatters'
 import { upsertEventVersionsWithTx } from '../core/db/services/eventVersionServices'
 import { getNamespaces } from '../core/db/services/namespaceServices'
 import { createLiveCallHandlersWithTx } from '../core/db/services/liveCallHandlerServices'
+import { getChainIdsForContractGroups } from '../core/db/services/contractInstanceServices'
 import { ident } from 'pg-format'
 import uuid4 from 'uuid4'
 
@@ -62,19 +61,16 @@ export async function publishLiveObjectVersion(
     const config = payload.config
     const tablePath = config.table
     const properties = payload.properties || []
-    const chainsGiven = Object.keys(config.chains || {}).length > 0
-    if (chainsGiven) {
-        // Upsert table with path payload.config.table
-    } else {
-        // Table or view must already exist at this point.
-        const exists = await ensureTableOrViewExists(tablePath)
-        if (!exists) return false
+    const contractGroupsToDeriveChainIdsFrom = representsContractEvent
+        ? [namespace.name]
+        : inputEventVersions.map((ev) => ev.nsp)
 
-        // Use table schema or chain_id column values to derive chain support.
-        const chains = await deriveChainSupportFromTable(tablePath, properties)
-        if (!chains) return false
-        payload.config.chains = chains
+    const chainIds = (await getChainIdsForContractGroups(contractGroupsToDeriveChainIdsFrom)) || []
+    const chainIdsMap = {}
+    for (const chainId of chainIds) {
+        chainIdsMap[chainId] = {}
     }
+    payload.config.chains = chainIdsMap
 
     // Use the most recent record in the table/view (if one exists).
     const { example, error } = await pullExampleFromTable(tablePath, properties)
@@ -99,72 +95,11 @@ export async function publishLiveObjectVersion(
     return true
 }
 
-async function ensureTableOrViewExists(tablePath: string): Promise<boolean> {
-    const [schema, table] = tablePath.split('.')
-    const exists =
-        (await doesSharedTableExist(schema, table)) || (await doesSharedViewExist(schema, table))
-    if (!exists) logger.error(`Neither table or view exists for path: ${tablePath}`)
-    return exists
-}
-
-async function deriveChainSupportFromTable(
-    tablePath: string,
-    properties: LiveObjectVersionProperty[]
-): Promise<StringKeyMap | null> {
-    const chainIdsToMap = (chainIds: string[]): StringKeyMap => {
-        let m = {}
-        for (const chainId of chainIds) {
-            m[chainId] = {}
-        }
-        return m
-    }
-
-    // For schemas like "ethereum", "polygon", "etc", derive the chainId from there.
-    const [schema, table] = tablePath.split('.')
-    const schemaChainId = chainIdForSchema[schema]
-    if (schemaChainId) return chainIdsToMap([schemaChainId])
-
-    // Otherwise, find the 1 property in the live object spec that holds chain ids.
-    const chainIdProperty = properties.find((p) =>
-        [p.name.toLowerCase(), p.type.toLowerCase()].includes('chainid')
-    )
-    if (!chainIdProperty) {
-        logger.error(`No property representing chainId exists.`)
-        return null
-    }
-
-    // Convert found chainIdProperty property name to column name.
-    const chainIdColumnName = camelToSnake(chainIdProperty.name)
-
-    let derivedChainIds = []
-    try {
-        const result =
-            (await ChainTables.query(
-                schema,
-                `select distinct(${ident(chainIdColumnName)}) from ${ident(schema)}.${ident(table)}`
-            )) || []
-        derivedChainIds = result
-            .map((r) => r[chainIdColumnName])
-            .filter((v) => supportedChainIds.has(v))
-    } catch (err) {
-        logger.error(
-            `Error querying ${tablePath}.${chainIdColumnName} for distinct chain id values`,
-            err
-        )
-        return null
-    }
-    if (!derivedChainIds.length) {
-        logger.error(`No supported chain ids were derived from table/view ${tablePath}`)
-        return null
-    }
-
-    return chainIdsToMap(derivedChainIds)
-}
-
 async function pullExampleFromTable(
     tablePath: string,
     properties: LiveObjectVersionProperty[]
 ): Promise<StringKeyMap> {
+    return { example: null }
     const [schema, table] = tablePath.split('.')
 
     let record

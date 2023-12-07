@@ -52,7 +52,7 @@ const config: StringKeyMap = {
     EVENT_RELAY_PORT: Number(ev('EVENT_RELAY_PORT', 443)),
     EVENT_GEN_AUTH_HEADER_NAME: 'Spec-Auth-Token',
     EVENT_GENERATORS_JWT: ev('EVENT_GENERATORS_JWT'),
-    EVENT_GEN_RESPONSE_TIMEOUT: Number(ev('EVENT_GEN_RESPONSE_TIMEOUT', 60000)),
+    EVENT_GEN_RESPONSE_TIMEOUT: Number(ev('EVENT_GEN_RESPONSE_TIMEOUT', 20000)),
     TABLES_AUTH_HEADER_NAME: 'Spec-Tables-Auth-Token',
     REORG_EVENT_NAME_PREFIX: 'chain.reorgs',
 
@@ -108,7 +108,7 @@ const config: StringKeyMap = {
 
     // Exponential backoff config for HTTP request retries.
     EXPO_BACKOFF_DELAY: 200,
-    EXPO_BACKOFF_MAX_ATTEMPTS: 10,
+    EXPO_BACKOFF_MAX_ATTEMPTS: Number(ev('EXPO_BACKOFF_MAX_ATTEMPTS', 10)),
     EXPO_BACKOFF_FACTOR: 1.5,
 
     // Chain Tables

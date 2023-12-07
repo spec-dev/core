@@ -79,6 +79,12 @@ $shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
 $shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
 $shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
 $shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # Core DB
 $shared_bin_dir/assert_env "CORE_DB_NAME" "$core_db_name"
@@ -86,12 +92,7 @@ $shared_bin_dir/assert_env "CORE_DB_HOST" "$core_db_host"
 $shared_bin_dir/assert_env "CORE_DB_PORT" "$core_db_port"
 $shared_bin_dir/assert_env "CORE_DB_USERNAME" "$core_db_username"
 $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
-$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
-$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
-$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
-$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
-$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
-$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
+
 
 # Core Redis
 $shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
@@ -106,7 +107,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "POLLERS_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="f776098"
+# image_version="151f3e8"
+image_version="1243d0c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #

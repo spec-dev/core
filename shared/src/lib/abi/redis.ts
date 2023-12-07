@@ -292,11 +292,11 @@ export async function getContractGroupAbis(
         const results = (await redis?.hmGet(abiRedisKeys.CONTRACT_GROUPS, contractGroups)) || []
         const abis = {}
         for (let i = 0; i < contractGroups.length; i++) {
-            const address = contractGroups[i]
+            const group = contractGroups[i]
             const abiStr = results[i]
             if (!abiStr) continue
             const abi = JSON.parse(abiStr) as Abi
-            abis[address] = abi
+            abis[group] = abi
         }
         return abis
     } catch (err) {

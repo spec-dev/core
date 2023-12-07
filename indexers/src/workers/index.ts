@@ -34,13 +34,22 @@ import { getPullReceiptsWorker } from './pullReceiptsWorker'
 import { getBlockFillWorker } from './blockFillWorker'
 import { getEvmRangeWorker } from './evmRangeWorker'
 import { getResolveReceiptsWorker } from './resolveReceiptsWorker'
+import { getPullLegacyReceiptsWorker } from './pullLegacyReceiptsWorker'
+import { getTransactionFillWorker } from './transactionFillWorker'
+import { getResolveLegacyReceiptsWorker } from './resolveLegacyReceiptsWorker'
 
 export async function getWorker(): Promise<IndexerWorker> {
     if (!config.IS_RANGE_MODE) {
         return getHeadWorker()
     }
+    if (config.RANGE_WORKER_TYPE === 'fill-txs') {
+        return getTransactionFillWorker()
+    }
     if (config.RANGE_WORKER_TYPE === 'resolve-receipts') {
         return getResolveReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'resolve-legacy-receipts') {
+        return getResolveLegacyReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'evm-range') {
         return getEvmRangeWorker()
@@ -53,6 +62,9 @@ export async function getWorker(): Promise<IndexerWorker> {
     }
     if (config.RANGE_WORKER_TYPE === 'pull-receipts') {
         return getPullReceiptsWorker()
+    }
+    if (config.RANGE_WORKER_TYPE === 'pull-legacy-receipts') {
+        return getPullLegacyReceiptsWorker()
     }
     if (config.RANGE_WORKER_TYPE === 'fill-blocks') {
         return getBlockFillWorker()

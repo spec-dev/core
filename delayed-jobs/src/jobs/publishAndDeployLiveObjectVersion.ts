@@ -24,6 +24,7 @@ import {
     getLiveObjectForLov,
     updatePublishAndDeployLiveObjectVersionJobMetadata,
     getLiveObject,
+    nowAsUTCDateString,
 } from '../../../shared'
 import { getTableMigrationAndLiveObjectSpec } from '../services/getTableMigrationAndLiveObjectSpec'
 import { getTriggersMigration } from '../services/getTriggersMigration'
@@ -162,8 +163,7 @@ export async function publishAndDeployLiveObjectVersion(
     const uniqueContractGroups = new Set<string>()
     for (const inputEvent of liveObjectSpec.inputEvents) {
         const { nsp } = fromNamespacedVersion(inputEvent)
-        const group = nsp.split('.').slice(2).join('.')
-        uniqueContractGroups.add(group)
+        uniqueContractGroups.add(nsp)
     }
     const contractGroupNames: string[] = Array.from(uniqueContractGroups)
     const groupAbis = {}
@@ -216,11 +216,12 @@ export async function publishAndDeployLiveObjectVersion(
         return
     }
 
-    // Kick off indexing for live object versions
+    // Kick off indexing for live object versions.
     await enqueueDelayedJob('indexLiveObjectVersions', {
         lovIds: [lov.id],
         publishJobTableUid: uid,
         liveObjectUid,
+        initialJobAddedAt: nowAsUTCDateString(),
     })
 }
 
@@ -330,6 +331,15 @@ async function cloneNamespaceRepo(
                 error: new Error(`Name mismatch between request (${name}) and sourced manfiest (${manifest.name})`),
                 manifest: null,
                 objectFolderPath: null
+            }
+        }
+
+        const dotSpecPath = path.join(pathToRepo, '.spec')
+        const abisPath = path.join(pathToRepo, 'abis')
+        const pathsToDelete = [dotSpecPath, abisPath]
+        for (const dir of pathsToDelete) {
+            if (fs.existsSync(dir)) {
+                fs.rmSync(dir, { recursive: true, force: true })
             }
         }
     } catch (error) {

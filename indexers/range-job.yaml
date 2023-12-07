@@ -123,10 +123,14 @@ spec:
           value: {{ABI_REDIS_HOST}}
         - name: ABI_REDIS_PORT
           value: "{{ABI_REDIS_PORT}}"
+        - name: RECEIPTS_DB_URL
+          value: postgres://postgres:fd47bdf918807aecad2fe90f659460ea@receipts-instance-1.c6ysmyjrpz2c.us-west-1.rds.amazonaws.com:54321/receipts
         - name: SHARED_TABLES_MAX_POOL_SIZE
           value: "50"
         - name: SAVE_BATCH_MULTIPLE
-          value: "5"
+          value: "10"
+        - name: EXPO_BACKOFF_MAX_ATTEMPTS
+          value: "2"
         - name: FORCE_COLOR
           value: "1" 
       restartPolicy: Never

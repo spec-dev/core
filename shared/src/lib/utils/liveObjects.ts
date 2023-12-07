@@ -82,7 +82,7 @@ export const fixedEventViewPropertyNames = new Set(
 const formatEventParamAsProperty = (eventParam: StringKeyMap): LiveObjectVersionProperty => ({
     name: removeAcronymFromCamel(snakeToCamel(stripLeadingAndTrailingUnderscores(eventParam.name))),
     type: guessPropertyTypeFromSolidityType(eventParam.type),
-    desc: `The "${eventParam.name}" contract event argument.`,
+    desc: `The "${eventParam.name}" contract event parameter.`,
 })
 
 export const CONTRACT_NAME_COL = camelToSnake(fixedEventViewProperties.CONTRACT_NAME.name)
@@ -94,9 +94,8 @@ export function buildContractEventAsLiveObjectVersionPayload(
     contractName: string,
     eventName: string,
     namespacedEventVersion: string,
-    chainId: string,
     eventParams: AbiItemInput[],
-    viewPath: string
+    viewName: string
 ): PublishLiveObjectVersionPayload {
     // Format event abi inputs as live object version properties.
     const eventParamProperties = eventParams.map(formatEventParamAsProperty)
@@ -119,7 +118,7 @@ export function buildContractEventAsLiveObjectVersionPayload(
         name: eventName,
         version: fullNspComps.version,
         displayName: eventName,
-        description: `${nsp}.${contractName} contract events on ${fullNameForChainId[chainId]}.`,
+        description: `${nsp}.${contractName}.${eventName} contract event.`,
         properties: [...eventParamProperties, ...orderedFixedEventViewProperties],
         config: {
             folder: [fullNspComps.nsp, fullNspComps.name].join('.').replace(/\./gi, '/'),
@@ -128,9 +127,10 @@ export function buildContractEventAsLiveObjectVersionPayload(
                 [
                     fixedEventViewProperties.TRANSACTION_HASH.name,
                     fixedEventViewProperties.LOG_INDEX.name,
+                    fixedEventViewProperties.CHAIN_ID.name,
                 ],
             ],
-            table: viewPath,
+            table: ['spec', viewName].join('.'),
         },
         inputEvents: [],
         inputCalls: [],

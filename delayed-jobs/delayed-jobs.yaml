@@ -21,7 +21,7 @@ spec:
         - name: NODE_ENV
           value: production
         - name: JWT_SECRET
-          value: {{JWT_SECRET}}
+          value: {{JWT_SECRET}} 
         - name: EVENT_GENERATORS_JWT
           value: {{EVENT_GENERATORS_JWT}}
         - name: SHARED_TABLES_DB_NAME
@@ -94,9 +94,15 @@ spec:
           value: {{POLYGON_ALCHEMY_REST_URL}}
         - name: MUMBAI_ALCHEMY_REST_URL
           value: {{MUMBAI_ALCHEMY_REST_URL}}
+        - name: CORE_REDIS_HOST
+          value: {{CORE_REDIS_HOST}}
+        - name: CORE_REDIS_PORT
+          value: "{{CORE_REDIS_PORT}}"
         - name: FLIP
           value: tails
         - name: FORCE_COLOR
           value: "1" 
         - name: BUGSNAG_API_KEY
           value: {{BUGSNAG_API_KEY}}
+        - name: DELAYED_JOB_QUEUE_KEY
+          value: djq4

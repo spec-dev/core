@@ -67,6 +67,7 @@ export const keys = {
     LIVE_OBJECT_VERSION_FAILURES: 'lov-failures',
     GENERATED_EVENTS_CURSOR: 'generated-events-cursor',
     ADDITIONAL_CONTRACTS_TO_GENERATE_INPUTS_FOR_PREFIX: 'additional-contract-inputs',
+    EVENT_START_BLOCKS: 'event-start-blocks',
 }
 
 const polygonContractsKeyForChainId = (chainId: string): string | null => {
@@ -135,13 +136,14 @@ export async function hasBlockBeenIndexedForLogs(blockNumber: number): Promise<b
 }
 
 export async function storePublishedEvent(specEvent: StringKeyMap): Promise<string | null> {
+    const threshold = specEvent.name === 'spec.NewTransactions@0.0.1' ? 3000 : 500
     try {
         return await redis?.xAdd(
             specEvent.name,
             '*',
             { event: JSON.stringify(specEvent) },
             {
-                TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold: 500 },
+                TRIM: { strategy: 'MAXLEN', strategyModifier: '~', threshold },
             }
         )
     } catch (err) {
@@ -1064,5 +1066,88 @@ export async function publishForcedRollback(
         )
     } catch (err) {
         throw `Error publishing forced rollback event (chainId=${chainId}, blockNumber=${blockNumber}, blockHash=${blockHash}): ${err}`
+    }
+}
+
+export async function setEventStartBlocks(data: StringKeyMap): Promise<boolean> {
+    if (!Object.keys(data).length) return true
+    try {
+        const stringified = {}
+        for (const event in data) {
+            stringified[event] = JSON.stringify(data[event] || {})
+        }
+        await redis?.hSet(keys.EVENT_START_BLOCKS, stringified)
+    } catch (err) {
+        logger.error(`Error saving event start blocks: ${err}.`, data)
+        return false
+    }
+    return true
+}
+
+export async function getEventStartBlocks(
+    eventNamespaceVersions: string[]
+): Promise<StringKeyMap | null> {
+    if (!eventNamespaceVersions?.length) return {}
+    try {
+        const results = (await redis?.hmGet(keys.EVENT_START_BLOCKS, eventNamespaceVersions)) || []
+        const startBlocksByEvent = {}
+        for (let i = 0; i < eventNamespaceVersions.length; i++) {
+            const eventNamespaceVersion = eventNamespaceVersions[i]
+            const data = results[i]
+            if (!data) continue
+            startBlocksByEvent[eventNamespaceVersion] = JSON.parse(data)
+        }
+        return startBlocksByEvent
+    } catch (err) {
+        logger.error(`Error getting start blocks for ${eventNamespaceVersions.join(', ')}: ${err}.`)
+        return null
+    }
+}
+
+export async function getDecodeJobRangeCount(key: string): Promise<number> {
+    try {
+        let count = Number(await redis?.get(key))
+        return Number.isNaN(count) ? null : count
+    } catch (err) {
+        logger.error(`Error getting decode job range count for ${key}: ${err}`)
+        return null
+    }
+}
+
+export async function setDecodeJobRangeCount(key: string, value: number) {
+    try {
+        await redis?.set(key, value.toString())
+    } catch (err) {
+        throw `Error setting decode job range count to ${value}: ${err}`
+    }
+}
+
+export async function getDecodeJobProgress(key: string): Promise<number> {
+    try {
+        let count = Number(await redis?.get(key))
+        return Number.isNaN(count) ? 0 : count
+    } catch (err) {
+        logger.error(`Error getting decode job progress for ${key}: ${err}`)
+        return 0
+    }
+}
+
+export async function setDecodeJobProgress(key: string, value: number) {
+    try {
+        await redis?.set(key, value.toString())
+        return true
+    } catch (err) {
+        throw `Error setting decode job progress to ${value}: ${err}`
+    }
+}
+
+export async function deleteCoreRedisKeys(keys: string[]) {
+    if (!keys.length) return true
+    try {
+        await redis?.del(keys)
+        return true
+    } catch (err) {
+        logger.error(`Error deleting decode job keys: ${err}`)
+        return false
     }
 }

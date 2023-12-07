@@ -3,6 +3,7 @@ export { StringKeyMap }
 export {
     StringMap,
     ContractRegistrationPayload,
+    NewContractInstancePayload,
     PublishLiveObjectVersionPayload,
 } from '../../shared'
 

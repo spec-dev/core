@@ -1,4 +1,4 @@
-import { logger, indexerRedis, ChainTables, CoreDB, abiRedis } from '../../shared'
+import { logger, indexerRedis, ChainTables, CoreDB, abiRedis, coreRedis } from '../../shared'
 import { getWorker } from './worker'
 
 async function run() {
@@ -7,6 +7,7 @@ async function run() {
         ChainTables.initialize(),
         indexerRedis.connect(),
         abiRedis.connect(),
+        coreRedis.connect(),
     ])
     logger.info('Starting delayed jobs worker...')
     getWorker().run()

@@ -2,9 +2,9 @@ import { ValidatedPayload, StringKeyMap } from '../../types'
 import { supportedChainIds, Abi, isValidContractGroup } from '../../../../shared'
 
 interface CreateContractGroupPayload {
-    chainIds: string[]
     nsp: string
     name: string
+    isFactoryGroup: boolean
     abi: Abi
 }
 
@@ -23,19 +23,10 @@ interface ContractGroupsPayload {
 export function parseCreateContractGroupPayload(
     data: StringKeyMap
 ): ValidatedPayload<CreateContractGroupPayload> {
-    const chainIds = (data?.chainIds || []).map(id => id.toString())
     const nsp = data?.nsp
     const name = data?.name
+    const isFactoryGroup = !!data?.isFactoryGroup
     const abi = data?.abi
-
-    if (!chainIds.length) {
-        return { isValid: false, error: `"chainIds" missing or empty` }
-    }
-
-    const invalidChainIds = chainIds.filter((id) => !supportedChainIds.has(id))
-    if (invalidChainIds.length) {
-        return { isValid: false, error: `Invalid chain ids: ${invalidChainIds.join(', ')}` }
-    }
 
     if (!nsp) {
         return { isValid: false, error: '"nsp" required' }
@@ -49,6 +40,11 @@ export function parseCreateContractGroupPayload(
         return { isValid: false, error: '"abi" required' }
     }
 
+    const group = [nsp, name].join('.')
+    if (!isValidContractGroup(group)) {
+        return { isValid: false, error: `Malformed group name: ${group}` }
+    }
+
     if (!Array.isArray(abi)) {
         return { isValid: false, error: 'Invalid "abi" -- Expecting array.' }
     }
@@ -56,9 +52,9 @@ export function parseCreateContractGroupPayload(
     return {
         isValid: true,
         payload: {
-            chainIds,
             nsp,
             name,
+            isFactoryGroup,
             abi: abi as Abi,
         },
     }

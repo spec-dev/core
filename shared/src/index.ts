@@ -148,6 +148,13 @@ export {
     getAdditionalContractsToGenerateInputsFor,
     publishForcedRollback,
     getEventIdDirectlyBeforeId,
+    setEventStartBlocks,
+    getEventStartBlocks,
+    getDecodeJobRangeCount,
+    setDecodeJobRangeCount,
+    getDecodeJobProgress,
+    setDecodeJobProgress,
+    deleteCoreRedisKeys,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -172,7 +179,6 @@ export {
     chainSpecificSchemas,
     supportedChainIds,
     chainIdForSchema,
-    contractNamespaceForChainId,
     schemaForChainId,
     chainSpecificNamespaces,
     isContractNamespace,
@@ -270,6 +276,7 @@ export {
     upsertContractInstancesWithTx,
     getContractInstancesInNamespace,
     getContractInstancesInGroup,
+    getChainIdsForContractGroups,
 } from './lib/core/db/services/contractInstanceServices'
 export {
     createEvent,
@@ -316,6 +323,8 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
+    addChainSupportToLovs,
+    addChainSupportToLovsDependentOn,
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,
@@ -329,7 +338,6 @@ export {
     createContractRegistrationJob,
     getContractRegistrationJob,
     updateContractRegistrationJobStatus,
-    updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
 } from './lib/core/db/services/contractRegistrationJobServices'
 export {
@@ -340,7 +348,7 @@ export {
     publishAndDeployLiveObjectVersionJobFailed,
     updatePublishAndDeployLiveObjectVersionJobMetadata,
 } from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
-export { In, Not, IsNull, Brackets } from 'typeorm'
+export { In, Not, IsNull, MoreThan, Brackets } from 'typeorm'
 
 export {
     redis as abiRedis,
@@ -456,3 +464,9 @@ export { resolveMetadata } from './lib/services/resolveMetadata'
 export { contractGroupNameFromNamespace } from './lib/utils/extract'
 import ChainTables from './lib/chain-tables/ChainTables'
 export { ChainTables }
+import parseDbUrl from 'parse-database-url'
+export { parseDbUrl }
+export {
+    findStartBlockForAddresses,
+    findStartBlocksForEvent,
+} from './lib/services/contractInteractionServices'
