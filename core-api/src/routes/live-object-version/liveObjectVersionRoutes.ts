@@ -11,7 +11,7 @@ import { codes, errors, authorizeRequestWithProjectApiKey, authorizeRequest } fr
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
 import { 
-    getLiveObjectByUid, 
+    getLiveObjectVersion, 
     getLatestLiveObjectVersion, 
     resolveLovWithPartialId, 
     getTablePathsForLiveObjectVersions, 
@@ -55,20 +55,14 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
-    const { id: liveObjectUid, cursor } = payload
 
-    // TODO: Consolidate this into a single query.
-    const liveObject = await getLiveObjectByUid(liveObjectUid)
-    if (!liveObject) {
-        return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_NOT_FOUND })
-    }
-    const liveObjectVersion = await getLatestLiveObjectVersion(liveObject.id)
+    const liveObjectVersion = await getLiveObjectVersion(payload.id)
     if (!liveObjectVersion) {
         return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_VERSION_NOT_FOUND })
     }
 
     // Get the latest LOV records after the given cursor (if any).
-    const { data, error: serviceError } = await getLatestLiveObjectVersionRecords(liveObjectVersion, cursor)
+    const { data, error: serviceError } = await getLatestLiveObjectVersionRecords(liveObjectVersion, payload.cursor)
     if (serviceError) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: serviceError })
     }
