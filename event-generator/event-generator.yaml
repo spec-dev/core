@@ -109,4 +109,4 @@ spec:
         - name: SINGLE_CHAIN_TABLE
           value: "true"
         - name: DELAYED_JOB_QUEUE_KEY
-          value: djq2
+          value: djq4

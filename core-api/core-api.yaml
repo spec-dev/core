@@ -96,7 +96,7 @@ spec:
         - name: SEPOLIA_DB_URL
           value: {{SEPOLIA_DB_URL}}
         - name: DELAYED_JOB_QUEUE_KEY
-          value: djq3
+          value: djq4
         - name: FLIP
           value: tails
         - name: FORCE_COLOR

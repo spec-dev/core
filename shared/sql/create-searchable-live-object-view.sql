@@ -1,5 +1,5 @@
 CREATE OR REPLACE VIEW searchable_live_object_view AS
-SELECT DISTINCT ON (lv.live_object_id)
+SELECT
     l.id AS live_object_id, 
     l.uid AS live_object_uid, 
     l.name AS live_object_name,
@@ -28,7 +28,8 @@ SELECT DISTINCT ON (lv.live_object_id)
     n.created_at AS namespace_created_at,
     CONCAT(n.name, '.', l.name) as group_name,
     n.blurhash AS namespace_blurhash,
-    n.verified AS namespace_verified
+    n.verified AS namespace_verified,
+    n.searchable AS namespace_searchable
 FROM live_object_versions lv
 LEFT JOIN live_objects l ON l.id = lv.live_object_id
 LEFT JOIN namespaces n ON n.id = l.namespace_id
