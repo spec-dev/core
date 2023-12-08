@@ -3,7 +3,7 @@ import paths from '../../utils/paths'
 import { codes, errors } from '../../utils/requests'
 import searchLiveObjects from '../../services/searchLiveObjects'
 import { parseLiveObjectPagePayload, parseSearchLiveObjectPayload } from './liveObjectPayloads'
-import { getEventVersionsByLiveObjectVersion, getLiveObjectPageData } from '../../../../shared'
+import { getLiveObjectPageData } from '../../../../shared'
 
 /**
  * Get the current version of all live objects.
@@ -33,19 +33,11 @@ app.get(paths.LIVE_OBJECT_PAGE, async (req, res) => {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
     
-    // Get live object version by uid.
-    const pageData = await getLiveObjectPageData(payload.uid)
-    if (!pageData) {
+    // Get live object version page data by uid.
+    const data = await getLiveObjectPageData(payload.uid)
+    if (!data) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
     }
-    const [data, lov] = pageData
-        
-    // Get associated event versions
-    const eventVersions = await getEventVersionsByLiveObjectVersion(lov.id)
-    if (!eventVersions) {
-        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.INTERNAL_ERROR })
-    }
-    data.inputEvents = eventVersions
     
     return res.status(codes.SUCCESS).json(data)
 })

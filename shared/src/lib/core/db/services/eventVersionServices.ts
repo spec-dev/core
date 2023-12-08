@@ -291,7 +291,9 @@ export async function resolveEventVersionCursors(givenName: string): Promise<Str
     return { cursors, latestEvent }
 }
 
-export async function getEventVersionsByLiveObjectVersion(id: number): Promise<StringKeyMap[] | null> {
+export async function getEventVersionsByLiveObjectVersion(
+    id: number
+): Promise<StringKeyMap[] | null> {
     let eventVersions
     try {
         eventVersions = await eventVersionsRepo().find({

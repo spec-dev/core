@@ -786,7 +786,10 @@ export const stripTrailingSlash = (val: string): string => {
     return val
 }
 
-export function formatLiveObjectPageData(result: StringKeyMap, recordCountsData: StringKeyMap) {
+export function formatLiveObjectVersionForPage(
+    result: StringKeyMap,
+    recordCountsData: StringKeyMap
+) {
     const liveObject = result.liveObject
     const namespace = result.liveObject.namespace
     const isContractEvent = isContractNamespace(namespace.name)
@@ -802,7 +805,7 @@ export function formatLiveObjectPageData(result: StringKeyMap, recordCountsData:
     } else if (namespace.hasIcon) {
         icon = buildIconUrl(namespace.name)
     } else if (isContractEvent) {
-        icon = buildIconUrl(namespace.name.split('.')[2])
+        icon = buildIconUrl(namespace.name.split('.')[0])
     } else {
         icon = '' // TODO: Need fallback
     }

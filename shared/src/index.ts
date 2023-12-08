@@ -324,12 +324,9 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
-<<<<<<< HEAD
     getLiveObjectPageData,
-=======
     addChainSupportToLovs,
     addChainSupportToLovsDependentOn,
->>>>>>> 78a563cc1638f63ffe41881b587d7a166e8e74d2
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,

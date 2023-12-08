@@ -3,7 +3,7 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { formatLiveObjectPageData, fromNamespacedVersion } from '../../../utils/formatters'
+import { formatLiveObjectVersionForPage, fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
@@ -299,7 +299,7 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
     }
 }
 
-export async function getLiveObjectPageData(uid: string) {
+export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap | null> {
     let liveObjectVersion
     try {
         liveObjectVersion = await liveObjectVersions().findOne({
@@ -307,6 +307,7 @@ export async function getLiveObjectPageData(uid: string) {
                 liveObject: {
                     namespace: true,
                 },
+                liveEventVersions: true
             },
             where: { uid }
         })
@@ -314,17 +315,42 @@ export async function getLiveObjectPageData(uid: string) {
         logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
         return null
     }
+    if (!liveObjectVersion) return null
 
-    // Camelize result keys.
-    liveObjectVersion = camelizeKeys(liveObjectVersion)
+    const inputEventLovIds = liveObjectVersion.liveEventVersions
+        .filter(lev => lev.isInput === true)
+        .map(lev => lev.liveObjectVersionId)
+    
+    let inputEventLovs = []
+    try {
+        inputEventLovs = inputEventLovIds.length 
+            ? await liveObjectVersions().find({
+                relations: {
+                    liveObject: {
+                        namespace: true,
+                    },
+                },
+                where: { id: In(inputEventLovIds) }
+            }) : []
+    } catch (err) {
+        logger.error(`Error getting input event LOVs (${inputEventLovIds.join(', ')}): ${err}`)
+        return null
+    }
 
-    const liveObjectTablePath = liveObjectVersion.config.table
-    const recordCountsData = liveObjectTablePath
-        ? await getCachedRecordCounts([liveObjectTablePath])
+    const liveObjectTablePaths = [
+        liveObjectVersion.config.table,
+        ...inputEventLovs.map(lov => lov.config.table)
+    ]
+    const recordCountsData = liveObjectTablePaths.length
+        ? await getCachedRecordCounts(liveObjectTablePaths)
         : []
 
-    // Return formatted live object version.
-    return [formatLiveObjectPageData(liveObjectVersion, recordCountsData), liveObjectVersion]
+    const formattedLov = formatLiveObjectVersionForPage(liveObjectVersion, recordCountsData)
+
+    return {
+        ...formattedLov,
+        inputEvents: inputEventLovs.map(lov => formatLiveObjectVersionForPage(lov, recordCountsData))
+    }
 }
 
 export async function addChainSupportToLovs(namespacedVersions: string[], newChainIds: string[]) {
