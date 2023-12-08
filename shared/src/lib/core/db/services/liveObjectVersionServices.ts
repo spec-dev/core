@@ -313,6 +313,18 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
     }
     if (!liveObjectVersion) return null
 
+    const { nsp, name } = liveObjectVersion
+    let hasManyVersions = false
+    try {
+        hasManyVersions =
+            (await liveObjectVersions().count({
+                where: { nsp, name },
+            })) > 1
+    } catch (err) {
+        logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
+        return null
+    }
+
     const inputEventVersionIds = liveObjectVersion.liveEventVersions
         .filter((lev) => lev.isInput === true)
         .map((lev) => lev.eventVersionId)
@@ -365,6 +377,7 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
 
     return {
         ...formattedLov,
+        hasManyVersions,
         inputEvents: inputEventLovs.map((lov) =>
             formatLiveObjectVersionForPage(lov, recordCountsData)
         ),
