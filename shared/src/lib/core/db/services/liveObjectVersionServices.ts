@@ -313,24 +313,43 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
     }
     if (!liveObjectVersion) return null
 
-    const inputEventLovIds = liveObjectVersion.liveEventVersions
+    const inputEventVersionIds = liveObjectVersion.liveEventVersions
         .filter((lev) => lev.isInput === true)
-        .map((lev) => lev.liveObjectVersionId)
+        .map((lev) => lev.eventVersionId)
+
+    let inputEventVersions = []
+    try {
+        inputEventVersions = inputEventVersionIds.length
+            ? await eventVersionsRepo().find({
+                  where: { id: In(inputEventVersionIds) },
+              })
+            : []
+    } catch (err) {
+        logger.error(
+            `Error getting input event versions (${inputEventVersionIds.join(', ')}): ${err}`
+        )
+        return null
+    }
+    const inputEventComps = inputEventVersions.map((ev) => ({
+        nsp: ev.nsp,
+        name: ev.name,
+        version: ev.version,
+    }))
 
     let inputEventLovs = []
     try {
-        inputEventLovs = inputEventLovIds.length
+        inputEventLovs = inputEventComps.length
             ? await liveObjectVersions().find({
                   relations: {
                       liveObject: {
                           namespace: true,
                       },
                   },
-                  where: { id: In(inputEventLovIds) },
+                  where: inputEventComps,
               })
             : []
     } catch (err) {
-        logger.error(`Error getting input event LOVs (${inputEventLovIds.join(', ')}): ${err}`)
+        logger.error(`Error getting input event LOVs (${inputEventComps.join(', ')}): ${err}`)
         return null
     }
 
