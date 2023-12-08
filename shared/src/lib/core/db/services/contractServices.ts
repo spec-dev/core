@@ -4,6 +4,7 @@ import logger from '../../../logger'
 import uuid4 from 'uuid4'
 import { StringKeyMap } from '../../../types'
 import { ILike, MoreThanOrEqual } from 'typeorm'
+import { toNamespaceSlug } from '../../../utils/formatters'
 
 const contractsRepo = () => CoreDB.getRepository(Contract)
 
@@ -57,12 +58,17 @@ export async function upsertContracts(
 }
 
 export async function upsertContractWithTx(
+    tx: any,
     namespaceId: number,
     name: string,
-    desc: string,
-    tx: any
+    isFactoryGroup?: boolean
 ): Promise<Contract | null> {
-    const data = { namespaceId, name, desc, uid: uuid4() }
+    const data: any = { namespaceId, name, desc: '', uid: uuid4() }
+    const updateColNames = ['desc']
+    if (typeof isFactoryGroup === 'boolean') {
+        data.isFactoryGroup = isFactoryGroup
+        updateColNames.push('is_factory_group')
+    }
     return (
         (
             await tx
@@ -70,7 +76,7 @@ export async function upsertContractWithTx(
                 .insert()
                 .into(Contract)
                 .values(data)
-                .orUpdate(['desc'], ['namespace_id', 'name'])
+                .orUpdate(updateColNames, ['namespace_id', 'name'])
                 .returning('*')
                 .execute()
         ).generatedMaps[0] || null
@@ -88,6 +94,7 @@ export async function getAllContractGroups(
                 id: true,
                 uid: true,
                 name: true,
+                isFactoryGroup: true,
                 createdAt: true,
                 namespace: {
                     name: true,
@@ -102,7 +109,7 @@ export async function getAllContractGroups(
             },
             where: {
                 namespace: {
-                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                    slug: ILike(filters.namespace ? `${filters.namespace}.%` : '%'),
                 },
                 updatedAt: MoreThanOrEqual(new Date(timeSynced)),
             },
@@ -124,7 +131,7 @@ export async function getOldestContractInGroup(group: string): Promise<Contract[
             },
             where: {
                 namespace: {
-                    slug: ILike(`%.contracts.${group}`),
+                    slug: toNamespaceSlug(group),
                 },
             },
             order: { createdAt: 'ASC' },

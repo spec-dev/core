@@ -3,7 +3,6 @@ import {
     logger,
     SharedTables,
     StringKeyMap,
-    contractNamespaceForChainId,
     saveBlockEvents,
     saveBlockCalls,
     EvmBlock,
@@ -65,6 +64,7 @@ import {
     specialErc20BalanceAffectingAbis,
     getContractGroupAbis,
     publishForcedRollback,
+    schemaForChainId,
 } from '../../../shared'
 import config from '../config'
 import short from 'short-uuid'
@@ -99,13 +99,13 @@ class EvmIndexer {
     
     indexTokenBalances: boolean 
 
+    emitTransactions: boolean
+
     timedOut: boolean = false
 
     resolvedBlockHash: string | null
 
     blockUnixTimestamp: number | null
-
-    contractEventNsp: string
 
     pool: Pool
 
@@ -184,24 +184,32 @@ class EvmIndexer {
         indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
+        emitTransactions?: boolean
     }) {
         this.head = head
-        this.indexTraces = options?.indexTraces !== false
-        this.indexTokenTransfers = options?.indexTokenTransfers || false
-        this.indexTokenBalances = options?.indexTokenBalances || false
+
+        // NOTE: Turning off across all chains — @whittlbc (11.6.23)
+        this.indexTraces = false
+        this.indexTokenTransfers = false
+        this.indexTokenBalances = false
+        // this.indexTraces = options?.indexTraces !== false
+        // this.indexTokenTransfers = options?.indexTokenTransfers || false
+        // this.indexTokenBalances = options?.indexTokenBalances || false
+
+        this.emitTransactions = options?.emitTransactions
+        
         this.resolvedBlockHash = null
         this.blockUnixTimestamp = null
-        this.contractEventNsp = contractNamespaceForChainId(this.chainId)
-        this.pool = new Pool({
-            host: config.SHARED_TABLES_DB_HOST,
-            port: config.SHARED_TABLES_DB_PORT,
-            user: config.SHARED_TABLES_DB_USERNAME,
-            password: config.SHARED_TABLES_DB_PASSWORD,
-            database: config.SHARED_TABLES_DB_NAME,
-            max: config.SHARED_TABLES_MAX_POOL_SIZE,
-            connectionTimeoutMillis: 60000,
-        })
-        this.pool.on('error', err => logger.error('PG client error', err))
+        // this.pool = new Pool({
+        //     host: config.SHARED_TABLES_DB_HOST,
+        //     port: config.SHARED_TABLES_DB_PORT,
+        //     user: config.SHARED_TABLES_DB_USERNAME,
+        //     password: config.SHARED_TABLES_DB_PASSWORD,
+        //     database: config.SHARED_TABLES_DB_NAME,
+        //     max: config.SHARED_TABLES_MAX_POOL_SIZE,
+        //     connectionTimeoutMillis: 60000,
+        // })
+        // this.pool.on('error', err => logger.error('PG client error', err))
     }
 
     async perform(isJobWaitingWithBlockNumber?: Function): Promise<StringKeyMap | void> {
@@ -215,10 +223,7 @@ class EvmIndexer {
         
         // Fetch chain primitives.
         let { block, transactions } = await this._getBlockWithTransactions()
-        let [{ logs, receipts }, traces] = await Promise.all([
-            this._getLogsOrBlockReceipts(!!transactions.length),
-            this._getTraces(),
-        ])
+        let [receipts, traces] = await Promise.all([this._getReceipts(transactions), this._getTraces()])
 
         // Quick re-org check #1.
         if (!(await this._shouldContinue(isJobWaitingWithBlockNumber))) {
@@ -227,12 +232,8 @@ class EvmIndexer {
         }
 
         // Use block receipts to get logs & add extra data to txs (if supported).
-        if (receipts !== null) {
-            logs = this._initLogsWithReceipts(receipts, block)
-            this._enrichTransactionsWithReceipts(transactions, receipts)
-        } else {
-            this._enrichLogsWithBlock(logs, block)
-        }
+        let logs = this._initLogsWithReceipts(receipts, block)
+        this._enrichTransactionsWithReceipts(transactions, receipts)
 
         // Use the "removed" property of logs to detect whether this block was reorg'd.
         if (!!logs.find(log => log.removed)) {
@@ -410,31 +411,18 @@ class EvmIndexer {
             blockTimestamp: this.block.timestamp.toISOString(),
         }
 
-        // <chain>.NewBlock
-        const originEventInputs = [
-            originEvents.chain.NewBlock(this.block, eventOrigin),
-        ]
+        const originEventInputs = []
+        const chainSchema = schemaForChainId[this.chainId]
 
-        // <chain>.NewTransactions
-        this.transactions?.length && originEventInputs.push(
-            ...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
-                originEvents.chain.NewTransactions(txs, eventOrigin)
-            ))
-        )
-
-        // tokens.NewTokenTransfers
-        this.tokenTransfers?.length && originEventInputs.push(
-            ...(toChunks(this.tokenTransfers, config.MAX_EVENTS_LENGTH).map(transfers => 
-                originEvents.tokens.NewTokenTransfers(transfers, eventOrigin)
-            ))
-        )
-
-        // tokens.NewErc20Balances
-        this.erc20Balances?.length && originEventInputs.push(
-            ...(toChunks(this.erc20Balances, config.MAX_EVENTS_LENGTH).map(balances => 
-                originEvents.tokens.NewErc20Balances(balances, eventOrigin)
-            ))
-        )
+        // spec.NewTransactions and <chain>.NewTransactions
+        if (this.transactions?.length && this.emitTransactions) {
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.spec.NewTransactions(txs, eventOrigin)
+            )))
+            originEventInputs.push(...(toChunks(this.transactions, config.MAX_EVENTS_LENGTH).map(txs => 
+                originEvents.spec.NewTransactions(txs, eventOrigin, chainSchema)
+            )))
+        }
 
         const decodedLogs = this.successfulLogs.filter(l => !!l.eventName)
         const decodedTraceCalls = this.successfulTraces.filter(t => (
@@ -452,11 +440,12 @@ class EvmIndexer {
         const callContractInstances = []
         const uniqueContractGroups = new Set<string>()
         for (const contractInstance of referencedContractInstances) {
-            const nsp = contractInstance.contract?.namespace?.name
-            if (!nsp || !nsp.startsWith(this.contractEventNsp)) continue
-            
-            const contractGroup = nsp.split('.').slice(2).join('.')
+            const contractGroup = contractInstance.contract?.namespace?.name
             if (!contractGroup) continue
+
+            // TODO: Remove after migration
+            if (contractGroup.split('.').length > 2) continue
+
             uniqueContractGroups.add(contractGroup)
 
             if (logContractAddresses.has(contractInstance.address)) {
@@ -470,26 +459,19 @@ class EvmIndexer {
         const contractGroupAbis = await getContractGroupAbis(
             Array.from(uniqueContractGroups),
         )
-        const namespacedContractGroupAbis = {}
-        for (const contractGroup in contractGroupAbis) {
-            const abi = contractGroupAbis[contractGroup]
-            const key = [this.contractEventNsp, contractGroup].join('.')
-            namespacedContractGroupAbis[key] = abi
-        }
-
         const txMap = mapByKey(this.transactions || [], 'hash')
 
         const [eventInputs, callInputs] = await Promise.all([
             this._curateContractEventInputs(
                 decodedLogs,
                 eventContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap
             ),
             this._curateContractCallInputs(
                 decodedTraceCalls,
                 callContractInstances,
-                namespacedContractGroupAbis,
+                contractGroupAbis,
                 txMap,
             ),
         ])
@@ -871,51 +853,39 @@ class EvmIndexer {
         return { block, transactions }
     }
 
-    async _getLogsOrBlockReceipts(hasTxs: boolean): Promise<{
-        logs?: EvmLog[] | null,
-        receipts?: ExternalEvmReceipt[] | null,
-    }> {
-        // Just get logs directly if you can't get block receipts.
-        if (!this.canGetBlockReceipts) {
-            const logs = await getWeb3().getLogs(
-                this.resolvedBlockHash,
-                this.blockNumber,
-                this.chainId    
-            )
-            return { receipts: null, logs }
-        } 
-
-        let receipts = await this._getBlockReceipts()
+    async _getReceipts(transactions: EvmTransaction[]): Promise<ExternalEvmReceipt[]> {
+        const hasTxs = !!transactions.length
+        const txHashes = transactions.map(tx => tx.hash)
+        let receipts = await this._getBlockReceipts(txHashes)
 
         // Iterate until receipts can be fetched if at least 1 transaction exists.
         if (hasTxs && !receipts.length) {
             this._warn(`Transactions exist but no receipts were found -- retrying`)
-            receipts = await this._waitAndRefetchReceipts(hasTxs)
+            receipts = await this._waitAndRefetchReceipts(txHashes)
             if (!receipts.length) throw `Failed to fetch receipts when transactions clearly exist.`
         }
 
         // Must've just been no transactions.
         if (!receipts.length) {
-            return { receipts, logs: null }
+            return receipts
         }
 
         // Switch back to fetching ONLY logs if multiple block hashes exist within the receipts call.
-        const numBlockHashes = new Set(receipts.map(r => r.blockHash))
-        if (numBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
-            const logs = await getWeb3().getLogs(
-                this.resolvedBlockHash,
-                this.blockNumber,
-                this.chainId    
-            )
-            return { receipts: null, logs }
+        const uniqueBlockHashes = new Set(receipts.map(r => r.blockHash))
+        if (uniqueBlockHashes.size > 1 || receipts[0].blockHash !== this.resolvedBlockHash) {
+            if (!config.IS_RANGE_MODE) {
+                throw `[${this.blockNumber}] Different block hashes detected within block receipts - ${Array.from(uniqueBlockHashes).join(', ')} - ${this.resolvedBlockHash}.`
+            }
+            receipts = receipts.filter(r => r.blockHash === this.resolvedBlockHash)
         }
 
-        return { receipts, logs: null }
+        return receipts
     }
 
-    async _waitAndRefetchReceipts(hasTxs: boolean): Promise<ExternalEvmReceipt[] | null> {
+    async _waitAndRefetchReceipts(txHashes: string[]): Promise<ExternalEvmReceipt[] | null> {
+        const hasTxs = !!txHashes.length
         const getReceipts = async () => {
-            const receipts = await this._getBlockReceipts()
+            const receipts = await this._getBlockReceipts(txHashes)
 
             // Hash mismatch.
             if (receipts.length && receipts[0].blockHash !== this.resolvedBlockHash) {
@@ -945,10 +915,11 @@ class EvmIndexer {
         return receipts || []
     }
 
-    async _getBlockReceipts(): Promise<ExternalEvmReceipt[]> {
+    async _getBlockReceipts(txHashes: string[]): Promise<ExternalEvmReceipt[]> {
         return getWeb3().getBlockReceipts(
             this.resolvedBlockHash,
             this.blockNumber,
+            txHashes,
             this.chainId,
         )
     }
@@ -959,7 +930,7 @@ class EvmIndexer {
             this.resolvedBlockHash,
             this.blockNumber,
             this.chainId
-        )    
+        )
     }
 
     _initLogsWithReceipts(receipts: ExternalEvmReceipt[], block: EvmBlock): EvmLog[] {
@@ -1022,12 +993,12 @@ class EvmIndexer {
     }
 
     _logNewHead() {
-        console.log('')
-        config.IS_RANGE_MODE ||
+        if (!config.IS_RANGE_MODE) {
+            console.log('')
             logger.info(
                 `${this.logPrefix} Indexing block ${this.blockNumber} (${this.givenBlockHash?.slice(0, 10) || null})...`
             )
-
+        }
         if (this.head.replace) {
             this._info(
                 chalk.magenta(`REORG: Replacing block ${this.blockNumber} with (${this.givenBlockHash?.slice(0, 10)})...`)
@@ -1069,14 +1040,14 @@ class EvmIndexer {
     async _curateContractEventInputs(
         decodedLogs: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
@@ -1117,14 +1088,14 @@ class EvmIndexer {
     async _curateContractCallInputs(
         decodedTraceCalls: StringKeyMap[], 
         contractInstances: ContractInstance[],
-        namespacedContractGroupAbis: { [key: string]: Abi },
+        contractGroupAbis: { [key: string]: Abi },
         txMap: { [key: string]: EvmTransaction },
     ): Promise<StringKeyMap[]> {
         const contractGroupsHoldingAddress = {}
         for (const contractInstance of contractInstances) {
             const address = contractInstance.address
             const nsp = contractInstance.contract?.namespace?.name
-            const contractGroupAbi = namespacedContractGroupAbis[nsp]
+            const contractGroupAbi = contractGroupAbis[nsp]
             if (!contractGroupAbi) continue
         
             contractGroupsHoldingAddress[address] = contractGroupsHoldingAddress[address] || []
@@ -1376,6 +1347,7 @@ class EvmIndexer {
     }
 
     async _bulkUpdateErc20TokensTotalSupply(updates: StringKeyMap[], timestamp: string, attempt: number = 1) {
+        return
         if (!updates.length) return
         const tempTableName = `erc20_tokens_${short.generate()}`
         const insertPlaceholders = []
@@ -1388,29 +1360,29 @@ class EvmIndexer {
         }
         
         let error
-        const client = await this.pool.connect()
-        try {
-            // Create temp table and insert updates + primary key data.
-            await client.query('BEGIN')
-            await client.query(
-                `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
-            )
+        // const client = await this.pool.connect()
+        // try {
+        //     // Create temp table and insert updates + primary key data.
+        //     await client.query('BEGIN')
+        //     await client.query(
+        //         `CREATE TEMP TABLE ${tempTableName} (id integer primary key, total_supply character varying, last_updated timestamp with time zone) ON COMMIT DROP`
+        //     )
 
-            // Bulk insert the updated records to the temp table.
-            await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
+        //     // Bulk insert the updated records to the temp table.
+        //     await client.query(`INSERT INTO ${tempTableName} (id, total_supply, last_updated) VALUES ${insertPlaceholders.join(', ')}`, insertBindings)
 
-            // Merge the temp table updates into the target table ("bulk update").
-            await client.query(
-                `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
-            )
-            await client.query('COMMIT')
-        } catch (err) {
-            await client.query('ROLLBACK')
-            this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
-            error = err
-        } finally {
-            client.release()
-        }
+        //     // Merge the temp table updates into the target table ("bulk update").
+        //     await client.query(
+        //         `UPDATE tokens.erc20_tokens SET total_supply = ${tempTableName}.total_supply, last_updated = ${tempTableName}.last_updated FROM ${tempTableName} WHERE tokens.erc20_tokens.id = ${tempTableName}.id and tokens.erc20_tokens.last_updated < ${tempTableName}.last_updated`
+        //     )
+        //     await client.query('COMMIT')
+        // } catch (err) {
+        //     await client.query('ROLLBACK')
+        //     this._error(`Error bulk updating ERC-20 Tokens`, updates, err)
+        //     error = err
+        // } finally {
+        //     client.release()
+        // }
         if (!error) return
 
         const message = error.message || error.toString() || ''

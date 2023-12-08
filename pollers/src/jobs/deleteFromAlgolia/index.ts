@@ -1,5 +1,5 @@
 import algoliasearch from 'algoliasearch'
-import { logger } from '../../../../shared/dist/main'
+import { logger } from '../../../../shared'
 import { resourceInstances } from '../../resources/algolia'
 import chalk from 'chalk'
 import config from '../../config'

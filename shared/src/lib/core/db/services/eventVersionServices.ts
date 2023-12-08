@@ -2,13 +2,7 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { ILike, In, MoreThanOrEqual } from 'typeorm'
-import {
-    supportedChainIds,
-    contractNamespaceForChainId,
-    isContractNamespace,
-    chainIdForContractNamespace,
-} from '../../../utils/chainIds'
+import { ILike, MoreThanOrEqual } from 'typeorm'
 import {
     fromNamespacedVersion,
     toNamespacedVersion,
@@ -75,7 +69,7 @@ export async function getEventVersions(
             where: {
                 event: {
                     namespace: {
-                        slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                        slug: ILike(filters.namespace ? `${filters.namespace}.%` : '%'),
                     },
                 },
                 updatedAt: MoreThanOrEqual(new Date(timeSynced)),
@@ -143,7 +137,7 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
         const { nsp, name, version } = fromNamespacedVersion(
             input.includes('@') ? input : `${input}@${fakeVersion}`
         )
-        if (!nsp || !name || !version || !isContractNamespace(nsp)) continue
+        if (!nsp || !name || !version) continue
         inputComps.push({
             nsp,
             name,
@@ -210,70 +204,37 @@ export async function resolveEventVersionNames(inputs: string[]): Promise<String
 }
 
 export async function getContractEventsForGroup(group: string): Promise<StringKeyMap[] | null> {
-    const events: StringKeyMap[] = []
-
-    const fullNamespaceNames: string[] = []
-    for (const supportedChainId of supportedChainIds) {
-        const nspForChainId = contractNamespaceForChainId(supportedChainId)
-        const fullPath = `${nspForChainId}.${group}`
-        fullNamespaceNames.push(fullPath)
-    }
-
     try {
-        const eventVersions = await eventVersionsRepo().find({
-            where: { nsp: In(fullNamespaceNames) },
-            order: {
-                name: 'ASC',
-            },
-            select: {
-                name: true,
-                version: true,
-                nsp: true,
-            },
-        })
-
-        const eventsMap: StringKeyMap = {}
-        const splitValue = ' '
-
-        // gather all chainIds for each unique [name, version] pair
-        for (const { nsp, name, version } of eventVersions) {
-            const chainId = chainIdForContractNamespace(nsp)
-            const uniqueKey = `${name}${splitValue}${version}`
-            eventsMap[uniqueKey] = eventsMap[uniqueKey]
-                ? eventsMap[uniqueKey].concat([chainId]).sort((a, b) => {
-                      return a - b
-                  })
-                : [chainId]
-        }
-
-        // convert unique [name, version] eventsMap to array of each unique event
-        for (const [key, chainIds] of Object.entries(eventsMap)) {
-            const [name, version] = key.split(splitValue)
-            events.push({ name, version, chainIds })
-        }
+        return (
+            await eventVersionsRepo().find({
+                where: { nsp: group },
+                order: {
+                    name: 'ASC',
+                },
+                select: {
+                    name: true,
+                    version: true,
+                },
+            })
+        ).map(({ name, version }) => ({ name, version }))
     } catch (err) {
         logger.error(`Error getting contract events for group=${group}: ${err}`)
         return null
     }
-
-    return events
 }
 
 export async function resolveEventVersionCursors(givenName: string): Promise<StringKeyMap> {
     const [nspName, version] = givenName.split('@')
     const splitName = nspName.split('.')
     const numSections = splitName.length
-    const isValid =
-        numSections === 2 ||
-        numSections === 3 ||
-        (numSections === 5 && isContractNamespace(nspName))
+    const isValid = numSections === 2 || numSections === 3
     if (!isValid) throw `Invalid event "${givenName}"`
 
     // Event versions where query filter.
     const where = []
 
     // Live object event.
-    const isLiveObjectEventVerison = splitName.length === 2
+    const isLiveObjectEventVerison = numSections === 2
     if (isLiveObjectEventVerison) {
         const [nsp, name] = splitName
         const filters: StringKeyMap = { nsp, name }
@@ -284,26 +245,12 @@ export async function resolveEventVersionCursors(givenName: string): Promise<Str
     }
     // Contract event.
     else {
-        // Chain-specific namespace already given...
-        if (numSections === 5) {
-            const [nsp, name] = splitOnLastOccurance(nspName, '.')
-            const filters: StringKeyMap = { nsp, name }
-            if (version) {
-                filters.version = version
-            }
-            where.push(filters)
+        const [nsp, name] = splitOnLastOccurance(nspName, '.')
+        const filters: StringKeyMap = { nsp, name }
+        if (version) {
+            filters.version = version
         }
-
-        // Add all supported chain specific namespaces.
-        for (const supportedChainId of supportedChainIds) {
-            const [nsp, name] = splitOnLastOccurance(nspName, '.')
-            const fullNsp = `${contractNamespaceForChainId(supportedChainId)}.${nsp}`
-            const filters: StringKeyMap = { nsp: fullNsp, name }
-            if (version) {
-                filters.version = version
-            }
-            where.push(filters)
-        }
+        where.push(filters)
     }
 
     // Get any matching event versions (can be multiple for the given event name).
@@ -344,15 +291,13 @@ export async function resolveEventVersionCursors(givenName: string): Promise<Str
     return { cursors, latestEvent }
 }
 
-export async function getEventVersionsByLiveObject(uid: string): Promise<StringKeyMap[] | null> {
+export async function getEventVersionsByLiveObjectVersion(id: number): Promise<StringKeyMap[] | null> {
     let eventVersions
     try {
         eventVersions = await eventVersionsRepo().find({
             where: {
                 liveEventVersions: {
-                    liveObjectVersion: {
-                        liveObject: { uid },
-                    },
+                    liveObjectVersionId: id,
                     isInput: true,
                 },
             },
@@ -365,8 +310,5 @@ export async function getEventVersionsByLiveObject(uid: string): Promise<StringK
         logger.error(`Error getting event versions by live object uid: ${err}`)
         return null
     }
-
-    // Camelize result keys.
-    eventVersions = camelizeKeys(eventVersions)
     return eventVersions
 }

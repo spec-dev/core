@@ -1,4 +1,4 @@
-import { StringKeyMap, logger, SharedTables } from '../../../../../shared'
+import { StringKeyMap, logger, ChainTables } from '../../../../../shared'
 
 const eventName = 'ivy.NewSmartWallet@0.0.1'
 
@@ -31,7 +31,7 @@ async function NewSmartWallet(eventSpec: StringKeyMap): Promise<StringKeyMap | n
 
     // Upsert the smart wallet record.
     try {
-        await SharedTables.query(`INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
+        await ChainTables.query(null, `INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
             [
                 smartWallet.contractAddress,
                 smartWallet.ownerAddress,

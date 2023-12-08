@@ -14,6 +14,7 @@ export {
     fullEvmTransactionUpsertConfig,
 } from './lib/shared-tables/db/entities/EvmTransaction'
 export { EvmLog, fullEvmLogUpsertConfig } from './lib/shared-tables/db/entities/EvmLog'
+export { EvmReceipt } from './lib/shared-tables/db/entities/EvmReceipt'
 export {
     EvmTrace,
     EvmCallType,
@@ -147,6 +148,13 @@ export {
     getAdditionalContractsToGenerateInputsFor,
     publishForcedRollback,
     getEventIdDirectlyBeforeId,
+    setEventStartBlocks,
+    getEventStartBlocks,
+    getDecodeJobRangeCount,
+    setDecodeJobRangeCount,
+    getDecodeJobProgress,
+    setDecodeJobProgress,
+    deleteCoreRedisKeys,
 } from './lib/indexer/redis'
 export { ev, specEnvs } from './lib/utils/env'
 export * from './lib/utils/validators'
@@ -171,7 +179,6 @@ export {
     chainSpecificSchemas,
     supportedChainIds,
     chainIdForSchema,
-    contractNamespaceForChainId,
     schemaForChainId,
     chainSpecificNamespaces,
     isContractNamespace,
@@ -217,6 +224,10 @@ export {
     ContractRegistrationJob,
     ContractRegistrationJobStatus,
 } from './lib/core/db/entities/ContractRegistrationJob'
+export {
+    PublishAndDeployLiveObjectVersionJob,
+    PublishAndDeployLiveObjectVersionJobStatus,
+} from './lib/core/db/entities/PublishAndDeployLiveObjectVersionJob'
 export { CoreDB } from './lib/core/db/dataSource'
 export {
     createNamespace,
@@ -265,6 +276,7 @@ export {
     upsertContractInstancesWithTx,
     getContractInstancesInNamespace,
     getContractInstancesInGroup,
+    getChainIdsForContractGroups,
 } from './lib/core/db/services/contractInstanceServices'
 export {
     createEvent,
@@ -282,7 +294,7 @@ export {
     getEventVersions,
     getEventVersionsInNsp,
     resolveEventVersionCursors,
-    getEventVersionsByLiveObject,
+    getEventVersionsByLiveObjectVersion,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -295,6 +307,7 @@ export {
     getLiveObject,
     upsertLiveObject,
     getLiveObjectByUid,
+    getLiveObjectForLov,
 } from './lib/core/db/services/liveObjectServices'
 export {
     createLiveObjectVersion,
@@ -302,6 +315,7 @@ export {
     getLiveObjectVersionsByNamespacedVersions,
     updateLiveObjectVersionProperties,
     updateLiveObjectVersionExample,
+    updateLiveObjectVersionUrl,
     updateLiveObjectVersionConfig,
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
@@ -310,7 +324,12 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
+<<<<<<< HEAD
     getLiveObjectPageData,
+=======
+    addChainSupportToLovs,
+    addChainSupportToLovsDependentOn,
+>>>>>>> 78a563cc1638f63ffe41881b587d7a166e8e74d2
 } from './lib/core/db/services/liveObjectVersionServices'
 export {
     createLiveEventVersion,
@@ -324,10 +343,17 @@ export {
     createContractRegistrationJob,
     getContractRegistrationJob,
     updateContractRegistrationJobStatus,
-    updateContractRegistrationJobCursors,
     contractRegistrationJobFailed,
 } from './lib/core/db/services/contractRegistrationJobServices'
-export { In, Not, IsNull, Brackets } from 'typeorm'
+export {
+    createPublishAndDeployLiveObjectVersionJob,
+    getPublishAndDeployLiveObjectVersionJob,
+    updatePublishAndDeployLiveObjectVersionJobStatus,
+    updatePublishAndDeployLiveObjectVersionJobCursor,
+    publishAndDeployLiveObjectVersionJobFailed,
+    updatePublishAndDeployLiveObjectVersionJobMetadata,
+} from './lib/core/db/services/publishAndDeployLiveObjectVersionJobServices'
+export { In, Not, IsNull, MoreThan, Brackets } from 'typeorm'
 
 export {
     redis as abiRedis,
@@ -441,3 +467,11 @@ export {
 export { publishLiveObjectVersion } from './lib/services/publishLiveObjectVersion'
 export { resolveMetadata } from './lib/services/resolveMetadata'
 export { contractGroupNameFromNamespace } from './lib/utils/extract'
+import ChainTables from './lib/chain-tables/ChainTables'
+export { ChainTables }
+import parseDbUrl from 'parse-database-url'
+export { parseDbUrl }
+export {
+    findStartBlockForAddresses,
+    findStartBlocksForEvent,
+} from './lib/services/contractInteractionServices'

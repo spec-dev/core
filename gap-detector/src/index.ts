@@ -1,10 +1,10 @@
-import { logger, chainIds, IndexerDB, SharedTables } from '../../shared'
+import { logger, chainIds, IndexerDB, ChainTables } from '../../shared'
 import GapDetector from './gapDetector'
 
 async function run() {
     await Promise.all([
         IndexerDB.initialize(),
-        SharedTables.initialize(),
+        ChainTables.initialize(),
     ])
     const gapDetector = new GapDetector(Object.values(chainIds))
     logger.info('Starting gap detector...')

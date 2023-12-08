@@ -20,7 +20,7 @@ import {
     hasHitMaxCalls,
 } from '../wsProviderPool'
 import { 
-    createWeb3Provider, 
+    createWeb3Provider,
     rotateWeb3Provider,
     teardownWeb3Provider,
     resetNumInternalGroupRotations,

@@ -21,7 +21,6 @@ import {
     getBlockCalls,
     updateLiveObjectVersionStatus,
     LiveObjectVersionStatus,
-    SharedTables,
     schemaForChainId,
     identPath,
     toDate,
@@ -37,21 +36,13 @@ import {
     getAdditionalContractsToGenerateInputsFor,
     getHighestBlock,
     range,
+    ChainTables,
     EventVersion,
     formatEventVersionViewName,
+    getEventStartBlocks,
+    setEventStartBlocks,
+    enqueueDelayedJob,
 } from '../../shared'
-import { Pool } from 'pg'
-
-// Create connection pool.
-const pool = new Pool({
-    host: config.SHARED_TABLES_DB_HOST,
-    port: config.SHARED_TABLES_DB_PORT,
-    user: config.SHARED_TABLES_DB_USERNAME,
-    password: config.SHARED_TABLES_DB_PASSWORD,
-    database: config.SHARED_TABLES_DB_NAME,
-    max: config.SHARED_TABLES_MAX_POOL_SIZE,
-})
-pool.on('error', err => logger.error('PG client error', err))
 
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
@@ -240,12 +231,12 @@ async function perform(data: StringKeyMap) {
     // already aggregated that weren't able to use the newly registered contracts yet
     // will incorporate those additions.
     if (newContractRegistrations.length) {
-        const [largestNumberInSharedTables, largestNumberInIndexerDB] = await Promise.all([
-            getLargestBlockNumberFromSharedTables(),
+        const [largestNumberInChainTables, largestNumberInIndexerDB] = await Promise.all([
+            getLargestBlockNumberFromChainTables(),
             getLargestBlockNumberFromIndexerDB(),
         ])
         const ceiling = Math.max(
-            (largestNumberInSharedTables || 0) + 1,
+            (largestNumberInChainTables || 0) + 1,
             (largestNumberInIndexerDB || 0) + 1,
             blockNumber + 1,
         )
@@ -254,6 +245,17 @@ async function perform(data: StringKeyMap) {
             range(blockNumber, ceiling),
             config.CHAIN_ID,
         )
+        for (const { group, addresses } of newContractRegistrations) {
+            await enqueueDelayedJob('resetEventStartBlocks', { group })
+            
+            for (const address of addresses) {
+                await enqueueDelayedJob('decodeContractInteractions', {
+                    group,
+                    chainId: config.CHAIN_ID,
+                    contractAddresses: [address],
+                })
+            }
+        }
     }
 
     // One last check before deleting calls/events from cache.
@@ -262,7 +264,10 @@ async function perform(data: StringKeyMap) {
         return
     }    
 
-    await updateRecordCountsWithEvents(blockEvents, blockNumber)
+    await Promise.all([
+        updateRecordCountsWithEvents(existingBlockEvents, blockNumber),
+        maybeUpdateStartBlocksForEvents(existingBlockEvents, blockNumber),
+    ])
 
     await Promise.all([
         deleteBlockCalls(config.CHAIN_ID, blockNumber),
@@ -278,16 +283,14 @@ async function generateBlockInputsForNewlyRegisteredContracts(
 ): Promise<StringKeyMap> {
     const newBlockEvents = []
     const newBlockCalls = []
+    const chainId = config.CHAIN_ID
 
     for (const { group, addresses } of groupContractInstancesToRegister) {
         try {
             const { newEventSpecs, newCallSpecs } = await addContractInstancesToGroup(
-                addresses,
-                config.CHAIN_ID,
+                addresses.map(address => ({ chainId, address })),
                 group,
-                null,
-                blockNumber,
-                pool,
+                { chainId, blockNumber },
                 existingBlockEvents,
                 existingBlockCalls,
             )
@@ -471,7 +474,7 @@ async function generateLiveObjectEvents(
         [config.TABLES_AUTH_HEADER_NAME]: tablesApiToken,
     }
 
-    // Forced timeout at 60s.
+    // Forced timeout at 20s.
     const abortController = new AbortController()
     const timer = setTimeout(() => abortController.abort(), config.EVENT_GEN_RESPONSE_TIMEOUT)
 
@@ -997,16 +1000,39 @@ async function getLiveObjectVersionResults(
     return usableResults
 }
 
+async function maybeUpdateStartBlocksForEvents(events: StringKeyMap[], blockNumber: number) {
+    if (!events.length) return
+    const chainId = config.CHAIN_ID
+
+    const fullEventNames = unique(events.map(e => e.name))
+    const existingStartBlocks = await getEventStartBlocks(fullEventNames)
+    const updates = {}
+    for (const name of fullEventNames) {
+        const eventStartBlocks = existingStartBlocks[name] || {}
+        let chainStartBlock = Number(eventStartBlocks[chainId] || 0)
+        chainStartBlock = Number.isNaN(chainStartBlock) ? 0 : chainStartBlock
+
+        const isFirstEvent = !eventStartBlocks.hasOwnProperty(chainId)
+        const isLessThanExistingNumber = blockNumber < chainStartBlock
+        if (isFirstEvent || isLessThanExistingNumber) {
+            eventStartBlocks[chainId] = blockNumber
+            updates[name] = eventStartBlocks
+        }
+    }
+    if (!Object.keys(updates).length) return
+    
+    await setEventStartBlocks(updates)
+}
+
 async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber: number) {
     if (!events.length) return
     const chainId = config.CHAIN_ID
-    const chainSchema = schemaForChainId[chainId]
 
     // Get the full paths of the Postgres views associated with each of these event types.
     const eventCounts = {}
     for (const event of events) {
         const { nsp, name, version } = fromNamespacedVersion(event.name)
-        if (!nsp || nsp.split('.').length < 4) continue
+        if (!nsp || nsp.split('.').length < 2) continue
         
         const viewName = formatEventVersionViewName({ nsp, name, version } as EventVersion)
         if (!viewName) {
@@ -1014,7 +1040,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
             continue
         }
 
-        const viewPath = [chainSchema, viewName].join('.')
+        const viewPath = ['spec', viewName].join('.')
         eventCounts[viewPath] = eventCounts[viewPath] || 0
         eventCounts[viewPath] += 1
     }
@@ -1025,13 +1051,13 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
     const now = nowAsUTCDateString()
     let results = []
     try {
-        await SharedTables.manager.transaction(async (tx) => {
-            results = await Promise.all(viewPaths.map(viewPath => (
+        await ChainTables.transaction(null, async (tx) => {
+            results = (await Promise.all(viewPaths.map(viewPath => (
                 tx.query(
                     `update record_counts set value = value + $1, updated_at = $2 where table_path = $3 and paused is not true returning table_path`,
                     [eventCounts[viewPath], now, viewPath]
                 )
-            )))
+            )))).map(r => r.rows || [])
         })
     } catch (err) {
         logger.error(`[${chainId}:${blockNumber}] Error incrementing record counts: ${err}`)
@@ -1059,7 +1085,7 @@ async function updateRecordCountsWithEvents(events: StringKeyMap[], blockNumber:
         i += 4
     }
     try {
-        await SharedTables.query(
+        await ChainTables.query(null,
             `INSERT INTO record_count_deltas (table_path, value, block_number, chain_id) VALUES ${placeholders.join(', ')} ON CONFLICT (table_path, block_number, chain_id) DO UPDATE SET value = excluded.value`,
             bindings,
         )
@@ -1072,7 +1098,7 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        return (((await SharedTables.query(
+        return (((await ChainTables.query(schema,
             `select timestamp from ${identPath(tablePath)} where number = $1`, 
             [blockNumber]
         )) || [])[0] || {}).timestamp || null
@@ -1082,16 +1108,16 @@ async function getBlockTimestamp(blockNumber: number): Promise<string | null> {
     }
 }
 
-async function getLargestBlockNumberFromSharedTables(): Promise<number | null> {
+async function getLargestBlockNumberFromChainTables(): Promise<number | null> {
     const schema = schemaForChainId[config.CHAIN_ID]
     const tablePath = [schema, 'blocks'].join('.')
     try {
-        const result = (await SharedTables.query(
+        const result = (await ChainTables.query(schema,
             `select number from ${identPath(tablePath)} order by number desc limit 1`
         ))[0] || {}
         return result.number ? Number(result.number) : null
     } catch (err) {
-        throw `Error finding largest block number in SharedTables for ${tablePath}: ${err}`
+        throw `Error finding largest block number in ChainTables for ${tablePath}: ${err}`
     }
 }
 

@@ -7,6 +7,7 @@ const prefix = {
     LIVE_OBJECT_VERSION: '/live-object-version',
     CONTRACT_INSTANCE: '/contract-instance',
     CONTRACT_REGISTRATION_JOB: '/contract-registration-job',
+    PUBLISH_LIVE_OBJECT_VERSION_JOB: '/publish-live-object-version-job',
     EVENT_VERSION: '/event-version',
     CALL_VERSION: '/call-version',
     PIPELINE: '/pipeline',
@@ -41,9 +42,10 @@ const paths = {
     LIVE_OBJECT_PAGE: prefix.LIVE_OBJECT + '/page',
 
     // Live Object Version paths.
-    PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
+    ADMIN_PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',
     INDEX_LIVE_OBJECT_VERSIONS: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + 's' + '/index',
     GENERATE_LOV_TEST_INPUT_DATA: prefix.LIVE_OBJECT_VERSION + '/generate-test-inputs',
+    PUBLISH_LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION + '/publish',
     LATEST_LOV_RECORDS: prefix.LIVE_OBJECT_VERSION + '/latest-records',
     LIVE_OBJECT_VERSION: prefix.LIVE_OBJECT_VERSION,
     LOV_RECORD_COUNTS: prefix.LIVE_OBJECT_VERSION + 's' + '/record-counts',
@@ -60,10 +62,14 @@ const paths = {
     CONTRACT_GROUP_EVENTS: prefix.CONTRACT + '/group' + '/events',
     CONTRACT_GROUP_PAGE: prefix.CONTRACT + '/group/page',
     RESET_CONTRACT_GROUP_RECORD_COUNTS: prefix.ADMIN + prefix.CONTRACT + '/group/recount-records',
+    RESET_CONTRACT_GROUP_EVENT_START_BLOCKS: prefix.ADMIN + prefix.CONTRACT + '/group/reset-event-start-blocks',
     ADD_CONTRACTS_TO_GROUP: prefix.CONTRACT + '/group/add',
 
     // Contract Registration Job paths.
     CONTRACT_REGISTRATION_JOB: prefix.CONTRACT_REGISTRATION_JOB,
+
+    // Live Object Version Job paths.
+    PUBLISH_LIVE_OBJECT_VERSION_JOB: prefix.PUBLISH_LIVE_OBJECT_VERSION_JOB,
 
     // Event Version paths.
     RESOLVE_EVENT_VERSIONS: prefix.EVENT_VERSION + 's' + '/resolve',

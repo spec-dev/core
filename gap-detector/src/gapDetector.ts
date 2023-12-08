@@ -1,7 +1,7 @@
 import config from './config'
 import createSubscriber, { Subscriber } from 'pg-listen'
 import { NewBlockEvent } from './types'
-import { SharedTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId, avgBlockTimesForChainId, chainIds } from '../../shared'
+import { ChainTables, sleep, logger, NewReportedHead, IndexedBlock, IndexedBlockStatus, insertIndexedBlocks, getFailedIds, resetIndexedBlocks, schemaForChainId, avgBlockTimesForChainId, chainIds } from '../../shared'
 import { Queue, QueueScheduler } from 'bullmq'
 import { queueNameForChainId } from './utils/queues'
 
@@ -351,7 +351,7 @@ class GapDetector {
 
     async _getLargestBlockNumberInSchema(schema: string): Promise<number | null> {
         try {
-            const result = (await SharedTables.query(
+            const result = (await ChainTables.query(schema,
                 `select number from ${schema}.blocks order by number desc limit 1`
             ))[0] || {}
             return result.number ? Number(result.number) : null
@@ -363,7 +363,7 @@ class GapDetector {
 
     async _findMissingBlockNumbersInSeries(schema: string, from: number, to: number): Promise<number[] | null> {
         try {
-            const result = (await SharedTables.query(
+            const result = (await ChainTables.query(schema,
                 `select s.id as number from generate_series(${from}, ${to}) s(id) where not exists (select 1 from ${schema}.blocks WHERE number = s.id)`
             )) || []
             return result.map(r => Number(r.number))

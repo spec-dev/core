@@ -13,8 +13,8 @@ export function parseResetContractGroupRecordCountsPayload(
         return { isValid: false, error: '"group" required' }
     }
 
-    if (group.split('.').length !== 4) {
-        return { isValid: false, error: 'Invalid "group" - must be a full contract group' }
+    if (group.split('.').length !== 2) {
+        return { isValid: false, error: `Invalid group: ${group}` }
     }
 
     return {

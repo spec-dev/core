@@ -101,6 +101,11 @@ class WebsocketProviderPool {
         this.numCalls++
         return (this.pool[this.index()] || this.pool[0]).web3.eth.getCode(address)
     }
+
+    async getTxReceipt(hash: string) {
+        this.numCalls++
+        return (this.pool[this.index()] || this.pool[0]).web3.eth.getTransactionReceipt(hash)
+    }
 }
 
 export default WebsocketProviderPool

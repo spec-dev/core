@@ -1,5 +1,4 @@
 import { CoreDB } from '../core/db/dataSource'
-import { SharedTables } from '../shared-tables/db/dataSource'
 import { LiveObjectVersion } from '../core/db/entities/LiveObjectVersion'
 import { ContractInstance } from '../core/db/entities/ContractInstance'
 import { EvmTransaction } from '../shared-tables/db/entities/EvmTransaction'
@@ -8,7 +7,6 @@ import { StringKeyMap } from '../types'
 import { fromNamespacedVersion, unique, uniqueByKeys } from '../utils/formatters'
 import { In } from 'typeorm'
 import { literal, ident } from 'pg-format'
-import { Pool } from 'pg'
 import { Abi } from '../abi/types'
 import { schemaForChainId, isContractNamespace } from '../utils/chainIds'
 import { addSeconds, nowAsUTCDateString } from '../utils/date'
@@ -23,6 +21,7 @@ import {
 } from '../utils/formatters'
 import { EthTraceStatus } from '../shared-tables/db/entities/EthTrace'
 import { formatPgDateString } from '../utils/time'
+import ChainTables from '../chain-tables/ChainTables'
 
 const lovRepo = () => CoreDB.getRepository(LiveObjectVersion)
 
@@ -62,7 +61,13 @@ export async function getLovInputGenerator(
         indexingContractFactoryLov
     )
 
-    return { generator, inputIdsToLovIdsMap, liveObjectVersions, indexingContractFactoryLov }
+    return {
+        generator,
+        inputIdsToLovIdsMap,
+        liveObjectVersions,
+        indexingContractFactoryLov,
+        earliestStartCursor,
+    }
 }
 
 export async function generateLovInputsForEventsAndCalls(
@@ -112,7 +117,7 @@ function getSmallestStartCursorAndBlockTime(queryCursors: StringKeyMap): [Date, 
             shortestBlockTime = chainBlockTime
         }
     }
-    return [earliestStartCursor, shortestBlockTime]
+    return [earliestStartCursor, 10]
 }
 
 function buildGenerator(
@@ -122,7 +127,7 @@ function buildGenerator(
     contractInstanceData: StringKeyMap,
     indexingContractFactoryLov: boolean = false
 ): Function {
-    const generator = async (startBlockDate?: Date, pool?: Pool) => {
+    const generator = async (startBlockDate?: Date) => {
         startBlockDate = startBlockDate || earliestStartCursor
         const endBlockDate = addSeconds(startBlockDate, batchSizeInSeconds)
 
@@ -134,6 +139,12 @@ function buildGenerator(
             }
         }
 
+        logger.info(queryCursors)
+        logger.info(
+            formatPgDateString(startBlockDate, false),
+            formatPgDateString(endBlockDate, false)
+        )
+
         const chainInputPromises = []
         for (const chainId of chainsToQuery) {
             const schema = schemaForChainId[chainId]
@@ -142,7 +153,8 @@ function buildGenerator(
             const endPgDateTime = formatPgDateString(endBlockDate, false)
 
             const eventInputsQuery = inputEventsQueryComps.length
-                ? SharedTables.query(
+                ? ChainTables.query(
+                      schema,
                       `select * from ${ident(schema)}.${ident(
                           'logs'
                       )} where (${inputEventsQueryComps.join(
@@ -153,7 +165,8 @@ function buildGenerator(
                 : []
 
             const callInputsQuery = inputFunctionsQueryComps.length
-                ? SharedTables.query(
+                ? ChainTables.query(
+                      schema,
                       `select * from ${ident(schema)}.${ident(
                           'traces'
                       )} where (${inputFunctionsQueryComps.join(
@@ -165,6 +178,7 @@ function buildGenerator(
 
             chainInputPromises.push(...[eventInputsQuery, callInputsQuery])
         }
+
         let chainInputs = await Promise.all(chainInputPromises)
 
         const uniqueTxHashes = {}
@@ -196,7 +210,8 @@ function buildGenerator(
                     placeholders.push(`$${i}`)
                     i++
                 }
-                const txResults = await SharedTables.query(
+                const txResults = await ChainTables.query(
+                    schema,
                     `select * from ${ident(schema)}.${ident(
                         'transactions'
                     )} where hash in (${placeholders.join(', ')})`,
@@ -236,13 +251,10 @@ function buildGenerator(
             successfulInputs.push(camelizeKeys(input))
         }
 
-        if (indexingContractFactoryLov && pool) {
-            successfulInputs = await decodeInputsIfNotAlready(
-                [...successfulInputs],
-                contractInstanceData,
-                pool
-            )
-        }
+        successfulInputs = await decodeInputsIfNotAlready(
+            [...successfulInputs],
+            contractInstanceData
+        )
 
         const sortedInputs = successfulInputs.sort(
             (a, b) =>
@@ -351,7 +363,7 @@ Example return structure:
                 "(address = '0xdb46d1dc155634fbc732f92e853b10b288ad5a1d' and topic0 in ('...', '...'))"
             ],
             "inputEventIds": Set(
-                "polygon.contracts.lens.LensHubProxy.PostCreated@<topic>"
+                "lens.LensHubProxy.PostCreated@<topic>"
             )
             "inputFunctionsQueryComps": [],
             "inputFunctionIds": Set<[]>
@@ -363,7 +375,7 @@ Example return structure:
         "137:0xdb46d1dc155634fbc732f92e853b10b288ad5a1d:event": [
             {
                 "name": "LensHubProxy",
-                "nsp": "polygon.contracts.lens.LensHubProxy",
+                "nsp": "lens.LensHubProxy",
                 "abi": [...contractGroupAbi...]
             },
             ...
@@ -409,8 +421,7 @@ export async function getInputGeneratorQueriesForEventsAndCalls(
     for (const contractInstance of contractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -634,8 +645,7 @@ export async function getLovInputGeneratorQueries(
     for (const contractInstance of eventContractInstances) {
         const nsp = contractInstance.contract.namespace.name
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -661,11 +671,11 @@ export async function getLovInputGeneratorQueries(
 
     const chainInputs = {}
     for (const eventVersion of inputContractEventVersions) {
-        const eventContractInstance =
+        const eventContractInstances =
             eventContractInstancesByNamespaceId[eventVersion.event.namespaceId] || []
-        if (!eventContractInstance.length) continue
+        if (!eventContractInstances.length) continue
 
-        eventContractInstance.forEach(({ chainId, contractAddress }) => {
+        eventContractInstances.forEach(({ chainId, contractAddress }) => {
             chainInputs[chainId] = chainInputs[chainId] || {}
             chainInputs[chainId].inputEventData = chainInputs[chainId].inputEventData || {}
 
@@ -699,8 +709,7 @@ export async function getLovInputGeneratorQueries(
         const { chainId, contractAddress, contractInstanceName, callId } = inputContractFunction
         const { nsp } = fromNamespacedVersion(callId)
         if (!isContractNamespace(nsp)) continue
-        const contractGroup = nsp.split('.').slice(2).join('.')
-        if (!contractGroup) continue
+        const contractGroup = nsp
 
         // TODO: Break out above to perform a single redis query using getContractGroupAbis
         // across all contract groups referenced.
@@ -825,8 +834,7 @@ async function buildQueryCursors(
 
 async function decodeInputsIfNotAlready(
     inputs: StringKeyMap[],
-    contractInstanceData: StringKeyMap,
-    pool: Pool
+    contractInstanceData: StringKeyMap
 ): Promise<StringKeyMap[]> {
     const decodedInputs = []
     const logsToSaveByChainId = {}
@@ -836,7 +844,7 @@ async function decodeInputsIfNotAlready(
         const chainId = input.chainId
         const isEvent = input.inputType === 'event'
         const isDecoded = isEvent ? !!input.eventName : !!input.functionName
-        if (isDecoded) {
+        if (isDecoded || !isEvent) {
             decodedInputs.push(input)
             continue
         }
@@ -880,12 +888,14 @@ async function decodeInputsIfNotAlready(
         for (const chainId in logsToSaveByChainId) {
             const schema = schemaForChainId[chainId]
             const tablePath = [schema, 'logs'].join('.')
-            savePromises.push(bulkSaveLogs(logsToSaveByChainId[chainId], tablePath, pool, true))
+            savePromises.push(bulkSaveLogs(schema, logsToSaveByChainId[chainId], tablePath, true))
         }
         for (const chainId in tracesToSaveByChainId) {
             const schema = schemaForChainId[chainId]
             const tablePath = [schema, 'traces'].join('.')
-            savePromises.push(bulkSaveTraces(tracesToSaveByChainId[chainId], tablePath, pool, true))
+            savePromises.push(
+                bulkSaveTraces(schema, tracesToSaveByChainId[chainId], tablePath, true)
+            )
         }
         savePromises.length && (await Promise.all(savePromises))
     } catch (err) {
@@ -903,7 +913,8 @@ async function findStartBlockTimestamp(
     if (!andClauses.length) return null
     try {
         const results =
-            (await SharedTables.query(
+            (await ChainTables.query(
+                schema,
                 `select block_timestamp from ${ident(schema)}.${ident(
                     table
                 )} where (${andClauses.join(' or ')}) order by block_timestamp asc limit 1`

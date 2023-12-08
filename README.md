@@ -267,3 +267,7 @@ Follow setup instructions [here](/core-api/README.md)
 ### Delayed Jobs
 
 Follow setup instructions [here](/delayed-jobs/README.md)
+
+# License
+
+Copyright (c) 2023 Spec Development Inc, All rights reserved.

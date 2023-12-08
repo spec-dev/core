@@ -1,5 +1,4 @@
 import { validate, compareVersions } from 'compare-versions'
-import { isContractNamespace } from './chainIds'
 
 export const isNumber = (val: any): boolean => typeof val === 'number' && !Number.isNaN(val)
 
@@ -23,9 +22,7 @@ export function couldBeEventName(value: string): boolean {
     }
     const sections = value.split('.').filter((v) => !!v)
     const numSections = sections.length
-    return (
-        numSections === 2 || numSections === 3 || (numSections === 5 && isContractNamespace(value))
-    )
+    return numSections === 2 || numSections === 3
 }
 
 export const isDict = (val: any): boolean => !!val && typeof val === 'object' && !Array.isArray(val)

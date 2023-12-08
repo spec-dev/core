@@ -1,8 +1,7 @@
 import { ContractInstance } from '../entities/ContractInstance'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
-import { toNamespaceSlug } from '../../../utils/formatters'
-import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
+import { toNamespaceSlug, unique } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 
@@ -75,13 +74,6 @@ export async function getContractInstancesInNamespace(
 }
 
 export async function getContractInstancesInGroup(group: string): Promise<StringKeyMap | null> {
-    const fullNamespaceNames: string[] = []
-    for (const supportedChainId of supportedChainIds) {
-        const nspForChainId = contractNamespaceForChainId(supportedChainId)
-        const fullPath = `${nspForChainId}.${group}`
-        fullNamespaceNames.push(toNamespaceSlug(fullPath))
-    }
-
     let contractInstances: ContractInstance[] = []
     try {
         contractInstances = await contractInstancesRepo().find({
@@ -93,7 +85,7 @@ export async function getContractInstancesInGroup(group: string): Promise<String
             where: {
                 contract: {
                     namespace: {
-                        slug: In(fullNamespaceNames),
+                        slug: toNamespaceSlug(group),
                     },
                 },
             },
@@ -116,4 +108,29 @@ export async function getContractInstancesInGroup(group: string): Promise<String
         instanceMap[chainId] = instanceMap[chainId] ? instanceMap[chainId].concat([entry]) : [entry]
     }
     return instanceMap
+}
+
+export async function getChainIdsForContractGroups(groups: string[]): Promise<string[] | null> {
+    let contractInstances: ContractInstance[] = []
+    try {
+        contractInstances = await contractInstancesRepo().find({
+            select: { chainId: true },
+            relations: {
+                contract: {
+                    namespace: true,
+                },
+            },
+            where: {
+                contract: {
+                    namespace: {
+                        slug: In(groups.map(toNamespaceSlug)),
+                    },
+                },
+            },
+        })
+    } catch (err) {
+        logger.error(`Error finding ContractInstances in groups ${groups.join(', ')}: ${err}`)
+        return null
+    }
+    return unique(contractInstances.map((ci) => ci.chainId))
 }

@@ -4,7 +4,7 @@ import { upsertEventsWithTx } from '../core/db/services/eventServices'
 import { upsertEventVersionsWithTx } from '../core/db/services/eventVersionServices'
 import { specGithubRepoUrl } from '../utils/url'
 import { uniqueByKeys, toNamespacedVersion } from '../utils/formatters'
-import { namespaceForChainId } from '../utils/chainIds'
+import { namespaceForChainId, schemaForChainId } from '../utils/chainIds'
 import { Contract } from '../core/db/entities/Contract'
 import { ContractEventSpec, ContractEventViewSpec } from '../types'
 import { Abi } from '../abi/types'
@@ -14,22 +14,21 @@ import logger from '../logger'
 import { CONTRACT_ADDRESS_COL, CONTRACT_NAME_COL, CHAIN_ID_COL } from '../utils/liveObjects'
 import { Namespace } from '../core/db/entities/Namespace'
 import { PublishLiveObjectVersionPayload } from '../types'
-import { SharedTables } from '../shared-tables/db/dataSource'
+import ChainTables from '../chain-tables/ChainTables'
 import { publishLiveObjectVersion } from './publishLiveObjectVersion'
 
 export async function upsertContractAndNamespace(
-    fullNsp: string, // "eth.contracts.gitcoin.GovernorAlpha"
-    contractName: string, // "GovernorAlpha"
-    contractDesc: string,
-    chainId: string,
-    tx: any
+    tx: any,
+    group: string,
+    isFactoryGroup?: boolean
 ): Promise<Contract> {
-    const namespace = await upsertNamespaceWithTx(
-        fullNsp,
-        specGithubRepoUrl(namespaceForChainId[chainId]),
-        tx
+    const namespace = await upsertNamespaceWithTx(group, tx)
+    const contract = await upsertContractWithTx(
+        tx,
+        namespace.id,
+        group.split('.').pop(),
+        isFactoryGroup
     )
-    const contract = await upsertContractWithTx(namespace.id, contractName, contractDesc, tx)
     contract.namespace = namespace
     return contract
 }
@@ -38,7 +37,6 @@ export async function upsertContractEvents(
     contract: Contract,
     contractInstances: ContractInstance[],
     eventAbiItems: Abi,
-    chainId: string,
     tx: any
 ): Promise<ContractEventSpec[]> {
     const namespace = contract.namespace
@@ -79,7 +77,6 @@ export async function upsertContractEvents(
             namespace,
             abiItem,
             namespacedVersion: toNamespacedVersion(data.nsp, data.name, data.version),
-            chainId,
         })
     }
     await upsertEventVersionsWithTx(eventVersionsData, tx)
@@ -89,12 +86,11 @@ export async function upsertContractEvents(
 
 export async function upsertContractEventView(
     viewSpec: ContractEventViewSpec,
-    chainId: string,
     log?: boolean
 ): Promise<boolean> {
-    const { schema, name, columnNames, numEventArgs, contractName, contractInstances, eventSig } =
-        viewSpec
+    const { chainId, name, columnNames, numEventArgs, contractName, addresses, eventSig } = viewSpec
 
+    const schema = schemaForChainId[chainId]
     log && logger.info(`Upserting view ${schema}.${name}`)
 
     const selectLines = []
@@ -119,16 +115,16 @@ export async function upsertContractEventView(
     }
 
     const select = selectLines.map((l) => `    ${l}`).join('\n')
-    const addresses = contractInstances?.length ? contractInstances.map((ci) => ci.address) : ['0x']
+    const viewAddresses = addresses?.length ? addresses : ['0x']
     const upsertViewSql = `create or replace view ${ident(schema)}.${ident(name)} as 
 select
 ${select} 
-from ${ident(schema)}."logs" 
+from ${ident(schema)}."logs"
 where "topic0" = ${literal(eventSig)}
-and "address" in (${addresses.map((a) => literal(a)).join(', ')})`
+and "address" in (${viewAddresses.map((a) => literal(a)).join(', ')})`
 
     try {
-        await SharedTables.query(upsertViewSql)
+        await ChainTables.query(schema, upsertViewSql)
     } catch (err) {
         logger.error(`Error upserting view ${schema}.${name}: ${err}`)
         return false

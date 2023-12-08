@@ -11,6 +11,7 @@ const tablesApiConfig: StringKeyMap = {
     SHARED_TABLES_READER_HOST: ev('SHARED_TABLES_READER_HOST'),
     SHARED_TABLES_READER_USERNAME: ev('SHARED_TABLES_READER_USERNAME', 'bear'),
     SHARED_TABLES_READER_PASSWORD: ev('SHARED_TABLES_READER_PASSWORD'),
+    ROLES: ev('ROLES', '').split(',').map(v => v.trim()).filter(v => !!v),
     IS_READ_ONLY: [true, 'true'].includes(ev('IS_READ_ONLY')),
 }
 

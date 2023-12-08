@@ -7,6 +7,8 @@ import {
     UpdateDateColumn,
 } from 'typeorm'
 import { StringKeyMap } from '../../../types'
+import { range, average } from '../../../utils/math'
+import { getDecodeJobProgress, getDecodeJobRangeCount } from '../../../indexer/redis'
 
 export enum ContractRegistrationJobStatus {
     Created = 'created',
@@ -30,20 +32,11 @@ export class ContractRegistrationJob {
     @Column()
     nsp: string
 
-    @Column({ name: 'contract_name' })
-    contractName: string
-
-    @Column('json')
-    addresses: string[]
-
-    @Column({ name: 'chain_id' })
-    chainId: string
+    @Column('json', { nullable: true })
+    groups: StringKeyMap[]
 
     @Column('varchar')
     status: ContractRegistrationJobStatus
-
-    @Column('jsonb', { nullable: true, default: '{}' })
-    cursors: StringKeyMap
 
     @Column({ default: false })
     failed: boolean
@@ -66,15 +59,57 @@ export class ContractRegistrationJob {
     })
     updatedAt: Date
 
-    view() {
+    async view() {
+        const groups = []
+        for (const group of this.groups || []) {
+            const instances = (group.instances || []).map((key) => {
+                const [chainId, address] = key.split(':')
+                return { chainId, address }
+            })
+
+            const groupInstances = []
+            for (const instance of instances) {
+                const numRangeJobsKey = [
+                    this.uid,
+                    group.name,
+                    instance.chainId,
+                    instance.address,
+                    'num-range-jobs',
+                ].join(':')
+                const numRangeJobs = await getDecodeJobRangeCount(numRangeJobsKey)
+
+                if (!numRangeJobs) {
+                    groupInstances.push({
+                        chainId: instance.chainId,
+                        address: instance.address,
+                        progress: 0,
+                    })
+                    continue
+                }
+
+                const progressKeys = range(0, numRangeJobs - 1).map((i) =>
+                    [this.uid, group.name, instance.chainId, instance.address, i].join(':')
+                )
+                const progressData = await Promise.all(progressKeys.map(getDecodeJobProgress))
+
+                groupInstances.push({
+                    chainId: instance.chainId,
+                    address: instance.address,
+                    progress: average(progressData),
+                })
+            }
+
+            groups.push({
+                name: group.name,
+                instances: groupInstances.sort((a, b) => Number(a.chainId) - Number(b.chainId)),
+            })
+        }
+
         return {
             uid: this.uid,
             nsp: this.nsp,
-            contractName: this.contractName,
-            addresses: this.addresses,
-            chainId: this.chainId,
+            groups,
             status: this.status,
-            cursors: this.cursors,
             failed: this.failed,
             error: this.error,
             createdAt: this.createdAt.toISOString(),

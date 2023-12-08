@@ -45,7 +45,7 @@ export function parseEventVersionsPayload(
 
     return {
         isValid: true,
-        payload: { filters, },
+        payload: { filters },
     }
 }
 

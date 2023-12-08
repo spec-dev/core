@@ -1,5 +1,5 @@
 import {
-    SharedTables,
+    ChainTables,
     logger,
     StringKeyMap,
     updateRecordCountsCache,
@@ -64,13 +64,13 @@ async function onRecordCountChanged(event) {
 }
 
 async function getAllRecordCounts(): Promise<StringKeyMap[]> {
-    return camelizeKeys(await SharedTables.query('select table_path, value, updated_at from record_counts')) as StringKeyMap[]
+    return camelizeKeys(await ChainTables.query(null, 'select table_path, value, updated_at from record_counts')) as StringKeyMap[]
 }
 
 async function getRecordCountsForNamespace(nsp: string): Promise<StringKeyMap[]> {
-    return camelizeKeys(await SharedTables.query(
+    return camelizeKeys(await ChainTables.query(null,
         'select table_path, value, updated_at from record_counts where table_path like $1 or table_path like $2',
-        [`${nsp}.%`, `%.${nsp}_%`]
+        [`${nsp}.%`, `spec.${nsp}_%`]
     )) as StringKeyMap[]
 }
 
@@ -116,8 +116,7 @@ async function calculateAndCacheAggregateNamespaceRecordCounts(recordCounts: Str
 // HACK/TODO: Will hit errors here if a nsp has an underscore in it....
 function parseCustomerNspFromTablePath(tablePath: string): string {
     const [schema, table] = tablePath.split('.')
-    const isCustomerSchema = !chainSchemas.has(schema)
-    return isCustomerSchema ? schema : table.split('_')[0]
+    return schema === 'spec' || chainSchemas.has(schema) ? table.split('_')[0] : schema
 } 
 
 export default cacheRecordCounts

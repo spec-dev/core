@@ -68,6 +68,7 @@ export class Project {
         name: 'deleted_at',
         nullable: true,
     })
+    k
     deletedAt: Date
 
     @ManyToOne(() => Namespace, (nsp) => nsp.projects)

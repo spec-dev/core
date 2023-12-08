@@ -1,7 +1,7 @@
 import { GenerateTestInputsPayload, StringKeyMap } from '../types'
 import {
     schemaForChainId,
-    SharedTables,
+    ChainTables,
     toDate,
     subtractDays,
     generateLovInputsForEventsAndCalls,
@@ -27,7 +27,6 @@ async function generateInputRangeData(payload: GenerateTestInputsPayload): Promi
     }
 
     const cachedInputGen = streamId ? await getCachedInputGenForStreamId(streamId) : null
-
     if (cachedInputGen) {
         for (const chainId in cachedInputGen.queryCursors || {}) {
             cachedInputGen.queryCursors[chainId].inputEventIds = new Set(
@@ -156,7 +155,7 @@ async function getBlockTimestamp(number: number, chainId: string): Promise<Date 
     if (!schema) throw `No schema for chainId ${chainId}`
     try {
         const results =
-            (await SharedTables.query(
+            (await ChainTables.query(schema,
                 `select timestamp from ${ident(schema)}.blocks where number = ${literal(number)}`
             )) || []
         const ts = results[0]?.timestamp

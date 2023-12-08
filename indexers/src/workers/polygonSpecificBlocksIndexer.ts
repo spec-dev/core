@@ -25,6 +25,7 @@ import {
     Erc20Token,
     NftCollection,
     ContractInstance,
+    ChainTables,
 } from '../../../shared'
 import { exit } from 'process'
 
@@ -363,7 +364,7 @@ class PolygonSpecificNumbersWorker {
     async _upsertIvySmartWallets(smartWallets: StringKeyMap[]) {
         for (const smartWallet of smartWallets) {
             try {
-                await SharedTables.query(`INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
+                await ChainTables.query(null, `INSERT INTO ivy.smart_wallets (contract_address, owner_address, transaction_hash, block_number, block_hash, block_timestamp, chain_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (contract_address, chain_id) DO UPDATE SET owner_address = EXCLUDED.owner_address, transaction_hash = EXCLUDED.transaction_hash, block_number = EXCLUDED.block_number, block_hash = EXCLUDED.block_hash, block_timestamp = EXCLUDED.block_timestamp`,
                     [
                         smartWallet.contractAddress,
                         smartWallet.ownerAddress,

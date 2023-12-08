@@ -1,61 +1,12 @@
-import { logger, sleep, randomIntegerInRange } from '../../../shared'
+import { logger, sleep, randomIntegerInRange, ChainTables } from '../../../shared'
 import errors from './errors'
 import config from './config'
 import { StringKeyMap } from './types'
-import { Pool } from 'pg'
 import { QueryPayload } from '@spec.dev/qb'
 import QueryStream from 'pg-query-stream'
 import { ident } from 'pg-format'
 
-const poolConfig = {
-    host: config.SHARED_TABLES_DB_HOST,
-    port: config.SHARED_TABLES_DB_PORT,
-    user: config.IS_READ_ONLY ? config.SHARED_TABLES_READER_USERNAME : config.SHARED_TABLES_DB_USERNAME,
-    password: config.IS_READ_ONLY ? config.SHARED_TABLES_READER_PASSWORD : config.SHARED_TABLES_DB_PASSWORD,
-    database: config.SHARED_TABLES_DB_NAME,
-    min: 2,
-    max: config.SHARED_TABLES_MAX_POOL_SIZE,
-    connectionTimeoutMillis: 30000, // 30s
-    statement_timeout: config.IS_READ_ONLY ? 300000 : 120000,
-}
-const primaryPool = new Pool(poolConfig)
-primaryPool.on('error', err => logger.error('Primary: PG client error', err))
-
-const readerPool = config.IS_READ_ONLY ? new Pool({
-    ...poolConfig,
-    host: config.SHARED_TABLES_READER_HOST,
-}) : null
-readerPool?.on('error', err => logger.error('Reader: PG client error', err))
-
-let schemaRoles = new Set<string>()
-export async function loadSchemaRoles() {
-    let conn
-    try {
-        conn = await primaryPool.connect()
-    } catch (err) {
-        conn && conn.release()
-        logger.error('Error loading schema roles', err)
-    }
-
-    let result
-    try {
-        result = await conn.query(
-            `select rolname as name from pg_roles where rolname in (select nspname from pg_namespace)`
-        )
-    } catch (err) {
-        logger.error(errors.QUERY_FAILED, 'loading schema roles', err)
-    } finally {
-        conn.release()
-    }
-
-    if (!result) {
-        logger.error(errors.EMPTY_QUERY_RESULT, 'loading schema roles')
-        return
-    }
-
-    const roles = (result?.rows || []).map(r => r.name)
-    schemaRoles = new Set(roles)
-}
+const schemaRoles = new Set(config.ROLES)
 
 function resolveRole(role?: string): string {
     return schemaRoles.has(role) ? role : config.SHARED_TABLES_DEFAULT_ROLE
@@ -63,12 +14,11 @@ function resolveRole(role?: string): string {
 
 async function getPoolConnection(
     query: QueryPayload | QueryPayload[],
-    usePrimaryDb: boolean,
+    schema: string,
 ) {
     let conn
     try {
-        const pool = (usePrimaryDb ? primaryPool : readerPool) || primaryPool
-        conn = await pool.connect()
+        conn = await ChainTables.getConnection(schema)
     } catch (err) {
         conn && conn.release()
         logger.error(errors.QUERY_FAILED, JSON.stringify(query), err)
@@ -82,18 +32,21 @@ export async function performQuery(
     role: string,
     attempt: number = 1,
 ): Promise<StringKeyMap[]> {
-    const { sql, bindings } = query
-    const conn = await getPoolConnection(query, true)
+    const { sql, bindings, schemaName } = query
+    const conn = await getPoolConnection(query, schemaName)
     role = resolveRole(role)
 
     // Perform the query.
     let result
     try {
         await conn.query('BEGIN')
+
         logger.info('Setting role', role)
         await conn.query(`SET LOCAL ROLE ${ident(role)}`)
+
         logger.info(sql, bindings)
         result = await conn.query(sql, bindings)
+        
         await conn.query('COMMIT')
     } catch (err) {
         await conn.query('ROLLBACK')
@@ -122,10 +75,11 @@ export async function performQuery(
 
 export async function performTx(
     queries: QueryPayload[], 
+    schema: string,
     role: string,
     attempt: number = 1,
 ): Promise<StringKeyMap[][]> {
-    const conn = await getPoolConnection(queries, true)
+    const conn = await getPoolConnection(queries, schema)
     role = resolveRole(role)
 
     let results = []
@@ -147,7 +101,7 @@ export async function performTx(
         if (attempt <= config.MAX_ATTEMPTS_DUE_TO_DEADLOCK && message.toLowerCase().includes('deadlock')) {
             logger.error(`Got deadlock, trying again... (${attempt}/${config.MAX_ATTEMPTS_DUE_TO_DEADLOCK})`)
             await sleep(randomIntegerInRange(50, 500))
-            return await performTx(queries, role, attempt + 1)
+            return await performTx(queries, schema, role, attempt + 1)
         }
 
         logger.error(errors.QUERY_FAILED, JSON.stringify(queries), err)
@@ -168,9 +122,9 @@ export async function performTx(
     return responses
 }
 
-export async function createQueryStream(query: QueryPayload, usePrimaryDb: boolean) {
+export async function createQueryStream(query: QueryPayload, schema: string) {
     const { sql, bindings } = query
-    const conn = await getPoolConnection(query, usePrimaryDb)
+    const conn = await getPoolConnection(query, schema)
 
     // Build and return the stream.
     try {

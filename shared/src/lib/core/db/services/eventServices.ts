@@ -80,7 +80,7 @@ export async function getEvents(filters: StringKeyMap): Promise<Event[] | null> 
             },
             where: {
                 namespace: {
-                    slug: ILike(filters.namespace ? `%.contracts.${filters.namespace}.%` : '%'),
+                    slug: ILike(filters.namespace ? `${filters.namespace}.%` : '%'),
                 },
             },
             order: { eventVersions: { createdAt: 'DESC' } },

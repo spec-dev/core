@@ -10,7 +10,7 @@ this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 core_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
 event_relay_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 shared_bin_dir="$core_dir/bin"
-env=$1
+env="eth"
 
 # ======== VALIDATE ARGS ======== #
 
@@ -36,12 +36,30 @@ core_db_password=$( $shared_bin_dir/env_reader "$env" "CORE_DB_PASSWORD" )
 indexer_redis_host=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_HOST" )
 indexer_redis_port=$( $shared_bin_dir/env_reader "$env" "INDEXER_REDIS_PORT" )
 
+# Core Redis
+core_redis_host=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_HOST" )
+core_redis_port=$( $shared_bin_dir/env_reader "$env" "CORE_REDIS_PORT" )
+
 # Shared Tables DB
 shared_tables_db_name=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_NAME" )
 shared_tables_db_host=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_READER_HOST" )
 shared_tables_db_port=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PORT" )
 shared_tables_db_username=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_USERNAME" )
 shared_tables_db_password=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_PASSWORD" )
+shared_tables_db_url=$( $shared_bin_dir/env_reader "$env" "SHARED_TABLES_DB_URL" )
+
+# Chain Tables
+ethereum_db_url=$( $shared_bin_dir/env_reader "$env" "ETHEREUM_DB_URL" )
+goerli_db_url=$( $shared_bin_dir/env_reader "$env" "GOERLI_DB_URL" )
+polygon_db_url=$( $shared_bin_dir/env_reader "$env" "POLYGON_DB_URL" )
+mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
+base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
+optimism_db_url=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_DB_URL" )
+arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
+pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
+celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
+linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
+sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "SEPOLIA_DB_URL" )
 
 # Indexer DB
 indexer_db_name=$( $shared_bin_dir/env_reader "$env" "INDEXER_DB_NAME" )
@@ -69,12 +87,30 @@ $shared_bin_dir/assert_env "CORE_DB_PASSWORD" "$core_db_password"
 $shared_bin_dir/assert_env "INDEXER_REDIS_HOST" "$indexer_redis_host"
 $shared_bin_dir/assert_env "INDEXER_REDIS_PORT" "$indexer_redis_port"
 
+# Core Redis
+$shared_bin_dir/assert_env "CORE_REDIS_HOST" "$core_redis_host"
+$shared_bin_dir/assert_env "CORE_REDIS_PORT" "$core_redis_port"
+
 # Shared Tables DB
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_NAME" "$shared_tables_db_name"
 $shared_bin_dir/assert_env "SHARED_TABLES_READER_HOST" "$shared_tables_db_host"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PORT" "$shared_tables_db_port"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_USERNAME" "$shared_tables_db_username"
 $shared_bin_dir/assert_env "SHARED_TABLES_DB_PASSWORD" "$shared_tables_db_password"
+$shared_bin_dir/assert_env "SHARED_TABLES_DB_URL" "$shared_tables_db_url"
+
+# Chain Tables
+$shared_bin_dir/assert_env "ETHEREUM_DB_URL" "$ethereum_db_url"
+$shared_bin_dir/assert_env "GOERLI_DB_URL" "$goerli_db_url"
+$shared_bin_dir/assert_env "POLYGON_DB_URL" "$polygon_db_url"
+$shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
+$shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
+$shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
+$shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
+$shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
+$shared_bin_dir/assert_env "SEPOLIA_DB_URL" "$sepolia_db_url"
 
 # Indexer DB
 $shared_bin_dir/assert_env "INDEXER_DB_NAME" "$indexer_db_name"
@@ -92,8 +128,8 @@ image_name=$( $shared_bin_dir/env_reader "$env" "EVENT_RELAY_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-# image_version="2df4cbf"
-image_version="d5c5bd5"
+# image_version="6b204fb"
+image_version="1243d0c"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -109,6 +145,8 @@ template=$( cat "$template_path" | \
     sed "s|{{SOCKETCLUSTER_PORT}}|$port|g" | \
     sed "s|{{SOCKETCLUSTER_LOG_LEVEL}}|$log_level|g" | \
     sed "s|{{BUGSNAG_API_KEY}}|$bugsnag_api_key|g" | \
+    sed "s|{{CORE_REDIS_HOST}}|$core_redis_host|g" | \
+    sed "s|{{CORE_REDIS_PORT}}|$core_redis_port|g" | \
     sed "s|{{CORE_DB_NAME}}|$core_db_name|g" | \
     sed "s|{{CORE_DB_HOST}}|$core_db_host|g" | \
     sed "s|{{CORE_DB_PORT}}|$core_db_port|g" | \
@@ -124,6 +162,18 @@ template=$( cat "$template_path" | \
     sed "s|{{SHARED_TABLES_DB_PORT}}|$shared_tables_db_port|g" | \
     sed "s|{{SHARED_TABLES_DB_USERNAME}}|$shared_tables_db_username|g" | \
     sed "s|{{SHARED_TABLES_DB_PASSWORD}}|$shared_tables_db_password|g" | \
+    sed "s|{{SHARED_TABLES_DB_URL}}|$shared_tables_db_url|g" | \
+    sed "s|{{ETHEREUM_DB_URL}}|$ethereum_db_url|g" | \
+    sed "s|{{GOERLI_DB_URL}}|$goerli_db_url|g" | \
+    sed "s|{{POLYGON_DB_URL}}|$polygon_db_url|g" | \
+    sed "s|{{MUMBAI_DB_URL}}|$mumbai_db_url|g" | \
+    sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
+    sed "s|{{OPTIMISM_DB_URL}}|$optimism_db_url|g" | \
+    sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
+    sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
+    sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
+    sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
+    sed "s|{{SEPOLIA_DB_URL}}|$sepolia_db_url|g" | \
     sed "s|{{INDEXER_REDIS_HOST}}|$indexer_redis_host|g" | \
     sed "s|{{INDEXER_REDIS_PORT}}|$indexer_redis_port|g" )
 

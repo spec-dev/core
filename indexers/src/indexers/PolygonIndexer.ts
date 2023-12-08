@@ -6,7 +6,7 @@ import {
     getPolygonContracts,
     savePolygonContracts,
     unique,
-    SharedTables,
+    ChainTables,
     sleep,
 } from '../../../shared'
 import extractTransfersFromLogs from '../services/extractTransfersFromLogs'
@@ -29,9 +29,10 @@ class PolygonIndexer extends EvmIndexer {
         indexTraces?: boolean
         indexTokenTransfers?: boolean
         indexTokenBalances?: boolean
+        emitTransactions: boolean
     }) {
         super(head, options)
-        this.ivySmartWalletInitializerWalletCreated = `${this.contractEventNsp}.ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`
+        this.ivySmartWalletInitializerWalletCreated = `ivy.SmartWalletInitializer.WalletCreated@0x5b03bfed1c14a02bdeceb5fa582eb1a5765fc0bc64ca0e6af4c20afc9487f081`
     }
 
     async _curateInputsToSendDownstream() {
@@ -301,7 +302,7 @@ class PolygonIndexer extends EvmIndexer {
             placeholders.push(`$${i}`)
             i++
         }
-        const results = (await SharedTables.query(
+        const results = (await ChainTables.query(null,
             `SELECT contract_address FROM ivy.smart_wallets WHERE contract_address IN (${placeholders.join(', ')}) AND chain_id = $${i}`,
             [...addresses, this.chainId],
         )) || []

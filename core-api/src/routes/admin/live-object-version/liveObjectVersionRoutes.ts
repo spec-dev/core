@@ -11,12 +11,13 @@ import {
     getLiveObject,
     getLatestLiveObjectVersion,
     isVersionGt,
+    nowAsUTCDateString,
 } from '../../../../../shared'
 
 /**
  * Publish a new live object version.
  */
-app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
+app.post(paths.ADMIN_PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     if (!(await authorizeAdminRequest(req, res))) return
 
     // Parse & validate payload.
@@ -42,7 +43,7 @@ app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
     const liveObject = await getLiveObject(namespace.id, payload.name)
     const latestLiveObjectVersion = liveObject && (await getLatestLiveObjectVersion(liveObject.id))
     if (latestLiveObjectVersion && !isVersionGt(payload.version, latestLiveObjectVersion.version)) {
-        return res.status(codes.NOT_FOUND).json({ error: errors.VERSION_ALREADY_PUBLISHED })
+        return res.status(codes.NOT_FOUND).json({ error: errors.VERSIONS_MUST_INCREASE })
     }
 
     // Kick off delayed job to publish live object version.
@@ -75,7 +76,10 @@ app.post(paths.INDEX_LIVE_OBJECT_VERSIONS, async (req, res) => {
     }
 
     // Kick off delayed job to index live object versions.
-    const scheduled = await enqueueDelayedJob('indexLiveObjectVersions', payload)
+    const scheduled = await enqueueDelayedJob('indexLiveObjectVersions', { 
+        ...payload,
+        initialJobAddedAt: nowAsUTCDateString(),
+    })
     if (!scheduled) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
     }

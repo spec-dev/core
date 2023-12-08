@@ -4,24 +4,32 @@ import {
     parseGenerateTestInputsPayload, 
     parseLatestLovRecordsPayload, 
     parseGetLiveObjectVersionPayload, 
-    parseLovRecordCountsPayload 
+    parseLovRecordCountsPayload,
+    parsePublishLiveObjectVersionPayload,
 } from './liveObjectVersionPayloads'
-import { codes, errors, authorizeRequestWithProjectApiKey } from '../../utils/requests'
+import { codes, errors, authorizeRequestWithProjectApiKey, authorizeRequest } from '../../utils/requests'
 import generateInputRangeData from '../../services/generateInputRangeData'
 import getLatestLiveObjectVersionRecords from '../../services/getLatestLiveObjectVersionRecords'
 import { 
-    getLiveObjectByUid, 
+    getLiveObjectVersion, 
     getLatestLiveObjectVersion, 
     resolveLovWithPartialId, 
     getTablePathsForLiveObjectVersions, 
-    getCachedRecordCounts 
+    getCachedRecordCounts,
+    enqueueDelayedJob,
+    toNamespacedVersion,
+    getLiveObjectVersionsByNamespacedVersions,
+    getLiveObject,
+    isVersionGt,
 } from '../../../../shared'
+import { userHasNamespacePermissions } from '../../utils/auth'
+import uuid4 from 'uuid4'
 
 /**
  * Generate test input data (events and calls) for a live object version.
  */
 app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
-    if (!(await authorizeRequestWithProjectApiKey(req, res))) return
+    // if (!(await authorizeRequestWithProjectApiKey(req, res))) return
 
     // Parse & validate payload.
     const { payload, isValid, error } = parseGenerateTestInputsPayload(req.body)
@@ -47,20 +55,14 @@ app.post(paths.GENERATE_LOV_TEST_INPUT_DATA, async (req, res) => {
     if (!isValid) {
         return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
     }
-    const { id: liveObjectUid, cursor } = payload
 
-    // TODO: Consolidate this into a single query.
-    const liveObject = await getLiveObjectByUid(liveObjectUid)
-    if (!liveObject) {
-        return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_NOT_FOUND })
-    }
-    const liveObjectVersion = await getLatestLiveObjectVersion(liveObject.id)
+    const liveObjectVersion = await getLiveObjectVersion(payload.id)
     if (!liveObjectVersion) {
         return res.status(codes.NOT_FOUND).json({ error: errors.LIVE_OBJECT_VERSION_NOT_FOUND })
     }
 
     // Get the latest LOV records after the given cursor (if any).
-    const { data, error: serviceError } = await getLatestLiveObjectVersionRecords(liveObjectVersion, cursor)
+    const { data, error: serviceError } = await getLatestLiveObjectVersionRecords(liveObjectVersion, payload.cursor)
     if (serviceError) {
         return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: serviceError })
     }
@@ -116,4 +118,51 @@ app.post(paths.LOV_RECORD_COUNTS, async (req, res) => {
     }
 
     return res.status(codes.SUCCESS).json(recordCountsById)
+})
+
+/**
+ * Publish a new live object version.
+ */
+app.post(paths.PUBLISH_LIVE_OBJECT_VERSION, async (req, res) => {
+    const user = await authorizeRequest(req, res)
+    if (!user) return
+
+    // Parse & validate payload.
+    const { payload, isValid, error } = parsePublishLiveObjectVersionPayload(req.body)
+    if (!isValid) {
+        return res.status(codes.BAD_REQUEST).json({ error: error || errors.INVALID_PAYLOAD })
+    }
+
+    // Ensure user can access this namespace.
+    const { canAccess, namespaceUser } = await userHasNamespacePermissions(user.id, payload.nsp)
+    if (!canAccess) {
+        return res.status(codes.FORBIDDEN).json({ error: errors.FORBIDDEN })
+    }
+
+    // Make sure version doesn't already exist.
+    const { nsp, name, version } = payload
+    const lovs = await getLiveObjectVersionsByNamespacedVersions([toNamespacedVersion(nsp, name, version)])
+    if (lovs.length) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: `Version ${version} already exists` })
+    }
+
+    // Ensure the version to publish is greater than the existing version.
+    const liveObject = await getLiveObject(namespaceUser.namespace.id, name)
+    const latestLiveObjectVersion = liveObject && (await getLatestLiveObjectVersion(liveObject.id))
+    if (latestLiveObjectVersion && !isVersionGt(version, latestLiveObjectVersion.version)) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.VERSIONS_MUST_INCREASE })
+    }
+
+    // Create a uid ahead of time that will be used as the uid for a new PublishLiveObjectVersionJob
+    // that will get created inside of the publishAndDeployLiveObjectVersion delayed job. We're creating
+    // this uid now so that we can return it to the caller and they can poll for the job status.
+    const uid = uuid4()
+    const scheduled = await enqueueDelayedJob('publishAndDeployLiveObjectVersion', {
+        uid,
+        ...payload
+    })
+    if (!scheduled) {
+        return res.status(codes.INTERNAL_SERVER_ERROR).json({ error: errors.JOB_SCHEDULING_FAILED })
+    }
+    return res.status(codes.SUCCESS).json({ uid })
 })
