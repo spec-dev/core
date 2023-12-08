@@ -7,11 +7,7 @@ import { formatLiveObjectVersionForPage, fromNamespacedVersion } from '../../../
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
-<<<<<<< HEAD
-import { supportedChainIds, contractNamespaceForChainId } from '../../../utils/chainIds'
 import { getCachedRecordCounts } from '../../redis'
-=======
->>>>>>> 78a563cc1638f63ffe41881b587d7a166e8e74d2
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
@@ -307,9 +303,9 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
                 liveObject: {
                     namespace: true,
                 },
-                liveEventVersions: true
+                liveEventVersions: true,
             },
-            where: { uid }
+            where: { uid },
         })
     } catch (err) {
         logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
@@ -318,20 +314,21 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
     if (!liveObjectVersion) return null
 
     const inputEventLovIds = liveObjectVersion.liveEventVersions
-        .filter(lev => lev.isInput === true)
-        .map(lev => lev.liveObjectVersionId)
-    
+        .filter((lev) => lev.isInput === true)
+        .map((lev) => lev.liveObjectVersionId)
+
     let inputEventLovs = []
     try {
-        inputEventLovs = inputEventLovIds.length 
+        inputEventLovs = inputEventLovIds.length
             ? await liveObjectVersions().find({
-                relations: {
-                    liveObject: {
-                        namespace: true,
-                    },
-                },
-                where: { id: In(inputEventLovIds) }
-            }) : []
+                  relations: {
+                      liveObject: {
+                          namespace: true,
+                      },
+                  },
+                  where: { id: In(inputEventLovIds) },
+              })
+            : []
     } catch (err) {
         logger.error(`Error getting input event LOVs (${inputEventLovIds.join(', ')}): ${err}`)
         return null
@@ -339,7 +336,7 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
 
     const liveObjectTablePaths = [
         liveObjectVersion.config.table,
-        ...inputEventLovs.map(lov => lov.config.table)
+        ...inputEventLovs.map((lov) => lov.config.table),
     ]
     const recordCountsData = liveObjectTablePaths.length
         ? await getCachedRecordCounts(liveObjectTablePaths)
@@ -349,7 +346,9 @@ export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap |
 
     return {
         ...formattedLov,
-        inputEvents: inputEventLovs.map(lov => formatLiveObjectVersionForPage(lov, recordCountsData))
+        inputEvents: inputEventLovs.map((lov) =>
+            formatLiveObjectVersionForPage(lov, recordCountsData)
+        ),
     }
 }
 
