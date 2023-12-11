@@ -84,7 +84,7 @@ spec:
         - name: ROLES
           value: "0xsplits,allov2,bear,frank,lens,randy,reader,station,table_reader,test,qa,allov1,elixir,scott"
         - name: FLIP
-          value: tails
+          value: heads
         - name: FORCE_COLOR
           value: "1" 
         readinessProbe:
@@ -184,7 +184,7 @@ spec:
         - name: INDEXER_REDIS_PORT
           value: "{{INDEXER_REDIS_PORT}}"
         - name: FLIP
-          value: heads
+          value: tails
         - name: FORCE_COLOR
           value: "1" 
         readinessProbe:
