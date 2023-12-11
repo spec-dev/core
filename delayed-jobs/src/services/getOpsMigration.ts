@@ -33,11 +33,8 @@ async function getIsEnabledAbove(chainId: string): Promise<boolean> {
     let rows = []
     try {
         rows = await ChainTables.query(null, query.sql, query.bindings);
-        if (rows.length === 0) {
-            throw Error(`No op_tracking entry for chain_id: ${chainId}. If you are running localy, add some fake op_tracking entries to the db.`)
-        }
-        return rows[0].is_enabled_above
+        return rows.length ? (rows[0].is_enabled_above || 0) : 0
     } catch (err) {
-        throw 'FUCKKK'
+        throw err
     }
 }
