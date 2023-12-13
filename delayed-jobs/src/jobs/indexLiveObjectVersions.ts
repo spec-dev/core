@@ -26,7 +26,6 @@ import {
     ContractInstance,
 } from '../../../shared'
 import config from '../config'
-import { Pool } from 'pg'
 import fetch from 'cross-fetch'
 
 const DEFAULT_MAX_JOB_TIME = 60000

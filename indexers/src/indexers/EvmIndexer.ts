@@ -854,20 +854,16 @@ class EvmIndexer {
     }
 
     async _getReceipts(transactions: EvmTransaction[]): Promise<ExternalEvmReceipt[]> {
-        const hasTxs = !!transactions.length
+        if (!transactions.length) return []
+        
         const txHashes = transactions.map(tx => tx.hash)
         let receipts = await this._getBlockReceipts(txHashes)
 
         // Iterate until receipts can be fetched if at least 1 transaction exists.
-        if (hasTxs && !receipts.length) {
+        if (!receipts.length) {
             this._warn(`Transactions exist but no receipts were found -- retrying`)
             receipts = await this._waitAndRefetchReceipts(txHashes)
             if (!receipts.length) throw `Failed to fetch receipts when transactions clearly exist.`
-        }
-
-        // Must've just been no transactions.
-        if (!receipts.length) {
-            return receipts
         }
 
         // Switch back to fetching ONLY logs if multiple block hashes exist within the receipts call.
@@ -883,7 +879,6 @@ class EvmIndexer {
     }
 
     async _waitAndRefetchReceipts(txHashes: string[]): Promise<ExternalEvmReceipt[] | null> {
-        const hasTxs = !!txHashes.length
         const getReceipts = async () => {
             const receipts = await this._getBlockReceipts(txHashes)
 
@@ -891,8 +886,8 @@ class EvmIndexer {
             if (receipts.length && receipts[0].blockHash !== this.resolvedBlockHash) {
                 return null
             }
-            // Missing logs.
-            else if (!receipts.length && hasTxs) {
+            // Missing receipts.
+            else if (!receipts.length) {
                 return null
             }
             // We gucci :)
