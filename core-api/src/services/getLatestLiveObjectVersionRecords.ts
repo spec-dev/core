@@ -146,7 +146,9 @@ async function getLatestRecordsFromCustomLov(lov: LiveObjectVersion): Promise<St
     const schema = table.split('.')[0]
     const timestampColumn = camelToSnake(primaryTimestampProperty)
 
-    let cachedCount = Number((await getCachedRecordCounts([table]))[table])
+    const countResp = await getCachedRecordCounts([table])
+    const tableCountResp = countResp[table] || {}
+    let cachedCount = Number(tableCountResp.count)
     cachedCount = (Number.isNaN(cachedCount) ? 0 : cachedCount) || 0
     if (cachedCount === 0) return []
 
