@@ -39,6 +39,7 @@ const paths = {
     // Live Object paths.
     LIVE_OBJECTS: prefix.LIVE_OBJECT + 's',
     LIVE_OBJECTS_SEARCH: prefix.LIVE_OBJECT + 's' + '/search',
+    LIVE_OBJECT_PAGE: prefix.LIVE_OBJECT + '/page',
 
     // Live Object Version paths.
     ADMIN_PUBLISH_LIVE_OBJECT_VERSION: prefix.ADMIN + prefix.LIVE_OBJECT_VERSION + '/publish',

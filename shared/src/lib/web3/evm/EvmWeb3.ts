@@ -210,6 +210,22 @@ class EvmWeb3 {
         }
 
         if (receipts === null) {
+            const tryTxReceiptApproach = this.isAlchemy || this.canGetBlockReceipts || this.isQN
+            // If block receipts fail, try getting them directly through the tx receipts.
+            if (tryTxReceiptApproach && txHashes.length) {
+                logger.warn(
+                    `[${chainId}:${
+                        blockNumber || blockHash
+                    }] Switching to fetching receipts at the tx level...`
+                )
+                ;[receipts, hittingGatewayErrors] = await this._getBlockReceipts(
+                    blockHash,
+                    blockNumber,
+                    txHashes,
+                    chainId,
+                    true
+                )
+            }
             if (hittingGatewayErrors) {
                 this.hittingGatewayErrors = true
             }
@@ -231,16 +247,17 @@ class EvmWeb3 {
         blockHash?: string,
         blockNumber?: number,
         txHashes?: string[],
-        chainId?: string
+        chainId?: string,
+        fromTxReceipts?: boolean
     ): Promise<[ExternalEvmReceipt[] | null, boolean]> {
         let method, params
-        if (this.isAlchemy) {
+        if (!fromTxReceipts && this.isAlchemy) {
             method = 'alchemy_getTransactionReceipts'
             params = blockHash ? [{ blockHash }] : [{ blockNumber: numberToHex(blockNumber) }]
-        } else if (this.canGetBlockReceipts) {
+        } else if (!fromTxReceipts && this.canGetBlockReceipts) {
             method = 'eth_getBlockReceipts'
             params = [numberToHex(blockNumber)]
-        } else if (this.isQN) {
+        } else if (!fromTxReceipts && this.isQN) {
             method = 'qn_getReceipts'
             params = [numberToHex(blockNumber)]
         } else {
@@ -884,6 +901,7 @@ export function newEvmWeb3ForChainId(
         case chainIds.OPTIMISM:
             return newOptimismWeb3(url, isRangeMode, wsRpcTimeout)
         case chainIds.ARBITRUM:
+        case chainIds.ARBITRUM_SEPOLIA:
             return newArbitrumWeb3(url, isRangeMode, wsRpcTimeout)
         case chainIds.PGN:
             return newPGNWeb3(url, isRangeMode, wsRpcTimeout)

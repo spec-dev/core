@@ -15,6 +15,7 @@ const urls = {
     [chainIds.BASE]: config.BASE_DB_URL,
     [chainIds.OPTIMISM]: config.OPTIMISM_DB_URL,
     [chainIds.ARBITRUM]: config.ARBITRUM_DB_URL,
+    [chainIds.ARBITRUM_SEPOLIA]: config.ARBITRUM_SEPOLIA_DB_URL,
     [chainIds.PGN]: config.PGN_DB_URL,
     [chainIds.CELO]: config.CELO_DB_URL,
     [chainIds.LINEA]: config.LINEA_DB_URL,

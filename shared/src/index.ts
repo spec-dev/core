@@ -294,6 +294,7 @@ export {
     getEventVersions,
     getEventVersionsInNsp,
     resolveEventVersionCursors,
+    getEventVersionsByLiveObjectVersion,
 } from './lib/core/db/services/eventVersionServices'
 export {
     createDeployment,
@@ -323,6 +324,7 @@ export {
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
     getTablePathsForLiveObjectVersions,
+    getLiveObjectPageData,
     addChainSupportToLovs,
     addChainSupportToLovsDependentOn,
 } from './lib/core/db/services/liveObjectVersionServices'

@@ -46,6 +46,8 @@ export const abiRedisKeys = {
     OPTIMISM_FUNCTION_SIGNATURES: 'optimism-function-signatures',
     ARBITRUM_CONTRACTS: 'arbitrum-contracts',
     ARBITRUM_FUNCTION_SIGNATURES: 'arbitrum-function-signatures',
+    ARBITRUM_SEPOLIA_CONTRACTS: 'arbitrum-sepolia-contracts',
+    ARBITRUM_SEPOLIA_FUNCTION_SIGNATURES: 'arbitrum-sepolia-function-signatures',
     PGN_CONTRACTS: 'pgn-contracts',
     PGN_FUNCTION_SIGNATURES: 'pgn-function-signatures',
     CELO_CONTRACTS: 'celo-contracts',
@@ -73,6 +75,8 @@ const contractsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.OPTIMISM_CONTRACTS
         case chainIds.ARBITRUM:
             return abiRedisKeys.ARBITRUM_CONTRACTS
+        case chainIds.ARBITRUM_SEPOLIA:
+            return abiRedisKeys.ARBITRUM_SEPOLIA_CONTRACTS
         case chainIds.PGN:
             return abiRedisKeys.PGN_CONTRACTS
         case chainIds.CELO:
@@ -102,6 +106,8 @@ const functionSigsKeyForChainId = (chainId: string): string | null => {
             return abiRedisKeys.OPTIMISM_FUNCTION_SIGNATURES
         case chainIds.ARBITRUM:
             return abiRedisKeys.ARBITRUM_FUNCTION_SIGNATURES
+        case chainIds.ARBITRUM_SEPOLIA:
+            return abiRedisKeys.ARBITRUM_SEPOLIA_FUNCTION_SIGNATURES
         case chainIds.PGN:
             return abiRedisKeys.PGN_FUNCTION_SIGNATURES
         case chainIds.CELO:

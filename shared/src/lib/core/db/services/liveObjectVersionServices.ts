@@ -3,10 +3,11 @@ import { EventVersion } from '../entities/EventVersion'
 import { CoreDB } from '../dataSource'
 import logger from '../../../logger'
 import uuid4 from 'uuid4'
-import { fromNamespacedVersion } from '../../../utils/formatters'
+import { formatLiveObjectVersionForPage, fromNamespacedVersion } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { In } from 'typeorm'
 import { camelizeKeys } from 'humps'
+import { getCachedRecordCounts } from '../../redis'
 
 const liveObjectVersions = () => CoreDB.getRepository(LiveObjectVersion)
 const eventVersionsRepo = () => CoreDB.getRepository(EventVersion)
@@ -291,6 +292,95 @@ export async function getTablePathsForLiveObjectVersions(uids: string[]): Promis
     } catch (err) {
         logger.error(`Error getting table paths for live object versions: ${err}`)
         return null
+    }
+}
+
+export async function getLiveObjectPageData(uid: string): Promise<StringKeyMap | null> {
+    let liveObjectVersion
+    try {
+        liveObjectVersion = await liveObjectVersions().findOne({
+            relations: {
+                liveObject: {
+                    namespace: true,
+                },
+                liveEventVersions: true,
+            },
+            where: { uid },
+        })
+    } catch (err) {
+        logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
+        return null
+    }
+    if (!liveObjectVersion) return null
+
+    const { nsp, name } = liveObjectVersion
+    let hasManyVersions = false
+    try {
+        hasManyVersions =
+            (await liveObjectVersions().count({
+                where: { nsp, name },
+            })) > 1
+    } catch (err) {
+        logger.error(`Error getting live object page data for uid=${uid}: ${err}`)
+        return null
+    }
+
+    const inputEventVersionIds = liveObjectVersion.liveEventVersions
+        .filter((lev) => lev.isInput === true)
+        .map((lev) => lev.eventVersionId)
+
+    let inputEventVersions = []
+    try {
+        inputEventVersions = inputEventVersionIds.length
+            ? await eventVersionsRepo().find({
+                  where: { id: In(inputEventVersionIds) },
+              })
+            : []
+    } catch (err) {
+        logger.error(
+            `Error getting input event versions (${inputEventVersionIds.join(', ')}): ${err}`
+        )
+        return null
+    }
+    const inputEventComps = inputEventVersions.map((ev) => ({
+        nsp: ev.nsp,
+        name: ev.name,
+        version: ev.version,
+    }))
+
+    let inputEventLovs = []
+    try {
+        inputEventLovs = inputEventComps.length
+            ? await liveObjectVersions().find({
+                  relations: {
+                      liveObject: {
+                          namespace: true,
+                      },
+                  },
+                  where: inputEventComps,
+              })
+            : []
+    } catch (err) {
+        logger.error(`Error getting input event LOVs (${inputEventComps.join(', ')}): ${err}`)
+        return null
+    }
+
+    const liveObjectTablePaths = [
+        liveObjectVersion.config.table,
+        ...inputEventLovs.map((lov) => lov.config.table),
+    ]
+    const recordCountsData = liveObjectTablePaths.length
+        ? await getCachedRecordCounts(liveObjectTablePaths)
+        : []
+
+    const formattedLov = formatLiveObjectVersionForPage(liveObjectVersion, recordCountsData)
+
+    return {
+        ...formattedLov,
+        hasManyVersions,
+        inputEvents: inputEventLovs.map((lov) =>
+            formatLiveObjectVersionForPage(lov, recordCountsData)
+        ),
     }
 }
 

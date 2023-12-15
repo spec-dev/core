@@ -336,7 +336,9 @@ async function cloneNamespaceRepo(
 
         const dotSpecPath = path.join(pathToRepo, '.spec')
         const abisPath = path.join(pathToRepo, 'abis')
-        const pathsToDelete = [dotSpecPath, abisPath]
+        const guidesPath = path.join(pathToRepo, 'guides')
+        const nodeModulesPath = path.join(pathToRepo, 'node_modules')
+        const pathsToDelete = [dotSpecPath, abisPath, guidesPath, nodeModulesPath]
         for (const dir of pathsToDelete) {
             if (fs.existsSync(dir)) {
                 fs.rmSync(dir, { recursive: true, force: true })

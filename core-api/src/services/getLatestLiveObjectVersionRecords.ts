@@ -11,6 +11,7 @@ import {
     schemaForChainId,
     getGeneratedEventsCursors,
     chainIds,
+    getCachedRecordCounts,
 } from '../../../shared'
 import { ident, literal } from 'pg-format'
 
@@ -97,13 +98,20 @@ async function getLatestRecordsFromEventLov(lov: LiveObjectVersion): Promise<Str
     const chainIds = Object.keys(chains || {})
     if (!chainIds.length || !table) return []
 
+    const countResp = await getCachedRecordCounts([table])
+    const tableCountResp = countResp[table] || {}
+    let cachedCount = Number(tableCountResp.count)
+    cachedCount = (Number.isNaN(cachedCount) ? 0 : cachedCount) || 0
+    if (cachedCount === 0) return []
+
     const heads = await getGeneratedEventsCursors()
     const recordsByChain = (await Promise.all(chainIds.map(chainId => (
-        getLatestEventLovRecordsForChainId(table, chainId, Number(heads[chainId]))
+        getLatestEventLovRecordsForChainId(table, chainId, Number(heads[chainId]), cachedCount)
     )))).flat()
 
     const sorted = recordsByChain.sort((a, b) => (
-        new Date(b.blockTimestamp).getTime() - new Date(a.blockTimestamp).getTime()
+        (new Date(b.blockTimestamp).getTime() - new Date(a.blockTimestamp).getTime()) ||
+        (Number(b.logIndex) - (a.logIndex))
     ))
     return sorted.slice(0, LIMIT)
 }
@@ -112,6 +120,7 @@ async function getLatestEventLovRecordsForChainId(
     givenViewPath: string, 
     chainId: string, 
     head: number | null,
+    recordCount: number,
 ): Promise<StringKeyMap[]> {
     const schema = schemaForChainId[chainId]
     const viewName = givenViewPath.split('.').pop()
@@ -119,6 +128,13 @@ async function getLatestEventLovRecordsForChainId(
     const historicalRange = chainId === chainIds.ARBITRUM ? 10000000 : 1000000
     const minBlock = head ? Math.max(head - historicalRange, 0) : 0
     const minBlockClause = minBlock > 0 ? ` where block_number >= ${literal(minBlock)}` : ''
+
+    if (recordCount < 500) {
+        const allChainRecords = camelizeKeys((await ChainTables.query(schema, `select * from ${identPath(viewPath)}`)))
+        return allChainRecords
+            .sort((a, b) => (Number(b.blockNumber) - Number(a.blockNumber)) || (Number(b.logIndex) - Number(a.logIndex)))
+            .slice(0, LIMIT)
+    }
 
     return camelizeKeys((await ChainTables.query(schema,
         `select * from ${identPath(viewPath)}${minBlockClause} order by block_number desc limit ${literal(LIMIT)}`
@@ -129,7 +145,13 @@ async function getLatestRecordsFromCustomLov(lov: LiveObjectVersion): Promise<St
     const { table, primaryTimestampProperty } = lov.config
     const schema = table.split('.')[0]
     const timestampColumn = camelToSnake(primaryTimestampProperty)
-    
+
+    const countResp = await getCachedRecordCounts([table])
+    const tableCountResp = countResp[table] || {}
+    let cachedCount = Number(tableCountResp.count)
+    cachedCount = (Number.isNaN(cachedCount) ? 0 : cachedCount) || 0
+    if (cachedCount === 0) return []
+
     return camelizeKeys((await ChainTables.query(schema,
         `select * from ${identPath(table)} order by ${ident(timestampColumn)} desc limit ${literal(LIMIT)}`
     ))) as StringKeyMap[]

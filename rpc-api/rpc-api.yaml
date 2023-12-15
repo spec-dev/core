@@ -39,6 +39,8 @@ spec:
           value: {{OPTIMISM_RPC_POOL_ENDPOINTS}}
         - name: ARBITRUM_RPC_POOL_ENDPOINTS
           value: {{ARBITRUM_RPC_POOL_ENDPOINTS}}
+        - name: ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS
+          value: {{ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS}}
         - name: PGN_RPC_POOL_ENDPOINTS
           value: {{PGN_RPC_POOL_ENDPOINTS}}
         - name: CELO_RPC_POOL_ENDPOINTS

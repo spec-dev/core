@@ -8,6 +8,7 @@ import {
     toNamespacedVersion,
     unique,
     splitOnLastOccurance,
+    camelizeKeys,
 } from '../../../utils/formatters'
 import { StringKeyMap } from '../../../types'
 import { getLastEvent } from '../../../indexer/redis'
@@ -288,4 +289,28 @@ export async function resolveEventVersionCursors(givenName: string): Promise<Str
     }
 
     return { cursors, latestEvent }
+}
+
+export async function getEventVersionsByLiveObjectVersion(
+    id: number
+): Promise<StringKeyMap[] | null> {
+    let eventVersions
+    try {
+        eventVersions = await eventVersionsRepo().find({
+            where: {
+                liveEventVersions: {
+                    liveObjectVersionId: id,
+                    isInput: true,
+                },
+            },
+            order: {
+                updatedAt: 'DESC',
+                name: 'ASC',
+            },
+        })
+    } catch (err) {
+        logger.error(`Error getting event versions by live object uid: ${err}`)
+        return null
+    }
+    return eventVersions
 }

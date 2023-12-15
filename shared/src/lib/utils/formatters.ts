@@ -786,6 +786,66 @@ export const stripTrailingSlash = (val: string): string => {
     return val
 }
 
+export function formatLiveObjectVersionForPage(
+    result: StringKeyMap,
+    recordCountsData: StringKeyMap
+) {
+    const liveObject = result.liveObject
+    const namespace = result.liveObject.namespace
+    const isContractEvent = isContractNamespace(namespace.name)
+    const config = result.config
+    const tablePath = config?.table || null
+    const recordCountInfo = tablePath ? recordCountsData[tablePath] || {} : {}
+    let numRecords = parseInt(recordCountInfo.count)
+    numRecords = Number.isNaN(numRecords) ? 0 : numRecords
+
+    let icon
+    if (liveObject.hasIcon) {
+        icon = buildIconUrl(liveObject.uid)
+    } else if (namespace.hasIcon) {
+        icon = buildIconUrl(namespace.name)
+    } else if (isContractEvent) {
+        icon = buildIconUrl(namespace.name.split('.')[0])
+    } else {
+        icon = '' // TODO: Need fallback
+    }
+
+    let codeUrl = null
+    if (!isContractEvent && namespace.codeUrl && !!config?.folder) {
+        codeUrl = [
+            stripTrailingSlash(namespace.codeUrl),
+            'blob',
+            'main',
+            config.folder,
+            'spec.ts',
+        ].join('/')
+    }
+
+    return {
+        id: liveObject.uid,
+        name: liveObject.name,
+        displayName: liveObject.displayName,
+        desc: liveObject.desc,
+        icon,
+        codeUrl,
+        blurhash: namespace.blurhash,
+        verified: namespace.verified,
+        isContractEvent,
+        latestVersion: {
+            id: result.uid,
+            nsp: result.nsp,
+            name: result.name,
+            version: result.version,
+            properties: result.properties,
+            example: result.example,
+            config: config,
+            createdAt: result.createdAt.toISOString(),
+        },
+        records: numRecords,
+        lastInteraction: recordCountInfo.updatedAt || null,
+    }
+}
+
 export const getAbiSignature = (abi: Abi): string | null => {
     try {
         return hash(

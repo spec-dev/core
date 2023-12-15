@@ -5,7 +5,7 @@ metadata:
   labels:
     app: head-indexer-{{CHAIN_ID}}
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: head-indexer-{{CHAIN_ID}}
@@ -102,6 +102,8 @@ spec:
           value: {{OPTIMISM_DB_URL}}
         - name: ARBITRUM_DB_URL
           value: {{ARBITRUM_DB_URL}}
+        - name: ARBITRUM_SEPOLIA_DB_URL
+          value: {{ARBITRUM_SEPOLIA_DB_URL}}
         - name: PGN_DB_URL
           value: {{PGN_DB_URL}}
         - name: CELO_DB_URL

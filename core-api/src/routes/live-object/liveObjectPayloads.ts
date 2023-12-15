@@ -15,6 +15,10 @@ export interface SearchLiveObjectPayload {
     limit: number
 }
 
+export interface LiveObjectPagePayload {
+    uid: string
+}
+
 export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPayload<SearchLiveObjectPayload> {
     const uid = data?.uid
     const query = data?.query
@@ -43,5 +47,18 @@ export function parseSearchLiveObjectPayload(data: StringKeyMap): ValidatedPaylo
     return {
         isValid: true,
         payload: { uid, query, filters, offset, limit },
+    }
+}
+
+export function parseLiveObjectPagePayload(data: StringKeyMap): ValidatedPayload<LiveObjectPagePayload> {
+    const uid = data?.uid
+
+    if (!uid) {
+        return { isValid: false, error: '"uid" is required' }
+    }
+
+    return {
+        isValid: true,
+        payload: { uid },
     }
 }

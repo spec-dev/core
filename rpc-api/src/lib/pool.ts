@@ -29,6 +29,7 @@ class MultiChainRpcPool {
             [chainIds.BASE]: getEndpointsList(config.BASE_RPC_POOL_ENDPOINTS),
             [chainIds.OPTIMISM]: getEndpointsList(config.OPTIMISM_RPC_POOL_ENDPOINTS),
             [chainIds.ARBITRUM]: getEndpointsList(config.ARBITRUM_RPC_POOL_ENDPOINTS),
+            [chainIds.ARBITRUM_SEPOLIA]: getEndpointsList(config.ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS),
             [chainIds.PGN]: getEndpointsList(config.PGN_RPC_POOL_ENDPOINTS),
             [chainIds.CELO]: getEndpointsList(config.CELO_RPC_POOL_ENDPOINTS),
             [chainIds.LINEA]: getEndpointsList(config.LINEA_RPC_POOL_ENDPOINTS),

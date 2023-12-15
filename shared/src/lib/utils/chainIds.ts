@@ -19,6 +19,7 @@ const chainIds: { [key: string]: string } = {
     BASE: '8453',
     OPTIMISM: '10',
     ARBITRUM: '42161',
+    ARBITRUM_SEPOLIA: '421614',
     PGN: '424',
     CELO: '42220',
     LINEA: '59144',
@@ -35,6 +36,7 @@ export const chainSpecificSchemas = {
     BASE: 'base',
     OPTIMISM: 'optimism',
     ARBITRUM: 'arbitrum',
+    ARBITRUM_SEPOLIA: 'arbitrumsepolia',
     PGN: 'pgn',
     CELO: 'celo',
     LINEA: 'linea',
@@ -49,6 +51,7 @@ export const chainSpecificNamespaces = {
     BASE: 'base',
     OPTIMISM: 'optimism',
     ARBITRUM: 'arbitrum',
+    ARBITRUM_SEPOLIA: 'arbitrumsepolia',
     PGN: 'pgn',
     CELO: 'celo',
     LINEA: 'linea',
@@ -63,6 +66,7 @@ export const nameForChainId = {
     [chainIds.BASE]: 'Base',
     [chainIds.OPTIMISM]: 'Optimism',
     [chainIds.ARBITRUM]: 'Arbitrum',
+    [chainIds.ARBITRUM_SEPOLIA]: 'Arbitrum Sepolia',
     [chainIds.PGN]: 'PGN',
     [chainIds.CELO]: 'Celo',
     [chainIds.LINEA]: 'Linea',
@@ -77,6 +81,7 @@ export const fullNameForChainId = {
     [chainIds.BASE]: 'Base',
     [chainIds.OPTIMISM]: 'Optimism',
     [chainIds.ARBITRUM]: 'Arbitrum',
+    [chainIds.ARBITRUM_SEPOLIA]: 'Arbitrum Sepolia',
     [chainIds.PGN]: 'PGN',
     [chainIds.CELO]: 'Celo',
     [chainIds.LINEA]: 'Linea',
@@ -91,6 +96,7 @@ export const nativeTokenSymbolForChainId = {
     [chainIds.BASE]: 'ETH',
     [chainIds.OPTIMISM]: 'ETH',
     [chainIds.ARBITRUM]: 'ETH',
+    [chainIds.ARBITRUM_SEPOLIA]: 'ETH',
     [chainIds.PGN]: 'ETH',
     [chainIds.CELO]: 'CELO',
     [chainIds.LINEA]: 'ETH',
@@ -105,6 +111,7 @@ export const chainIdForSchema = {
     [chainSpecificSchemas.BASE]: chainIds.BASE,
     [chainSpecificSchemas.OPTIMISM]: chainIds.OPTIMISM,
     [chainSpecificSchemas.ARBITRUM]: chainIds.ARBITRUM,
+    [chainSpecificSchemas.ARBITRUM_SEPOLIA]: chainIds.ARBITRUM_SEPOLIA,
     [chainSpecificSchemas.PGN]: chainIds.PGN,
     [chainSpecificSchemas.CELO]: chainIds.CELO,
     [chainSpecificSchemas.LINEA]: chainIds.LINEA,
@@ -121,6 +128,7 @@ export const namespaceForChainId = {
     [chainIds.BASE]: chainSpecificNamespaces.BASE,
     [chainIds.OPTIMISM]: chainSpecificNamespaces.OPTIMISM,
     [chainIds.ARBITRUM]: chainSpecificNamespaces.ARBITRUM,
+    [chainIds.ARBITRUM_SEPOLIA]: chainSpecificNamespaces.ARBITRUM_SEPOLIA,
     [chainIds.PGN]: chainSpecificNamespaces.PGN,
     [chainIds.CELO]: chainSpecificNamespaces.CELO,
     [chainIds.LINEA]: chainSpecificNamespaces.LINEA,
@@ -136,6 +144,7 @@ export const chainIdLiveObjectVersionPropertyOptions = [
     chainIds.BASE,
     chainIds.OPTIMISM,
     chainIds.ARBITRUM,
+    chainIds.ARBITRUM_SEPOLIA,
     chainIds.PGN,
     chainIds.CELO,
     chainIds.LINEA,
@@ -154,6 +163,7 @@ export const avgBlockTimesForChainId = {
     [chainIds.BASE]: 2,
     [chainIds.OPTIMISM]: 2,
     [chainIds.ARBITRUM]: 0.3,
+    [chainIds.ARBITRUM_SEPOLIA]: 2,
     [chainIds.PGN]: 2,
     [chainIds.CELO]: 5,
     [chainIds.LINEA]: 12,
@@ -164,16 +174,6 @@ const basePrimitives = [
     { table: 'blocks', appendOnly: true, crossChain: false },
     { table: 'transactions', appendOnly: true, crossChain: false },
     { table: 'logs', appendOnly: true, crossChain: false },
-    // { table: 'traces', appendOnly: true, crossChain: false },
-    // { table: 'contracts', appendOnly: true, crossChain: false },
-]
-
-const tokenPrimitives = [
-    // { table: 'tokens.erc20_tokens', appendOnly: false, crossChain: true },
-    // { table: 'tokens.erc20_balance', appendOnly: false, crossChain: true },
-    // { table: 'tokens.nft_collections', appendOnly: false, crossChain: true },
-    // { table: 'tokens.nft_balance', appendOnly: false, crossChain: true },
-    // { table: 'tokens.token_transfers', appendOnly: true, crossChain: true },
 ]
 
 export const primitivesForChainId = {
@@ -182,77 +182,72 @@ export const primitivesForChainId = {
             ...p,
             table: [schemaForChainId[chainIds.ETHEREUM], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.GOERLI]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.GOERLI], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.POLYGON]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.POLYGON], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.MUMBAI]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.MUMBAI], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.BASE]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.BASE], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.OPTIMISM]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.OPTIMISM], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.ARBITRUM]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.ARBITRUM], p.table].join('.'),
         })),
-        ...tokenPrimitives,
+    ],
+    [chainIds.ARBITRUM_SEPOLIA]: [
+        ...basePrimitives.map((p) => ({
+            ...p,
+            table: [schemaForChainId[chainIds.ARBITRUM_SEPOLIA], p.table].join('.'),
+        })),
     ],
     [chainIds.PGN]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.PGN], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.CELO]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.CELO], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.LINEA]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.LINEA], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
     [chainIds.SEPOLIA]: [
         ...basePrimitives.map((p) => ({
             ...p,
             table: [schemaForChainId[chainIds.SEPOLIA], p.table].join('.'),
         })),
-        ...tokenPrimitives,
     ],
 }
 

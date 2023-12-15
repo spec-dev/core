@@ -56,6 +56,7 @@ mumbai_db_url=$( $shared_bin_dir/env_reader "$env" "MUMBAI_DB_URL" )
 base_db_url=$( $shared_bin_dir/env_reader "$env" "BASE_DB_URL" )
 optimism_db_url=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_DB_URL" )
 arbitrum_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_DB_URL" )
+arbitrum_sepolia_db_url=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_SEPOLIA_DB_URL" )
 pgn_db_url=$( $shared_bin_dir/env_reader "$env" "PGN_DB_URL" )
 celo_db_url=$( $shared_bin_dir/env_reader "$env" "CELO_DB_URL" )
 linea_db_url=$( $shared_bin_dir/env_reader "$env" "LINEA_DB_URL" )
@@ -104,6 +105,7 @@ $shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
 $shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
 $shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
 $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
+$shared_bin_dir/assert_env "ARBITRUM_DB_SEPOLIA_URL" "$arbitrum_db_sepolia_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
@@ -118,9 +120,7 @@ image_name=$( $shared_bin_dir/env_reader "$env" "CORE_API_IMAGE_NAME" )
 image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
-image_version="90342da"
-# image_version="6b204fb"
-# image_version="f96bba0"
+image_version="ffa4802"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
@@ -158,6 +158,7 @@ template=$( cat "$template_path" | \
     sed "s|{{BASE_DB_URL}}|$base_db_url|g" | \
     sed "s|{{OPTIMISM_DB_URL}}|$optimism_db_url|g" | \
     sed "s|{{ARBITRUM_DB_URL}}|$arbitrum_db_url|g" | \
+    sed "s|{{ARBITRUM_SEPOLIA_DB_URL}}|$arbitrum_sepolia_db_url|g" | \
     sed "s|{{PGN_DB_URL}}|$pgn_db_url|g" | \
     sed "s|{{CELO_DB_URL}}|$celo_db_url|g" | \
     sed "s|{{LINEA_DB_URL}}|$linea_db_url|g" | \
