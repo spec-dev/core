@@ -23,6 +23,7 @@ mumbai_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "POLYGON_RPC_POOL
 base_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "BASE_RPC_POOL_ENDPOINTS" )
 optimism_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "OPTIMISM_RPC_POOL_ENDPOINTS" )
 arbitrum_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_RPC_POOL_ENDPOINTS" )
+arbitrum_sepolia_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS" )
 pgn_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "PGN_RPC_POOL_ENDPOINTS" )
 celo_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "CELO_RPC_POOL_ENDPOINTS" )
 linea_rpc_pool_endpoints=$( $shared_bin_dir/env_reader "$env" "LINEA_RPC_POOL_ENDPOINTS" )
@@ -40,6 +41,7 @@ $shared_bin_dir/assert_env "POLYGON_RPC_POOL_ENDPOINTS" "$mumbai_rpc_pool_endpoi
 $shared_bin_dir/assert_env "BASE_RPC_POOL_ENDPOINTS" "$base_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "OPTIMISM_RPC_POOL_ENDPOINTS" "$optimism_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "ARBITRUM_RPC_POOL_ENDPOINTS" "$arbitrum_rpc_pool_endpoints"
+$shared_bin_dir/assert_env "ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS" "$arbitrum_sepolia_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "PGN_RPC_POOL_ENDPOINTS" "$pgn_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "CELO_RPC_POOL_ENDPOINTS" "$celo_rpc_pool_endpoints"
 $shared_bin_dir/assert_env "LINEA_RPC_POOL_ENDPOINTS" "$linea_rpc_pool_endpoints"
@@ -72,6 +74,7 @@ template=$( cat "$template_path" | \
     sed "s|{{BASE_RPC_POOL_ENDPOINTS}}|$base_rpc_pool_endpoints|g" | \
     sed "s|{{OPTIMISM_RPC_POOL_ENDPOINTS}}|$optimism_rpc_pool_endpoints|g" | \
     sed "s|{{ARBITRUM_RPC_POOL_ENDPOINTS}}|$arbitrum_rpc_pool_endpoints|g" | \
+    sed "s|{{ARBITRUM_SEPOLIA_RPC_POOL_ENDPOINTS}}|$arbitrum_sepolia_rpc_pool_endpoints|g" | \
     sed "s|{{PGN_RPC_POOL_ENDPOINTS}}|$pgn_rpc_pool_endpoints|g" | \
     sed "s|{{CELO_RPC_POOL_ENDPOINTS}}|$celo_rpc_pool_endpoints|g" | \
     sed "s|{{LINEA_RPC_POOL_ENDPOINTS}}|$linea_rpc_pool_endpoints|g" | \

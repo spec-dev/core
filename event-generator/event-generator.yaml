@@ -98,6 +98,8 @@ spec:
           value: {{OPTIMISM_DB_URL}}
         - name: ARBITRUM_DB_URL
           value: {{ARBITRUM_DB_URL}}
+        - name: ARBITRUM_SEPOLIA_DB_URL
+          value: {{ARBITRUM_SEPOLIA_DB_URL}}
         - name: PGN_DB_URL
           value: {{PGN_DB_URL}}
         - name: CELO_DB_URL

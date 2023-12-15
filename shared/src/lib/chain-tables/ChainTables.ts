@@ -13,6 +13,7 @@ const urls = {
     [chainSpecificSchemas.BASE]: config.BASE_DB_URL,
     [chainSpecificSchemas.OPTIMISM]: config.OPTIMISM_DB_URL,
     [chainSpecificSchemas.ARBITRUM]: config.ARBITRUM_DB_URL,
+    [chainSpecificSchemas.ARBITRUM_SEPOLIA]: config.ARBITRUM_SEPOLIA_DB_URL,
     [chainSpecificSchemas.PGN]: config.PGN_DB_URL,
     [chainSpecificSchemas.CELO]: config.CELO_DB_URL,
     [chainSpecificSchemas.LINEA]: config.LINEA_DB_URL,

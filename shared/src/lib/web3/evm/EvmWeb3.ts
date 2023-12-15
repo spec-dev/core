@@ -901,6 +901,7 @@ export function newEvmWeb3ForChainId(
         case chainIds.OPTIMISM:
             return newOptimismWeb3(url, isRangeMode, wsRpcTimeout)
         case chainIds.ARBITRUM:
+        case chainIds.ARBITRUM_SEPOLIA:
             return newArbitrumWeb3(url, isRangeMode, wsRpcTimeout)
         case chainIds.PGN:
             return newPGNWeb3(url, isRangeMode, wsRpcTimeout)

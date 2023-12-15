@@ -1,7 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS "arbitrum";
+CREATE SCHEMA IF NOT EXISTS "arbitrumsepolia";
 
--- arbitrum.blocks
-CREATE TABLE "arbitrum"."blocks" (
+-- arbitrumsepolia.blocks
+CREATE TABLE "arbitrumsepolia"."blocks" (
     "hash" character varying(70) NOT NULL, 
     "number" bigint NOT NULL,
     "parent_hash" character varying(70),
@@ -23,11 +23,11 @@ CREATE TABLE "arbitrum"."blocks" (
     "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_00d4f3eb491f00ae5bece2a559e" PRIMARY KEY ("hash")
 );
-CREATE UNIQUE INDEX "idx_arbitrum_blocks_by_number" ON "arbitrum"."blocks" ("number");
-CREATE INDEX "idx_arbitrum_blocks_by_timestamp" ON "arbitrum"."blocks" ("timestamp");
+CREATE UNIQUE INDEX "idx_arbitrumsepolia_blocks_by_number" ON "arbitrumsepolia"."blocks" ("number");
+CREATE INDEX "idx_arbitrumsepolia_blocks_by_timestamp" ON "arbitrumsepolia"."blocks" ("timestamp");
 
--- arbitrum.transactions
-CREATE TABLE "arbitrum"."transactions" (
+-- arbitrumsepolia.transactions
+CREATE TABLE "arbitrumsepolia"."transactions" (
     "hash" character varying(70) NOT NULL, 
     "nonce" bigint NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -54,14 +54,14 @@ CREATE TABLE "arbitrum"."transactions" (
     "chain_id" character varying NOT NULL DEFAULT '11155111',
     CONSTRAINT "PK_6f30cde2f4cf5a630e053758400" PRIMARY KEY ("hash")
 );
-CREATE INDEX "idx_arbitrum_transactions_block_timestamp" ON "arbitrum"."transactions" ("block_timestamp");
-CREATE INDEX "idx_arbitrum_transactions_block_number" ON "arbitrum"."transactions" ("block_number");
-CREATE INDEX "idx_arbitrum_tx_to_sorted" ON "arbitrum"."transactions" ("to", "block_number");
-CREATE INDEX "idx_arbitrum_transactions_to" ON "arbitrum"."transactions" ("to");
-CREATE INDEX "idx_arbitrum_transactions_from" ON "arbitrum"."transactions" ("from");
+CREATE INDEX "idx_arbitrumsepolia_transactions_block_timestamp" ON "arbitrumsepolia"."transactions" ("block_timestamp");
+CREATE INDEX "idx_arbitrumsepolia_transactions_block_number" ON "arbitrumsepolia"."transactions" ("block_number");
+CREATE INDEX "idx_arbitrumsepolia_tx_to_sorted" ON "arbitrumsepolia"."transactions" ("to", "block_number");
+CREATE INDEX "idx_arbitrumsepolia_transactions_to" ON "arbitrumsepolia"."transactions" ("to");
+CREATE INDEX "idx_arbitrumsepolia_transactions_from" ON "arbitrumsepolia"."transactions" ("from");
 
--- arbitrum.logs
-CREATE TABLE "arbitrum"."logs" (
+-- arbitrumsepolia.logs
+CREATE TABLE "arbitrumsepolia"."logs" (
     "log_index" bigint NOT NULL, 
     "transaction_hash" character varying(70) NOT NULL, 
     "transaction_index" integer NOT NULL, 
@@ -78,19 +78,19 @@ CREATE TABLE "arbitrum"."logs" (
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL, 
     CONSTRAINT "PK_d0c26ca198324a31f47ccf3825b" PRIMARY KEY ("log_index", "transaction_hash")
 );
-CREATE INDEX "idx_arbitrum_logs_by_block_number" ON "arbitrum"."logs"("block_number");
-CREATE INDEX "idx_arbitrum_logs_address_block_number" ON "arbitrum"."logs"("address", "block_number");
-CREATE INDEX "idx_arbitrum_logs_order" ON "arbitrum"."logs"("block_number", "log_index");
-CREATE INDEX "idx_arbitrum_indexer_order_topic" ON "arbitrum"."logs"("address", "topic0", "block_timestamp");
-CREATE INDEX "idx_arbitrum_logs_address_topic" ON "arbitrum"."logs"("address", "topic0");
-CREATE INDEX "idx_arbitrum_logs_view_order_topic" ON "arbitrum"."logs"("address", "topic0", "block_number", "log_index");
+CREATE INDEX "idx_arbitrumsepolia_logs_by_block_number" ON "arbitrumsepolia"."logs"("block_number");
+CREATE INDEX "idx_arbitrumsepolia_logs_address_block_number" ON "arbitrumsepolia"."logs"("address", "block_number");
+CREATE INDEX "idx_arbitrumsepolia_logs_order" ON "arbitrumsepolia"."logs"("block_number", "log_index");
+CREATE INDEX "idx_arbitrumsepolia_indexer_order_topic" ON "arbitrumsepolia"."logs"("address", "topic0", "block_timestamp");
+CREATE INDEX "idx_arbitrumsepolia_logs_address_topic" ON "arbitrumsepolia"."logs"("address", "topic0");
+CREATE INDEX "idx_arbitrumsepolia_logs_view_order_topic" ON "arbitrumsepolia"."logs"("address", "topic0", "block_number", "log_index");
 
 -- Bear reader permissions.
 create user bear;
-grant usage on schema arbitrum to bear;
-grant select on all tables in schema arbitrum to bear;
-grant select on all sequences in schema arbitrum to bear;
-grant execute on all functions in schema arbitrum to bear;
-alter default privileges in schema arbitrum grant select on tables to bear;
-alter default privileges in schema arbitrum grant select on sequences to bear;
-alter default privileges in schema arbitrum grant execute on functions to bear;
+grant usage on schema arbitrumsepolia to bear;
+grant select on all tables in schema arbitrumsepolia to bear;
+grant select on all sequences in schema arbitrumsepolia to bear;
+grant execute on all functions in schema arbitrumsepolia to bear;
+alter default privileges in schema arbitrumsepolia grant select on tables to bear;
+alter default privileges in schema arbitrumsepolia grant select on sequences to bear;
+alter default privileges in schema arbitrumsepolia grant execute on functions to bear;

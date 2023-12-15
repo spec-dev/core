@@ -120,6 +120,7 @@ const config: StringKeyMap = {
     BASE_DB_URL: ev('BASE_DB_URL'),
     OPTIMISM_DB_URL: ev('OPTIMISM_DB_URL'),
     ARBITRUM_DB_URL: ev('ARBITRUM_DB_URL'),
+    ARBITRUM_SEPOLIA_DB_URL: ev('ARBITRUM_SEPOLIA_DB_URL'),
     PGN_DB_URL: ev('PGN_DB_URL'),
     CELO_DB_URL: ev('CELO_DB_URL'),
     LINEA_DB_URL: ev('LINEA_DB_URL'),
