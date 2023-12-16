@@ -77,7 +77,7 @@ $shared_bin_dir/assert_env "MUMBAI_DB_URL" "$mumbai_db_url"
 $shared_bin_dir/assert_env "BASE_DB_URL" "$base_db_url"
 $shared_bin_dir/assert_env "OPTIMISM_DB_URL" "$optimism_db_url"
 $shared_bin_dir/assert_env "ARBITRUM_DB_URL" "$arbitrum_db_url"
-$shared_bin_dir/assert_env "ARBITRUM_DB_SEPOLIA_URL" "$arbitrum_db_sepolia_url"
+$shared_bin_dir/assert_env "ARBITRUM_SEPOLIA_DB_URL" "$arbitrum_sepolia_db_url"
 $shared_bin_dir/assert_env "PGN_DB_URL" "$pgn_db_url"
 $shared_bin_dir/assert_env "CELO_DB_URL" "$celo_db_url"
 $shared_bin_dir/assert_env "LINEA_DB_URL" "$linea_db_url"
@@ -97,7 +97,8 @@ image_repo="$image_org/$image_name"
 registry_image="$aws_account_id.dkr.ecr.$aws_region.amazonaws.com/$image_repo"
 # image_version=$( $shared_bin_dir/latest_sha )
 # image_version="f702500"
-image_version="205bbae"
+# image_version="205bbae"
+image_version="a19be60"
 image="$registry_image:$image_version"
 
 # ======== CREATE & APPLY TEMPLATE ======== #
