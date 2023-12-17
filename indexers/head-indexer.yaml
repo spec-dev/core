@@ -5,7 +5,7 @@ metadata:
   labels:
     app: head-indexer-{{CHAIN_ID}}
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: head-indexer-{{CHAIN_ID}}
