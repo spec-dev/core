@@ -31,6 +31,7 @@ const eventRelayConfig: StringKeyMap = {
 
     // Missed event retrieval batch size.
     FETCHING_MISSED_EVENTS_BATCH_SIZE: Number(ev('FETCHING_MISSED_EVENTS_BATCH_SIZE', 100)),
+    
 }
 
 export default eventRelayConfig
