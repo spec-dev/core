@@ -44,6 +44,7 @@ import {
     enqueueDelayedJob,
 } from '../../shared'
 
+
 async function perform(data: StringKeyMap) {
     const blockNumber = Number(data.blockNumber)
 
