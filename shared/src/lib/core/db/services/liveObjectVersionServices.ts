@@ -177,7 +177,7 @@ export async function getCustomLiveObjectVersionUrls(): Promise<LiveObjectVersio
         )
         return results.map((r) => r.url)
     } catch (err) {
-        logger.error(`Error getting custom LOVs: ${err}`)
+        logger.error(`Error getting urls for custom LOVs: ${err}`)
         return null
     }
 }
