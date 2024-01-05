@@ -170,6 +170,18 @@ export async function updateLiveObjectVersionStatus(
     return true
 }
 
+export async function getCustomLiveObjectVersionUrls(): Promise<LiveObjectVersion[] | null> {
+    try {
+        const results = await CoreDB.query(
+            `select url from live_object_versions where nsp not ilike '%.%' and status = 1 and url is not null`
+        )
+        return results.map((r) => r.url)
+    } catch (err) {
+        logger.error(`Error getting custom LOVs: ${err}`)
+        return null
+    }
+}
+
 export async function getCustomLiveObjectVersionsToSync(
     timeSynced: string = null
 ): Promise<LiveObjectVersion[]> {
