@@ -48,6 +48,7 @@ app.post(paths.USER_LOGIN, async (req, res) => {
     // Return user with new session auth token in header.
     return res
         .status(codes.SUCCESS)
+        .header('Access-Control-Expose-Headers', config.USER_AUTH_HEADER_NAME)
         .header(config.USER_AUTH_HEADER_NAME, serializeToken(session.uid, session.token))
         .json({
             ...user.selfView(),
