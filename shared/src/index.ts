@@ -320,6 +320,7 @@ export {
     getLatestLiveObjectVersion,
     createLiveObjectVersionWithTx,
     updateLiveObjectVersionStatus,
+    getCustomLiveObjectVersionUrls,
     getCustomLiveObjectVersionsToSync,
     getEventLiveObjectVersionsToSync,
     resolveLovWithPartialId,
