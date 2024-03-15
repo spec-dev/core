@@ -10,6 +10,7 @@ const pollersConfig: StringKeyMap = {
     ALGOLIA_APPLICATION_ID: ev('ALGOLIA_APPLICATION_ID'),
     ALGOLIA_ADMIN_API_KEY: ev('ALGOLIA_ADMIN_API_KEY'),
     ALGOLIA_SYNC_ALL: ev('ALGOLIA_SYNC_ALL'),
+    DENO_URL_BATCH_SIZE: Number(ev('DENO_URL_BATCH_SIZE', 30)),
 }
 
 export default pollersConfig
