@@ -51,7 +51,7 @@ CREATE TABLE "arbitrumsepolia"."transactions" (
     "block_hash" character varying(70) NOT NULL,
     "block_number" bigint NOT NULL,
     "block_timestamp" TIMESTAMP WITH TIME ZONE NOT NULL,
-    "chain_id" character varying NOT NULL DEFAULT '11155111',
+    "chain_id" character varying NOT NULL DEFAULT '421614',
     CONSTRAINT "PK_6f30cde2f4cf5a630e053758400" PRIMARY KEY ("hash")
 );
 CREATE INDEX "idx_arbitrumsepolia_transactions_block_timestamp" ON "arbitrumsepolia"."transactions" ("block_timestamp");

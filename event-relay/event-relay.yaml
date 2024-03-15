@@ -107,6 +107,8 @@ spec:
           value: "{{CORE_REDIS_PORT}}"
         - name: FORCE_COLOR
           value: "1" 
+        - name: FLIP
+          value: "true"
         readinessProbe:
           httpGet:
             path: /health-check
