@@ -191,7 +191,7 @@ export function parseGetLiveObjectVersionPayload(
 export function parseLovRecordCountsPayload(data: StringKeyMap): ValidatedPayload<LovRecordCountsPayload> {
     const ids = data?.ids || []
 
-    if (!ids.length) {
+    if (!ids.length || ids.includes(null)) {
         return { isValid: false, error: '"ids" was missing or empty' }
     }
 
